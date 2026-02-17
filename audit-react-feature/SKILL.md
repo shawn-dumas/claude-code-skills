@@ -67,7 +67,10 @@ non-container component, record:
 
 **MAY-remain hooks (do NOT flag):** useBreakpoints, useWindowSize,
 useDropdownScrollHandler, useClickAway, useScrollCallback, usePagination,
-useSorting.
+useSorting, useTheme, useTranslation, and any `useXxxScope()` hook exported by a
+scoped context (`XxxScopeProvider`). These are either cross-cutting DOM/browser
+concerns, ambient UI environment hooks, or narrow scoped contexts that meet the
+escape-hatch criteria (stable, narrow, local, no orchestration).
 
 ## Step 6: Check storage, toast, and cross-domain coupling
 

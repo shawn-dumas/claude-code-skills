@@ -56,7 +56,10 @@ Each one is a potential violation:
 
 **MAY-remain hooks (do NOT flag these in leaves):** useBreakpoints, useWindowSize,
 useDropdownScrollHandler, useClickAway, useScrollCallback, usePagination,
-useSorting. These are cross-cutting DOM/browser concerns with no provider coupling.
+useSorting, useTheme, useTranslation, and any `useXxxScope()` hook exported by a
+scoped context (`XxxScopeProvider`). These are either cross-cutting DOM/browser
+concerns, ambient UI environment hooks, or narrow scoped contexts that meet the
+escape-hatch criteria (stable, narrow, local, no orchestration).
 
 ### 2c. Storage boundary
 
