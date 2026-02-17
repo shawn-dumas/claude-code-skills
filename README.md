@@ -59,15 +59,44 @@ Service hooks are direct useQuery/useMutation calls. No `createQueryFactory`, no
 
 ### Ambient dependencies and the prop-drilling escape hatch
 
-DDAU means a component's Props interface is its complete dependency list. That is the default. But "complete" does not mean "every value the component reads from any source." Two categories of dependencies are explicitly exempt:
+DDAU means a component's Props interface is its complete dependency list. That is the default. But "complete" does not mean "every value the component reads from any source." Two categories of dependencies are explicitly exempt.
 
-**Browser/DOM hooks are always allowed in leaves.** Hooks like `useBreakpoints`, `useWindowSize`, `useClickAway`, and `useScrollCallback` interact with browser APIs, not application state. They have no provider coupling and do not create hidden data-flow channels. Every skill's MAY-remain list covers these. Theme hooks (`useTheme`) and i18n hooks (`useTranslation`) fall in the same category -- they are environment concerns, not application data flow.
+#### Ambient UI concerns (always allowed in leaves)
 
-**Thin contexts are acceptable when the alternative is worse.** If a value is stable (changes rarely), narrow (one or two fields), and the alternative is threading it through 3+ intermediate components that do not use it, a thin purpose-built context is the right tradeoff. The test: could you delete the context and replace it with props without touching more than two files? If not, the context is justified.
+Hooks that interact with browser APIs or environment configuration rather than application state are allowed anywhere. They have no provider coupling and do not create hidden business-data dependencies. The criterion is not "is it like the DOM" but "does consuming it create a hidden dependency on application data flow?" If no, it is ambient.
 
-What this does *not* permit is broad contexts consumed deep in the tree as a convenience. A component calling `useInsightsContext` to grab 3 fields out of 19 is not an ambient dependency -- it is a hidden coupling to a provider that re-renders it on unrelated state changes. That call belongs in the container, one hop away.
+Every skill's MAY-remain list covers these. Examples: `useBreakpoints`, `useWindowSize`, `useClickAway`, `useScrollCallback`, `useTheme`, `useTranslation`.
 
-The skills enforce the strict default. When you hit a case where prop drilling is genuinely worse, add the hook to the MAY-remain list in each skill or extract a thin context and document why.
+Note on i18n: translation hooks can depend on user settings, locale, and runtime-loaded dictionaries. They are still classified as ambient because they do not create hidden business-data dependencies between components. If your i18n setup involves data-fetching or cross-domain state, treat it as a provider concern instead.
+
+#### Escape hatch: thin scoped context (rare, explicit)
+
+When a container passes the same value to multiple leaves and the alternative is threading through 3+ intermediate components that do not use it, a thin purpose-built context is the right tradeoff.
+
+**Use scoped context only when all of the following are true:**
+
+- **Stable.** The value changes rarely during a session. Not per keystroke, not per frame, not high churn.
+- **Narrow.** One or two primitives, or a small object with a couple of fields. Do not dump an entire user object wholesale.
+- **Deep pass-through cost.** Would require threading through 3+ components that do not use the value, or would significantly distort composition.
+- **Local scope.** The provider is close to the consuming subtree (feature or route level), not app-wide by default. App-wide ambient concerns (theme, locale) are handled by the category above, not by this escape hatch.
+- **No orchestration.** The context holds data, not behaviors with side effects. Actions still route upward via callback props unless the action is also stable and purely local.
+
+**Prefer these alternatives before reaching for context:**
+
+1. Flatten or restructure the tree so the container binds directly to the leaf.
+2. Compose using children or render props so the container passes to the deep leaf without intermediaries.
+3. Extract a sub-container at an intermediate boundary if there is a meaningful ownership seam.
+
+**Naming and placement convention.** Scoped contexts use the pattern `XxxScopeProvider` colocated with the feature, exporting `useXxxScope()` that returns a narrow typed value. Add `useXxxScope` hooks to the MAY-remain list in each skill so they are not flagged as violations.
+
+#### What this does not permit
+
+- Context as a grab bag (`FeatureContext` with many unrelated fields)
+- Context that exposes query clients, router objects, or service hooks
+- Context used to avoid thinking about ownership boundaries
+- Broad contexts consumed deep in the tree as a convenience -- a component calling `useInsightsContext` to grab 3 fields out of 19 is not an ambient dependency, it is a hidden coupling to a provider that re-renders it on unrelated state changes
+
+The skills enforce the strict default. When you hit a case where prop drilling is genuinely worse, extract a scoped context following the convention above and document why.
 
 ## Skills
 
