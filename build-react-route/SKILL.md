@@ -42,11 +42,19 @@ Determine the container's responsibilities based on the description:
   as prerequisites: "Create these service hooks first with `build-react-service-hook`:
   ..." Do not generate the container referencing hooks that do not exist.
 - **Context values** the container needs (from existing providers)
-- **Router params** the container reads (useRouter, useSearchParams)
-- **State** the container manages (loading orchestration, form state, selections)
+- **Router params** the container reads (useRouter for navigation callbacks)
+- **URL state params** the container owns via nuqs (`useQueryState` /
+  `useQueryStates`). Any state that affects what the user sees on reload belongs
+  here: filters, sort, tab selection, date range, pagination, selected team/user.
+  The container reads URL params and passes values + setter callbacks as props.
+  Children never call `useQueryState`, `useSearchParams`, or read `router.query`.
+- **State** the container manages (loading orchestration, form state, selections
+  that are NOT URL-worthy)
 - **Callbacks** the container provides to children (mutation triggers, navigation,
-  toast feedback)
-- **Storage** the container reads/writes (localStorage/sessionStorage)
+  URL param setters, toast feedback)
+- **Storage** the container reads/writes (localStorage/sessionStorage). Note: if a
+  localStorage key stores URL-worthy state, prefer nuqs over localStorage -- the
+  URL replaces localStorage as the persistence mechanism for that value.
 - **Cross-domain invalidation** the container handles in mutation onSuccess
 
 The container is the single orchestration boundary. All hooks, context, routing,
@@ -86,13 +94,17 @@ exist.
 - Calls all service hooks for this route's data needs
 - Calls context hooks and destructures needed values
 - Reads router params and creates navigation callbacks
-- Manages localStorage reads/writes (if applicable)
+- Reads URL state via nuqs `useQueryState` / `useQueryStates` for any
+  URL-worthy state (filters, sort, tab, date range, pagination, selected
+  team/user). Passes values as data props and setters as callback props.
+- Manages localStorage reads/writes (if applicable). If a localStorage key
+  stores URL-worthy state, use nuqs instead -- the URL replaces localStorage.
 - Defines mutation onSuccess/onError callbacks with:
   - Toast feedback (toastSuccess, toastError)
   - Same-domain cache invalidation
   - Cross-domain cache invalidation (if needed)
 - Passes all data down as props to child components
-- Passes all callbacks down as callback props
+- Passes all callbacks down as callback props (including URL param setters)
 - Does NOT render complex UI itself (that belongs in child components)
 
 **`index.ts`**:

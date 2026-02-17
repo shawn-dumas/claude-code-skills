@@ -43,7 +43,8 @@ Based on the description, design the component's complete dependency list as pro
   `useWindowSize`, `useDropdownScrollHandler`, `useClickAway`, `useScrollCallback`,
   `usePagination`, `useSorting`, `useTheme`, `useTranslation`, and any
   `useXxxScope()` hook from a scoped context
-- No `useContext`, no `useRouter`, no service hooks, no browser storage access
+- No `useContext`, no `useRouter`, no `useSearchParams`, no `useQueryState`,
+  no `router.query`, no service hooks, no browser storage access
 
 If the description implies data that must be fetched, the component receives the
 fetched data as a prop. The container is responsible for fetching. If the container

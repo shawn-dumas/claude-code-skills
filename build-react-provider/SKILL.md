@@ -23,8 +23,14 @@ Extract the scope name. Derive:
 
 ## Step 2: Validate against escape-hatch criteria
 
-Before generating anything, check the description against all five criteria.
-Stop and redirect if any fail:
+Before generating anything, check whether this state belongs in the URL, then
+check the five escape-hatch criteria. Stop and redirect if any check fails:
+
+0. **Not URL-worthy**: If the description mentions filters, sort order, tab
+   selection, date range, pagination, selected team, selected user, or any state
+   that affects what the user sees on reload, stop: "This state is URL-worthy.
+   The container should own it via nuqs `useQueryState`, not a provider. The URL
+   is the state store for page-level selections."
 
 1. **Stable**: The value changes rarely during a session. If the description
    implies per-keystroke, per-frame, or high-churn updates, stop: "This value
