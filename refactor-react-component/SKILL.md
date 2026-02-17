@@ -38,7 +38,10 @@ Look for hidden communication channels:
 ### 2b. Data Down, Actions Up (DDAU)
 
 The component's Props interface should be its complete dependency list.
-- Does the component call useContext, useRouter, or any service hook directly?
+- Does the component call useContext, useRouter, useSearchParams, useQueryState,
+  or any service hook directly?
+- Does it read URL params (router.query, useQueryState) instead of receiving them
+  as props? URL params are a state store -- same rule as context and localStorage.
 - Does it reach into global state instead of receiving data as props?
 - Does it fire side effects instead of calling a callback prop?
 - After refactor, could you render this component with just props and no provider tree?

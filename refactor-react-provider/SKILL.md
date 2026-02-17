@@ -59,11 +59,40 @@ it actually reads.
 
 ### 2d. State ownership
 
-For each piece of state in the provider:
-- Is it derived from other state? (compute it, don't store it)
-- Is it a copy of server data from a query? (read from the query cache directly)
-- Is it URL-worthy? (move to the router)
-- Does it have a single owner, or do multiple writers update it?
+For each piece of state in the provider, classify it:
+
+- **Derived.** Computable from other state, props, or query data. Do not store it.
+  Replace with `useMemo` or inline computation.
+- **Server data copy.** A piece of state that mirrors query cache data (often synced
+  via `useEffect`). Delete it and read from the query result directly.
+- **URL-worthy.** State that affects what the user sees on reload: filters, sort
+  order, tab selection, date range, pagination, selected team/user. Move to URL
+  search params using nuqs (`useQueryState` / `useQueryStates`). The container
+  reads the URL and passes values as props + setter callbacks.
+
+  URL-worthy criteria (all three should be true):
+  1. Changes what data is fetched or what view is rendered
+  2. A user sharing the URL should see the same view (deep linking)
+  3. The browser back button should restore it
+
+  What stays OUT of the URL:
+  - Session-level identity (company/tenant ID) -- multi-tenancy hidden from customers
+  - Ephemeral UI state (modal open, tooltip visible)
+  - Form-in-progress data (owned by the form library)
+
+- **Single-owner UI state.** Legitimate shared UI state with one owner. Kept as a
+  thin scoped context (`XxxScopeProvider`) if it meets the escape-hatch criteria,
+  or moved to the container if only one route needs it.
+- **Multi-writer.** Multiple uncoordinated writers to the same state. This is a bug.
+  Identify the single owner and have others receive it as a prop.
+
+Decision tree after stripping queries and derived state:
+
+1. Is the remaining state URL-worthy? --> Move to URL (nuqs) in the container. Provider field deleted.
+2. Is it session-level identity (company/tenant)? --> Keep as scoped context.
+3. Is it consumed by multiple routes through 3+ intermediaries? --> Keep as scoped context.
+4. Is it consumed by only one route or section? --> Move to the container. Provider field deleted.
+5. Nothing left? --> Delete the provider entirely.
 
 ### 2e. useEffect discipline
 
@@ -183,9 +212,17 @@ Apply all fixes. Follow these rules:
   point.
 - **Eliminate derived state.** Replace useEffect + setState patterns with useMemo or
   inline computation.
-- **Delete the provider entirely** if, after stripping queries and derived state,
-  nothing remains. If only one or two pieces of state remain, consider whether a
-  thin UI context is justified or whether the state can live in a container.
+- **Migrate URL-worthy state to nuqs.** For each field identified as URL-worthy in
+  Step 2d, delete it from the provider and add a `useQueryState` / `useQueryStates`
+  call in the container that will own it. Use the appropriate nuqs parser
+  (`parseAsString`, `parseAsInteger`, `parseAsArrayOf`, `parseAsJson`, etc.). Pass
+  the value and setter as props to children. If the field was previously persisted
+  in localStorage, the URL replaces localStorage as the persistence mechanism --
+  delete the localStorage read/write for that key.
+- **Delete the provider entirely** if, after stripping queries, derived state, and
+  URL-worthy state, nothing remains. If only one or two pieces of state remain,
+  consider whether a thin UI context is justified or whether the state can live in
+  a container.
 - Do not change behavior. Consumers should get the same data and capabilities, just
   without the provider owning data-fetching or cross-domain concerns.
 

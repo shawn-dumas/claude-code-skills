@@ -48,8 +48,10 @@ Each one is a potential violation:
 - **Context consumer hooks** in children (useInsightsContext, useTeams, useUsers,
   useBpoProjectContext, useAuthState, usePosthogContext, useFlyoutContext, etc.)
   -- these must move to the container. Children receive the values as props.
-- **Router hooks** in children (useRouter, usePathname, useSearchParams)
-  -- navigation becomes callback props, route params become data props.
+- **Router and URL state hooks** in children (useRouter, usePathname,
+  useSearchParams, useQueryState, useQueryStates, router.query)
+  -- navigation becomes callback props, route/URL params become data props.
+  Children never read the URL directly; the container reads it and passes values.
 - **Auth hooks** in children -- container passes userRoles, currentUser, canEdit
   as props.
 - **Feature flag hooks** in children -- container passes boolean props.
@@ -144,9 +146,11 @@ Apply all fixes. Follow these rules:
 - **The container absorbs all context hooks.** It destructures what it needs and
   passes individual values as props. Children never call useContext or context
   consumer hooks.
-- **The container absorbs router hooks.** It reads route params and passes them as
-  data props. It creates navigation callbacks and passes them as callback props.
-  Children never call useRouter or usePathname.
+- **The container absorbs router and URL state hooks.** It reads route params and
+  URL search params (via nuqs `useQueryState` / `useQueryStates`) and passes them
+  as data props. It creates navigation callbacks and param-setter callbacks and
+  passes them as callback props. Children never call useRouter, usePathname,
+  useSearchParams, or useQueryState.
 - **The container owns storage.** It reads stored defaults at mount, passes them as
   props, and writes back on changes. Children never touch localStorage/sessionStorage.
 - **The container owns toasts.** Mutation onSuccess/onError callbacks in the

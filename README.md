@@ -57,6 +57,18 @@ Most useEffects are wrong. Each one gets classified:
 
 A service hook imports only its own domain's query keys. Cross-domain cache invalidation happens in the container's mutation `onSuccess` callback, not inside the hook. This prevents circular imports and makes invalidation visible at the orchestration layer.
 
+### URL state ownership
+
+The URL is a state store, just like context or localStorage. The same DDAU rules apply: the container reads it, children receive values as props.
+
+State is URL-worthy when it affects what the user sees on reload: filters, sort order, tab selection, date range, pagination, selected team. A user sharing the URL should see the same view. The browser back button should restore it.
+
+What stays out of the URL: session-level identity like company/tenant (multi-tenancy is hidden from customers), ephemeral UI state (modals, tooltips), and form-in-progress data (owned by the form library).
+
+Use [nuqs](https://nuqs.47ng.com/) for type-safe URL search params. The container calls `useQueryState` / `useQueryStates` and passes values as props + setter callbacks. Children never call `useSearchParams`, `router.query`, or `useQueryState` directly -- those are state-store access, same as `useContext` or `localStorage.getItem`.
+
+Start maximalist: put everything URL-worthy into the URL. Remove params that prove noisy. Adding a URL param later is more expensive than removing one.
+
 ### No factory indirection
 
 Service hooks are direct useQuery/useMutation calls. No `createQueryFactory`, no curried wrappers. The hook owns its own `useFetchApi()` call, query key, query function, and options. Factories hide what the hook does and make per-call-site customization harder.

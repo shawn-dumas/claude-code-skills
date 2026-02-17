@@ -72,13 +72,26 @@ scoped context (`XxxScopeProvider`). These are either cross-cutting DOM/browser
 concerns, ambient UI environment hooks, or narrow scoped contexts that meet the
 escape-hatch criteria (stable, narrow, local, no orchestration).
 
-## Step 6: Check storage, toast, and cross-domain coupling
+## Step 6: Check storage, toast, cross-domain coupling, and URL state
+
+### URL state
+- List every component that reads URL params (useRouter/router.query,
+  useSearchParams, useQueryState, useQueryStates)
+- Flag any leaf component (non-container) that reads URL params directly --
+  this is a state-store access violation, same as calling useContext
+- List every piece of state currently in context or localStorage that is
+  URL-worthy (affects what the user sees on reload: filters, sort, tab,
+  date range, pagination, selected team/user)
+- For each URL-worthy field: where does it currently live, and which container
+  should own the `useQueryState` call after refactor?
 
 ### Storage
 - List every localStorage/sessionStorage key accessed in this feature
 - For each key: who reads it, who writes it, is there a single owner?
 - Flag any key with multiple independent writers
 - Flag any leaf component that directly accesses storage
+- Flag any localStorage key that stores URL-worthy state (should move to URL
+  params instead of localStorage after refactor)
 
 ### Toasts
 - List every toast call site in this feature
