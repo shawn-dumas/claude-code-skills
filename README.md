@@ -12,9 +12,13 @@ Every skill in this repo enforces the same core rules. Understanding them is mor
 
 A component's Props interface is its complete dependency list. Data arrives via props. Actions fire via callback props. The component never reaches into global state, context, or the router on its own. After refactoring, you should be able to render the component with nothing but props -- no provider tree required.
 
+The exception is ambient UI hooks (DOM utilities, theme, i18n) and narrow scoped contexts that meet the escape-hatch criteria. These are allowed in leaves and documented in the [ambient dependencies](#ambient-dependencies-and-the-prop-drilling-escape-hatch) section below.
+
 ### Container boundaries
 
-Each route has exactly one container component that sits between the outside world (hooks, context, routing, storage, toasts) and the inside world (props-only components). The container calls all service hooks, context hooks, and router hooks. It passes data down and wires callbacks up. Children never call these hooks directly.
+Every entry point has one container component that sits between the outside world (hooks, context, routing, storage, toasts) and the inside world (props-only components). The container calls all service hooks, context hooks, and router hooks. It passes data down and wires callbacks up. Children never call these hooks directly.
+
+Typically this means one container per route. But if a feature is rendered from a non-route entry point (modal, embedded panel, shared surface), that entry point gets its own container. The rule is "one container per orchestration boundary," not "one container per URL."
 
 ### Separation of concerns
 
@@ -189,7 +193,12 @@ The audit skill produces a migration checklist in exactly this order, and each c
 
 5. **Components.** Use `refactor-react-component` on remaining self-contained components to convert them to DDAU. At this point the container exists, so the component just needs its hooks removed and its Props interface defined.
 
-Each refactor skill runs TypeScript type-checking and available tests after rewriting to verify nothing broke.
+Each refactor skill runs a verification step after rewriting:
+
+1. `npx tsc --noEmit` on the changed files (or the whole project if scoping is not practical). TypeScript errors in touched files must be fixed before finishing.
+2. If the project has tests that cover the refactored code, the skill runs them using the project's test runner. If no tests exist for the affected code, the skill reports that and moves on -- it does not skip type-checking.
+
+The skill reports both results in its summary. A refactor is not complete until type-checking passes. Test failures must be fixed if tests exist; the absence of tests is noted but does not block.
 
 ## Customization
 
