@@ -92,7 +92,8 @@ escape-hatch criteria (stable, narrow, local, no orchestration).
 ## Step 7: Identify the DDAU boundary
 
 Determine where containers should exist:
-- One container per route that renders this feature's components
+- One container per orchestration boundary (typically per route, but also per
+  non-route entry point like a modal or embedded panel)
 - Check if any component is rendered at a layout level (its container is the layout,
   not a route container)
 - Check for deeply nested data-fetching (components 2-3 levels deep calling hooks)

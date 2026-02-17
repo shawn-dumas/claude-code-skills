@@ -57,7 +57,8 @@ The component's Props interface should be its complete dependency list.
 Check layer violations:
 - **Service hooks** should only fetch/mutate. No toasts, no navigation, no localStorage.
 - **Containers** wire service hooks to components, handle events, manage feedback.
-  One container per route.
+  One container per orchestration boundary (typically per route, but also per
+  non-route entry point like a modal or embedded panel).
 - **Components** render from props. No service hooks, no context hooks, no useRouter,
   no browser storage.
 - **Providers** hold shared UI state only. No data-fetching logic.

@@ -1,6 +1,6 @@
 ---
 name: refactor-react-route
-description: Refactor a React page/route file to establish a proper container boundary. Ensures one container per route that owns all hook calls, storage, toasts, and cross-domain invalidation.
+description: Refactor a React page/route file to establish a proper container boundary. Ensures one container per orchestration boundary that owns all hook calls, storage, toasts, and cross-domain invalidation.
 context: fork
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 argument-hint: <path/to/pages/somePage.tsx>
@@ -31,8 +31,10 @@ useRouter, which read storage, which fire toasts. This is the "before" picture.
 
 ### 2a. Container existence and completeness
 
-Every route should have exactly one container that serves as the boundary between
-the outside world (hooks, context, routing, storage) and the inside world (props).
+Every orchestration boundary should have exactly one container that serves as the
+boundary between the outside world (hooks, context, routing, storage) and the inside
+world (props). Typically this is one per route, but non-route entry points (modals,
+embedded panels, shared surfaces) get their own container too.
 
 - Does a container exist for this route?
 - If yes, does it absorb ALL hook calls, or do children still self-fetch?
