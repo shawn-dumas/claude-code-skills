@@ -57,6 +57,18 @@ A service hook imports only its own domain's query keys. Cross-domain cache inva
 
 Service hooks are direct useQuery/useMutation calls. No `createQueryFactory`, no curried wrappers. The hook owns its own `useFetchApi()` call, query key, query function, and options. Factories hide what the hook does and make per-call-site customization harder.
 
+### Ambient dependencies and the prop-drilling escape hatch
+
+DDAU means a component's Props interface is its complete dependency list. That is the default. But "complete" does not mean "every value the component reads from any source." Two categories of dependencies are explicitly exempt:
+
+**Browser/DOM hooks are always allowed in leaves.** Hooks like `useBreakpoints`, `useWindowSize`, `useClickAway`, and `useScrollCallback` interact with browser APIs, not application state. They have no provider coupling and do not create hidden data-flow channels. Every skill's MAY-remain list covers these. Theme hooks (`useTheme`) and i18n hooks (`useTranslation`) fall in the same category -- they are environment concerns, not application data flow.
+
+**Thin contexts are acceptable when the alternative is worse.** If a value is stable (changes rarely), narrow (one or two fields), and the alternative is threading it through 3+ intermediate components that do not use it, a thin purpose-built context is the right tradeoff. The test: could you delete the context and replace it with props without touching more than two files? If not, the context is justified.
+
+What this does *not* permit is broad contexts consumed deep in the tree as a convenience. A component calling `useInsightsContext` to grab 3 fields out of 19 is not an ambient dependency -- it is a hidden coupling to a provider that re-renders it on unrelated state changes. That call belongs in the container, one hop away.
+
+The skills enforce the strict default. When you hit a case where prop drilling is genuinely worse, add the hook to the MAY-remain list in each skill or extract a thin context and document why.
+
 ## Skills
 
 ### audit-react-feature
