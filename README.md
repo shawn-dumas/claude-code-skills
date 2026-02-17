@@ -134,7 +134,9 @@ done
 
 ## Workflow
 
-The recommended order for refactoring a feature area:
+The ordering is not arbitrary -- it mirrors the dependency graph. You cannot convert components to DDAU until containers exist to absorb their hook calls. Containers cannot be clean until service hooks are standalone and side-effect-free. Service hooks cannot be standalone until factory indirection is eliminated. Each phase unblocks the next.
+
+The audit skill produces a migration checklist in exactly this order, and each checklist item maps to a specific skill invocation. The output of step 1 is the script for steps 2-5.
 
 1. **Audit first.** Run `audit-react-feature` on the feature directory. Read the report. Understand the dependency graph before changing anything.
 
