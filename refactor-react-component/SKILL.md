@@ -75,6 +75,7 @@ Flag every useEffect and classify it:
 - Post-mutation logic that could use TanStack Query onSuccess/onError -- **wrong**
 - Effect bridge (child useEffect watches props, writes back to parent via callback) -- **wrong**
 - Manual fetch (useEffect + fetch() + useState for loading/error/data) -- **wrong**
+- Timer-based state update (setTimeout/setInterval + setState) -- **code smell**
 - External system subscription (WebSocket, ResizeObserver, DOM listener) -- **ok**
 - Form library subscription (react-hook-form `form.watch()` with cleanup) -- **ok**
 - Unmount cleanup -- **ok**
