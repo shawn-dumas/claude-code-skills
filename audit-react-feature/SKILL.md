@@ -77,6 +77,7 @@ For each useEffect in the feature, classify it:
 | DOM_EFFECT | DOM interaction (resize, click-outside, etc.) | Extract to shared hook |
 | ANIMATION | Visual animation | Keep or extract |
 | EFFECT_BRIDGE | Child useEffect watches props, writes back to parent state via callback | Hoist write to container event handler or mount effect |
+| TIMER_RACE | setTimeout/setInterval inside useEffect with state updates | Move to event handler or replace with CSS transition; verify cleanup |
 | NECESSARY | Legitimately necessary | Keep |
 
 ## Step 4b: Detect ghost state
@@ -98,6 +99,33 @@ For each boolean state variable:
 
 Ghost state is invisible when JSX guards are correct, but becomes a latent bug if
 someone later removes the guard. Flag it in the report even when currently guarded.
+
+## Step 4c: Detect timer race conditions
+
+Scan for `setTimeout` and `setInterval` inside useEffect callbacks (or inside
+functions called by useEffect callbacks). These are code smells because:
+
+- **setState after timeout**: The component may have unmounted or the triggering
+  condition may have changed before the timer fires. Even with cleanup, the
+  pattern is fragile and hard to reason about.
+- **Missing cleanup**: A setTimeout/setInterval without a corresponding
+  `clearTimeout`/`clearInterval` in the useEffect cleanup function is a leak.
+- **Deferred state sync**: Using setTimeout to "wait for React to settle" before
+  reading or writing state is almost always papering over a missing dependency
+  or a wrong data flow. The timer duration is arbitrary and environment-dependent.
+
+For each timer found:
+- Check whether the cleanup function clears it
+- Check whether the callback calls setState
+- Check whether the same logic could be an event handler, a CSS transition,
+  or a requestAnimationFrame (for layout reads)
+
+Classify as **TIMER_RACE** in the useEffect inventory. Flag in the report even
+if cleanup is present -- the pattern itself is worth reviewing.
+
+Note: `requestAnimationFrame` inside useEffect for one-time layout measurement
+is a recognized pattern and less risky than setTimeout, but still flag it if it
+calls setState -- the same unmount race applies.
 
 ## Step 5: Classify every hook call in leaves
 
@@ -188,6 +216,7 @@ Output a structured report:
 | Eliminate (effect bridge -> container) | ... |
 | Eliminate (manual fetch -> TanStack Query) | ... |
 | Eliminate (lazy useState init) | ... |
+| Review (timer race condition) | ... |
 | Extract to shared hook | ... |
 | Keep | ... |
 
@@ -200,6 +229,11 @@ Output a structured report:
 | File | Boolean state | Paired selection | Guarded in JSX? |
 |------|--------------|-----------------|----------------|
 | ...  | isCollapsed  | selectedUser    | yes / NO       |
+
+### Timer race conditions
+| File:Line | Timer type | Calls setState? | Has cleanup? | Suggested fix |
+|-----------|-----------|-----------------|-------------|---------------|
+| ...       | setTimeout | yes / no        | yes / no    | event handler / CSS transition / remove |
 
 ### Debug artifacts
 | File:Line | Type | Content |
