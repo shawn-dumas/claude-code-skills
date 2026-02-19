@@ -40,6 +40,51 @@ Give each piece of code the minimum capability it needs:
 - If a hook returns 15 fields and every consumer uses 3, narrow the return type.
 - If a context has 20 fields and consumers typically use 2-3, split it.
 
+### Template least-power (JSX discipline)
+
+The return statement of a component should be a **declaration of what to render**, not a program that figures out what to render. All decision-making, data transformation, and branching logic lives above the return in named intermediate variables. The return itself is flat, scannable, and free of embedded computation.
+
+#### Rules
+
+1. **No chained ternaries in JSX.** A single binary ternary (`active ? 'on' : 'off'`) or a simple show/hide guard (`{isOpen && <Modal />}`) is fine. The moment you chain ternaries (`a ? X : b ? Y : Z`), extract to a lookup map or a sub-component. Multi-way branching is a switch statement -- write it as one above the return.
+
+2. **Named rendering predicates.** Instead of `{!loading && data && data.length > 0 && <Table />}`, compute `const showTable = !loading && data && data.length > 0` above the return. The name documents the decision. The template consumes it: `{showTable && <Table />}`.
+
+3. **No data transformation in the return.** `.filter()`, `.map()`, `.reduce()`, and especially chained combinations of these belong in `useMemo` or named variables above the return. The return statement receives pre-computed data and lays it out.
+
+4. **No IIFEs in JSX.** `{(() => { ... })()}` inside a return is a function masquerading as markup. Extract to a named variable or a sub-component.
+
+5. **Named event handlers.** An inline handler should be a single function reference: `onClick={handleReset}`. Multi-statement anonymous handlers (`onClick={() => { setA(); setB(); setC(); }}`) become named functions above the return.
+
+6. **Lookup maps for multi-way values.** When a value depends on a discriminant (type, status, mode), use a `Record` lookup above the return instead of a ternary chain in JSX:
+
+   ```tsx
+   const colorByType: Record<OpportunityType, string> = {
+     'Agentic AI': 'text-purple-600',
+     'System Optimization': 'text-blue-600',
+     'API Integration': 'text-green-600',
+   };
+   const iconColor = colorByType[type] ?? 'text-gray-600';
+   ```
+
+7. **Minimal inline styles.** `style={{}}` creates a new object on every render. For static styles, use CSS classes. For dynamic computed styles (percentage widths, calculated positions), extract to a named variable above the return. Exception: `@react-pdf/renderer` requires inline style objects -- this is expected for that library.
+
+8. **className construction.** Simple binary toggles in template literals are fine. When a className has 3+ conditions or nested ternaries, extract to a named variable above the return using `clsx`/`cn` or a lookup map. The template should not be solving classification problems.
+
+9. **Shared presentational components for repeated patterns.** When the same rendering pattern (progress bar with percentage width, async content with loading/empty/error states, KPI value with loading ternary) appears in 3+ files, extract a shared component. The pattern exists once; call sites pass data.
+
+#### The intermediate variables contract
+
+The space between hooks and the return statement is where decisions are made. Every intermediate variable should be named to document **what was decided**, not just what was computed:
+
+- `showTable` not `tableVisible` (what was decided: show the table)
+- `formattedRows` not `rows` (transformation happened: these are display-ready)
+- `statusLabel` not `status` (this is the display string, not the raw enum)
+- `iconColor` not `color` (this is specifically the icon's color, derived from type)
+- `activeRows` not `filteredData` (what the filter means: only active rows survive)
+
+After refactoring, reading the return statement should tell you the layout. Reading the intermediate variables should tell you the logic. They should not be interleaved.
+
 ### useEffect discipline
 
 Most useEffects are wrong. Each one gets classified:
@@ -266,6 +311,26 @@ The build skills follow the same topological order. Each layer depends on the on
 4. **Components.** `build-react-component` -- leaf UI that renders from props.
 
 5. **Utility hooks.** `build-react-hook` -- DOM or state utilities that any layer might need. These can be created at any point since they have no architectural dependencies.
+
+## Template Cleanup Skills
+
+These skills target JSX template complexity specifically. Use them after DDAU boundaries are established (containers exist, hooks are absorbed) to clean up the markup layer.
+
+### flatten-jsx-template
+
+Behavior-preserving cleanup of a single component's return statement. Lifts chained ternaries, inline transforms, IIFEs, and multi-statement handlers into named intermediate variables above the return. Does not restructure hooks or change data flow.
+
+```
+/flatten-jsx-template src/ui/page_blocks/dashboard/systems/SystemsBlock.tsx
+```
+
+### extract-shared-presentational
+
+Extracts a repeated rendering pattern from multiple files into a shared component. Identifies all instances, designs a minimal Props interface from the variations, creates the component with tests, and replaces all call sites.
+
+```
+/extract-shared-presentational ProgressBar "percentage-width bar with style={{ width }}" src/ui/page_blocks/dashboard/opportunities/components/SystemsTab.tsx src/ui/page_blocks/dashboard/systems/components/ActivitiesTable.tsx
+```
 
 ### Verification
 

@@ -77,6 +77,22 @@ Create the directory `<ParentDir>/<ComponentName>/` if it does not exist.
 - No default export
 - No useContext, useRouter, useQuery, useMutation, or browser storage access
 
+**Template discipline (JSX least-power):**
+
+The return statement is a flat declaration of layout. All logic lives above it.
+
+- Compute all derived values, rendering predicates, and formatted data as named
+  variables between the hooks and the return. Name each variable to document the
+  decision it encodes (`showEmptyState`, `formattedRows`, `iconColor`).
+- No chained ternaries in JSX. Use lookup maps (`Record<Discriminant, Value>`)
+  for multi-way values. Use named booleans for rendering predicates.
+- No `.filter()`, `.map()`, `.reduce()` inside the return. Use `useMemo` or
+  named variables above it.
+- No multi-statement inline handlers. Define named functions above the return.
+- No IIFEs in JSX. Extract to named variables.
+- If the return statement exceeds 50 lines, decompose into sub-components or
+  extract named JSX fragments as variables.
+
 ### 4b. `index.ts`
 
 ```ts

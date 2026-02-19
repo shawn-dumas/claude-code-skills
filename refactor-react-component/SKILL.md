@@ -55,6 +55,26 @@ The component's Props interface should be its complete dependency list.
   data + toast function when the consumer only reads data)
 - Contexts bundling many fields when consumers only read a few
 
+### 2c-ii. Template least-power (JSX discipline)
+
+The return statement should be a flat declaration of layout. All decision-making
+and data transformation lives above the return in named intermediate variables.
+
+Flag these in the return statement:
+- **Chained ternaries** (`a ? X : b ? Y : Z`) -- should be a lookup map or
+  sub-component
+- **Complex guards** (3+ conditions in an `&&` chain) -- should be a named
+  boolean above the return
+- **Inline data transformation** (`.filter()`, `.map()`, `.reduce()` inside the
+  return) -- should be `useMemo` or a named variable above the return
+- **IIFEs** (`{(() => { ... })()}`) -- should be a named variable or sub-component
+- **Multi-statement inline handlers** (`onClick={() => { a; b; c; }}`) -- should
+  be a named function above the return
+- **Multi-way ternaries for the same discriminant** (type, mode, status) -- should
+  be a `Record` lookup map above the return
+- **Return statement > 100 lines** -- decompose into sub-components or extract
+  named intermediate JSX fragments
+
 ### 2d. Separation of concerns
 
 Check layer violations:
@@ -147,6 +167,15 @@ Apply all fixes. Follow these rules:
   lives in the container, not in service hooks. Standalone hooks invalidate only
   their own domain's query keys. The container handles cross-domain invalidation
   in mutation onSuccess callbacks.
+- **Flatten the return statement.** Lift all logic out of the JSX:
+  - Replace chained ternaries with lookup maps or named variables above the return.
+  - Replace multi-condition `&&` guards with named booleans (`const showTable = ...`).
+  - Move `.filter()`, `.map()`, `.reduce()` chains into `useMemo` or named variables.
+  - Replace IIFEs with named variables or sub-components.
+  - Replace multi-statement inline handlers with named functions.
+  - Extract repeated rendering patterns into shared presentational components.
+  - Name every intermediate variable to document the decision it encodes (e.g.,
+    `showTable`, `formattedRows`, `iconColor`, `activeRows`).
 - Do not change behavior. The component should do exactly what it did before, just
   with explicit, visible, typed wiring instead of hidden channels.
 

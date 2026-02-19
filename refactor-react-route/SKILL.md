@@ -131,6 +131,22 @@ Check how deep data-fetching goes in the component tree:
   These should be converted to useQuery. See `refactor-react-component` Step 4b for
   the mechanical conversion pattern.
 
+### 2i. Template complexity in children
+
+Scan the return statements of child components in the route's tree for logic that
+should live above the return. The container refactor is an opportunity to push
+derived values and rendering predicates into the container (or into named
+intermediates in the child), so the child's return is flat markup.
+
+Flag:
+- Chained ternaries in JSX (multi-way branching belongs in lookup maps)
+- Inline data transformation (.map/.filter/.reduce in the return)
+- Multi-statement inline handlers (should be named functions)
+- Return statements over 100 lines (decompose into sub-components)
+
+These do not block the route refactor, but note them in the report so they are
+addressed when `refactor-react-component` runs on each child.
+
 ## Step 3: Report
 
 Output a clear report:

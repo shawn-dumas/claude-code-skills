@@ -106,6 +106,9 @@ exist.
 - Passes all data down as props to child components
 - Passes all callbacks down as callback props (including URL param setters)
 - Does NOT render complex UI itself (that belongs in child components)
+- **Template discipline:** The container's return is flat and short. All derived
+  values, rendering predicates, and formatted data are named variables above the
+  return. No chained ternaries, no inline transforms, no multi-statement handlers.
 
 **`index.ts`**:
 

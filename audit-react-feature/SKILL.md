@@ -127,6 +127,57 @@ Note: `requestAnimationFrame` inside useEffect for one-time layout measurement
 is a recognized pattern and less risky than setTimeout, but still flag it if it
 calls setState -- the same unmount race applies.
 
+## Step 4d: Audit JSX template complexity
+
+For each component's return statement, scan for logic that should live above the
+return in named intermediate variables. The return should be a flat declaration of
+layout, not a program that computes what to render.
+
+**Chained ternaries:** Flag any ternary chain (`a ? X : b ? Y : Z`) in JSX.
+Single binary ternaries and simple `&&` guards are fine. Chained ternaries are
+switch statements -- they should be lookup maps or sub-components.
+
+**Multi-condition guards:** Flag `&&` chains with 3+ conditions in JSX
+(e.g., `{a && b && c && <Component />}`). Extract to a named boolean above the
+return.
+
+**Inline data transformation:** Flag `.filter()`, `.map()`, `.reduce()`, and
+chained combinations of these inside the return statement. These belong in
+`useMemo` or named variables above the return.
+
+**IIFEs in JSX:** Flag `{(() => { ... })()}` inside a return. Extract to a named
+variable or sub-component.
+
+**Multi-statement inline handlers:** Flag `onClick={() => { stmt1; stmt2; ... }}`
+with 2+ statements. These should be named functions above the return.
+
+**Repeated rendering patterns:** Flag identical or near-identical JSX patterns
+appearing 3+ times across files in the feature. Examples:
+- Percentage-width bars (`style={{ width: \`${pct}%\` }}`)
+- Loading/empty/error cascading ternaries
+- KPI display with nested loading ternary
+- Multi-way type/mode/status switches using the same discriminant
+
+For each repeated pattern, note: the pattern, the files where it appears, and
+what shared component would replace it.
+
+**Return statement length:** If a component's return statement exceeds 100 lines,
+flag it. This is a strong signal that decision logic is embedded in markup.
+
+Record these in the report under a "Template complexity" section.
+
+Classify each finding:
+
+| Code | Meaning | Action |
+|------|---------|--------|
+| CHAINED_TERNARY | Multi-way branch in JSX | Lookup map or sub-component |
+| COMPLEX_GUARD | 3+ conditions in `&&` chain | Named boolean above return |
+| INLINE_TRANSFORM | Data transformation in return | useMemo or named variable |
+| IIFE_IN_JSX | Immediately-invoked function in return | Named variable or sub-component |
+| MULTI_STMT_HANDLER | 2+ statements in inline handler | Named function above return |
+| REPEATED_PATTERN | Same JSX pattern in 3+ files | Shared presentational component |
+| LONG_RETURN | Return statement > 100 lines | Decompose into sub-components |
+
 ## Step 5: Classify every hook call in leaves
 
 For each context hook, router hook, auth hook, or feature flag hook called in a
@@ -240,6 +291,30 @@ Output a structured report:
 |-----------|------|---------|
 | ...       | console.log | ... |
 | ...       | commented-out block | ... |
+
+### Template complexity
+| File:Line | Classification | Description | Action |
+|-----------|----------------|-------------|--------|
+| ...       | CHAINED_TERNARY | 3-way switch on opportunityType | Lookup map |
+| ...       | INLINE_TRANSFORM | .filter().map() chain in return | useMemo above return |
+| ...       | LONG_RETURN | ~970 lines | Decompose into sub-components |
+
+### Template complexity summary
+| Classification | Count |
+|----------------|-------|
+| Chained ternary | ... |
+| Complex guard (3+ conditions) | ... |
+| Inline data transformation | ... |
+| IIFE in JSX | ... |
+| Multi-statement inline handler | ... |
+| Long return (> 100 lines) | ... |
+
+### Repeated rendering patterns (candidates for shared components)
+| Pattern | Files | Suggested component |
+|---------|-------|-------------------|
+| Percentage-width bar | SystemsTab, ActivitiesTable, ... | `<ProgressBar>` |
+| Loading/empty/error cascade | NodeDetailsPanel, RelaySystemAggregate, ... | `<AsyncContent>` |
+| ... | ... | ... |
 
 ### Hook calls in leaves (must be absorbed by containers)
 | Component | Hook | Fields used | Target container | Becomes props |
