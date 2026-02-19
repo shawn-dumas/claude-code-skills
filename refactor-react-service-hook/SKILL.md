@@ -12,6 +12,11 @@ This skill is specifically for hooks that call useQuery or useMutation. For DOM/
 utility hooks, state utility hooks, or context-wrapping hooks, use `refactor-react-hook`
 instead.
 
+This skill also applies when converting a manual fetch pattern (useEffect + fetch() +
+useState for loading/error/data) into a proper TanStack Query hook. If the target file
+contains raw `fetch()` inside a useEffect instead of useQuery, that is the primary
+violation to fix.
+
 ## Prerequisite
 
 If you have not run `audit-react-feature` for this hook's feature domain yet,
@@ -85,7 +90,25 @@ Check what the hook returns:
 The return type should be the minimum surface consumers actually need. If every
 consumer destructures the same 3 fields from a 15-field return, narrow the return.
 
-### 2f. Correct file location
+### 2f. Manual fetch conversion
+
+If the hook (or container) uses `useEffect` + `fetch()` + `useState` for
+loading/error/data with a `let isCancelled = false` cleanup pattern, convert to
+useQuery:
+
+- The `queryFn` receives the fetch logic (no manual cancellation needed -- TQ
+  handles AbortSignal)
+- The `queryKey` captures all dependencies that would have been in the useEffect
+  dependency array
+- `enabled` replaces the early-return guard inside the useEffect
+- `useState` for loading/error/data is deleted entirely -- useQuery provides
+  `isLoading`, `error`, and `data`
+- If mock and real data paths coexist (e.g., `if (shouldUseMock) { ... } else { fetch(...) }`),
+  both go inside `queryFn` with a conditional branch
+- `staleTime` and `refetchOnWindowFocus` should be set appropriately for the data
+  characteristics (e.g., static CSV data gets `staleTime: 5 * 60 * 1000`)
+
+### 2g. Correct file location
 
 Service hooks should live in:
 - `services/hooks/queries/` for useQuery hooks

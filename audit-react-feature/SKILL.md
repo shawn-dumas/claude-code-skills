@@ -40,6 +40,29 @@ For each component in the feature, classify it:
 | **Provider** | Holds shared state via React context. |
 | **Infrastructure** | Layout, auth guard, error boundary, or similar app-level concern. |
 
+## Step 3b: Dead code detection
+
+Before classifying violations, check whether each file/component/hook has any
+consumers. For each export:
+- Grep for its name across the codebase (outside its own file)
+- Check barrel exports (index.ts) to see if it is re-exported
+- Check if the barrel itself is imported anywhere
+
+If zero consumers exist, classify as **DEAD_CODE** instead of auditing for
+violations. Dead code should be deleted, not refactored. This saves significant
+effort -- a surprising fraction of "violations" turn out to be unreachable code.
+
+## Step 3c: Debug artifact detection
+
+Scan for development leftovers that should be cleaned up:
+- `console.log` / `console.debug` / `console.info` statements (not `console.error`
+  or `console.warn`, which may be intentional)
+- Commented-out code blocks longer than 3 lines
+- `// TODO` or `// HACK` or `// FIXME` markers
+- Disabled ESLint rules (`eslint-disable`) without an explanatory comment
+
+Record these in the report under a "Debug artifacts" section.
+
 ## Step 4: Classify every useEffect
 
 For each useEffect in the feature, classify it:
@@ -53,7 +76,28 @@ For each useEffect in the feature, classify it:
 | MAPPER_SIDE_EFFECT | setState inside TanStack Query select | Read from .data directly |
 | DOM_EFFECT | DOM interaction (resize, click-outside, etc.) | Extract to shared hook |
 | ANIMATION | Visual animation | Keep or extract |
+| EFFECT_BRIDGE | Child useEffect watches props, writes back to parent state via callback | Hoist write to container event handler or mount effect |
 | NECESSARY | Legitimately necessary | Keep |
+
+## Step 4b: Detect ghost state
+
+Ghost state is a boolean (like `isCollapsed`, `isDetailCollapsed`, `isUserCollapsed`)
+that is paired with a selection state (like `selectedUser`, `selectedDetail`). When a
+useEffect nulls the selection (e.g., because the selected item was filtered out), the
+boolean may remain `true`, creating a hidden inconsistency.
+
+For each boolean state variable:
+- Identify whether it is paired with a selection (set together, cleared together)
+- Check whether the selection can be nulled independently (by a useEffect or by the
+  `effectiveX` useMemo pattern)
+- If yes, check whether every JSX path that reads the boolean also guards on the
+  selection being non-null (e.g., `isUserCollapsed && effectiveSelectedUser`)
+- If any JSX path reads the boolean WITHOUT guarding on the selection, flag it as
+  **GHOST_STATE** -- the UI will show collapsed/expanded state for a selection that
+  no longer exists
+
+Ghost state is invisible when JSX guards are correct, but becomes a latent bug if
+someone later removes the guard. Flag it in the report even when currently guarded.
 
 ## Step 5: Classify every hook call in leaves
 
@@ -139,9 +183,29 @@ Output a structured report:
 ### useEffect summary
 | Outcome | Count |
 |---------|-------|
-| Eliminate | ... |
+| Eliminate (effectiveX useMemo) | ... |
+| Eliminate (event handler) | ... |
+| Eliminate (effect bridge -> container) | ... |
+| Eliminate (manual fetch -> TanStack Query) | ... |
+| Eliminate (lazy useState init) | ... |
 | Extract to shared hook | ... |
 | Keep | ... |
+
+### Dead code
+| File | Export | Reason |
+|------|--------|--------|
+| ...  | ...    | zero consumers / not exported from barrel |
+
+### Ghost state
+| File | Boolean state | Paired selection | Guarded in JSX? |
+|------|--------------|-----------------|----------------|
+| ...  | isCollapsed  | selectedUser    | yes / NO       |
+
+### Debug artifacts
+| File:Line | Type | Content |
+|-----------|------|---------|
+| ...       | console.log | ... |
+| ...       | commented-out block | ... |
 
 ### Hook calls in leaves (must be absorbed by containers)
 | Component | Hook | Fields used | Target container | Becomes props |

@@ -51,6 +51,17 @@ fetched data as a prop. The container is responsible for fetching. If the contai
 does not exist yet, note it: "This component expects a container to provide these
 props via service hooks."
 
+If the component displays a "selected item" from a filterable list, expect the
+container to pass an `effectiveSelectedX` prop (the validated/derived version) rather
+than the raw selection state. The component should never need to check whether a
+selected item still exists in a list -- that is the container's job via the
+`effectiveX` useMemo pattern (see `refactor-react-component` Step 4b).
+
+If the component needs to detect client-side rendering for hydration-sensitive code
+(e.g., browser-only APIs, window measurements), use `useState(() => typeof window !== 'undefined')`
+as a lazy initializer instead of `useState(false)` + `useEffect(() => setMounted(true), [])`.
+The lazy initializer avoids an extra render cycle.
+
 ## Step 4: Generate the files
 
 Create the directory `<ParentDir>/<ComponentName>/` if it does not exist.

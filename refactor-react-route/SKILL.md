@@ -88,19 +88,48 @@ that invalidation happens in the container's onSuccess callback. Check:
 - Do any service hooks import query keys from other domains?
 - Does the container handle cross-domain invalidation explicitly?
 
-### 2f. Layout-level components
+### 2f. Effect bridges (post-extraction artifact)
+
+After context providers are replaced with prop-passing, child wrapper components
+often retain useEffects that transform incoming props and write back to parent state
+via a callback prop. This is the most common post-extraction artifact:
+
+```tsx
+// WRONG: child watches props and writes back to parent
+useEffect(() => {
+  const transformed = transformFilters(props.filters);
+  props.setParentFilters('key', transformed);
+}, [props.filters]);
+```
+
+For each child in the route's tree, check whether any useEffect:
+- Reads a prop, transforms it, and calls a callback prop with the result
+- Initializes parent state on mount via a callback prop
+
+These writes should move to the container:
+- Transform-on-change: move to the container's event handler where the triggering
+  state change originates (e.g., `handleFilterUpdate`)
+- Initialize-on-mount: move to the container's mount useEffect
+
+After hoisting, the child wrapper typically becomes a thin passthrough (just renders
+its child with the same props) or can be deleted entirely.
+
+### 2g. Layout-level components
 
 Check if any component in the route's tree is actually rendered at a layout level
 (e.g., by a shared layout wrapper, not by the route itself). If so, that component's
 DDAU conversion belongs at the layout boundary, not in this route's container. Do not
 duplicate prop-wiring for layout-level components across route containers.
 
-### 2g. Fetch depth
+### 2h. Fetch depth
 
 Check how deep data-fetching goes in the component tree:
 - Fetching at the container level (1 level) -- **good**
 - Children 2-3 levels deep calling their own query hooks -- **bad**
   This means the container is not absorbing all data needs.
+- Manual `fetch()` calls inside useEffect with `useState` for loading/error/data -- **bad**
+  These should be converted to useQuery. See `refactor-react-component` Step 4b for
+  the mechanical conversion pattern.
 
 ## Step 3: Report
 
