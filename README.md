@@ -20,6 +20,8 @@ Every entry point has one container component that sits between the outside worl
 
 Typically this means one container per route. But if a feature is rendered from a non-route entry point (modal, embedded panel, shared surface), that entry point gets its own container. The rule is "one container per orchestration boundary," not "one container per URL."
 
+**Nested containers.** A route container handles route-level orchestration (context, routing, URL state, toasts). An inner container handles section-level orchestration (conditional data fetching triggered by drill-down selections within the route). Inner containers receive context values and navigation callbacks as props from the outer container. They call their own service hooks for data that depends on local selection state. This is acceptable when the section has its own meaningful orchestration boundary -- for example, a systems drill-down panel that fetches span data only when a system is selected.
+
 ### Separation of concerns
 
 Each layer has a single job:
@@ -85,6 +87,18 @@ The space between hooks and the return statement is where decisions are made. Ev
 
 After refactoring, reading the return statement should tell you the layout. Reading the intermediate variables should tell you the logic. They should not be interleaved.
 
+### ESLint suppression convention
+
+When a rewrite introduces an `eslint-disable` comment, always include an explanation after `--` that says why the rule does not apply. A bare `// eslint-disable-next-line rule-name` is a debug artifact. A commented one (`// eslint-disable-next-line rule-name -- reason`) is a deliberate decision. The audit skill flags bare eslint-disable comments as debug artifacts (Step 3c); the refactor skills must not create new ones.
+
+### Destructuring alias for unused props
+
+When prefixing unused destructured props with `_` to satisfy `no-unused-vars`, use the TypeScript alias syntax. The property name in destructuring must match the type definition:
+
+- Wrong: `{ _unusedProp }` -- TypeScript error, the type defines `unusedProp`
+- Right: `{ unusedProp: _unusedProp }` -- alias preserves the property name
+- With default: `{ unusedProp: _unusedProp = false }` -- alias + default value
+
 ### useEffect discipline
 
 Most useEffects are wrong. Each one gets classified:
@@ -113,6 +127,18 @@ What stays out of the URL: session-level identity like company/tenant (multi-ten
 Use [nuqs](https://nuqs.47ng.com/) for type-safe URL search params. The container calls `useQueryState` / `useQueryStates` and passes values as props + setter callbacks. Children never call `useSearchParams`, `router.query`, or `useQueryState` directly -- those are state-store access, same as `useContext` or `localStorage.getItem`.
 
 Start maximalist: put everything URL-worthy into the URL. Remove params that prove noisy. Adding a URL param later is more expensive than removing one.
+
+### Storage tiers
+
+Client-side persistence has three tiers. Each has a different lifetime and appropriate use:
+
+| Tier | Mechanism | Lifetime | Use for |
+|------|-----------|----------|---------|
+| **Shareable** | URL (nuqs) | Survives share/bookmark | Filters, sort, tab, date range, pagination, selected entity |
+| **Persistent** | localStorage | Survives close/reopen | User preferences, theme, dismissed banners, cached selections |
+| **Ephemeral** | sessionStorage | Dies with the tab | Drill-down position, scroll offset, expand/collapse state within a session |
+
+sessionStorage for ephemeral drill-down state is not a DDAU violation. It is external-system sync (same category as ResizeObserver or scroll position) -- the component persists its position so the user does not lose context when navigating within a session. The container or inner container that owns the drill-down state is the appropriate owner of the sessionStorage read/write.
 
 ### No factory indirection
 

@@ -149,6 +149,15 @@ Apply all fixes. Follow these rules:
 - If the component is a leaf that calls context/service hooks, extract a container.
   The container goes in a `containers/` sibling directory (create it if needed).
   The container calls hooks, wires props, handles events. The leaf becomes pure props.
+- If the file contains both a container function and a content/leaf function
+  (e.g., `Foo` wrapping `FooContent`), split them into separate files:
+  - Move the container to `containers/<FooContainer>.tsx` (create the directory
+    if needed). Rename to `FooContainer` to match the project naming convention.
+  - Keep the leaf in the original file and add `export` to it.
+  - Update all imports of the old container export to the new path.
+  - The container imports the leaf from the original file via relative path.
+  - Clean up imports in the original file: remove any imports that were only
+    used by the container (service hooks, routing, context, etc.).
 - Before extracting a container, check where the component is actually rendered.
   If it is rendered once at a layout level (not per-route), the DDAU boundary is
   the layout, not each route container. Extract or convert a layout-level container
@@ -162,6 +171,14 @@ Apply all fixes. Follow these rules:
 - Replace mount-only useEffect with useState lazy init.
 - Remove unnecessary capabilities (setters, toast functions) from props/hooks that
   do not need them.
+- When prefixing unused destructured props with `_`, use the alias syntax:
+  - Wrong: `{ _unusedProp }` -- TypeScript error, the type defines `unusedProp`
+  - Right: `{ unusedProp: _unusedProp }` -- alias preserves the property name
+  - With default: `{ unusedProp: _unusedProp = false }` -- alias + default
+- When a rewrite introduces an `eslint-disable` comment, always include an
+  explanation after `--` that says why the rule does not apply. A bare
+  `// eslint-disable-next-line rule-name` is a debug artifact. A commented one
+  (`// eslint-disable-next-line rule-name -- reason`) is a deliberate decision.
 - Update the Props/interface type to be the component's complete dependency list.
 - When extracting or fixing a container, ensure cross-domain cache invalidation
   lives in the container, not in service hooks. Standalone hooks invalidate only

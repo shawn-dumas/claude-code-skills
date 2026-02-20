@@ -37,6 +37,7 @@ For each component in the feature, classify it:
 | **DDAU** | Receives all data via props, fires all actions via callbacks. No context hooks, no service hooks, no router hooks, no storage access. |
 | **Self-contained** | Fetches its own data, calls context hooks, or reaches into global state. |
 | **Container** | Orchestrates data-fetching and hook calls for a route or section. |
+| **Inner container** | Sits below the route container. Owns section-level data orchestration (conditional fetching based on drill-down state or user selection). Receives context/navigation from the outer container as props. Calls service hooks for data that depends on local selection state. Has its own container above it. |
 | **Provider** | Holds shared state via React context. |
 | **Infrastructure** | Layout, auth guard, error boundary, or similar app-level concern. |
 
@@ -51,6 +52,20 @@ consumers. For each export:
 If zero consumers exist, classify as **DEAD_CODE** instead of auditing for
 violations. Dead code should be deleted, not refactored. This saves significant
 effort -- a surprising fraction of "violations" turn out to be unreachable code.
+
+**Orphaned test files.** For each `.spec.ts` / `.spec.tsx` / `.test.ts` /
+`.test.tsx` file in the feature, check whether the source file it imports still
+exists. If the source was deleted (by this refactor or a prior one), the test
+file is orphaned and should be deleted. Orphaned tests cause false test failures
+and mask the true test count.
+
+**Co-located container/leaf detection.** Check whether any single file exports
+both a container component (calls multiple service hooks, passes data down to a
+child) and a leaf/content component (receives everything via props). If a file
+contains both roles, flag it as a candidate for file splitting: the container
+should move to `containers/` and the leaf should be exported from the original
+file. Common pattern: `Foo` (container) wrapping `FooContent` (leaf) in the
+same file.
 
 ## Step 3c: Debug artifact detection
 
