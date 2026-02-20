@@ -358,6 +358,49 @@ Extracts a repeated rendering pattern from multiple files into a shared componen
 /extract-shared-presentational ProgressBar "percentage-width bar with style={{ width }}" src/ui/page_blocks/dashboard/opportunities/components/SystemsTab.tsx src/ui/page_blocks/dashboard/systems/components/ActivitiesTable.tsx
 ```
 
+## Dependency Management Skills
+
+These skills handle npm dependency auditing, upgrades, and replacements. They work with any Node.js project, not just React codebases.
+
+### audit-npm-deps
+
+**Read-only diagnostic.** Checks all npm dependencies for outdated versions, security vulnerabilities, dead/misplaced deps, and React peerDependency compatibility. Produces a tiered update plan (drop-in patches, minimal changes, substantial migrations).
+
+Run this periodically (quarterly) or before a major upgrade cycle.
+
+```
+/audit-npm-deps ~/github/next-gen-atlassian
+```
+
+### migrate-npm-package
+
+Upgrades a single package across a breaking version boundary. Finds all usage sites, runs codemods (if provided), applies grep-driven fixes for deprecated APIs, and verifies with tsc/tests/build.
+
+```
+/migrate-npm-package next 15 "npx @next/codemod@latest upgrade"
+/migrate-npm-package react-flatpickr 4.0.11
+/migrate-npm-package react 19
+```
+
+### replace-npm-package
+
+Swaps one package for another. Maps the old API surface to the new package, rewrites all import sites, removes the old package, adds the new one, and verifies.
+
+```
+/replace-npm-package react-hot-toast sonner "toast() -> toast(), <Toaster /> -> <Toaster />"
+/replace-npm-package react-csv react-csv-downloader
+```
+
+## Type Safety Skills
+
+### audit-type-errors
+
+**Read-only diagnostic.** Runs tsc, parses all errors, classifies each by root cause, identifies cascading error chains (one root cause producing N downstream errors), and produces a prioritized fix plan sorted by errors-eliminated-per-fix. Also checks for `any` concentrations, unsound type guards, trust boundary violations, duplicate type definitions, and non-null assertion hotspots.
+
+```
+/audit-type-errors ~/github/next-gen-atlassian
+```
+
 ### Verification
 
 Every skill (build and refactor) runs a verification step after writing code:
