@@ -78,6 +78,35 @@ Scan for development leftovers that should be cleaned up:
 
 Record these in the report under a "Debug artifacts" section.
 
+## Step 3d: Type audit
+
+For each file in the feature:
+
+- Flag any `type` or `interface` declaration that duplicates a definition in
+  `src/types/`. List the duplicate and the canonical source.
+- Flag any bare `string` or `number` field that should be a branded type (IDs,
+  timestamps, durations, emails, URLs, percentages). List the field, file, and
+  which branded type it should use.
+- Flag any `enum` that should be an `as const` object.
+- Flag any inline object type annotation in a function signature that appears
+  in 2+ files (candidate for extraction to `src/types/`).
+- Flag any `QueryOptions` interface defined locally instead of imported from
+  `src/types/api.ts`.
+- Flag any explicit `any` type (`: any`, `as any`, `Record<string, any>`). Count
+  occurrences per file.
+- Flag any non-null assertion (`!`) that is not immediately preceded by a Map
+  `has()` check or equivalent guard.
+- Flag any `as unknown as X` double cast in production code (test files are lower
+  priority).
+- Flag any type guard function that is unsound (claims `value is T` but only
+  checks a subset of `T`'s required properties).
+- Flag any trust boundary (`JSON.parse`, `fetch` response, localStorage read,
+  Supabase query) that uses `as T` without runtime validation.
+- Flag any `catch (error: any)` that should be `catch (error: unknown)`.
+- Flag any `@ts-expect-error` without an explanatory comment.
+
+Record these in the report under a "Type violations" section.
+
 ## Step 4: Classify every useEffect
 
 For each useEffect in the feature, classify it:
@@ -306,6 +335,32 @@ Output a structured report:
 |-----------|------|---------|
 | ...       | console.log | ... |
 | ...       | commented-out block | ... |
+
+### Type violations
+| File:Line | Violation | Canonical type | Action |
+|-----------|-----------|---------------|--------|
+| ...       | bare string for userId | UserId from brand.ts | Replace with branded type |
+| ...       | duplicate ErrorResponse | ErrorResponse from api.ts | Import from src/types/api |
+| ...       | enum ClassificationCategories | as const object | Convert |
+| ...       | explicit any (16x) | typed interface | Define DailyMetric interface |
+| ...       | non-null assertion without guard | optional chaining | Replace with ?. |
+| ...       | unsound type guard isUser | Zod schema or full check | Validate all required keys |
+| ...       | JSON.parse as T without validation | Zod safeParse | Add runtime validation |
+| ...       | catch (error: any) | catch (error: unknown) | Narrow with instanceof |
+
+### Type violations summary
+| Category | Count |
+|----------|-------|
+| Duplicate type definitions | ... |
+| Bare primitives (should be branded) | ... |
+| Enums (should be as const) | ... |
+| Explicit any | ... |
+| Non-null assertions without guard | ... |
+| Unsound type guards | ... |
+| Trust boundaries without validation | ... |
+| catch (error: any) | ... |
+| Double casts (as unknown as X) | ... |
+| @ts-expect-error without comment | ... |
 
 ### Template complexity
 | File:Line | Classification | Description | Action |
