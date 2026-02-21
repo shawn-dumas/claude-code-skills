@@ -183,9 +183,13 @@ Output a clear report:
 
 Apply all fixes. Follow these rules:
 
-- **Create or complete the container.** If no container exists, create one in a
-  `containers/` sibling directory. If one exists but is incomplete, add the missing
-  hook calls.
+- **Create or complete the container.** If no container exists, create one. If one
+  exists but is incomplete, add the missing hook calls.
+  **Placement rule:** Never create containers (or any non-page file) under
+  `src/pages/`. If the target page is under `src/pages/<feature>/`, create the
+  container in `src/ui/page_blocks/<feature>/containers/` (or the equivalent
+  `page_blocks` directory for the feature). The page file imports the container
+  from there.
 - **The container calls all service hooks** for this route's data needs. It passes
   query results as props. Children never call useQuery/useMutation.
 - **The container absorbs all context hooks.** It destructures what it needs and

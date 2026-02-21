@@ -147,8 +147,12 @@ Output a clear report with this structure:
 Apply all fixes. Follow these rules:
 
 - If the component is a leaf that calls context/service hooks, extract a container.
-  The container goes in a `containers/` sibling directory (create it if needed).
   The container calls hooks, wires props, handles events. The leaf becomes pure props.
+  **Placement rule:** Never create containers (or any non-page file) under
+  `src/pages/`. If the component being refactored is under `src/pages/<feature>/`,
+  place the container in `src/ui/page_blocks/<feature>/containers/` instead of a
+  sibling `containers/` directory. For components already under `src/ui/`, a sibling
+  `containers/` directory is fine.
 - If the file contains both a container function and a content/leaf function
   (e.g., `Foo` wrapping `FooContent`), split them into separate files:
   - Move the container to `containers/<FooContainer>.tsx` (create the directory

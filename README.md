@@ -22,6 +22,12 @@ Typically this means one container per route. But if a feature is rendered from 
 
 **Nested containers.** A route container handles route-level orchestration (context, routing, URL state, toasts). An inner container handles section-level orchestration (conditional data fetching triggered by drill-down selections within the route). Inner containers receive context values and navigation callbacks as props from the outer container. They call their own service hooks for data that depends on local selection state. This is acceptable when the section has its own meaningful orchestration boundary -- for example, a systems drill-down panel that fetches span data only when a system is selected.
 
+### File placement: `pages/` is for pages only
+
+In a Next.js Pages Router project, every `.ts`/`.tsx` file under `src/pages/` is treated as a route. Non-page files (containers, components, hooks, utilities, types) must never be created under `pages/`. When extracting a container or sub-component from a page file, place it in `src/ui/page_blocks/` (or the appropriate feature directory), not alongside the page.
+
+Page files under `pages/` should be thin: import the container from `src/ui/page_blocks/`, render it, and attach `getLayout`. Nothing else.
+
 ### Separation of concerns
 
 Each layer has a single job:
