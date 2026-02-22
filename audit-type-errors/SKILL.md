@@ -62,7 +62,7 @@ classify into one of these categories:
 
 | Code | Root cause | Fix pattern |
 |------|-----------|-------------|
-| DUPLICATE_TYPE | Same name exported from multiple modules | Consolidate to single source in src/types/ |
+| DUPLICATE_TYPE | Same name exported from multiple modules | Consolidate to single source in src/shared/types/ |
 | INCOMPATIBLE_OVERRIDE | Method override does not match parent signature | Fix override signature |
 | GENERIC_CONSTRAINT | Generic type argument does not satisfy constraint | Fix the type argument |
 | ENUM_MISMATCH | Enum value used where different enum or string expected | Unify enum types |
@@ -97,7 +97,7 @@ For each error, trace backward:
 
 Group cascading errors into chains:
 ```
-ROOT: src/types/user.ts:15 -- User interface missing `email` property
+ROOT: src/shared/types/user.ts:15 -- User interface missing `email` property
   CASCADE: src/containers/UserContainer.tsx:42 -- Property 'email' does not exist
   CASCADE: src/components/UserCard.tsx:18 -- Type 'User' is not assignable
   CASCADE: src/components/UserList.tsx:30 -- Property 'email' does not exist
@@ -119,7 +119,7 @@ grep -rn "export \(type\|interface\) " src/ --include="*.ts" --include="*.tsx"
 ```
 
 Flag any type name that is defined in multiple files -- these are deduplication
-targets for `src/types/`.
+targets for `src/shared/types/`.
 
 ### `any` concentration
 
@@ -199,7 +199,7 @@ the developer: "Fix these 10 root causes and 150 of your 244 errors disappear."
 ### Cascading error chains (sorted by cascade count)
 | Root cause | File:Line | Cascade count | Fix |
 |-----------|-----------|--------------|-----|
-| User interface missing `email` | src/types/user.ts:15 | 23 | Add email: Email to User |
+| User interface missing `email` | src/shared/types/user.ts:15 | 23 | Add email: Email to User |
 | Missing export from insightsContext | src/providers/...:42 | 18 | Add export |
 | ... | ... | ... | ... |
 
@@ -212,8 +212,8 @@ the developer: "Fix these 10 root causes and 150 of your 244 errors disappear."
 ### Duplicate type definitions
 | Type name | Defined in | Action |
 |-----------|-----------|--------|
-| ErrorResponse | 22 API routes | Consolidate to src/types/api.ts |
-| QueryOptions | 10 service hooks | Import from src/types/api.ts |
+| ErrorResponse | 22 API routes | Consolidate to src/shared/types/api.ts |
+| QueryOptions | 10 service hooks | Import from src/shared/types/api.ts |
 | ... | ... | ... |
 
 ### Unsound type guards

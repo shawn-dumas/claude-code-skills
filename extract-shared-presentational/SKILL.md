@@ -94,6 +94,19 @@ For each source file, replace the inline pattern with the new component:
 **Verify each replacement renders identically.** The shared component is a
 refactor, not a redesign.
 
+## Type touchpoints
+
+The extracted component's props should reference shared types, not redefine them:
+
+1. Check `src/shared/types/` -- the type may already exist in a domain module.
+2. Import from `@/shared/types/<module>`, not from context files or API files.
+3. For IDs (`userId`, `workstreamId`, `teamId`, `organizationId`), use branded
+   types from `@/shared/types/brand` (`UserId`, `WorkstreamId`, `TeamId`,
+   `OrganizationId`).
+4. If the extracted component introduces a new type that multiple consumers will
+   share, add it to the appropriate domain module in `src/shared/types/`, not
+   inline in the component file.
+
 ## Step 7: Verify
 
 Run `npx tsc --noEmit` on all changed files. Fix type errors. Run tests for

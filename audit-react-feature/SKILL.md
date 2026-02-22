@@ -83,15 +83,15 @@ Record these in the report under a "Debug artifacts" section.
 For each file in the feature:
 
 - Flag any `type` or `interface` declaration that duplicates a definition in
-  `src/types/`. List the duplicate and the canonical source.
+  `src/shared/types/`. List the duplicate and the canonical source.
 - Flag any bare `string` or `number` field that should be a branded type (IDs,
   timestamps, durations, emails, URLs, percentages). List the field, file, and
   which branded type it should use.
 - Flag any `enum` that should be an `as const` object.
 - Flag any inline object type annotation in a function signature that appears
-  in 2+ files (candidate for extraction to `src/types/`).
+  in 2+ files (candidate for extraction to `src/shared/types/`).
 - Flag any `QueryOptions` interface defined locally instead of imported from
-  `src/types/api.ts`.
+  `src/shared/types/api.ts`.
 - Flag any explicit `any` type (`: any`, `as any`, `Record<string, any>`). Count
   occurrences per file.
 - Flag any non-null assertion (`!`) that is not immediately preceded by a Map
@@ -340,7 +340,7 @@ Output a structured report:
 | File:Line | Violation | Canonical type | Action |
 |-----------|-----------|---------------|--------|
 | ...       | bare string for userId | UserId from brand.ts | Replace with branded type |
-| ...       | duplicate ErrorResponse | ErrorResponse from api.ts | Import from src/types/api |
+| ...       | duplicate ErrorResponse | ErrorResponse from api.ts | Import from src/shared/types/api |
 | ...       | enum ClassificationCategories | as const object | Convert |
 | ...       | explicit any (16x) | typed interface | Define DailyMetric interface |
 | ...       | non-null assertion without guard | optional chaining | Replace with ?. |

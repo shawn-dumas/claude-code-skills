@@ -120,6 +120,18 @@ simple prop interfaces, keep types inline in the component file.
   - Fires callback props on user interaction
   - `// TODO:` markers for behavior-specific assertions the developer should add
 
+## Type touchpoints
+
+Before defining any new type or interface inline, check first:
+
+1. Check `src/shared/types/` -- the type may already exist in a domain module.
+2. Import from `@/shared/types/<module>`, not from context files or API files.
+3. For IDs (`userId`, `workstreamId`, `teamId`, `organizationId`), use branded
+   types from `@/shared/types/brand` (`UserId`, `WorkstreamId`, `TeamId`,
+   `OrganizationId`).
+4. For new shared types, add them to the appropriate domain module in
+   `src/shared/types/`, not inline in the component file.
+
 ## Step 5: Verify
 
 Run `npx tsc --noEmit` scoped to the new files (or the whole project if scoping is

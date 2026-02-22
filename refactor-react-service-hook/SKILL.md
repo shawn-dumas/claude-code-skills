@@ -182,6 +182,20 @@ Apply all fixes. Follow these rules:
   interface. Side effects that were removed must be documented so the caller knows
   to absorb them.
 
+## Type touchpoints
+
+When you encounter inline types during the refactor, check whether they belong in
+`src/shared/types/`:
+
+1. Check `src/shared/types/` -- the type may already exist in a domain module.
+2. Import from `@/shared/types/<module>`, not from context files or API files.
+3. For IDs (`userId`, `workstreamId`, `teamId`, `organizationId`), use branded
+   types from `@/shared/types/brand` (`UserId`, `WorkstreamId`, `TeamId`,
+   `OrganizationId`).
+4. When you find inline request/response types used cross-domain (imported by
+   files in other feature areas), move them to the appropriate domain module in
+   `src/shared/types/` and update all import sites.
+
 ## Step 5: Verify
 
 Run `npx tsc --noEmit` scoped to the changed files (or the whole project if scoping
