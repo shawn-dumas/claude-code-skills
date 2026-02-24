@@ -109,16 +109,90 @@ simple prop interfaces, keep types inline in the component file.
 
 ### 4d. `<ComponentName>.spec.tsx`
 
-- Import `describe`, `it`, `expect`, `vi` from vitest (globals are enabled)
-- Import `render`, `screen` from `@testing-library/react`
-- Import `userEvent` from `@testing-library/user-event`
-- Create a `defaultProps` object with realistic mock data
-- Create a `setup(overrides?)` function that renders with merged props
-- Include tests:
-  - Renders without crashing
-  - Renders key data from props (verify specific text/elements appear)
-  - Fires callback props on user interaction
-  - `// TODO:` markers for behavior-specific assertions the developer should add
+The generated test must score 10/10 on `/audit-react-test`. Follow the
+contract-first testing principles below — they align with the full
+`build-react-test` skill.
+
+**Strategy:** Unit test. DDAU components receive all data via props, so
+render with props only — no `QueryClientProvider`, no providers, no
+`MockedProviders` wrapper (P4).
+
+**Imports:**
+
+```tsx
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+// Import fixture builders when they exist for the prop types
+import { buildTeam } from '@/fixtures';
+import { ComponentName } from './ComponentName';
+```
+
+**Test data (P5 + P6):**
+
+- Define `defaultProps` typed as `React.ComponentProps<typeof ComponentName>`
+  at file scope. Each test file owns its own data.
+- Use fixture builders from `src/fixtures/domains/` when they exist for a
+  prop's type. Check before writing inline mock data:
+  `Grep for "export function build" in src/fixtures/domains/`
+- All callback props use `vi.fn()`.
+- No `as any`. If testing with intentionally invalid data, use
+  `as unknown as WrongType` with a comment.
+
+**Setup helper:**
+
+```tsx
+function setup(overrides?: Partial<React.ComponentProps<typeof ComponentName>>) {
+  const props = { ...defaultProps, ...overrides };
+  const user = userEvent.setup();
+  const result = render(<ComponentName {...props} />);
+  return { ...result, props, user };
+}
+```
+
+**Test cases — cover the full public API surface:**
+
+For each **data prop**: at least one test verifying the prop's value appears
+in rendered output via `screen.getByRole()` (preferred), `screen.getByText()`,
+or `screen.getByTestId()` (P1, P8).
+
+For each **callback prop**: at least one test triggering the callback via
+`userEvent` interaction and asserting `toHaveBeenCalledWith(expectedArgs)` (P1).
+
+For each **boolean/state prop**: tests for both states (e.g., `isLoading: true`
+vs `false`, `isDisabled: true` vs `false`).
+
+For **optional props**: test the default behavior when omitted.
+
+For **edge cases**: empty arrays, null/undefined optional values, loading
+states, error states, empty states.
+
+**Assertions (P8 — User Outcomes):**
+- Use `toBeVisible()`, `toBeInTheDocument()`, `toHaveTextContent()`,
+  `toBeDisabled()`, `toHaveAttribute()`.
+- Never assert on CSS class names, DOM structure depth, or snapshot trees.
+
+**Cleanup (P10):**
+- The global `vitest.setup.ts` already provides
+  `afterEach(() => vi.clearAllMocks())`. Do NOT add redundant cleanup.
+- Add file-level cleanup ONLY for resources the global setup does not cover:
+  - `vi.useFakeTimers()` → add `afterEach(() => vi.useRealTimers())`
+  - `localStorage` → add `afterEach(() => localStorage.clear())`
+  - `sessionStorage` → add `afterEach(() => sessionStorage.clear())`
+
+**Determinism (P9):**
+- If the component displays dates/times: add `vi.useFakeTimers()` in
+  `beforeEach` and `vi.useRealTimers()` in `afterEach`.
+- Never rely on `Math.random()` or `new Date()` in assertions.
+
+**Mocking (P2):**
+- Do NOT mock own hooks, own child components, or own utility functions.
+- Mock only external boundaries if needed (fetch, storage, nav, firebase).
+- For DDAU components this is rarely needed — data arrives via props.
+
+**Do NOT generate:**
+- `// TODO:` markers. Write real, passing tests.
+- Snapshot tests.
+- Tests asserting on internal state, hook call counts, or effect order.
 
 ## Type touchpoints
 

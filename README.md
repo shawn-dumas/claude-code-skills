@@ -32,13 +32,13 @@ Page files under `pages/` should be thin: import the container from `src/ui/page
 
 Each layer has a single job:
 
-| Layer | Responsibility | Must NOT |
-|-------|---------------|----------|
-| **Service hooks** | Fetch and mutate data via useQuery/useMutation | Fire toasts, navigate, write to storage, import cross-domain query keys |
-| **Containers** | Wire hooks to components, handle events, manage user feedback | Render complex UI (that belongs in children) |
-| **Components** | Render from props | Call service hooks, context hooks, useRouter, or access browser storage |
-| **Providers** | Hold shared UI state only | Fetch data, own query logic, watch auth state |
-| **Types** | Define shape contracts in `src/shared/types/` | Contain logic, import runtime code, or duplicate definitions across files |
+| Layer             | Responsibility                                                | Must NOT                                                                  |
+| ----------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **Service hooks** | Fetch and mutate data via useQuery/useMutation                | Fire toasts, navigate, write to storage, import cross-domain query keys   |
+| **Containers**    | Wire hooks to components, handle events, manage user feedback | Render complex UI (that belongs in children)                              |
+| **Components**    | Render from props                                             | Call service hooks, context hooks, useRouter, or access browser storage   |
+| **Providers**     | Hold shared UI state only                                     | Fetch data, own query logic, watch auth state                             |
+| **Types**         | Define shape contracts in `src/shared/types/`                 | Contain logic, import runtime code, or duplicate definitions across files |
 
 ### Least power
 
@@ -111,14 +111,14 @@ When prefixing unused destructured props with `_` to satisfy `no-unused-vars`, u
 
 Most useEffects are wrong. Each one gets classified:
 
-| Classification | Correct action |
-|---------------|---------------|
-| Derived state (useEffect + setState where the value is computable) | Replace with useMemo or inline |
-| Prop sync (mirrors a prop into local state) | Controlled component or useMemo |
-| Event handler in disguise (reacts to state set by a user action) | Move logic to the event handler |
-| Mapper side effect (setState inside TanStack Query `select`) | Read from `.data` directly |
-| External system subscription (WebSocket, ResizeObserver) | Keep |
-| Unmount cleanup | Keep |
+| Classification                                                     | Correct action                  |
+| ------------------------------------------------------------------ | ------------------------------- |
+| Derived state (useEffect + setState where the value is computable) | Replace with useMemo or inline  |
+| Prop sync (mirrors a prop into local state)                        | Controlled component or useMemo |
+| Event handler in disguise (reacts to state set by a user action)   | Move logic to the event handler |
+| Mapper side effect (setState inside TanStack Query `select`)       | Read from `.data` directly      |
+| External system subscription (WebSocket, ResizeObserver)           | Keep                            |
+| Unmount cleanup                                                    | Keep                            |
 
 ### Single-domain ownership
 
@@ -190,11 +190,11 @@ Start maximalist: put everything URL-worthy into the URL. Remove params that pro
 
 Client-side persistence has three tiers. Each has a different lifetime and appropriate use:
 
-| Tier | Mechanism | Lifetime | Use for |
-|------|-----------|----------|---------|
-| **Shareable** | URL (nuqs) | Survives share/bookmark | Filters, sort, tab, date range, pagination, selected entity |
-| **Persistent** | localStorage | Survives close/reopen | User preferences, theme, dismissed banners, cached selections |
-| **Ephemeral** | sessionStorage | Dies with the tab | Drill-down position, scroll offset, expand/collapse state within a session |
+| Tier           | Mechanism      | Lifetime                | Use for                                                                    |
+| -------------- | -------------- | ----------------------- | -------------------------------------------------------------------------- |
+| **Shareable**  | URL (nuqs)     | Survives share/bookmark | Filters, sort, tab, date range, pagination, selected entity                |
+| **Persistent** | localStorage   | Survives close/reopen   | User preferences, theme, dismissed banners, cached selections              |
+| **Ephemeral**  | sessionStorage | Dies with the tab       | Drill-down position, scroll offset, expand/collapse state within a session |
 
 sessionStorage for ephemeral drill-down state is not a DDAU violation. It is external-system sync (same category as ResizeObserver or scroll position) -- the component persists its position so the user does not lose context when navigating within a session. The container or inner container that owns the drill-down state is the appropriate owner of the sessionStorage read/write.
 
@@ -382,6 +382,8 @@ The audit skill produces a migration checklist in exactly this order, and each c
 
 5. **Components.** Use `refactor-react-component` on remaining self-contained components to convert them to DDAU. At this point the container exists, so the component just needs its hooks removed and its Props interface defined.
 
+6. **Tests.** After refactoring production code, run `audit-react-test` on the affected spec files. Use `refactor-react-test` to fix violations (auto-deletes and delegates to `build-react-test` if beyond repair). Use `build-react-test` to fill coverage gaps for production files that have no spec. Every spec must score 10/10 before the refactor is considered complete.
+
 ### Building new code
 
 The build skills follow the same topological order. Each layer depends on the one before it.
@@ -395,6 +397,8 @@ The build skills follow the same topological order. Each layer depends on the on
 4. **Components.** `build-react-component` -- leaf UI that renders from props.
 
 5. **Utility hooks.** `build-react-hook` -- DOM or state utilities that any layer might need. These can be created at any point since they have no architectural dependencies.
+
+Each build skill generates a test file that scores 10/10 on `audit-react-test`. If you need to create a standalone test for an existing production file, use `build-react-test` directly.
 
 ## Template Cleanup Skills
 
@@ -447,6 +451,56 @@ Swaps one package for another. Maps the old API surface to the new package, rewr
 ```
 /replace-npm-package react-hot-toast sonner "toast() -> toast(), <Toaster /> -> <Toaster />"
 /replace-npm-package react-csv react-csv-downloader
+```
+
+## Test Quality Skills
+
+### audit-react-test
+
+**Read-only diagnostic.** Point it at a feature directory or a single spec file and it scores every test file against the 10 contract-first testing principles: public API only, boundary mocking, system isolation, strict strategies, data ownership, type-safe mocks, refactor sync, user outcomes, determinism, and total cleanup. Produces a per-file scorecard, violation inventory, coverage gap analysis, and migration priority list.
+
+Run this before refactoring tests or after refactoring production code to identify stale mocks, missing cleanup, and coverage gaps.
+
+```
+/audit-react-test src/ui/page_blocks/dashboard/productivity
+```
+
+### build-react-test
+
+Generate a contract-first test file for a component, container, hook, or utility. Reads the production file's API surface (props, return type, function signatures), selects the correct strategy (unit for DDAU components/pure functions, integration for containers), wires fixture data from `src/fixtures/`, and produces a spec that scores 10/10 on the audit skill.
+
+Includes a delete threshold: if an existing spec file scores ≤ 4/10, mocks ≥ 3 own hooks, or references deleted providers, the skill deletes it and generates fresh rather than trying to salvage it.
+
+```
+/build-react-test src/ui/page_blocks/dashboard/productivity/ProductivityTrendCard.tsx
+/build-react-test src/ui/services/hooks/queries/productivity/useProductivityQuery.ts
+/build-react-test src/shared/utils/date/formatDate/formatDate.ts
+```
+
+### refactor-react-test
+
+Audit an existing Vitest spec against the 10 contract-first principles and the current production API, then rewrite it to comply. Applies the delete threshold internally — if the file scores ≤ 4/10, deletes and delegates to `build-react-test` instead of patching. For files scoring 7+, applies targeted fixes: removes stale mocks, replaces internal mocking with boundary mocking, adds type safety to mock data, fixes cleanup, and rewrites implementation-detail assertions.
+
+```
+/refactor-react-test src/ui/page_blocks/dashboard/explorer/components/ExplorerEmptyStates.spec.tsx
+/refactor-react-test src/ui/components/8flow/Table/tests/Table.spec.tsx
+```
+
+### refactor-playwright-test
+
+Audit an existing Playwright E2E spec against the current page structure. Detects stale test IDs, hardcoded `waitForTimeout` calls (flakiness), missing route cleanup, redundant near-identical tests, and assertion anti-patterns. Fixes selectors, replaces waits with specific conditions, adds `page.unrouteAll()` cleanup, and consolidates repetitive tests into parameterized loops.
+
+```
+/refactor-playwright-test e2e/tests/mockDataRealTime.spec.ts
+```
+
+### build-playwright-test
+
+Generate a Playwright E2E spec for a page route. Uses `page.route()` for network interception with fixture data from `src/fixtures/`, proper wait conditions (never `waitForTimeout`), and user-centric assertions via Playwright's auto-waiting matchers. Supports both mock-data tests (local mode) and real-auth tests.
+
+```
+/build-playwright-test /insights/productivity "Filter by team, verify table updates, drill down to user"
+/build-playwright-test /insights/analysis/explorer "Load graph, click node, verify detail panel"
 ```
 
 ## Type Safety Skills

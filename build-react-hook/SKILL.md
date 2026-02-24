@@ -79,17 +79,56 @@ export { useHookName } from './useHookName';
 
 ### 4c. `<useHookName>.spec.ts`
 
-- Import `renderHook`, `act`, `waitFor` from `@testing-library/react`
-- Import `describe`, `it`, `expect`, `vi` from vitest (globals are enabled)
-- For DOM hooks:
-  - Mock the relevant browser API (window.matchMedia, ResizeObserver, etc.)
-  - Test that the hook subscribes on mount and cleans up on unmount
-  - Test that the hook updates when the browser API fires
-- For state hooks:
-  - Test initial state
-  - Test state transitions via returned setters/actions
-  - Test edge cases (rapid updates, same-value sets)
-- `// TODO:` markers for behavior-specific assertions
+The generated test must score 10/10 on `/audit-react-test`. Follow the
+contract-first testing principles below.
+
+**Strategy:** Hook unit test. Test via `renderHook` — assert on
+`result.current.*` return values, not on internal implementation (P1).
+
+**Imports:**
+
+```ts
+import { renderHook, act, waitFor } from '@testing-library/react';
+```
+
+Vitest globals (`describe`, `it`, `expect`, `vi`) are auto-imported.
+
+**For DOM/browser utility hooks:**
+
+- Mock only the browser API boundary (e.g., `window.matchMedia`,
+  `ResizeObserver`, `IntersectionObserver`, `addEventListener`). These are
+  external boundaries — mocking them is correct (P2).
+- Test that the hook returns the expected initial value.
+- Test that the return value updates when the browser API fires events.
+- Test cleanup: unmount the hook via `renderHook` result and verify the
+  listener/observer was removed (e.g., `disconnect` or `removeEventListener`
+  was called).
+
+**For state utility hooks:**
+
+- Test initial return value.
+- Test state transitions via returned setters/actions (wrap in `act`).
+- Test edge cases: rapid updates, same-value sets, boundary values.
+- Do NOT mock own utility functions the hook may import (P2). Let them run.
+
+**Cleanup (P10):**
+- The global `vitest.setup.ts` handles `afterEach(() => vi.clearAllMocks())`.
+- Add file-level cleanup ONLY for resources the global setup does not cover:
+  - `vi.useFakeTimers()` → `afterEach(() => vi.useRealTimers())`
+  - `vi.spyOn(window, ...)` → covered by global `clearAllMocks`, but if
+    you use `mockImplementation` that changes behavior, add explicit restore.
+
+**Type safety (P6):** All mock return values and spy setups should be typed.
+No `as any`. Use `satisfies` or explicit type annotations for mock data.
+
+**Determinism (P9):** If the hook uses timers (`setTimeout`, `setInterval`),
+use `vi.useFakeTimers()` in `beforeEach` and `vi.useRealTimers()` in
+`afterEach`. Use `vi.advanceTimersByTime()` to control timer progression.
+
+**Do NOT generate:**
+- `// TODO:` markers. Write real, passing tests.
+- Tests asserting on internal state variables or effect execution order.
+- Snapshot tests.
 
 ### 4d. Update barrel export
 

@@ -90,16 +90,95 @@ Create the query keys file with the hierarchical factory pattern.
 
 ### 4d. `<useHookName>.spec.ts`
 
-- Import `renderHook`, `waitFor` from `@testing-library/react`
-- Create a test QueryClient with `defaultOptions: { queries: { retry: false } }`
-- Create a wrapper component with `QueryClientProvider`
-- Mock `useFetchApi` to return a mock fetch function
-- Tests:
-  - Hook returns expected shape (data, isLoading, etc.)
-  - Hook passes correct query key
-  - Hook calls fetch with correct URL and parameters
-  - For mutations: test the onSuccess invalidation
-  - `// TODO:` markers for data-specific assertions
+The generated test must score 10/10 on `/audit-react-test`. Follow the
+contract-first testing principles below.
+
+**Strategy:** Hook unit test with `QueryClientProvider` wrapper. Service hooks
+call `useQuery`/`useMutation` via `useFetchApi`, so they need a QueryClient.
+Use `fetchMock` (globally available from vitest-fetch-mock) to intercept
+network calls at the fetch boundary (P2, P4).
+
+**Imports:**
+
+```ts
+import { renderHook, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
+// Import fixture builders for response data
+import { buildTeam } from '@/fixtures';
+import { useMyQuery } from './useMyQuery';
+```
+
+**Test infrastructure:**
+
+```ts
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+      mutations: { retry: false },
+    },
+  });
+}
+
+function createWrapper() {
+  const queryClient = createTestQueryClient();
+  return {
+    queryClient,
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    ),
+  };
+}
+```
+
+**Test data (P5 + P6):**
+
+- Use fixture builders from `src/fixtures/domains/` for response data. Check
+  `src/fixtures/domains/` for builders before writing inline data.
+- Mock responses with `fetchMock.mockResponseOnce(JSON.stringify(data))`.
+- No `as any`. Use explicit types and `satisfies` for mock data.
+
+**Test cases — cover the hook's public API:**
+
+For **query hooks:**
+- Returns expected data shape on success (assert `result.current.data`).
+- Calls fetch with correct URL and parameters (assert via `fetchMock`
+  call args).
+- Handles `enabled: false` (hook does not fire fetch).
+- Tests `select` transformation if the hook uses one (assert on
+  `result.current.data` shape, not on the `select` function directly).
+- Handles fetch error (mock rejection, assert `result.current.isError`).
+
+For **mutation hooks:**
+- Returns `mutate`/`mutateAsync` function.
+- Calls fetch with correct URL, method, and body on invocation.
+- `onSuccess` invalidates correct query keys (spy on `queryClient.invalidateQueries`).
+
+**Cleanup (P10):**
+
+```ts
+beforeEach(() => {
+  fetchMock.resetMocks();
+});
+```
+
+The global `vitest.setup.ts` handles `afterEach(() => vi.clearAllMocks())`.
+Do NOT add redundant cleanup. Add `afterEach(() => vi.useRealTimers())` only
+if using fake timers.
+
+**Mocking (P2):** Mock only at the fetch boundary via `fetchMock`. Do NOT
+mock own utility functions, own query key helpers, or own `select` mappers.
+Let them run — they are internal implementation.
+
+**Assertions (P1):** Assert on `result.current.data`, `result.current.isSuccess`,
+`result.current.isError` — the hook's public return surface. Do not assert on
+internal state, query key construction, or effect execution.
+
+**Do NOT generate:**
+- `// TODO:` markers. Write real, passing tests.
+- Tests that mock own utility functions or own query key files.
+- Snapshot tests.
 
 ## Type touchpoints
 

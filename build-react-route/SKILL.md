@@ -118,11 +118,89 @@ export { ContainerName } from './ContainerName';
 
 **`<ContainerName>.spec.tsx`**:
 
-- Mock all service hooks and context hooks
-- Test that the container renders without crashing
-- Test that the container passes expected props to children
-- Test that mutation callbacks trigger the right side effects
-- `// TODO:` markers for integration-specific assertions
+The generated test must score 10/10 on `/audit-react-test`. Follow the
+contract-first testing principles below.
+
+**Strategy:** Integration test. Containers call service hooks, context hooks,
+and router, so they need `QueryClientProvider` and `fetchMock` (P4).
+
+**Imports:**
+
+```tsx
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
+import { ContainerName } from './ContainerName';
+```
+
+**Test infrastructure:**
+
+```tsx
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+      mutations: { retry: false },
+    },
+  });
+}
+
+function setup() {
+  const queryClient = createTestQueryClient();
+  const user = userEvent.setup();
+  const result = render(
+    <QueryClientProvider client={queryClient}>
+      <ContainerName />
+    </QueryClientProvider>,
+  );
+  return { ...result, queryClient, user };
+}
+```
+
+**Test data (P5 + P6):**
+
+- Use fixture builders from `src/fixtures/domains/` for API response data.
+  Check `src/fixtures/domains/` for builders before writing inline data.
+- `fetchMock` is globally available (vitest-fetch-mock). Use
+  `fetchMock.mockResponseOnce(JSON.stringify(fixtureData))` for API responses.
+- No `as any`. Use `satisfies` for typed mock data.
+
+**Test cases — cover the container's orchestration:**
+
+- Renders child components with correct data after fetch completes (use
+  `waitFor` + `screen.getByText`/`screen.getByRole` to verify).
+- Handles fetch error state (mock fetch rejection, verify error UI).
+- User interactions trigger mutations (verify via `fetchMock` call assertions).
+- Navigation callbacks fire correctly (via mocked `next/router`).
+- URL state changes propagate to children (if using nuqs).
+
+**Cleanup (P10):**
+
+```tsx
+beforeEach(() => {
+  fetchMock.resetMocks();
+});
+```
+
+The global `vitest.setup.ts` handles `afterEach(() => vi.clearAllMocks())`.
+Add file-level cleanup ONLY for:
+- `vi.useFakeTimers()` → `afterEach(() => vi.useRealTimers())`
+- `localStorage` → `afterEach(() => localStorage.clear())`
+- `sessionStorage` → `afterEach(() => sessionStorage.clear())`
+
+**Assertions (P8):** Use `getByRole`, `getByText`, `toBeVisible`,
+`toBeInTheDocument`. Never assert on CSS classes or DOM structure.
+
+**Mocking (P2):** Mock only at external boundaries — `fetchMock` for network,
+`next/router` for navigation (already globally mocked). Do NOT mock own child
+components, own hooks, or own utilities. Let real presentational children
+render (P3).
+
+**Do NOT generate:**
+- `// TODO:` markers. Write real, passing tests.
+- Snapshot tests.
+- Tests asserting on internal state, hook call counts, or effect order.
 
 ### 4c. Child components
 
