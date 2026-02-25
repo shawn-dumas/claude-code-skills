@@ -1,12 +1,76 @@
-# Claude Code Skills for React Architecture
+# Claude Code Skills
 
-A set of [Claude Code skills](https://docs.anthropic.com/en/docs/claude-code/skills) that enforce a consistent React architecture. The **refactor** skills audit existing code against a shared set of principles and rewrite it to comply. The **build** skills generate new code that follows those same principles from the start, so prototyped features drop into the production app without a refactoring pass. Both sets verify with TypeScript and tests before finishing.
+A set of [Claude Code skills](https://docs.anthropic.com/en/docs/claude-code/skills) that enforce consistent architecture across the codebase. The **audit** skills are read-only diagnostics that score code against principles and produce violation reports. The **refactor** skills fix those violations. The **build** skills generate new code that follows the same principles from the start. All write skills verify with TypeScript and tests before finishing.
 
 These skills are opinionated. They encode a specific architectural model that prioritizes explicit data flow, clear ownership boundaries, and minimal coupling. If your codebase follows different conventions, you will want to fork and adapt them.
 
-## Principles
+## General Code Principles
 
-Every skill in this repo enforces the same core rules. Understanding them is more important than memorizing the individual skills.
+These 10 principles apply to all non-trivial TypeScript code in the project -- utilities, server-side processing, API handlers, schemas, scripts, and shared libraries. The React-specific principles in the next section are specializations of these general rules applied to the component model.
+
+### G1 -- Single Job Per Module
+
+A file does one thing. A utility formats dates. A schema validates one endpoint's shape. A dataset loader fetches and transforms one dataset. If you need a second paragraph to explain what a file does, it is two files.
+
+*Test: Can you name the file's job in under 8 words?*
+
+### G2 -- Explicit Inputs, Explicit Outputs
+
+Every function declares what it needs (parameters) and what it returns (typed return). No reaching into closures for data. No mutating arguments. No ambient dependencies (env vars, globals) without them being passed in or documented at the module top.
+
+*Exception: Logger and config singletons at module scope are acceptable if declared at the top of the file.*
+
+### G3 -- Duplication Over Bad Abstraction
+
+Two or three similar blocks of code are fine. Only extract a shared function when (a) the pattern has appeared 3+ times, (b) the shared shape is stable (not still evolving), and (c) the abstraction makes each call site simpler, not just shorter.
+
+*Test: If the abstraction needs a boolean flag or mode parameter to handle the variants, it is probably two functions.*
+
+### G4 -- Low Cyclomatic Complexity
+
+Keep branching shallow. Prefer early returns over nested if/else. Prefer lookup objects/maps over switch statements. Prefer guard clauses that exit early. Target: no function exceeds complexity of roughly 5 (one main path plus a few guards).
+
+*Technique: "Flatten and return early."*
+
+### G5 -- Parse, Don't Validate
+
+Trust boundaries (API responses, user input, env vars, CSV rows) get parsed once into typed, branded values. After that point, code operates on trusted types -- no defensive re-checking. Interior code trusts its inputs.
+
+*Aligns with the existing Zod-at-the-boundary pattern and branded types from `src/shared/types/brand.ts`.*
+
+### G6 -- Pure Core, Effects at the Edge
+
+Separate computation from side effects. Data transformation functions should be pure (same input, same output, no I/O). Side effects (database calls, file writes, API requests, logging) happen in a thin outer layer that calls into pure functions.
+
+*Benefits: testable without mocks, composable, predictable.*
+
+### G7 -- Narrow Exports
+
+A module exports only what other modules consume. Internal helpers stay unexported. Barrel files (`index.ts`) are the public API. If you export something "just in case," delete it.
+
+*Aligns with the existing cross-domain import rule.*
+
+### G8 -- Types as Documentation
+
+The type signature should tell the full story. If someone needs to read the function body to understand the contract, the types are too loose. Use branded types, discriminated unions, and literal types to make invalid states unrepresentable.
+
+*Corollary: Comments explain "why," types explain "what."*
+
+### G9 -- Composition Over Configuration
+
+Prefer composing small, focused functions (pipe, chain, sequence) over building one function that takes an options object. When you see `{ mode: 'A' | 'B', includeX?: boolean }`, consider whether that is really two separate functions.
+
+*Ties directly into G3 -- a configurable abstraction is often a bad abstraction.*
+
+### G10 -- Fail Loud, Fail Fast
+
+At trust boundaries, throw or return typed errors immediately. No silently swallowing. No fallback defaults that hide bugs. Interior code can assume valid data (because G5 already parsed it). When something unexpected happens, surface it -- do not paper over it.
+
+## React Principles
+
+The following principles specialize the general rules above for React's component model. DDAU is G2 applied to components. Least power is G1 + G9 applied to hooks and context. Template least-power is G4 applied to JSX.
+
+Every React skill in this repo enforces these rules. Understanding them is more important than memorizing the individual skills.
 
 ### Data Down, Actions Up (DDAU)
 
@@ -243,7 +307,39 @@ When a container passes the same value to multiple leaves and the alternative is
 
 The skills enforce the strict default. When you hit a case where prop drilling is genuinely worse, extract a scoped context following the convention above and document why.
 
-## Refactor Skills
+## General Code Skills
+
+These skills apply the G1-G10 principles to non-React TypeScript code: utilities, server-side processing, API handlers, schemas, and shared libraries.
+
+### audit-module
+
+**Read-only diagnostic.** Point it at any non-React TypeScript file and it scores every function against G1-G10. Classifies the module type (utility, server processor, API schema, script, constant), detects high cyclomatic complexity, mixed pure/impure code, over-broad exports, untyped trust boundaries, bad abstractions (flag parameters, mode switches), and silent error swallowing.
+
+Run this before `refactor-module`.
+
+```
+/audit-module src/shared/utils/date/formatDate.ts
+/audit-module src/server/companyData/analyzerDataset.ts
+```
+
+### refactor-module
+
+Takes a non-React TypeScript file and rewrites it to comply with G1-G10. Splits mixed-responsibility files, extracts pure functions from side-effectful ones, replaces nested branching with early returns and lookup maps, narrows exports, adds branded types at trust boundaries, and flags (but does not remove) duplication that might be intentional.
+
+```
+/refactor-module src/shared/utils/date/formatDate.ts
+/refactor-module src/server/companyData/systemsDataset.ts
+```
+
+### audit-api-handler
+
+**Read-only diagnostic.** Audits an API route handler together with its `.schema.ts` file. Checks schema completeness (request params, response shape, error responses), handler structure (parse at boundary, pure logic in middle, response at edge), consistent error handling patterns, and Zod schema alignment with the shared type system.
+
+```
+/audit-api-handler src/pages/api/productivity.ts
+```
+
+## React Refactor Skills
 
 ### audit-react-feature
 
@@ -295,7 +391,7 @@ Dedicated skill for useQuery/useMutation hooks. Strips factory indirection, puri
 /refactor-react-service-hook src/services/hooks/queries/useInsightsData.ts
 ```
 
-## Build Skills
+## React Build Skills
 
 The build skills generate new code that follows the architecture from the start. They survey the surrounding codebase to match conventions, generate files with full type annotations and test skeletons, and verify with `tsc` and the test runner before finishing.
 
@@ -366,7 +462,13 @@ done
 
 ## Workflow
 
-### Refactoring existing code
+### Refactoring non-React code
+
+1. **Audit first.** Run `audit-module` on the target file. Read the violation report.
+2. **Refactor.** Run `refactor-module` on the file. It re-runs the audit internally and applies fixes.
+3. **For API handlers:** Run `audit-api-handler` on the handler file. It audits the handler and its schema together. Use `refactor-module` to fix violations.
+
+### Refactoring React code
 
 The ordering is not arbitrary -- it mirrors the dependency graph. You cannot convert components to DDAU until containers exist to absorb their hook calls. Containers cannot be clean until service hooks are standalone and side-effect-free. Service hooks cannot be standalone until factory indirection is eliminated. Each phase unblocks the next.
 
