@@ -67,11 +67,13 @@ escape-hatch criteria (stable, narrow, local, no orchestration).
 
 ### 2c. Storage boundary
 
-The container should be the sole reader/writer of localStorage/sessionStorage for
-its route. Check:
+The container should be the sole reader/writer of storage for its route, using
+`readStorage`/`writeStorage`/`removeStorage` from `@/shared/utils/typedStorage`.
+Never use raw `localStorage`/`sessionStorage` calls. Check:
 - Do any child components directly read or write storage?
 - Does the container read stored defaults at mount and pass them as props?
 - Does the container write back to storage on state changes?
+- Is every read validated with a Zod schema via `readStorage`?
 
 ### 2d. Toast boundary
 
@@ -200,8 +202,9 @@ Apply all fixes. Follow these rules:
   as data props. It creates navigation callbacks and param-setter callbacks and
   passes them as callback props. Children never call useRouter, usePathname,
   useSearchParams, or useQueryState.
-- **The container owns storage.** It reads stored defaults at mount, passes them as
-  props, and writes back on changes. Children never touch localStorage/sessionStorage.
+- **The container owns storage.** It reads stored defaults at mount (via
+  `readStorage` with a Zod schema), passes them as props, and writes back on
+  changes (via `writeStorage`/`removeStorage`). Children never touch storage.
 - **The container owns toasts.** Mutation onSuccess/onError callbacks in the
   container decide user feedback. Service hooks return data/errors only.
 - **The container owns cross-domain invalidation.** When a mutation succeeds and

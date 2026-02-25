@@ -253,12 +253,15 @@ escape-hatch criteria (stable, narrow, local, no orchestration).
   should own the `useQueryState` call after refactor?
 
 ### Storage
-- List every localStorage/sessionStorage key accessed in this feature
+- List every storage key accessed in this feature
 - For each key: who reads it, who writes it, is there a single owner?
 - Flag any key with multiple independent writers
 - Flag any leaf component that directly accesses storage
-- Flag any localStorage key that stores URL-worthy state (should move to URL
-  params instead of localStorage after refactor)
+- Flag any key that stores URL-worthy state (should move to URL params)
+- Flag any raw `localStorage.*` or `sessionStorage.*` call -- all storage
+  access must go through `readStorage`/`writeStorage`/`removeStorage` from
+  `@/shared/utils/typedStorage`
+- Flag any storage read without a Zod schema
 
 ### Toasts
 - List every toast call site in this feature

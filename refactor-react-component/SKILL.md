@@ -29,7 +29,8 @@ For each violation found, note the file, the line, what is wrong, and what the f
 ### 2a. Zero spooky action at a distance
 
 Look for hidden communication channels:
-- localStorage/sessionStorage keys read or written without a single owner module
+- Storage keys read or written without a single owner module, or accessed via
+  raw `localStorage`/`sessionStorage` instead of `typedStorage` helpers
 - Context values consumed deep in the tree instead of passed as props
 - Query key strings imported across domain boundaries
 - Side effects (toasts, navigation, analytics) buried inside functions that look pure

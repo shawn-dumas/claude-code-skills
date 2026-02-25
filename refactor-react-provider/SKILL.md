@@ -202,7 +202,7 @@ Apply all fixes. Follow these rules:
   useEffect(() => {
     return registerCleanup(() => {
       setState(initialState);
-      localStorage.removeItem(STORAGE_KEY);
+      removeStorage(STORAGE_KEY); // from @/shared/utils/typedStorage
     });
   }, []);
   ```

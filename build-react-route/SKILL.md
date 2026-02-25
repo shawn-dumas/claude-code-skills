@@ -97,8 +97,10 @@ exist.
 - Reads URL state via nuqs `useQueryState` / `useQueryStates` for any
   URL-worthy state (filters, sort, tab, date range, pagination, selected
   team/user). Passes values as data props and setters as callback props.
-- Manages localStorage reads/writes (if applicable). If a localStorage key
-  stores URL-worthy state, use nuqs instead -- the URL replaces localStorage.
+- Manages storage reads/writes via `readStorage`/`writeStorage`/`removeStorage`
+  from `@/shared/utils/typedStorage` (if applicable). Never use raw
+  `localStorage`/`sessionStorage`. If a key stores URL-worthy state, use nuqs
+  instead -- the URL replaces storage as the persistence mechanism.
 - Defines mutation onSuccess/onError callbacks with:
   - Toast feedback (toastSuccess, toastError)
   - Same-domain cache invalidation

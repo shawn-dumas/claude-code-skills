@@ -12,55 +12,55 @@ These 10 principles apply to all non-trivial TypeScript code in the project -- u
 
 A file does one thing. A utility formats dates. A schema validates one endpoint's shape. A dataset loader fetches and transforms one dataset. If you need a second paragraph to explain what a file does, it is two files.
 
-*Test: Can you name the file's job in under 8 words?*
+_Test: Can you name the file's job in under 8 words?_
 
 ### G2 -- Explicit Inputs, Explicit Outputs
 
 Every function declares what it needs (parameters) and what it returns (typed return). No reaching into closures for data. No mutating arguments. No ambient dependencies (env vars, globals) without them being passed in or documented at the module top.
 
-*Exception: Logger and config singletons at module scope are acceptable if declared at the top of the file.*
+_Exception: Logger and config singletons at module scope are acceptable if declared at the top of the file._
 
 ### G3 -- Duplication Over Bad Abstraction
 
 Two or three similar blocks of code are fine. Only extract a shared function when (a) the pattern has appeared 3+ times, (b) the shared shape is stable (not still evolving), and (c) the abstraction makes each call site simpler, not just shorter.
 
-*Test: If the abstraction needs a boolean flag or mode parameter to handle the variants, it is probably two functions.*
+_Test: If the abstraction needs a boolean flag or mode parameter to handle the variants, it is probably two functions._
 
 ### G4 -- Low Cyclomatic Complexity
 
 Keep branching shallow. Prefer early returns over nested if/else. Prefer lookup objects/maps over switch statements. Prefer guard clauses that exit early. Target: no function exceeds complexity of roughly 5 (one main path plus a few guards).
 
-*Technique: "Flatten and return early."*
+_Technique: "Flatten and return early."_
 
 ### G5 -- Parse, Don't Validate
 
 Trust boundaries (API responses, user input, env vars, CSV rows) get parsed once into typed, branded values. After that point, code operates on trusted types -- no defensive re-checking. Interior code trusts its inputs.
 
-*Aligns with the existing Zod-at-the-boundary pattern and branded types from `src/shared/types/brand.ts`.*
+_Aligns with the existing Zod-at-the-boundary pattern and branded types from `src/shared/types/brand.ts`._
 
 ### G6 -- Pure Core, Effects at the Edge
 
 Separate computation from side effects. Data transformation functions should be pure (same input, same output, no I/O). Side effects (database calls, file writes, API requests, logging) happen in a thin outer layer that calls into pure functions.
 
-*Benefits: testable without mocks, composable, predictable.*
+_Benefits: testable without mocks, composable, predictable._
 
 ### G7 -- Narrow Exports
 
 A module exports only what other modules consume. Internal helpers stay unexported. Barrel files (`index.ts`) are the public API. If you export something "just in case," delete it.
 
-*Aligns with the existing cross-domain import rule.*
+_Aligns with the existing cross-domain import rule._
 
 ### G8 -- Types as Documentation
 
 The type signature should tell the full story. If someone needs to read the function body to understand the contract, the types are too loose. Use branded types, discriminated unions, and literal types to make invalid states unrepresentable.
 
-*Corollary: Comments explain "why," types explain "what."*
+_Corollary: Comments explain "why," types explain "what."_
 
 ### G9 -- Composition Over Configuration
 
 Prefer composing small, focused functions (pipe, chain, sequence) over building one function that takes an options object. When you see `{ mode: 'A' | 'B', includeX?: boolean }`, consider whether that is really two separate functions.
 
-*Ties directly into G3 -- a configurable abstraction is often a bad abstraction.*
+_Ties directly into G3 -- a configurable abstraction is often a bad abstraction._
 
 ### G10 -- Fail Loud, Fail Fast
 
@@ -234,6 +234,8 @@ export type Role = (typeof Role)[keyof typeof Role];
 
 Data from `JSON.parse`, `localStorage`, `fetch` responses, and Supabase queries must be validated at the point of entry. Use Zod `safeParse`, a sound type guard, or the Supabase typed client (`createClient<Database>(...)`). Do not cast with `as`.
 
+**Storage access must go through `typedStorage`.** Never call `localStorage.getItem`/`setItem`/`removeItem` or `sessionStorage.*` directly in production code. Use `readStorage`/`writeStorage`/`removeStorage` from `@/shared/utils/typedStorage`. Every `readStorage` call requires a Zod schema, enforcing runtime validation at the trust boundary automatically. `writeStorage` handles `JSON.stringify`; `readStorage` handles `JSON.parse` + schema validation. Each storage key has exactly one owner module that exports the key constant and its Zod schema.
+
 #### Type guards must be sound
 
 A user-defined type guard (`value is T`) must validate enough of `T`'s structure to justify the claim. Checking one key on a 10-property interface is not sound -- it lies to the compiler. For complex shapes, prefer Zod schemas. For simple discriminants, `typeof`, `instanceof`, and `in` are sufficient.
@@ -260,7 +262,9 @@ Client-side persistence has three tiers. Each has a different lifetime and appro
 | **Persistent** | localStorage   | Survives close/reopen   | User preferences, theme, dismissed banners, cached selections              |
 | **Ephemeral**  | sessionStorage | Dies with the tab       | Drill-down position, scroll offset, expand/collapse state within a session |
 
-sessionStorage for ephemeral drill-down state is not a DDAU violation. It is external-system sync (same category as ResizeObserver or scroll position) -- the component persists its position so the user does not lose context when navigating within a session. The container or inner container that owns the drill-down state is the appropriate owner of the sessionStorage read/write.
+Both **Persistent** and **Ephemeral** tiers must be accessed exclusively through `readStorage`/`writeStorage`/`removeStorage` from `@/shared/utils/typedStorage`. Pass `'session'` as the third argument for sessionStorage; localStorage is the default. Never call raw `localStorage.*` or `sessionStorage.*` in production code.
+
+sessionStorage for ephemeral drill-down state is not a DDAU violation. It is external-system sync (same category as ResizeObserver or scroll position) -- the container or inner container that owns the drill-down state is the appropriate owner of the storage read/write, using the typedStorage helpers.
 
 ### No factory indirection
 
