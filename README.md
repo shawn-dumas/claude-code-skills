@@ -339,6 +339,32 @@ Takes a non-React TypeScript file and rewrites it to comply with G1-G10. Splits 
 /audit-api-handler src/pages/api/productivity.ts
 ```
 
+### audit-module-test
+
+**Read-only diagnostic.** Audits test files for non-React modules against the 10 contract-first testing principles adapted for utilities, server processors, and data transformers. Detects internal mocking, stale mocks, missing cleanup, type-unsafe mocks, and non-determinism. Produces a per-file scorecard and migration priority list.
+
+```
+/audit-module-test src/server/companyData/analyzerDataset.spec.ts
+/audit-module-test src/shared/utils/
+```
+
+### build-module-test
+
+Generates a test file for a non-React module. Reads the production API surface, classifies exports as pure or I/O, selects the correct strategy (zero mocks for pure, boundary mocks for I/O), wires fixture data, and produces a spec that scores 10/10 on `audit-module-test`. Includes a delete threshold for existing specs that are beyond repair.
+
+```
+/build-module-test src/server/companyData/analyzerDataset.ts
+/build-module-test src/shared/utils/date/formatDate.ts
+```
+
+### refactor-module-test
+
+Audits an existing test file for a non-React module against the 10 principles and the current production API, then rewrites it to comply. Applies the delete threshold -- if the file scores <= 4/10, deletes and delegates to `build-module-test`. For files scoring 7+, applies targeted fixes: removes internal mocks, adds type safety, fixes cleanup, rewrites implementation-detail assertions.
+
+```
+/refactor-module-test src/shared/utils/metadata.spec.ts
+```
+
 ## React Refactor Skills
 
 ### audit-react-feature
@@ -464,9 +490,11 @@ done
 
 ### Refactoring non-React code
 
-1. **Audit first.** Run `audit-module` on the target file. Read the violation report.
-2. **Refactor.** Run `refactor-module` on the file. It re-runs the audit internally and applies fixes.
-3. **For API handlers:** Run `audit-api-handler` on the handler file. It audits the handler and its schema together. Use `refactor-module` to fix violations.
+1. **Audit first.** Run `audit-module` on the target file. Read the violation report. Note the test coverage level.
+2. **If UNTESTED:** Run `build-module-test` to create a spec file before refactoring. This is your safety net.
+3. **Refactor.** Run `refactor-module` on the file. It re-runs the audit internally and applies fixes.
+4. **Audit tests.** If tests existed before the refactor, run `audit-module-test` to check for stale mocks. Use `refactor-module-test` to fix violations.
+5. **For API handlers:** Run `audit-api-handler` on the handler file. It audits the handler and its schema together. Use `refactor-module` to fix violations.
 
 ### Refactoring React code
 

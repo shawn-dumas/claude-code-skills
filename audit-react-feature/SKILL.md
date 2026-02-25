@@ -269,6 +269,33 @@ escape-hatch criteria (stable, narrow, local, no orchestration).
 - List every import of query keys from outside this feature's domain
 - For each: what mutation triggers it, and which container should own it instead
 
+## Step 6b: Test coverage assessment
+
+For each production file (non-test, non-type) in the feature:
+
+1. **Check for a dedicated spec.** Look for `<basename>.spec.ts`, `<basename>.spec.tsx`,
+   `<basename>.test.ts`, `<basename>.test.tsx` in the same directory and in sibling
+   `__tests__/` or `tests/` directories.
+
+2. **Check for indirect coverage.** Grep for the file's exports across all spec files.
+   If another test exercises this file's functions, it has indirect coverage.
+
+3. **Classify:**
+
+| Level | Criteria |
+|-------|----------|
+| **TESTED** | Dedicated spec exists |
+| **INDIRECTLY_TESTED** | No dedicated spec, but exercised by other specs |
+| **UNTESTED** | No spec and no other spec imports from this file |
+
+Record in the file inventory table. Flag UNTESTED files in the migration checklist
+with a warning: "No test coverage -- write tests before refactoring."
+
+For UNTESTED files, estimate refactor risk:
+- HIGH: container or hook with complexity >5 and zero coverage
+- MEDIUM: component with multiple interactive behaviors and zero coverage
+- LOW: simple presentational component or type file
+
 ## Step 7: Identify the DDAU boundary
 
 Determine where containers should exist:
@@ -286,9 +313,9 @@ Output a structured report:
 ## Feature Audit: <FeatureName>
 
 ### File inventory
-| File | Type | Classification |
-|------|------|----------------|
-| ...  | ...  | DDAU / Self-contained / Container / Provider |
+| File | Type | Classification | Test coverage |
+|------|------|----------------|---------------|
+| ...  | ...  | DDAU / Self-contained / Container / Provider | TESTED / INDIRECTLY_TESTED / UNTESTED |
 
 ### Scorecard
 | Classification | Count | % |
@@ -410,7 +437,16 @@ Output a structured report:
 - Circular dependencies: <list or "none">
 - Deepest fetch depth: <N levels>
 
+### Test coverage summary
+| Level | Count | Files |
+|-------|-------|-------|
+| TESTED | <N> | ... |
+| INDIRECTLY_TESTED | <N> | ... |
+| UNTESTED | <N> | ... |
+
 ### Migration checklist (in order)
+
+For each item, if the target file is UNTESTED, prepend: **[UNTESTED -- write tests first]**
 
 1. [ ] Extract standalone hooks for <domain> (Phase 0)
        Files: <list>
@@ -426,4 +462,5 @@ Output a structured report:
 - useEffects to eliminate: <N>
 - Hook call sites to absorb: <N>
 - Providers to simplify/delete: <N>
+- Production files with no test coverage: <N>
 ```

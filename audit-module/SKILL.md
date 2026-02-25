@@ -179,6 +179,35 @@ WARN if fallback defaults could mask bugs (but may be intentional for resilience
 
 ## Step 4: Additional checks
 
+### Test coverage assessment
+
+Before recommending refactoring, assess the safety net:
+
+1. **Co-located spec file.** Check for `<basename>.spec.ts`, `<basename>.spec.tsx`,
+   `<basename>.test.ts`, `<basename>.test.tsx` in the same directory and in sibling
+   `__tests__/` or `tests/` directories.
+
+2. **Indirect coverage.** Grep for the module's exports across all spec files in the
+   project. If another module's tests import from this file, it has indirect coverage.
+
+3. **Classify coverage level:**
+
+| Level | Criteria |
+|-------|----------|
+| **TESTED** | A dedicated spec file exists for this module |
+| **INDIRECTLY_TESTED** | No dedicated spec, but other spec files import and exercise this module's exports |
+| **UNTESTED** | No spec file exists and no other spec imports from this module |
+
+4. **If UNTESTED:** Add a prominent warning to every item in the refactor checklist:
+   "WARNING: No test coverage -- write tests before refactoring." Flag refactor risk
+   as HIGH for complex functions (complexity >5) and MEDIUM for simpler ones.
+
+5. **If TESTED:** Check whether the spec is current -- does it import the module's
+   current exports, or is it stale (references deleted functions or old signatures)?
+
+Record in the report under a "Test coverage" section with the classification, the
+spec file path (if any), and which exports are covered vs uncovered.
+
 ### Dead exports
 
 For each export, verify it has at least one consumer. Exports with zero consumers are
@@ -266,6 +295,13 @@ Output a structured report:
 | Line | Violation | Action |
 |------|-----------|--------|
 | ... | bare string for userId | Use UserId from brand.ts |
+
+### Test coverage
+| Level | Spec file | Covered exports | Uncovered exports |
+|-------|-----------|-----------------|-------------------|
+| TESTED/INDIRECTLY_TESTED/UNTESTED | <path or "none"> | ... | ... |
+
+Refactor risk: HIGH/MEDIUM/LOW (based on coverage level + complexity)
 
 ### Refactor checklist (in order)
 
