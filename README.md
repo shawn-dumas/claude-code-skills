@@ -565,7 +565,7 @@ These skills handle npm dependency auditing, upgrades, and replacements. They wo
 Run this periodically (quarterly) or before a major upgrade cycle.
 
 ```
-/audit-npm-deps ~/github/next-gen-atlassian
+/audit-npm-deps
 ```
 
 ### migrate-npm-package
@@ -644,7 +644,7 @@ Generate a Playwright E2E spec for a page route. Uses `page.route()` for network
 **Read-only diagnostic.** Runs tsc, parses all errors, classifies each by root cause, identifies cascading error chains (one root cause producing N downstream errors), and produces a prioritized fix plan sorted by errors-eliminated-per-fix. Also checks for `any` concentrations, unsound type guards, trust boundary violations, duplicate type definitions, and non-null assertion hotspots.
 
 ```
-/audit-type-errors ~/github/next-gen-atlassian
+/audit-type-errors
 ```
 
 ### Verification
