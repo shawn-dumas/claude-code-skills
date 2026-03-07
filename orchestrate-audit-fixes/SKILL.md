@@ -55,7 +55,26 @@ orchestrate. Output a single fix prompt.
 
 If findings span multiple domains or number 5+, proceed with orchestration.
 
-## Step 4: Generate the master plan
+## Step 4: Assess integration test scope
+
+Determine whether the audit findings touch code exercised by Playwright
+integration tests. Read the integration test scope rules in
+`~/.claude/CLAUDE.md` (Orchestration Protocol > Integration test scope).
+
+- If findings involve files in `integration/` (specs, POMs, fixtures,
+  constants, mock handler), scope is `per-prompt`.
+- If findings involve production UI code (components, containers, hooks,
+  providers, page blocks, navigation, URL params), scope is `final-only`.
+- If findings are pure unit test infrastructure, types-only, or
+  documentation, scope is `none`.
+
+Record the scope in the master plan header. Reference it when generating
+prompt verification sections and the orchestrator verification loop.
+
+## Step 5: Generate the master plan
+
+NOTE: Include the integration test scope in the master plan header, e.g.:
+`> Integration scope: per-prompt | final-only | none`
 
 Create `~/plans/<audit-name>-fixes.md` with:
 
@@ -175,24 +194,40 @@ Show the user:
 - Number of prompts
 - Prompt sequence with domain groupings
 - Any dependency ordering
-- Ask: "Ready to start? I'll run work agents automatically unless you
-  say 'manual' for any prompt."
+- For each prompt, note whether it looks mechanical (good for auto/Task
+  tool) or complex (better run manually in a full conversation)
+- Ask: "Ready to start?"
 
 Wait for the user's go-ahead.
 
 ## Step 8: Execute the orchestrator loop
 
-For each prompt in sequence:
+Prompts run strictly one at a time. Run one, verify, confirm PASS, then
+move to the next. Never run prompts in parallel -- earlier prompts change
+the codebase and later prompts may need updating.
 
-1. **Auto mode (default):** Launch a work agent via the Task tool. Pass
-   the full prompt file contents. The task prompt must begin with:
-   "You are a work agent. Execute the following prompt exactly.
-   Read ~/github/user-frontend/CLAUDE.md first."
+For each prompt:
 
-2. **Manual mode (if user requested):** Output the prompt contents.
-   Wait for reconciliation output.
+0. **Re-read the prompt file.** A prior work agent may have modified it
+   (noted in its reconciliation under "Subsequent Prompts Modified").
+   Do not hand off a stale version.
 
-3. **Verify independently.** Run in `~/github/user-frontend`:
+1. **Decide auto or manual.** The Task tool works for mechanical,
+   well-scoped prompts (pattern replacement, dead code, import fixes).
+   For prompts that require judgment, touch many files, or involve
+   complex refactoring, the user will typically run the work agent
+   manually in a separate conversation where it has a full context
+   window and can ask follow-up questions. When in doubt, ask.
+
+2. **Auto mode:** Launch a work agent via the Task tool. Pass the full
+   prompt file contents. The task prompt must begin with: "You are a
+   work agent. Execute the following prompt exactly. Read
+   ~/github/user-frontend/CLAUDE.md first."
+
+3. **Manual mode:** Output the prompt contents. Wait for the user to
+   paste the reconciliation output.
+
+4. **Verify independently.** Run in `~/github/user-frontend`:
    ```
    git log --oneline -10
    pnpm tsc --noEmit
@@ -200,13 +235,17 @@ For each prompt in sequence:
    pnpm build 2>&1 | tail -5
    npx eslint . --max-warnings 0 2>&1 | tail -3
    ```
+   When integration scope is `per-prompt`, also run:
+   ```
+   pnpm test:integration 2>&1 | tail -5
+   ```
    Plus prompt-specific verification greps.
 
-4. **Compare results** against the reconciliation.
+5. **Compare results** against the reconciliation.
 
-5. **Gate.** PASS: update master plan, move on. FAIL: list discrepancies.
+6. **Gate.** PASS: update master plan, move on. FAIL: list discrepancies.
 
-6. **Read the cleanup file** after each prompt.
+7. **Read the cleanup file** after each prompt.
 
 ## Step 9: Generate the cleanup prompt
 
@@ -222,6 +261,10 @@ After all planned prompts complete:
 
 ## Step 10: Final verification and plan update
 
-Run the full verification suite. Update the master plan: mark all findings
-as DONE or document carry-forward items with rationale. Update HEAD sha,
-test counts, and build status. Report to user.
+Run the full verification suite. When integration scope is `per-prompt`
+or `final-only`, run `pnpm test:integration` as a full regression check.
+
+Update the master plan: mark all findings as DONE or document
+carry-forward items with rationale. Update HEAD sha, test counts, build
+status, and integration test results (if scope is not `none`). Report to
+user.

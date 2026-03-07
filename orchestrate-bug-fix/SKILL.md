@@ -54,7 +54,23 @@ instead of orchestrating." Then output the fix as a single prompt.
 If the fix spans 3+ files across different domains, or requires phased
 implementation, proceed with orchestration.
 
-## Step 4: Generate the master plan
+## Step 4: Assess integration test scope
+
+Determine whether the bug fix touches code exercised by Playwright
+integration tests. Read the integration test scope rules in
+`~/.claude/CLAUDE.md` (Orchestration Protocol > Integration test scope).
+
+- If the fix modifies files in `integration/` (specs, POMs, fixtures,
+  constants, mock handler), scope is `per-prompt`.
+- If the fix modifies production UI code (components, containers, hooks,
+  providers, page blocks, navigation, URL params), scope is `final-only`.
+- If the fix is types-only, unit test infrastructure, or documentation,
+  scope is `none`.
+
+Record the scope in the master plan header. Reference it when generating
+prompt verification sections and the orchestrator verification loop.
+
+## Step 5: Generate the master plan
 
 Create `~/plans/<bug-name>-fix.md` with:
 
@@ -89,7 +105,12 @@ Create `~/plans/<bug-name>-fix.md` with:
 <what should be true after all prompts complete>
 ```
 
-## Step 5: Generate fix prompts
+## Step 5: Generate the master plan
+
+NOTE: Include the integration test scope in the master plan header, e.g.:
+`> Integration scope: per-prompt | final-only | none`
+
+## Step 6: Generate fix prompts
 
 Create prompt files in `~/plans/prompts/` named `<bug-name>-fix-NN.md`.
 
@@ -135,6 +156,15 @@ pnpm build
 npx eslint . --max-warnings 0
 \`\`\`
 
+<if integration scope is per-prompt and this prompt touches integration files>
+\`\`\`bash
+pnpm test:integration
+\`\`\`
+<if integration scope is final-only and this is the last prompt>
+\`\`\`bash
+pnpm test:integration
+\`\`\`
+
 Prompt-specific checks:
 
 \`\`\`bash
@@ -155,9 +185,13 @@ tsc: <0 errors | N errors>
 Tests: <N specs, M passed, K todo>
 Build: <clean | failed>
 ESLint: <clean | N errors, M warnings>
+Integration: <N passed, M failed (Xm) | not run | skipped (scope: none)>
 
 Prompt-Specific:
   <each grep result>
+
+Behavioral Changes:
+  <1-3 lines describing what changed in user-visible terms>
 
 Cleanup Items Added: <N items>
 Subsequent Prompts Modified: <none | list>
@@ -194,24 +228,40 @@ Show the user:
 - The root cause analysis
 - The number of prompts
 - The prompt sequence with summaries
-- Ask: "Ready to start? I'll run work agents automatically unless you
-  say 'manual' for any prompt."
+- For each prompt, note whether it looks mechanical (good for auto/Task
+  tool) or complex (better run manually in a full conversation)
+- Ask: "Ready to start?"
 
 Wait for the user's go-ahead.
 
 ## Step 8: Execute the orchestrator loop
 
-For each prompt in sequence:
+Prompts run strictly one at a time. Run one, verify, confirm PASS, then
+move to the next. Never run prompts in parallel -- earlier prompts change
+the codebase and later prompts may need updating.
 
-1. **Auto mode (default):** Launch a work agent via the Task tool. Pass
-   the full prompt file contents as the task description. The task prompt
-   must begin with: "You are a work agent. Execute the following prompt
-   exactly. Read ~/github/user-frontend/CLAUDE.md first."
+For each prompt:
 
-2. **Manual mode (if user requested):** Output the prompt file contents.
-   Wait for the user to paste the reconciliation output.
+0. **Re-read the prompt file.** A prior work agent may have modified it
+   (noted in its reconciliation under "Subsequent Prompts Modified").
+   Do not hand off a stale version.
 
-3. **Verify independently.** Run in `~/github/user-frontend`:
+1. **Decide auto or manual.** The Task tool works for mechanical,
+   well-scoped prompts (pattern replacement, dead code, import fixes).
+   For prompts that require judgment, touch many files, or involve
+   complex refactoring, the user will typically run the work agent
+   manually in a separate conversation where it has a full context
+   window and can ask follow-up questions. When in doubt, ask.
+
+2. **Auto mode:** Launch a work agent via the Task tool. Pass the full
+   prompt file contents. The task prompt must begin with: "You are a
+   work agent. Execute the following prompt exactly. Read
+   ~/github/user-frontend/CLAUDE.md first."
+
+3. **Manual mode:** Output the prompt file contents. Wait for the user
+   to paste the reconciliation output.
+
+4. **Verify independently.** Run in `~/github/user-frontend`:
    ```
    git log --oneline -10
    pnpm tsc --noEmit
@@ -219,17 +269,21 @@ For each prompt in sequence:
    pnpm build 2>&1 | tail -5
    npx eslint . --max-warnings 0 2>&1 | tail -3
    ```
+   When integration scope is `per-prompt`, also run:
+   ```
+   pnpm test:integration 2>&1 | tail -5
+   ```
    Plus the prompt-specific verification greps.
 
-4. **Compare results.** Check the work agent's reconciliation against
+5. **Compare results.** Check the work agent's reconciliation against
    your own verification. Every field must match.
 
-5. **Gate.** If all checks pass: update the master plan, report PASS,
+6. **Gate.** If all checks pass: update the master plan, report PASS,
    move to the next prompt. If any check fails: report FAIL, list every
    discrepancy, recommend a fix (re-run the prompt, or apply a targeted
    fix).
 
-6. **Read the cleanup file** after each prompt to track accumulated items.
+7. **Read the cleanup file** after each prompt to track accumulated items.
 
 ## Step 9: Generate the cleanup prompt
 
@@ -247,6 +301,32 @@ After all planned prompts complete:
 
 ## Step 10: Final verification and plan update
 
-Run the full verification suite one final time. Update the master plan
-with final status, HEAD sha, and test/build metrics. Report the result
-to the user.
+Run the full verification suite one final time. When integration scope is
+`per-prompt` or `final-only`, run `pnpm test:integration` as a full
+regression check.
+
+Update the master plan with final status, HEAD sha, and test/build
+metrics (including integration test results if scope is not `none`).
+
+Then present a Manual Verification section. This is optional -- the user
+may skip it entirely. It does not gate the prompt sequence or the cleanup
+prompt. It is a convenience for the user to confirm the fix in the
+browser before merging.
+
+Generate 3-5 concrete reproduction steps based on the original bug
+description and root cause analysis. Example:
+
+```
+## Manual Verification (optional)
+
+If you want to confirm the fix in the browser:
+
+1. Open /insights/workstream-analysis
+2. Select two workstreams via checkbox
+3. Navigate away, then press browser back button
+4. Confirm: row checkboxes match the workstreams in the URL
+
+Skip this if the automated checks are sufficient.
+```
+
+Report the final result to the user.

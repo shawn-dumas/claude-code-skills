@@ -656,6 +656,72 @@ Every skill (build and refactor) runs a verification step after writing code:
 
 The skill reports both results in its summary. A skill invocation is not complete until type-checking passes. Test failures must be fixed if tests exist; the absence of tests is noted but does not block.
 
+## Orchestration Skills
+
+These skills coordinate multi-prompt work sessions. They generate plans, create prompt sequences, run work agents, and verify results. Use them when a task spans 3+ files across different domains, requires phased implementation, or has ordering dependencies.
+
+Orchestration skills do not write production code. They generate the plan and prompts, then run work agents (via Task tool or manually) to execute each prompt. After each prompt, the orchestrator verifies the results independently before moving on.
+
+### How it works
+
+1. You invoke the skill with a description of the work
+2. The skill reads the codebase, generates a master plan and prompt sequence in `~/plans/`
+3. The skill enters the orchestrator loop: runs one prompt at a time, verifies output, gates on quality
+4. After all prompts complete, the orchestrator generates a cleanup prompt from issues discovered during execution
+5. You review and approve the cleanup prompt before it runs
+6. Final verification and plan update
+
+### Auto vs. manual mode
+
+By default, the orchestrator runs work agents automatically via the Task tool. This works well for mechanical, well-scoped prompts (pattern replacement, dead code deletion, import path migration).
+
+For prompts that require judgment, touch many files, or involve complex refactoring, say "manual" or "I'll run this one." The orchestrator outputs the prompt text; you run it in a separate conversation where the work agent has a full context window and can ask follow-up questions. Manual mode is the common choice for non-trivial prompts.
+
+### The cleanup prompt
+
+Work agents stay focused on their assigned task. When they discover issues outside scope, they append them to a cleanup file instead of fixing them in place. After all planned prompts complete, the orchestrator reads the cleanup file and generates a final cleanup prompt. You review it before execution. This keeps work agents on task while ensuring nothing gets lost.
+
+### orchestrate-bug-fix
+
+Coordinates a multi-file bug fix. You describe the bug; the skill investigates the codebase, identifies affected files, generates targeted fix prompts with verification commands, and runs them in sequence.
+
+```
+/orchestrate-bug-fix Row selection desyncs from URL state when using browser back button on workstream analysis page
+```
+
+### orchestrate-feature
+
+Coordinates phased implementation of a new feature. You describe the feature; the skill designs the implementation phases, identifies dependencies between them, generates prompts in topological order, and runs them.
+
+```
+/orchestrate-feature Add CSV export to all dashboard pages with column filtering and date range in filename
+```
+
+### orchestrate-audit-fixes
+
+Coordinates fixes for audit findings. You provide the audit report path or describe what to audit; the skill triages findings by severity and domain, groups them into fix prompts, and runs them in priority order.
+
+```
+/orchestrate-audit-fixes ~/audits/26-03-04-13-41--user-frontend--complete-audit.md
+```
+
+### orchestrate-backlog
+
+Coordinates a backlog of accumulated items. You provide a backlog file or describe the items; the skill prioritizes, identifies dependencies, sequences prompts, and runs them.
+
+```
+/orchestrate-backlog ~/plans/uf-backlog.md
+```
+
+### orchestrate-migration
+
+Coordinates a multi-phase migration. You describe what is being migrated; the skill inventories the current state, plans migration phases, generates prompts, and runs them.
+
+```
+/orchestrate-migration Migrate all e2e tests from SSO authentication to Firebase emulator
+/orchestrate-migration Replace all raw localStorage calls with typedStorage
+```
+
 ## Customization
 
 These skills encode conventions specific to a particular codebase (directory structure, hook naming, context patterns). To adapt them:
