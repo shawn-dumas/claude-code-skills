@@ -625,7 +625,7 @@ Audit an existing Vitest spec against the 10 contract-first principles and the c
 Audit an existing Playwright E2E spec against the current page structure. Detects stale test IDs, hardcoded `waitForTimeout` calls (flakiness), missing route cleanup, redundant near-identical tests, and assertion anti-patterns. Fixes selectors, replaces waits with specific conditions, adds `page.unrouteAll()` cleanup, and consolidates repetitive tests into parameterized loops.
 
 ```
-/refactor-playwright-test e2e/tests/mockDataRealTime.spec.ts
+/refactor-playwright-test integration/tests/mockDataRealTime.spec.ts
 ```
 
 ### build-playwright-test
@@ -718,7 +718,7 @@ Coordinates a backlog of accumulated items. You provide a backlog file or descri
 Coordinates a multi-phase migration. You describe what is being migrated; the skill inventories the current state, plans migration phases, generates prompts, and runs them.
 
 ```
-/orchestrate-migration Migrate all e2e tests from SSO authentication to Firebase emulator
+/orchestrate-migration Migrate all integration tests from SSO authentication to Firebase emulator
 /orchestrate-migration Replace all raw localStorage calls with typedStorage
 ```
 

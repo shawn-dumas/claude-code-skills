@@ -13,6 +13,7 @@ complete dependency update plan.
 ## Step 1: Read package.json
 
 Read `package.json` and record:
+
 - Every direct production dependency (name + version constraint)
 - Every direct dev dependency (name + version constraint)
 - The package manager (check for `pnpm-lock.yaml`, `yarn.lock`, or `package-lock.json`)
@@ -74,12 +75,12 @@ replaced before the package can be removed.
 
 ## Step 5: Detect misplaced dependencies
 
-Check whether any production dependency is only imported from test or e2e files
-(files matching `*.spec.*`, `*.test.*`, `e2e/**`, `__tests__/**`). These should be
+Check whether any production dependency is only imported from test or integration files
+(files matching `*.spec.*`, `*.test.*`, `integration/**`, `__tests__/**`). These should be
 devDependencies.
 
 Conversely, check whether any devDependency is imported from production source files
-(files NOT matching test/e2e patterns). These should be production dependencies.
+(files NOT matching test/integration patterns). These should be production dependencies.
 
 ## Step 6: Check React peerDependency compatibility
 
@@ -94,6 +95,7 @@ cat node_modules/<package>/package.json | grep -A5 peerDependencies
 ```
 
 Record:
+
 - The package name and installed version
 - The `react` peerDependency constraint
 - Whether the current React version satisfies it
@@ -102,6 +104,7 @@ Record:
   the package exists that IS compatible
 
 Classify each library:
+
 - **COMPATIBLE**: Current version works with next React major
 - **UPGRADE-NEEDED**: A newer version of the package supports the next React major
 - **BLOCKER**: No version of the package supports the next React major
@@ -114,16 +117,17 @@ Classify every outdated dependency into tiers:
 ### Dead dependencies (Tier 0 -- remove)
 
 | Package | Version | Imports | Action |
-|---------|---------|---------|--------|
+| ------- | ------- | ------- | ------ |
 
 ### Misplaced dependencies (Tier 0 -- fix placement)
 
 | Package | Currently in | Should be in | Why |
-|---------|-------------|-------------|-----|
+| ------- | ------------ | ------------ | --- |
 
 ### Tier 1: Drop-in updates (no code changes)
 
 Packages where the update is within semver range or an additive minor. Split into:
+
 - **Security-critical patches** (do first)
 - **Production dependency patches**
 - **Dev dependency patches**

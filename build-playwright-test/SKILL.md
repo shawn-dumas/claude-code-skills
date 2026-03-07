@@ -16,6 +16,7 @@ to test.
 ## Step 1: Map the route to its page and container
 
 If given a route path, find the corresponding:
+
 - Page file in `src/pages/` (Next.js Pages Router file-based routing)
 - Container in `src/ui/page_blocks/` (the page file imports it)
 - Sub-components the container renders
@@ -23,6 +24,7 @@ If given a route path, find the corresponding:
 If given a page file path, derive the route from the file system path.
 
 Read the container to understand:
+
 - What data the page fetches (service hooks, API endpoints)
 - What user interactions are possible (filters, tables, drill-downs, nav)
 - What test IDs exist (`data-testid` attributes)
@@ -32,13 +34,14 @@ Read the container to understand:
 
 Read 1-2 existing E2E specs to match conventions:
 
-- `e2e/tests/mockDataRealTime.spec.ts` — mock-data pattern with `page.route()`
-- `e2e/tests/screenshot-tripwire.spec.ts` — simple smoke test pattern
+- `integration/tests/mockDataRealTime.spec.ts` -- mock-data pattern with `page.route()`
+- `integration/tests/screenshot-tripwire.spec.ts` -- simple smoke test pattern
 
 Also read:
-- `e2e/fixture.ts` — the custom test fixture (stealth chromium, auth setup)
-- `e2e/constants.ts` — shared test ID constants
-- `e2e/config.ts` — environment config
+
+- `integration/fixture.ts` -- the custom test fixture (stealth chromium, auth setup)
+- `integration/constants.ts` -- shared test ID constants
+- `integration/config.ts` -- environment config
 
 Match the existing import style, test structure, and helper patterns.
 
@@ -53,13 +56,13 @@ Each endpoint needs a `page.route()` handler with fixture data.
 
 List the primary user interactions for this page:
 
-| Priority | Flow type | Example |
-|----------|----------|---------|
-| P0 | Page loads with data | Smoke test: route → data visible |
-| P1 | Filter/form submission | Select team → submit → table updates |
-| P2 | Drill-down selection | Click row → detail panel appears |
-| P3 | Cross-page navigation | Click "View in X" → navigates to correct route |
-| P4 | Edge cases | Empty state, error state, loading state |
+| Priority | Flow type              | Example                                        |
+| -------- | ---------------------- | ---------------------------------------------- |
+| P0       | Page loads with data   | Smoke test: route → data visible               |
+| P1       | Filter/form submission | Select team → submit → table updates           |
+| P2       | Drill-down selection   | Click row → detail panel appears               |
+| P3       | Cross-page navigation  | Click "View in X" → navigates to correct route |
+| P4       | Edge cases             | Empty state, error state, loading state        |
 
 ### Decide: mock-data or real-auth
 
@@ -67,7 +70,7 @@ List the primary user interactions for this page:
   API calls and return fixture data. No real auth needed. Deterministic.
   Skip in production with `if (BUILD_ENV === 'production') { test.skip(true, '...'); }`.
 - **Real-auth**: Tests SSO flow end-to-end. Only for auth-specific tests.
-  Uses `signInAs*` helpers from `e2e/utils/authUtils.ts`.
+  Uses `signInAs*` helpers from `integration/utils/authUtils.ts`.
 
 New tests should prefer mock-data unless explicitly testing auth flows.
 
@@ -83,20 +86,20 @@ const mockProductivity = productivityFixtures.buildMany(10);
 ```
 
 If no fixture builder exists for a needed type, create inline typed data.
-Do NOT import from `e2e/utils/mockData.ts` — that file uses hardcoded
+Do NOT import from `integration/utils/mockData.ts` -- that file uses hardcoded
 objects with magic UIDs. New tests use the centralized fixture system.
 
 ## Step 5: Generate the spec file
 
-Create `e2e/tests/<route-name>.spec.ts`.
+Create `integration/tests/<route-name>.spec.ts`.
 
 ### File structure
 
 ```typescript
 import { test } from '../fixture';
 import { expect } from '@playwright/test';
-import { BUILD_ENV } from 'e2e/config';
-import { signInAsONELOGINAdmin } from 'e2e/utils/authUtils';
+import { BUILD_ENV } from 'integration/config';
+import { signInAsONELOGINAdmin } from 'integration/utils/authUtils';
 // Import from centralized fixtures for mock data
 import { teamFixtures, productivityFixtures } from '@/fixtures';
 
@@ -152,6 +155,7 @@ test('filter submission updates table', async ({ page }) => {
 ### Rules
 
 **P8 — User Outcomes:**
+
 - Use Playwright auto-waiting assertions: `await expect(locator).toBeVisible()`
 - Prefer `getByRole` > `getByText` > `getByLabel` > `getByTestId`
 - Never assert on DOM structure, CSS classes, or implementation details
@@ -159,6 +163,7 @@ test('filter submission updates table', async ({ page }) => {
 - Use `toHaveText()` not `innerText()` + `toBe()`
 
 **P9 — Determinism:**
+
 - NEVER use `page.waitForTimeout()` — always wait for a specific condition
 - Use `page.waitForLoadState('networkidle')` after navigation
 - Use `element.waitFor({ state: 'visible' })` before interaction
@@ -166,21 +171,23 @@ test('filter submission updates table', async ({ page }) => {
 - Pin timezone if time-dependent: `test.use({ timezoneId: 'America/Los_Angeles' })`
 
 **P10 — Total Cleanup:**
+
 - `test.afterEach` must call `page.unrouteAll({ behavior: 'ignoreErrors' })`
 - If the test writes to localStorage via the page, clear it in afterEach
 
 **Data Ownership:**
+
 - Each spec file owns its mock data (defined at file scope)
 - Use fixture builders, not hardcoded objects with magic UIDs
-- Never import mock data from another E2E test file
+- Never import mock data from another integration test file
 
 **No hardcoded waits:**
 
-| Instead of | Use |
-|-----------|-----|
-| `page.waitForTimeout(8000)` | `element.waitFor({ state: 'visible' })` |
-| `page.waitForTimeout(3000)` after click | `await expect(target).toBeVisible()` |
-| Sleep after navigation | `page.waitForLoadState('networkidle')` |
+| Instead of                              | Use                                     |
+| --------------------------------------- | --------------------------------------- |
+| `page.waitForTimeout(8000)`             | `element.waitFor({ state: 'visible' })` |
+| `page.waitForTimeout(3000)` after click | `await expect(target).toBeVisible()`    |
+| Sleep after navigation                  | `page.waitForLoadState('networkidle')`  |
 
 **Parameterize repetitive tests:**
 
@@ -195,9 +202,7 @@ const cases = [
 
 for (const { name, data, expected } of cases) {
   test(`renders ${name} event`, async ({ page }) => {
-    await page.route('**/api/endpoint', route =>
-      route.fulfill({ body: JSON.stringify(data) })
-    );
+    await page.route('**/api/endpoint', route => route.fulfill({ body: JSON.stringify(data) }));
     await page.getByRole('button', { name: /refresh/i }).click();
     await expect(page.getByText(expected)).toBeVisible();
   });
@@ -210,7 +215,7 @@ for (const { name, data, expected } of cases) {
    which resolves via vitest aliases — check if Playwright config also
    resolves these, and add a `tsconfig` path if needed).
 2. If local mode is available (`NEXT_PUBLIC_LOCAL=true` + `pnpm dev`):
-   `pnpm e2e:test:local -- --grep "<test-name>"`
+   `pnpm test:integration:playwright -- --grep "<test-name>"`
 3. Report: file path, test count, verification result.
 
 ## What NOT to do
@@ -220,7 +225,7 @@ for (const { name, data, expected } of cases) {
 - Do not test auth flows in mock-data specs. Auth tests are separate.
 - Do not use `page.evaluate()` to read React state or context — that is
   implementation detail testing.
-- Do not import from `e2e/utils/mockData.ts` for new tests — use
+- Do not import from `integration/utils/mockData.ts` for new tests -- use
   `src/fixtures/` builders instead.
 - Do not use `page.waitForTimeout()` for anything.
 - Do not hardcode Firebase UIDs as object keys in mock data.
