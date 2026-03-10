@@ -13,6 +13,20 @@ The first token is the component name (e.g., `ProgressBar`). The quoted string i
 a description of the pattern. The remaining tokens are file paths where the pattern
 appears (at least 2). If no files are listed, search the codebase for the pattern.
 
+## Step 0: Run AST analysis tools
+
+```bash
+# Find the pattern across source files
+for f in <source-files>; do
+  npx tsx scripts/AST/ast-jsx-analysis.ts "$f"
+done
+npx tsx scripts/AST/ast-imports.ts <source-files> --pretty
+```
+
+Use JSX analysis fingerprints to confirm the pattern is structurally
+similar across files. Use imports to check for existing similar
+components.
+
 ## Step 1: Parse arguments
 
 Extract:

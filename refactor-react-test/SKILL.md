@@ -9,6 +9,18 @@ argument-hint: <path/to/spec-file.spec.tsx>
 Refactor the test file at `$ARGUMENTS` to comply with the contract-first
 testing philosophy. Read the spec, score it, fix or replace it.
 
+## Step 0: Run AST analysis tools
+
+```bash
+npx tsx scripts/AST/ast-test-analysis.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+```
+
+Use the test analysis to pre-score the spec before reading it manually.
+The tool classifies mocks (P2), assertions (P8), cleanup (P10), and
+strategy (P4). Use this to make the delete-vs-fix decision in Step 3
+before investing time in detailed reading.
+
 ## Step 1: Read the spec and its production file
 
 Read the spec file completely. Identify:

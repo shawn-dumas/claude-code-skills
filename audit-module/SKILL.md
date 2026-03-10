@@ -2,12 +2,24 @@
 name: audit-module
 description: Audit a non-React TypeScript module against the G1-G10 general code principles. Scores each principle, classifies the module, and produces a prioritized violation report.
 context: fork
-allowed-tools: Read, Grep, Glob
+allowed-tools: Read, Grep, Glob, Bash
 argument-hint: <path/to/module.ts>
 ---
 
 Audit the TypeScript module at `$ARGUMENTS`. This is a read-only diagnostic -- do not
 modify any files. Produce a complete violation report.
+
+## Step 0: Run AST analysis tools
+
+```bash
+npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+```
+
+Use the imports tool for G7 (dead exports, consumer list), the complexity
+tool for G4 (per-function complexity scores), and the type safety tool
+for G8 (any/cast/assertion violations).
 
 ## Step 1: Read the module and build context
 

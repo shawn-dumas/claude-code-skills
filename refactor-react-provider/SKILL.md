@@ -15,6 +15,17 @@ consider doing so first. The audit produces a dependency graph and migration che
 that prevents duplicate work and surfaces cross-file issues this skill cannot see in
 isolation.
 
+## Step 0: Run AST analysis tools
+
+```bash
+npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+```
+
+Use the inventory for data-fetching detection (Step 2a), useEffect
+audit (Step 2e), and context interface analysis. Use imports to find
+all consumers and measure context breadth (Step 2c).
+
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read:

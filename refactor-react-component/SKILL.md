@@ -15,6 +15,16 @@ consider doing so first. The audit produces a dependency graph and migration che
 that prevents duplicate work and surfaces cross-file issues this skill cannot see in
 isolation.
 
+## Step 0: Run AST analysis tools
+
+```bash
+npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-jsx-analysis.ts $ARGUMENTS --pretty
+```
+
+Use the inventory for Step 2 (hook calls, useEffect classification,
+props interface). Use JSX analysis for Step 2c-ii (template complexity).
+
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read every file it imports -- hooks, contexts, utilities,

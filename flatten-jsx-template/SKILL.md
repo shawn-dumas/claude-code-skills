@@ -20,6 +20,16 @@ above it.
 If the component has DDAU violations (hook calls that belong in a container, state
 that should be props), use `refactor-react-component` instead.
 
+## Step 0: Run JSX analysis
+
+```bash
+npx tsx scripts/AST/ast-jsx-analysis.ts $ARGUMENTS --pretty
+```
+
+Use the output for Step 2 (violation inventory). The tool reports every
+violation type with line numbers, so you can proceed directly to Step 3
+(planning the extraction) without manual scanning.
+
 ## Step 1: Read and understand
 
 Read the target file. Identify the return statement boundaries (the opening

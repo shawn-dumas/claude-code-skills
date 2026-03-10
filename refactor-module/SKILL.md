@@ -14,6 +14,17 @@ If you have not run `audit-module` on this file yet, consider doing so first. Th
 produces a scored report and prioritized fix list that prevents duplicate work. If no
 audit exists, this skill runs the audit internally in Step 2.
 
+## Step 0: Run AST analysis tools
+
+```bash
+npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+```
+
+Use imports for G7 (dead exports, consumer count). Use complexity for
+G4 (hotspot identification). Use type safety for G8 (any/cast audit).
+
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read every file it imports -- other local modules, types,

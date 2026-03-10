@@ -2,7 +2,7 @@
 name: audit-module-test
 description: Audit test files for non-React modules against testing principles adapted from the contract-first philosophy. Detects internal mocking, stale mocks, missing cleanup, type-unsafe mocks, and non-determinism.
 context: fork
-allowed-tools: Read, Grep, Glob
+allowed-tools: Read, Grep, Glob, Bash
 argument-hint: <path/to/spec-file-or-directory>
 ---
 
@@ -31,6 +31,21 @@ for non-React code (utilities, server processors, API handlers, data transformer
 | P8 | Output Assertions | Assert on return values, resolved/rejected promises, thrown errors. Not on console output or internal function call counts |
 | P9 | Determinism | Mock `Date`, `Math.random`, timers, faker seed. No flaky time-dependent tests |
 | P10 | Total Cleanup | Pair every mock/spy/timer/storage write with cleanup in `afterEach` |
+
+## Step 0: Run AST analysis tools
+
+```bash
+npx tsx scripts/AST/ast-test-analysis.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+```
+
+The test analysis tool provides mock classifications (P2), assertion
+classifications (P8), strategy detection (P4 -- for modules, note the
+pure-vs-I/O function distinction when evaluating strategy compliance),
+cleanup analysis (P10), and data sourcing (P5/P6). Use its output to
+populate the per-file scorecard. You still need to read files for P7
+(refactor sync -- comparing mock shapes against current production
+signatures) and P1 (nuanced public API violations).
 
 ## Step 1: Inventory test files
 

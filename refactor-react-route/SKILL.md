@@ -15,6 +15,22 @@ consider doing so first. The audit produces a dependency graph and migration che
 that prevents duplicate work and surfaces cross-file issues this skill cannot see in
 isolation.
 
+## Step 0: Run AST analysis tools
+
+Run the inventory on the page file AND its children (2-3 levels deep):
+
+```bash
+npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
+# Also run on direct child components (from the imports output)
+npx tsx scripts/AST/ast-jsx-analysis.ts $ARGUMENTS --pretty
+```
+
+Use the inventory output across the route tree to identify all hook
+call sites in children (Step 2b), fetch depth (Step 2h), and effect
+bridges (Step 2f). Use JSX analysis for Step 2i (template complexity
+in children).
+
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read:

@@ -11,6 +11,16 @@ directory). This is a read-only diagnostic -- do not modify any files. Produce a
 structured report that groups errors by root cause and prioritizes fixes by
 cascade impact (fix one thing, eliminate N errors).
 
+## Step 0 (optional): Pre-scan with AST type safety tool
+
+Before running tsc, optionally run the type safety scanner to identify
+`as any` concentration, trust boundary casts, and non-null assertion
+hotspots. This data supplements the tsc error output.
+
+```bash
+npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+```
+
 ## Step 1: Run tsc and capture structured output
 
 ```bash

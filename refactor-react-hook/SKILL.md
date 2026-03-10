@@ -15,6 +15,17 @@ consider doing so first. The audit produces a dependency graph and migration che
 that prevents duplicate work and surfaces cross-file issues this skill cannot see in
 isolation.
 
+## Step 0: Run AST analysis tools
+
+```bash
+npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+```
+
+Use the inventory to classify the hook (Step 2) and identify its hook
+calls. Use imports to find all consumers and check for cross-domain
+imports (Step 3d).
+
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read every file it imports -- other hooks, API utilities,

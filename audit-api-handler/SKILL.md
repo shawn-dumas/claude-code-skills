@@ -2,12 +2,24 @@
 name: audit-api-handler
 description: Audit a Next.js API route handler and its schema file against G1-G10 principles and API-specific structural rules. Checks schema completeness, handler structure, error handling, and type alignment.
 context: fork
-allowed-tools: Read, Grep, Glob
+allowed-tools: Read, Grep, Glob, Bash
 argument-hint: <path/to/api/handler.ts>
 ---
 
 Audit the API handler at `$ARGUMENTS`. This is a read-only diagnostic -- do not modify
 any files. Produce a complete violation report.
+
+## Step 0: Run AST analysis tools
+
+```bash
+npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+```
+
+Use the imports tool to trace handler -> schema -> server module ->
+consumer service hook chain. Use complexity for G4 scoring. Use type
+safety for trust boundary cast detection (G5).
 
 ## Step 1: Locate handler and schema
 

@@ -2,7 +2,7 @@
 name: audit-react-test
 description: Audit test files against the contract-first testing philosophy. Detects internal mocking, stale mocks, missing cleanup, type-unsafe mocks, strategy mixing, implementation-detail assertions, shared mutable fixtures, and non-determinism.
 context: fork
-allowed-tools: Read, Grep, Glob
+allowed-tools: Read, Grep, Glob, Bash
 argument-hint: <path/to/feature/directory-or-spec-file>
 ---
 
@@ -28,6 +28,20 @@ file, audit that file only.
 | 8 | User Outcomes | Asserts on CSS classes, snapshot of large tree, internal variable, or mock call args for own code |
 | 9 | Determinism | Unmocked `Date`, `Math.random`, `setTimeout`, or `setInterval` in test path |
 | 10 | Total Cleanup | Missing `afterEach`, or cleanup does not reset mocks/timers/storage/MSW |
+
+## Step 0: Run AST analysis tools
+
+```bash
+npx tsx scripts/AST/ast-test-analysis.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+```
+
+The test analysis tool provides mock classifications (P2), assertion
+classifications (P8), strategy detection (P4), cleanup analysis (P10),
+and data sourcing (P5/P6). Use its output to populate the per-file
+scorecard. You still need to read files for P7 (refactor sync -- comparing
+mock shapes against current production signatures) and P1 (nuanced
+public API violations).
 
 ## Step 1: Inventory all test files
 

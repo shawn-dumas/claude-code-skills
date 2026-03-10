@@ -2,12 +2,38 @@
 name: audit-react-feature
 description: Audit an entire React feature area. Maps dependencies, counts violations across all files, classifies every hook call and useEffect, and produces a prioritized migration checklist.
 context: fork
-allowed-tools: Read, Grep, Glob
+allowed-tools: Read, Grep, Glob, Bash
 argument-hint: <path/to/feature/directory>
 ---
 
 Audit the React feature area at `$ARGUMENTS`. This is a read-only diagnostic -- do not
 modify any files. Produce a complete migration report.
+
+## Step 0: Run AST analysis tools
+
+Before reading files manually, run these tools to get structured data.
+All tools accept glob patterns and multiple paths natively.
+
+```bash
+# Dependency graph for the feature directory
+npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+
+# Component/hook/effect inventory (all .tsx files in directory)
+npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS/**/*.tsx --pretty
+
+# JSX template complexity
+npx tsx scripts/AST/ast-jsx-analysis.ts $ARGUMENTS/**/*.tsx --pretty
+
+# Type safety violations
+npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+```
+
+Use the JSON output from these tools to populate the file inventory,
+dependency graph, component classification, useEffect classification,
+hook call inventory, template complexity, and type violation sections
+of the report. You still need to read individual files for context
+when making classification judgments, but the tools provide the raw
+data.
 
 ## Step 1: Inventory all files
 
