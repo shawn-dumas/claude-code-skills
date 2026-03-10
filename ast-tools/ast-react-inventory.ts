@@ -1,18 +1,17 @@
 import {
   type SourceFile,
-  type FunctionDeclaration,
   type VariableDeclaration,
   type ParameterDeclaration,
   type TypeNode,
   type InterfaceDeclaration,
   type TypeAliasDeclaration,
   type PropertySignature,
-  SyntaxKind,
   Node,
 } from 'ts-morph';
 import path from 'path';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
+import { isPascalCase, containsJsx, getBody } from './shared';
 import type { ReactInventory, ComponentInfo, HookCall, UseEffectInfo, PropField } from './types';
 import { MAY_REMAIN_HOOKS, SCOPED_HOOK_PATTERN, KNOWN_CONTEXT_HOOKS, REACT_BUILTIN_HOOKS } from './types';
 
@@ -587,51 +586,6 @@ function isFunctionType(typeText: string, name: string): boolean {
 // ---------------------------------------------------------------------------
 // Component detection
 // ---------------------------------------------------------------------------
-
-function isPascalCase(name: string): boolean {
-  return /^[A-Z]/.test(name);
-}
-
-function getBody(node: Node): (Node & { getStatements(): Node[] }) | null {
-  if (Node.isFunctionDeclaration(node)) {
-    return (node.getBody() as (Node & { getStatements(): Node[] }) | undefined) ?? null;
-  }
-  if (Node.isArrowFunction(node)) {
-    const body = node.getBody();
-    if (Node.isBlock(body)) return body as Node & { getStatements(): Node[] };
-    return null;
-  }
-  if (Node.isFunctionExpression(node)) {
-    return node.getBody() as Node & { getStatements(): Node[] };
-  }
-  return null;
-}
-
-function containsJsx(node: Node): boolean {
-  // Check return type annotation
-  if (Node.isFunctionDeclaration(node) || Node.isArrowFunction(node) || Node.isFunctionExpression(node)) {
-    const returnType = (node as FunctionDeclaration).getReturnTypeNode?.();
-    if (returnType) {
-      const text = returnType.getText();
-      if (text.includes('JSX') || text.includes('ReactNode') || text.includes('ReactElement')) {
-        return true;
-      }
-    }
-  }
-
-  // Check for JSX in the body
-  let found = false;
-  node.forEachDescendant(child => {
-    if (
-      child.getKind() === SyntaxKind.JsxElement ||
-      child.getKind() === SyntaxKind.JsxSelfClosingElement ||
-      child.getKind() === SyntaxKind.JsxFragment
-    ) {
-      found = true;
-    }
-  });
-  return found;
-}
 
 function findReturnStatementLines(funcNode: Node): { start: number; end: number } {
   const body = getBody(funcNode);

@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
+import { getFilesInDirectory } from './shared';
 import type { TypeSafetyAnalysis, TypeSafetyViolation, TypeSafetyViolationType } from './types';
 
 // ---------------------------------------------------------------------------
@@ -396,36 +397,6 @@ function computeSummary(violations: TypeSafetyViolation[]): Record<TypeSafetyVio
     summary[v.type]++;
   }
   return summary;
-}
-
-// ---------------------------------------------------------------------------
-// Directory scanning
-// ---------------------------------------------------------------------------
-
-function getFilesInDirectory(dirPath: string): string[] {
-  const results: string[] = [];
-  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-
-  for (const entry of entries) {
-    const fullPath = path.join(dirPath, entry.name);
-    if (entry.isDirectory()) {
-      // Skip node_modules and common non-source directories
-      if (entry.name === 'node_modules' || entry.name === '.next' || entry.name === 'dist') continue;
-      results.push(...getFilesInDirectory(fullPath));
-    } else if (
-      entry.isFile() &&
-      /\.(ts|tsx)$/.test(entry.name) &&
-      !entry.name.endsWith('.spec.ts') &&
-      !entry.name.endsWith('.spec.tsx') &&
-      !entry.name.endsWith('.test.ts') &&
-      !entry.name.endsWith('.test.tsx') &&
-      !entry.name.endsWith('.d.ts')
-    ) {
-      results.push(fullPath);
-    }
-  }
-
-  return results;
 }
 
 // ---------------------------------------------------------------------------

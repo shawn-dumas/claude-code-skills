@@ -1,79 +1,9 @@
-import { type SourceFile, SyntaxKind, Node } from 'ts-morph';
+import { SyntaxKind, Node } from 'ts-morph';
 import path from 'path';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
+import { containsJsx, detectComponents, getBody } from './shared';
 import type { JsxAnalysis, JsxViolation } from './types';
-
-// ---------------------------------------------------------------------------
-// Component detection (shared logic with ast-react-inventory)
-// ---------------------------------------------------------------------------
-
-function isPascalCase(name: string): boolean {
-  return /^[A-Z]/.test(name);
-}
-
-function containsJsx(node: Node): boolean {
-  let found = false;
-  node.forEachDescendant(child => {
-    if (
-      child.getKind() === SyntaxKind.JsxElement ||
-      child.getKind() === SyntaxKind.JsxSelfClosingElement ||
-      child.getKind() === SyntaxKind.JsxFragment
-    ) {
-      found = true;
-    }
-  });
-  return found;
-}
-
-interface DetectedComponent {
-  name: string;
-  funcNode: Node;
-}
-
-function detectComponents(sf: SourceFile): DetectedComponent[] {
-  const components: DetectedComponent[] = [];
-
-  for (const func of sf.getFunctions()) {
-    const name = func.getName();
-    if (!name || !isPascalCase(name)) continue;
-    if (containsJsx(func)) {
-      components.push({ name, funcNode: func });
-    }
-  }
-
-  for (const varStmt of sf.getVariableStatements()) {
-    for (const decl of varStmt.getDeclarationList().getDeclarations()) {
-      const name = decl.getName();
-      if (!isPascalCase(name)) continue;
-
-      const init = decl.getInitializer();
-      if (!init) continue;
-
-      if (Node.isArrowFunction(init) || Node.isFunctionExpression(init)) {
-        if (containsJsx(init)) {
-          components.push({ name, funcNode: init });
-        }
-        continue;
-      }
-
-      if (Node.isCallExpression(init)) {
-        const callee = init.getExpression().getText();
-        if (callee === 'memo' || callee === 'React.memo' || callee === 'forwardRef' || callee === 'React.forwardRef') {
-          const args = init.getArguments();
-          if (args.length > 0) {
-            const inner = args[0];
-            if ((Node.isArrowFunction(inner) || Node.isFunctionExpression(inner)) && containsJsx(inner)) {
-              components.push({ name, funcNode: inner });
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return components;
-}
 
 // ---------------------------------------------------------------------------
 // Return statement detection
@@ -83,21 +13,6 @@ interface ReturnInfo {
   node: Node;
   startLine: number;
   endLine: number;
-}
-
-function getBody(node: Node): (Node & { getStatements(): Node[] }) | null {
-  if (Node.isFunctionDeclaration(node)) {
-    return (node.getBody() as (Node & { getStatements(): Node[] }) | undefined) ?? null;
-  }
-  if (Node.isArrowFunction(node)) {
-    const body = node.getBody();
-    if (Node.isBlock(body)) return body as Node & { getStatements(): Node[] };
-    return null;
-  }
-  if (Node.isFunctionExpression(node)) {
-    return node.getBody() as Node & { getStatements(): Node[] };
-  }
-  return null;
 }
 
 function findReturnStatements(funcNode: Node): ReturnInfo[] {
@@ -433,17 +348,16 @@ function findViolationsInReturn(returnNode: Node, componentName: string): JsxVio
         if (initializer && Node.isJsxExpression(initializer)) {
           const expr = initializer.getExpression();
           if (expr) {
-            // Count ternaries within the className expression
+            // Count total ternary instances (not nesting depth) for
+            // consistent measurement regardless of whether ternaries are
+            // nested or siblings.
             let ternaryCount = 0;
-            if (Node.isConditionalExpression(expr)) {
-              ternaryCount = countTernaryDepth(expr);
-            } else {
-              expr.forEachDescendant(child => {
-                if (Node.isConditionalExpression(child)) {
-                  ternaryCount++;
-                }
-              });
-            }
+            if (Node.isConditionalExpression(expr)) ternaryCount++;
+            expr.forEachDescendant(child => {
+              if (Node.isConditionalExpression(child)) {
+                ternaryCount++;
+              }
+            });
 
             if (ternaryCount >= 2) {
               violations.push({

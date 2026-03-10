@@ -626,10 +626,25 @@ function hasPureFunctionCalls(sf: SourceFile): boolean {
 
   // Names that are NOT pure function calls under test
   const nonPureNames = new Set([
-    'render', 'renderHook', 'expect', 'describe', 'it', 'test',
-    'beforeEach', 'afterEach', 'beforeAll', 'afterAll', 'vi',
-    'jest', 'screen', 'within', 'waitFor', 'act', 'cleanup',
-    'fireEvent', 'userEvent',
+    'render',
+    'renderHook',
+    'expect',
+    'describe',
+    'it',
+    'test',
+    'beforeEach',
+    'afterEach',
+    'beforeAll',
+    'afterAll',
+    'vi',
+    'jest',
+    'screen',
+    'within',
+    'waitFor',
+    'act',
+    'cleanup',
+    'fireEvent',
+    'userEvent',
   ]);
 
   sf.forEachDescendant(node => {
