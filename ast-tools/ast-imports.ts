@@ -440,6 +440,8 @@ function detectDeadExports(
   fixtureSearchDir?: string,
 ): Array<{ file: string; export: string; line: number }> {
   const dead: Array<{ file: string; export: string; line: number }> = [];
+  // Cache consumer candidates per file path to avoid repeated ripgrep calls
+  const consumerCache = new Map<string, string[]>();
 
   for (const file of files) {
     // Skip Next.js page files -- their default exports are consumed by the framework
@@ -461,9 +463,13 @@ function detectDeadExports(
       if (isConsumedByEdge) continue;
 
       // Check barrel re-exports: if this export is re-exported by a barrel, it is alive
-      const consumerCandidates = fixtureSearchDir
-        ? findConsumerFiles(file.path, fixtureSearchDir)
-        : findConsumerFiles(file.path);
+      let consumerCandidates = consumerCache.get(file.path);
+      if (!consumerCandidates) {
+        consumerCandidates = fixtureSearchDir
+          ? findConsumerFiles(file.path, fixtureSearchDir)
+          : findConsumerFiles(file.path);
+        consumerCache.set(file.path, consumerCandidates);
+      }
 
       const isReexported = consumerCandidates.some(consumer => {
         if (!isBarrelFile(consumer)) return false;

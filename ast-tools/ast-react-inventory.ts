@@ -340,9 +340,11 @@ function analyzeEffectBody(callback: Node, knownSetters: Set<string>): UseEffect
 
   const bodyText = callback.getText();
 
-  // State setters
+  // State setters -- use word-boundary regex to avoid false positives
+  // (e.g. 'setCount' matching 'resetCount(' via substring includes)
   for (const setter of knownSetters) {
-    if (bodyText.includes(setter + '(') || bodyText.includes(setter + '\n')) {
+    const setterPattern = new RegExp(`\\b${setter}\\s*\\(`);
+    if (setterPattern.test(bodyText)) {
       result.stateSetters.push(setter);
       result.callsSetState = true;
     }

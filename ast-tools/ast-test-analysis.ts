@@ -215,7 +215,7 @@ function classifyMockTarget(target: string, filePath: string, subjectDomainDir: 
   if (!resolved) {
     if (target.includes('firebase') || target.includes('supabase')) return 'BOUNDARY';
     if (target.startsWith('.') || target.startsWith('@/')) {
-      return classifyByPath(target, subjectDomainDir);
+      return classifyByPath(target);
     }
     return 'THIRD_PARTY';
   }
@@ -247,11 +247,11 @@ function classifyMockTarget(target: string, filePath: string, subjectDomainDir: 
 
     return 'OWN_UTILITY';
   } catch {
-    return classifyByPath(target, subjectDomainDir);
+    return classifyByPath(target);
   }
 }
 
-function classifyByPath(target: string, subjectDomainDir: string): MockClassification {
+function classifyByPath(target: string): MockClassification {
   if (target.includes('/hooks/') || target.includes('use')) return 'OWN_HOOK';
   if (/\/[A-Z][a-zA-Z]+/.test(target) && (target.endsWith('.tsx') || !target.includes('.'))) return 'OWN_COMPONENT';
   return 'OWN_UTILITY';
@@ -619,21 +619,51 @@ function detectStrategy(sf: SourceFile): TestStrategy {
 }
 
 function hasPureFunctionCalls(sf: SourceFile): boolean {
-  // Heuristic: check if there are describe blocks with only direct function
-  // calls and no render/renderHook
-  let pureCount = 0;
-  let renderCount = 0;
+  // Detect whether a test file contains direct function calls (not render/
+  // renderHook) inside it/test blocks, indicating it tests pure logic
+  // alongside component rendering (mixed strategy).
+  let found = false;
+
+  // Names that are NOT pure function calls under test
+  const nonPureNames = new Set([
+    'render', 'renderHook', 'expect', 'describe', 'it', 'test',
+    'beforeEach', 'afterEach', 'beforeAll', 'afterAll', 'vi',
+    'jest', 'screen', 'within', 'waitFor', 'act', 'cleanup',
+    'fireEvent', 'userEvent',
+  ]);
 
   sf.forEachDescendant(node => {
+    if (found) return;
     if (!Node.isCallExpression(node)) return;
+
+    // Only count calls inside it/test blocks
+    let insideTest = false;
+    let ancestor = node.getParent();
+    while (ancestor) {
+      if (Node.isCallExpression(ancestor)) {
+        const ancestorExpr = ancestor.getExpression();
+        if (Node.isIdentifier(ancestorExpr)) {
+          const name = ancestorExpr.getText();
+          if (name === 'it' || name === 'test') {
+            insideTest = true;
+            break;
+          }
+        }
+      }
+      ancestor = ancestor.getParent();
+    }
+    if (!insideTest) return;
+
     const expr = node.getExpression();
     if (Node.isIdentifier(expr)) {
       const name = expr.getText();
-      if (name === 'render' || name === 'renderHook') renderCount++;
+      if (!nonPureNames.has(name) && !name.startsWith('use')) {
+        found = true;
+      }
     }
   });
 
-  return renderCount === 0 && pureCount === 0;
+  return found;
 }
 
 // ---------------------------------------------------------------------------

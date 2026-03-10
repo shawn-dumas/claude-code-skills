@@ -35,7 +35,22 @@ function isInlineCallback(node: Node): boolean {
   if (!parent) return false;
 
   // Direct argument: foo(x => ...)
-  if (Node.isCallExpression(parent)) return true;
+  if (Node.isCallExpression(parent)) {
+    // Exception: memo() and forwardRef() wrappers define the component --
+    // the inner function IS the component, not a callback. Its complexity
+    // should be reported as a top-level function.
+    const callee = parent.getExpression();
+    const calleeName = callee.getText();
+    if (
+      calleeName === 'memo' ||
+      calleeName === 'React.memo' ||
+      calleeName === 'forwardRef' ||
+      calleeName === 'React.forwardRef'
+    ) {
+      return false;
+    }
+    return true;
+  }
 
   // Argument wrapped in parentheses: foo((x) => ...)
   if (Node.isParenthesizedExpression(parent) && Node.isCallExpression(parent.getParent())) return true;

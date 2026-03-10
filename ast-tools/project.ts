@@ -1,5 +1,5 @@
 import { Project, type SourceFile } from 'ts-morph';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -43,10 +43,11 @@ export function findConsumerFiles(targetPath: string, searchDir = path.join(PROJ
   const importTarget = isIndex ? dirName : basename;
 
   try {
-    const result = execSync(`rg -l --type-add 'tsx:*.tsx' --type ts --type tsx "${importTarget}" "${searchDir}"`, {
-      encoding: 'utf-8',
-      cwd: PROJECT_ROOT,
-    });
+    const result = execFileSync(
+      'rg',
+      ['-l', '--fixed-strings', '--type-add', 'tsx:*.tsx', '--type', 'ts', '--type', 'tsx', importTarget, searchDir],
+      { encoding: 'utf-8', cwd: PROJECT_ROOT },
+    );
     return result
       .split('\n')
       .filter((line: string) => Boolean(line))
