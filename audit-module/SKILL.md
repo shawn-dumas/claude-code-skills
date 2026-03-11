@@ -21,6 +21,16 @@ Use the imports tool for G7 (dead exports, consumer list), the complexity
 tool for G4 (per-function complexity scores), and the type safety tool
 for G8 (any/cast/assertion violations).
 
+### AST-confirmed tagging
+
+When a finding is confirmed by AST tool output (a measured complexity score, a
+detected dead export, a counted `as any` occurrence, etc.), tag it `[AST-confirmed]`
+in the report. In the scorecard evidence and violation list, prefix the description
+with the tag. AST-confirmed findings carry a +1 concern-level bump in the master
+audit's Findings Index because the measurement is objective. See `~/audits/CLAUDE.md`
+"AST-Confirmed Finding Tier" for the full policy and the list of qualifying AST
+tool categories.
+
 ## Step 1: Read the module and build context
 
 Read the target file. Then:

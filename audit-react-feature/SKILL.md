@@ -35,6 +35,17 @@ of the report. You still need to read individual files for context
 when making classification judgments, but the tools provide the raw
 data.
 
+### AST-confirmed tagging
+
+When a finding is confirmed by AST tool output (a measured complexity score, a
+detected dead export, a counted `as any` occurrence, a circular dependency in
+the import graph, etc.), tag it `[AST-confirmed]` in the report. In the
+migration checklist and any violation tables, prefix the description with the
+tag. AST-confirmed findings carry a +1 concern-level bump in the master audit's
+Findings Index because the measurement is objective. See `~/audits/CLAUDE.md`
+"AST-Confirmed Finding Tier" for the full policy and the list of qualifying
+AST tool categories.
+
 ## Step 1: Inventory all files
 
 Glob for all .ts/.tsx files in the target directory and its subdirectories. For each

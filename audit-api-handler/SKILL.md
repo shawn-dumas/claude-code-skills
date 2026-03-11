@@ -21,6 +21,16 @@ Use the imports tool to trace handler -> schema -> server module ->
 consumer service hook chain. Use complexity for G4 scoring. Use type
 safety for trust boundary cast detection (G5).
 
+### AST-confirmed tagging
+
+When a finding is confirmed by AST tool output (a measured complexity score, a
+trust boundary cast count, an import chain trace, etc.), tag it `[AST-confirmed]`
+in the report. In the scorecard evidence and violation list, prefix the description
+with the tag. AST-confirmed findings carry a +1 concern-level bump in the master
+audit's Findings Index because the measurement is objective. See `~/audits/CLAUDE.md`
+"AST-Confirmed Finding Tier" for the full policy and the list of qualifying AST
+tool categories.
+
 ## Step 1: Locate handler and schema
 
 Given the handler path (e.g., `src/pages/api/users/user-data.ts`), find:

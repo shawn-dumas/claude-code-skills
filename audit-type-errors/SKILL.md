@@ -21,6 +21,16 @@ hotspots. This data supplements the tsc error output.
 npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
 ```
 
+### AST-confirmed tagging
+
+When a finding is confirmed by AST tool output (a counted `as any` concentration,
+a trust boundary cast, a non-null assertion hotspot, etc.), tag it `[AST-confirmed]`
+in the report. In the cascading error chains and prioritized fix plan, prefix the
+description with the tag. AST-confirmed findings carry a +1 concern-level bump in
+the master audit's Findings Index because the measurement is objective. See
+`~/audits/CLAUDE.md` "AST-Confirmed Finding Tier" for the full policy and the list
+of qualifying AST tool categories.
+
 ## Step 1: Run tsc and capture structured output
 
 ```bash

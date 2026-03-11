@@ -1,6 +1,6 @@
 ---
 name: dialectic
-description: Adversarial brainstorming. Launches an Ideas agent and a Critical agent in parallel, then arbitrates their output into doing/deferred/rejected sets. Use when stuck.
+description: Adversarial brainstorming. Launches Ideas and Critical agents in parallel, then an Intake agent to cross-reference, then the Arbiter arbitrates into doing/deferred/rejected sets. Use when stuck.
 context: fork
 allowed-tools: Read, Grep, Glob, Task
 argument-hint: <problem, question, or stuck point>
@@ -8,11 +8,12 @@ argument-hint: <problem, question, or stuck point>
 
 Run a dialectic evaluation. `$ARGUMENTS`
 
-You are the Arbiter. You launch two adversarial sub-agents in parallel,
-synthesize their output, and produce a structured decision. You do NOT
-generate ideas or critiques yourself -- that is the agents' job. Your job
-is to frame the problem, dispatch the agents, judge their output, and
-surface any novel options that emerge from the collision.
+You are the Arbiter. You launch three sub-agents -- Ideas and Critical
+in parallel, then Intake sequentially -- and produce a structured
+decision. You do NOT generate ideas or critiques yourself -- that is
+the agents' job. Your job is to frame the problem, dispatch the agents,
+judge their output, and surface any novel options that emerge from the
+collision.
 
 ## Step 1: Frame the problem
 
@@ -56,18 +57,18 @@ generative and optimistic. You look for possibilities, not problems.
 
 ## Instructions
 
-Generate 5-8 ideas across these four dimensions. Not every idea needs
+Generate 4-6 ideas across these four dimensions. Not every idea needs
 to cover every dimension -- aim for breadth across the set.
 
 **Dimensions:**
 - **Solutions**: direct answers to the problem
-- **Approaches**: different ways to frame or attack the problem
-- **Tradeoffs**: "what if we accepted X to gain Y" reframings
-- **Alternatives**: adjacent or non-obvious options that may not have been considered
+- **Reframings**: change the question itself -- "what if the real problem is X, not Y?"
+- **Tradeoffs**: explicit "accept X to gain Y" proposals
+- **Wild cards**: ideas from adjacent domains, surprising connections, things nobody has mentioned
 
 For each idea, provide:
 1. A short title (3-7 words)
-2. Which dimension it covers (one of: solution, approach, tradeoff, alternative)
+2. Which dimension it covers (one of: solution, reframing, tradeoff, wild card)
 3. A 1-2 sentence description
 4. Your strongest argument for it (1 sentence)
 
@@ -77,8 +78,8 @@ Return your output in this EXACT format with no preamble or commentary:
 
 === IDEAS ===
 1. [solution] **Title here**: Description of the idea. _Argument: why this is worth doing._
-2. [approach] **Title here**: Description of the idea. _Argument: why this is worth doing._
-3. [alternative] **Title here**: Description of the idea. _Argument: why this is worth doing._
+2. [reframing] **Title here**: Description of the idea. _Argument: why this is worth doing._
+3. [wild card] **Title here**: Description of the idea. _Argument: why this is worth doing._
 ...
 === END IDEAS ===
 
@@ -158,10 +159,84 @@ Return your output in this EXACT format with no preamble or commentary:
 - Do not add commentary outside the delimited block.
 ```
 
-## Step 3: Evaluate
+## Step 3: Intake
 
-With both agents' output in hand, evaluate each idea from the Ideas
-agent against the Critical agent's framework.
+After both agents return, launch a single Intake agent using the Task
+tool. Pass it both agents' raw output (verbatim). The Intake agent does
+zero judgment -- it is a paralegal organizing evidence for the Arbiter.
+
+### Intake Agent prompt
+
+Pass this as the Task prompt (substituting the actual outputs):
+
+```
+You are the Intake agent in a dialectic evaluation. Your role is
+clerical, not analytical. You organize evidence for the Arbiter.
+You do NOT judge ideas as good or bad, assess effort or value, or
+recommend categories. That is not your job.
+
+## Ideas Agent Output
+
+<paste the full === IDEAS === block verbatim>
+
+## Critical Agent Output
+
+<paste the full === CRITIQUE === block verbatim>
+
+## Instructions
+
+Produce three sections:
+
+1. **Cross-reference matrix**: For each idea, list which constraints
+   it intersects (supports, conflicts with, or is unrelated to).
+   One row per idea, one column per constraint. Use "+", "-", or "."
+   for supports/conflicts/unrelated.
+
+2. **Terminology alignment**: Where both agents refer to the same
+   concept with different words, note the equivalence. If none, say
+   "None detected."
+
+3. **Gap flags**:
+   - Constraints that no idea addresses
+   - Ideas that no constraint covers
+   - Obvious contradictions between specific ideas and constraints
+
+## Output format
+
+Return your output in this EXACT format with no preamble or commentary:
+
+=== INTAKE ===
+
+## Cross-reference matrix
+| Idea | C1 | C2 | C3 | C4 | C5 | ... |
+|------|----|----|----|----|----| ... |
+| 1    | .  | -  | +  | .  | .  | ... |
+...
+
+## Terminology alignment
+- <agent A term> = <agent B term>: <why they are the same concept>
+...
+
+## Gap flags
+- UNCOVERED CONSTRAINT: C<N> -- <title> -- no idea addresses this
+- UNCONSTRAINED IDEA: Idea <N> -- <title> -- no constraint covers this
+- CONFLICT: Idea <N> vs C<M> -- <one sentence>
+...
+
+=== END INTAKE ===
+
+## Rules
+
+- Do not assess quality, effort, or value. That is the Arbiter's job.
+- Do not propose new ideas or new constraints.
+- Do not add commentary outside the delimited block.
+- When in doubt, mark as "." (unrelated) rather than forcing a connection.
+```
+
+## Step 4: Evaluate
+
+With all three agents' output in hand, use the Intake cross-reference
+to efficiently evaluate each idea against the Critical agent's framework.
 
 For each idea:
 
@@ -186,7 +261,7 @@ For each idea:
 5. **Success criteria.** How many of the Critical agent's success criteria
    does this idea satisfy?
 
-## Step 4: Synthesize
+## Step 5: Synthesize
 
 Before categorizing, check whether the collision of ideas and critique
 produces something neither agent proposed:
@@ -197,10 +272,10 @@ produces something neither agent proposed:
   agent requires point to an unexplored approach?
 
 If a novel option emerges, add it to the evaluation. It must pass the
-same five checks from Step 3. Label it as "Synthesis" in the source
+same five checks from Step 4. Label it as "Synthesis" in the source
 column. Do not force synthesis -- if nothing emerges, move on.
 
-## Step 5: Report
+## Step 6: Report
 
 Output the result in this exact format:
 
@@ -239,7 +314,7 @@ if no dissent: "None -- both agents' outputs aligned with the arbitration.">
 ### Output rules
 
 - Every idea from the Ideas agent must appear in exactly one category.
-- Synthesized ideas (from Step 4) also appear in exactly one category,
+- Synthesized ideas (from Step 5) also appear in exactly one category,
   with source "Synthesis."
 - DOING items are ordered by priority (most impactful first).
 - DEFERRED items must have a concrete revisit condition. "Later" or
