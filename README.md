@@ -818,6 +818,31 @@ Audits the orchestrate-poc skill against the current codebase and regenerates al
 /sync-orchestrate-poc
 ```
 
+## Decision Skills
+
+These skills help with thinking, not coding. They do not write files or
+modify code. Use them when you are stuck, need to evaluate options, or
+want structured brainstorming.
+
+### dialectic
+
+Adversarial brainstorming. Launches two sub-agents in parallel -- an
+Ideas agent (generative, optimistic: solutions, approaches, tradeoffs,
+alternatives) and a Critical agent (skeptical, rigorous: feasibility,
+complexity, maintenance burden, architectural fit). The Arbiter evaluates
+every idea against the critique framework, checks for novel options that
+emerge from the collision, and categorizes everything into three sets:
+DOING (actionable now), DEFERRED (blocked by a concrete condition), and
+REJECTED (killed by a specific constraint or poor effort/value ratio).
+
+Output is structured and inline -- no files created.
+
+```
+/dialectic I need to add real-time updates to the dashboard but I'm stuck on the architecture
+/dialectic What's the right way to handle cross-domain cache invalidation after mutations
+/dialectic We need better error handling but I don't know where to start
+```
+
 ## Customization
 
 These skills encode conventions specific to a particular codebase (directory structure, hook naming, context patterns). To adapt them:
