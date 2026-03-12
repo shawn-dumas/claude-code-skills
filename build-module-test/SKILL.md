@@ -16,15 +16,29 @@ Check whether a spec file already exists for this production file. Look for
 
 If a spec file exists, run the delete threshold check:
 
-| Condition | Decision |
-|-----------|----------|
-| Production file was deleted or moved | Delete the spec (orphaned) |
-| Spec scores <= 4/10 on the 10 principles (quick estimate) | Delete and rebuild |
-| >= 3 own-module mocks (non-boundary `vi.mock` targets) | Delete and rebuild |
-| >= 2 stale references (deleted functions, changed signatures) | Delete and rebuild |
-| Spec is a copy-paste of another spec | Delete and rebuild |
+| Condition                                                     | Decision                   |
+| ------------------------------------------------------------- | -------------------------- |
+| Production file was deleted or moved                          | Delete the spec (orphaned) |
+| Spec scores <= 4/10 on the 10 principles (quick estimate)     | Delete and rebuild         |
+| >= 3 own-module mocks (non-boundary `vi.mock` targets)        | Delete and rebuild         |
+| >= 2 stale references (deleted functions, changed signatures) | Delete and rebuild         |
+| Spec is a copy-paste of another spec                          | Delete and rebuild         |
 
 If no spec exists or the old one was deleted, continue to generate fresh.
+
+## Step 0b: Run AST analysis on the production file
+
+```bash
+npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+```
+
+Use imports to classify dependencies (boundary vs internal) for the
+mock strategy decision. Use complexity to identify high-complexity
+functions that need more test branches. Use side-effects to determine
+whether the module is truly pure or has hidden I/O (console, toast,
+timer, analytics calls), directly feeding the Step 2 classification.
 
 ## Step 1: Read the production file
 
@@ -42,13 +56,13 @@ Read the target file completely. Record:
 
 ## Step 2: Classify and select strategy
 
-| Classification | Criteria | Strategy |
-|----------------|----------|----------|
-| **Pure function** | No I/O, no side effects, deterministic | **Zero mocks** -- call function, assert return value |
-| **I/O function** | Reads/writes filesystem, network, database, storage | **Boundary mocks** -- mock only the I/O boundary |
-| **Mixed module** | Some pure exports, some I/O exports | **Split** -- pure tests (no mocks) + I/O tests (boundary mocks) in separate describe blocks |
-| **Data transformer** | Takes data in, returns transformed data out. May be complex but is pure | **Zero mocks** -- construct input data, assert output shape |
-| **API handler** | Next.js request handler | **Boundary mocks** (fetch/DB) + mock req/res objects |
+| Classification       | Criteria                                                                | Strategy                                                                                    |
+| -------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| **Pure function**    | No I/O, no side effects, deterministic                                  | **Zero mocks** -- call function, assert return value                                        |
+| **I/O function**     | Reads/writes filesystem, network, database, storage                     | **Boundary mocks** -- mock only the I/O boundary                                            |
+| **Mixed module**     | Some pure exports, some I/O exports                                     | **Split** -- pure tests (no mocks) + I/O tests (boundary mocks) in separate describe blocks |
+| **Data transformer** | Takes data in, returns transformed data out. May be complex but is pure | **Zero mocks** -- construct input data, assert output shape                                 |
+| **API handler**      | Next.js request handler                                                 | **Boundary mocks** (fetch/DB) + mock req/res objects                                        |
 
 ## Step 3: Survey surrounding conventions
 
@@ -60,6 +74,7 @@ Read 1-2 existing spec files near the target (if any exist) to match:
 - File naming convention
 
 Also check the global test setup:
+
 - `vitest.setup.ts` provides global `afterEach(() => vi.clearAllMocks())`
   and `afterAll(() => { fetchMocker.disableMocks(); vi.useRealTimers(); })`
 - `fetchMock` is globally available (from `vitest-fetch-mock`)
@@ -70,6 +85,7 @@ Also check the global test setup:
 ### For pure functions / data transformers
 
 For each exported function:
+
 - **Typical inputs**: At least one test with realistic data that exercises the
   main code path
 - **Edge cases**: Empty inputs, null/undefined (if accepted), boundary values,
@@ -79,6 +95,7 @@ For each exported function:
   required fields present, correct types
 
 For data transformers with complex output:
+
 - Test sub-properties individually rather than deep-equal on the entire object
 - Focus on the transformation logic: "given this input shape, these output fields
   should have these values"
@@ -125,8 +142,12 @@ import { myFunction, myOtherFunction } from './myModule';
 
 // ── Test data ──────────────────────────────────────────────────────────
 
-const validInput = { /* realistic test data with explicit types */ };
-const emptyInput = { /* minimal/empty variant */ };
+const validInput = {
+  /* realistic test data with explicit types */
+};
+const emptyInput = {
+  /* minimal/empty variant */
+};
 
 // ── Tests ──────────────────────────────────────────────────────────────
 
@@ -168,7 +189,9 @@ import { readFile, writeFile } from 'fs/promises';
 
 // ── Test data ──────────────────────────────────────────────────────────
 
-const validFileContent = JSON.stringify({ /* ... */ });
+const validFileContent = JSON.stringify({
+  /* ... */
+});
 
 // ── Tests ──────────────────────────────────────────────────────────────
 
@@ -243,46 +266,55 @@ describe('buildSystemsOverviewFast', () => {
 ### Rules (the 10 principles, enforced during generation)
 
 **P1 -- Public API Only:**
+
 - Assert on return values, resolved values, thrown errors
 - Never assert on internal helper call counts or internal state
 - Never spy on unexported functions
 
 **P2 -- Boundary Mocking:**
+
 - Mock ONLY I/O boundaries: `fs`, `fetch`/`fetchApi`, database clients,
   `process.env`, `localStorage`, `crypto`
 - NEVER mock own pure functions, own utilities, or own internal helpers
 - Third-party library mocks are acceptable if the library performs I/O
 
 **P3 -- System Isolation:**
+
 - Let real internal functions run
 - Do not mock modules from the same codebase unless they perform I/O
 
 **P4 -- Strict Strategies:**
+
 - Pure function tests: zero `vi.mock()` calls
 - I/O function tests: mock only the I/O boundary
 - Never mix: pure tests should not need mocks for any reason
 
 **P5 -- Data Ownership:**
+
 - Each test file owns its data. Define test data at file scope.
 - Use fixture builders for complex domain objects
 - Never import test data from another test file
 
 **P6 -- Type-Safe Mocks:**
+
 - No `as any` in mock data
 - Use `satisfies` or explicit type annotations
 - Use `vi.mocked()` for type-safe mock access
 
 **P7 -- Refactor Sync:**
+
 - Read the CURRENT production file. Use current function signatures.
 - Do not copy patterns from old or stale tests.
 
 **P8 -- Output Assertions:**
+
 - Assert on return values and thrown errors
 - Assert on I/O boundary call arguments (URL, path, body)
 - Do not assert on console output as the primary assertion
 - Prefer targeted property assertions over deep-equal on large objects
 
 **P9 -- Determinism:**
+
 - If the function uses `Date` or `Date.now()`: add `vi.useFakeTimers()` +
   `vi.setSystemTime()`
 - If using faker directly: call `faker.seed(12345)` at file scope
@@ -290,6 +322,7 @@ describe('buildSystemsOverviewFast', () => {
 - If the function reads `process.cwd()`: mock it
 
 **P10 -- Total Cleanup:**
+
 - The global `vitest.setup.ts` provides `afterEach(() => vi.clearAllMocks())`
 - Add file-level cleanup ONLY for resources the global setup does not cover:
   - `vi.useFakeTimers()` -> add `afterEach(() => vi.useRealTimers())`

@@ -13,6 +13,17 @@ You are the Handoff Ticket Generator. You read the artifacts produced by
 represent the handoff contract between the PM team and Engineering / QE /
 DevSecOps.
 
+### Resolve $PLANS_DIR
+
+Before any file operations, determine the plans directory:
+
+```bash
+if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans"; fi
+```
+
+Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
+directory (and `$PLANS_DIR/prompts/`) if it does not exist.
+
 ## Preconditions
 
 Before proceeding, verify:
@@ -27,13 +38,13 @@ Before proceeding, verify:
    > Atlassian MCP setup docs for configuration.
 
 2. **orchestrate-poc artifacts exist.** Look for:
-   - `~/plans/poc-<slug>.md` (the PRD)
-   - `~/plans/poc-<slug>-cleanup.md` (the cleanup file)
-   - Optionally: `~/plans/poc-<slug>-bff-handoff.md`
-   - Optionally: `~/plans/poc-<slug>-escalation.md`
+   - `$PLANS_DIR/poc-<slug>.md` (the PRD)
+   - `$PLANS_DIR/poc-<slug>-cleanup.md` (the cleanup file)
+   - Optionally: `$PLANS_DIR/poc-<slug>-bff-handoff.md`
+   - Optionally: `$PLANS_DIR/poc-<slug>-escalation.md`
 
    If the PRD does not exist, stop and tell the user:
-   > No PRD found at `~/plans/poc-<slug>.md`. Run `orchestrate-poc`
+   > No PRD found at `$PLANS_DIR/poc-<slug>.md`. Run `orchestrate-poc`
    > first to generate the planning artifacts.
 
 3. **The PRD status is not `Draft`.** If the PRD still says
@@ -72,10 +83,10 @@ Before proceeding, verify:
 Read all available artifacts for the given feature slug:
 
 ```
-~/plans/poc-<slug>.md              -- PRD (required)
-~/plans/poc-<slug>-cleanup.md      -- Cleanup file (required)
-~/plans/poc-<slug>-bff-handoff.md  -- BFF handoff (optional)
-~/plans/poc-<slug>-escalation.md   -- Escalation report (optional)
+$PLANS_DIR/poc-<slug>.md              -- PRD (required)
+$PLANS_DIR/poc-<slug>-cleanup.md      -- Cleanup file (required)
+$PLANS_DIR/poc-<slug>-bff-handoff.md  -- BFF handoff (optional)
+$PLANS_DIR/poc-<slug>-escalation.md   -- Escalation report (optional)
 ```
 
 Extract from the PRD:
@@ -162,7 +173,7 @@ feature flag) to production-ready (real BFF endpoints, full test
 coverage, deployed across all environments).
 
 ## PRD
-~/plans/poc-<slug>.md
+$PLANS_DIR/poc-<slug>.md
 
 ## Feature Flag
 <flag name> -- currently gating the feature in PoC
@@ -185,8 +196,8 @@ coverage, deployed across all environments).
 <from PRD Section 11, or "See PRD for details">
 
 ## Resources & References
-- PRD: ~/plans/poc-<slug>.md
-- BFF Handoff: ~/plans/poc-<slug>-bff-handoff.md (if applicable)
+- PRD: $PLANS_DIR/poc-<slug>.md
+- BFF Handoff: $PLANS_DIR/poc-<slug>-bff-handoff.md (if applicable)
 - PR: <TBD -- will be created during handoff>
 ```
 
@@ -225,7 +236,7 @@ engineering gate before the feature enters the release pipeline.
 - [ ] PR approved or changes requested with clear feedback
 
 ## Design / Specs
-- PRD: ~/plans/poc-<slug>.md
+- PRD: $PLANS_DIR/poc-<slug>.md
 - Additional design notes: Review against CLAUDE.md architectural rules
 
 ## Criteria Notes
@@ -251,8 +262,8 @@ engineering gate before the feature enters the release pipeline.
 - Deployment to environments (separate tickets)
 
 ## Resources & References
-- PRD: ~/plans/poc-<slug>.md
-- BFF Handoff: ~/plans/poc-<slug>-bff-handoff.md
+- PRD: $PLANS_DIR/poc-<slug>.md
+- BFF Handoff: $PLANS_DIR/poc-<slug>-bff-handoff.md
 - Related Epic: <epic key>
 ```
 
@@ -288,7 +299,7 @@ automated or manual test cases. Validate PRD acceptance criteria.
 - [ ] Test results documented for production environment
 
 ## Design / Specs
-- PRD: ~/plans/poc-<slug>.md
+- PRD: $PLANS_DIR/poc-<slug>.md
 - Screenshots: <from PRD design section or N/A>
 
 ## Criteria Notes
@@ -315,7 +326,7 @@ automated or manual test cases. Validate PRD acceptance criteria.
 - Load testing
 
 ## Resources & References
-- PRD: ~/plans/poc-<slug>.md
+- PRD: $PLANS_DIR/poc-<slug>.md
 - Testing docs: docs/testing.md
 - Integration testing docs: docs/integration-testing.md
 - Related Epic: <epic key>
@@ -325,7 +336,7 @@ automated or manual test cases. Validate PRD acceptance criteria.
 
 ### Ticket 4: BFF Migration (conditional)
 
-Only create this ticket if `~/plans/poc-<slug>-bff-handoff.md` exists.
+Only create this ticket if `$PLANS_DIR/poc-<slug>-bff-handoff.md` exists.
 
 ```
 Type: Story
@@ -353,7 +364,7 @@ These endpoints replace the mock routes with real data from
 - [ ] Service hooks updated: fetchApi routes to /api/ in production
 
 ## Design / Specs
-- BFF Handoff: ~/plans/poc-<slug>-bff-handoff.md
+- BFF Handoff: $PLANS_DIR/poc-<slug>-bff-handoff.md
 - Additional design notes: See docs/bff.md for middleware patterns
 
 ## Criteria Notes
@@ -378,7 +389,7 @@ These endpoints replace the mock routes with real data from
 - Mock route maintenance (stays as-is for mocked mode)
 
 ## Resources & References
-- BFF Handoff: ~/plans/poc-<slug>-bff-handoff.md
+- BFF Handoff: $PLANS_DIR/poc-<slug>-bff-handoff.md
 - BFF Architecture: docs/bff.md
 - BFF Migration Guide: docs/bff-user-backend-migration.md
 - Related Epic: <epic key>
@@ -449,7 +460,7 @@ before the BFF code that depends on them.
 - Frontend changes
 
 ## Resources & References
-- BFF Handoff: ~/plans/poc-<slug>-bff-handoff.md
+- BFF Handoff: $PLANS_DIR/poc-<slug>-bff-handoff.md
 - Related Epic: <epic key>
 ```
 

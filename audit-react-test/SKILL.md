@@ -50,8 +50,7 @@ When a finding is confirmed by AST tool output (a mock classification from
 etc.), tag it `[AST-confirmed]` in the report. In the per-file scorecard and
 violation tables, prefix the description with the tag. AST-confirmed findings
 carry a +1 concern-level bump in the master audit's Findings Index because the
-measurement is objective. See `~/audits/CLAUDE.md` "AST-Confirmed Finding Tier"
-for the full policy and the list of qualifying AST tool categories.
+measurement is objective.
 
 ## Step 1: Inventory all test files
 

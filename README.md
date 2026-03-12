@@ -4,6 +4,21 @@ A set of [Claude Code skills](https://docs.anthropic.com/en/docs/claude-code/ski
 
 These skills are opinionated. They encode a specific architectural model that prioritizes explicit data flow, clear ownership boundaries, and minimal coupling. If your codebase follows different conventions, you will want to fork and adapt them.
 
+### Plans directory (`$PLANS_DIR`)
+
+Orchestration artifacts (master plans, prompts, cleanup files, PRDs) are
+stored in the **plans directory**. Skills reference this as `$PLANS_DIR`.
+
+**Resolution rule (apply once at the start of every orchestration skill):**
+
+1. If `$PLANS_DIR/` exists, use it (`$PLANS_DIR = $PLANS_DIR/`)
+2. Otherwise, use `./plans/` relative to the repo root (`$PLANS_DIR = ./plans/`)
+3. If neither exists, create `./plans/` and use it
+
+The `$PLANS_DIR` variable is not a shell variable. It is a convention used
+in skill instructions. When an agent reads `$PLANS_DIR/prompts/foo.md`, it
+resolves the path using the rule above.
+
 ## General Code Principles
 
 These 10 principles apply to all non-trivial TypeScript code in the project -- utilities, server-side processing, API handlers, schemas, scripts, and shared libraries. The React-specific principles in the next section are specializations of these general rules applied to the component model.
@@ -703,7 +718,7 @@ Orchestration skills do not write production code. They generate the plan and pr
 ### How it works
 
 1. You invoke the skill with a description of the work
-2. The skill reads the codebase, generates a master plan and prompt sequence in `~/plans/`
+2. The skill reads the codebase, generates a master plan and prompt sequence in `$PLANS_DIR/`
 3. The skill enters the orchestrator loop: runs one prompt at a time, verifies output, gates on quality
 4. After all prompts complete, the orchestrator generates a cleanup prompt from issues discovered during execution
 5. You review and approve the cleanup prompt before it runs
@@ -754,7 +769,7 @@ Coordinates phased implementation of a new feature. You describe the feature; th
 Coordinates fixes for audit findings. You provide the audit report path or describe what to audit; the skill triages findings by severity and domain, groups them into fix prompts, and runs them in priority order.
 
 ```
-/orchestrate-audit-fixes ~/audits/26-03-04-13-41--user-frontend--complete-audit.md
+/orchestrate-audit-fixes path/to/audit-report.md
 ```
 
 ### orchestrate-backlog
@@ -762,7 +777,7 @@ Coordinates fixes for audit findings. You provide the audit report path or descr
 Coordinates a backlog of accumulated items. You provide a backlog file or describe the items; the skill prioritizes, identifies dependencies, sequences prompts, and runs them.
 
 ```
-/orchestrate-backlog ~/plans/uf-backlog.md
+/orchestrate-backlog $PLANS_DIR/uf-backlog.md
 ```
 
 ### orchestrate-migration
@@ -842,6 +857,19 @@ Output is structured and inline -- no files created.
 /dialectic What's the right way to handle cross-domain cache invalidation after mutations
 /dialectic We need better error handling but I don't know where to start
 ```
+
+## AST Tools
+
+Skills use static analysis tools in `scripts/AST/` instead of grep for
+code structure queries. Each skill's Step 0 lists the specific tools to
+run. See `AGENTS.md` for the full tool inventory and the AST-first
+policy.
+
+**AST-first policy.** When analyzing code structure, use the matching
+AST tool. Grep is reserved for documentation search, config file lookup,
+and ad-hoc symbol/string queries. If you need structural code analysis
+and no AST tool exists for it, build one following the patterns in
+`scripts/AST/`.
 
 ## Customization
 

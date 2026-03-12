@@ -15,11 +15,18 @@ any files. Produce a complete violation report.
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-env-access.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
 ```
 
 Use the imports tool to trace handler -> schema -> server module ->
 consumer service hook chain. Use complexity for G4 scoring. Use type
-safety for trust boundary cast detection (G5).
+safety for trust boundary cast detection (G5). Use env-access for G2
+(ambient `process.env` reads vs validated `clientEnv`/`serverEnv`
+modules). Use side-effects for G6 (console, toast, timer, analytics
+calls mixed into the handler body). Use data-layer to cross-reference
+service hook consumers, query keys, and fetchApi endpoints (Step 5).
 
 ### AST-confirmed tagging
 
@@ -27,13 +34,12 @@ When a finding is confirmed by AST tool output (a measured complexity score, a
 trust boundary cast count, an import chain trace, etc.), tag it `[AST-confirmed]`
 in the report. In the scorecard evidence and violation list, prefix the description
 with the tag. AST-confirmed findings carry a +1 concern-level bump in the master
-audit's Findings Index because the measurement is objective. See `~/audits/CLAUDE.md`
-"AST-Confirmed Finding Tier" for the full policy and the list of qualifying AST
-tool categories.
+audit's Findings Index because the measurement is objective.
 
 ## Step 1: Locate handler and schema
 
 Given the handler path (e.g., `src/pages/api/users/user-data.ts`), find:
+
 - The handler file itself
 - The companion schema file (e.g., `src/pages/api/users/user-data.schema.ts`)
 - The mock handler (if it exists) in `src/pages/api/mock/`
@@ -41,6 +47,7 @@ Given the handler path (e.g., `src/pages/api/users/user-data.ts`), find:
 If no schema file exists, that is itself a violation (G5 -- no parsing at the boundary).
 
 Read all located files. Also read:
+
 - Any shared types referenced by the schema or handler (from `src/shared/types/`)
 - Any server-side processing modules the handler calls (from `src/server/`)
 - The fetchApi configuration if the handler is called by a service hook (trace the
@@ -51,6 +58,7 @@ Read all located files. Also read:
 ### Schema completeness
 
 For each endpoint the handler serves (it may handle multiple HTTP methods):
+
 - Is there a Zod schema for the request parameters (query params, body)?
 - Is there a Zod schema for the success response?
 - Is there a Zod schema for error responses?
@@ -85,6 +93,7 @@ WARN if shared shapes are redefined locally.
 ### G5 -- Parse at the boundary
 
 The handler should parse/validate incoming data immediately:
+
 - Request body parsed with the Zod schema before any processing
 - Query parameters parsed/validated before use
 - No `as T` casts on request data
@@ -101,6 +110,7 @@ The handler should follow a three-layer structure:
 3. **Respond** -- format and return the response
 
 Check whether business logic is mixed into the handler body or properly separated:
+
 - Is data transformation done in the handler or delegated to a server module?
 - Could the processing logic be tested without mocking `req`/`res`?
 
@@ -163,6 +173,7 @@ FAIL if ambient dependencies are scattered throughout the handler body.
 ## Step 5: Cross-reference with consumers
 
 Trace the handler's consumer chain:
+
 - Which service hooks call this endpoint?
 - Does the service hook's Zod schema match the handler's response schema?
 - Are there mismatches between what the handler returns and what the client expects?
@@ -174,6 +185,7 @@ WARN if schemas are compatible but defined independently (duplication risk).
 ## Step 6: Check the mock handler
 
 If a mock handler exists in `src/pages/api/mock/`:
+
 - Does it return data shaped like the real handler's response?
 - Does it use fixture builders from `src/fixtures/`?
 - Is the mock response validated against the same schema?

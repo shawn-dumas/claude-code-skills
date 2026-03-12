@@ -12,6 +12,17 @@ You are now the orchestrator. You coordinate work agents but do NOT write
 production code yourself. Read the Orchestration Protocol section of
 `~/.claude/CLAUDE.md` before proceeding -- it defines the rules you must follow.
 
+### Resolve $PLANS_DIR
+
+Before any file operations, determine the plans directory:
+
+```bash
+if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans"; fi
+```
+
+Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
+directory (and `$PLANS_DIR/prompts/`) if it does not exist.
+
 ## Step 1: Parse the feature description
 
 Extract from the argument:
@@ -74,7 +85,7 @@ prompt verification sections and the orchestrator verification loop.
 NOTE: Include the integration test scope in the master plan header, e.g.:
 `> Integration scope: per-prompt | final-only | none`
 
-Create `~/plans/<feature-name>.md` with:
+Create `$PLANS_DIR/<feature-name>.md` with:
 
 ```markdown
 # Feature: <title>
@@ -144,7 +155,7 @@ Not every feature needs all phases. Skip phases that have no work.
 
 ## Step 5: Generate prompts
 
-Create prompt files in `~/plans/prompts/` named `<feature-name>-NN-<phase>.md`.
+Create prompt files in `$PLANS_DIR/prompts/` named `<feature-name>-NN-<phase>.md`.
 
 Each prompt follows this structure:
 
@@ -154,8 +165,8 @@ Each prompt follows this structure:
 ## Context
 - Repo: ~/github/user-frontend
 - Branch: <current branch>
-- Master plan: ~/plans/<feature-name>.md
-- Cleanup file: ~/plans/<feature-name>-cleanup.md (append to it)
+- Master plan: $PLANS_DIR/<feature-name>.md
+- Cleanup file: $PLANS_DIR/<feature-name>-cleanup.md (append to it)
 
 Read ~/github/user-frontend/CLAUDE.md before starting.
 
@@ -233,7 +244,7 @@ Prompt-specific checks:
 
 ## Step 6: Create the cleanup file
 
-Create `~/plans/<feature-name>-cleanup.md`:
+Create `$PLANS_DIR/<feature-name>-cleanup.md`:
 
 ```markdown
 # Feature Cleanup: <title>
@@ -331,11 +342,11 @@ For each prompt:
 
 After all planned prompts complete:
 
-1. Read `~/plans/<feature-name>-cleanup.md` in full
+1. Read `$PLANS_DIR/<feature-name>-cleanup.md` in full
 2. If no items, skip to Step 10
 3. Group items by domain/file proximity
 4. Filter out items already resolved by later prompts
-5. Generate `~/plans/prompts/<feature-name>-cleanup.md`
+5. Generate `$PLANS_DIR/prompts/<feature-name>-cleanup.md`
 6. Present to user for approval
 7. Run only after the user approves
 

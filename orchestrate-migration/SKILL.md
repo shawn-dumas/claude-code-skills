@@ -12,6 +12,17 @@ You are now the orchestrator. You coordinate work agents but do NOT write
 production code yourself. Read the Orchestration Protocol section of
 `~/.claude/CLAUDE.md` before proceeding -- it defines the rules you must follow.
 
+### Resolve $PLANS_DIR
+
+Before any file operations, determine the plans directory:
+
+```bash
+if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans"; fi
+```
+
+Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
+directory (and `$PLANS_DIR/prompts/`) if it does not exist.
+
 ## Step 1: Parse the migration description
 
 Extract from the argument:
@@ -74,7 +85,7 @@ prompt verification sections and the orchestrator verification loop.
 NOTE: Include the integration test scope in the master plan header, e.g.:
 `> Integration scope: per-prompt | final-only | none`
 
-Create `~/plans/<migration-name>.md` with:
+Create `$PLANS_DIR/<migration-name>.md` with:
 
 ```markdown
 # Migration: <title>
@@ -161,7 +172,7 @@ Phase 7 (cleanup + deletion)
 
 ## Step 5: Generate prompts
 
-Create prompt files in `~/plans/prompts/` named
+Create prompt files in `$PLANS_DIR/prompts/` named
 `<migration-name>-NN-<phase>.md`.
 
 Each prompt follows this structure:
@@ -175,11 +186,11 @@ Prompt N of M in the <migration-name> sequence.
 
 - Repo: ~/github/user-frontend
 - Branch: <current branch>
-- Master plan: ~/plans/<migration-name>.md
-- Cleanup file: ~/plans/<migration-name>-cleanup.md (append to it)
+- Master plan: $PLANS_DIR/<migration-name>.md
+- Cleanup file: $PLANS_DIR/<migration-name>-cleanup.md (append to it)
 
 Read ~/github/user-frontend/CLAUDE.md before starting.
-Check ~/plans/<migration-name>-cleanup.md for issues from prior prompts.
+Check $PLANS_DIR/<migration-name>-cleanup.md for issues from prior prompts.
 
 ## Prerequisite
 
@@ -263,8 +274,8 @@ Prompt-specific checks:
 <standard reconciliation block with migration-specific fields>
 
 ### Plan File Updates
-- ~/plans/<migration-name>.md (update file/phase status, remaining count)
-- ~/plans/<migration-name>-cleanup.md (append)
+- $PLANS_DIR/<migration-name>.md (update file/phase status, remaining count)
+- $PLANS_DIR/<migration-name>-cleanup.md (append)
 ```
 
 ### Prompt generation rules
@@ -280,7 +291,7 @@ Prompt-specific checks:
 
 ## Step 6: Create the cleanup file
 
-Create `~/plans/<migration-name>-cleanup.md`:
+Create `$PLANS_DIR/<migration-name>-cleanup.md`:
 
 ```markdown
 # Migration Cleanup: <title>
@@ -384,12 +395,12 @@ For each prompt:
 
 After all planned prompts complete:
 
-1. Read `~/plans/<migration-name>-cleanup.md` in full
+1. Read `$PLANS_DIR/<migration-name>-cleanup.md` in full
 2. Run the global remaining-instance grep. If count > 0 and items are
    not documented exemptions, include them in the cleanup prompt
 3. Group items by domain/file proximity
 4. Filter out items resolved by later prompts
-5. Generate `~/plans/prompts/<migration-name>-cleanup.md`
+5. Generate `$PLANS_DIR/prompts/<migration-name>-cleanup.md`
 6. Include a final verification step that confirms the old pattern count
    matches the documented exemptions exactly
 7. Present to user for approval

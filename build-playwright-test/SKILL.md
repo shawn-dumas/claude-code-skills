@@ -13,6 +13,21 @@ page file path (e.g., `src/pages/insights/productivity.tsx`). Everything
 after the first whitespace is an optional description of what interactions
 to test.
 
+## Step 0: Run AST analysis on the page and container
+
+After identifying the page and container files (see Step 1), run:
+
+```bash
+npx tsx scripts/AST/ast-data-layer.ts <container-path> --pretty
+npx tsx scripts/AST/ast-react-inventory.ts <container-path> --pretty
+```
+
+Use data-layer to systematically identify every API endpoint the page
+calls (service hooks, fetchApi calls, query keys), replacing manual
+grep-based endpoint discovery in Step 3. Use react-inventory to map
+which hooks the container calls and what props flow to children,
+informing which user flows to test.
+
 ## Step 1: Map the route to its page and container
 
 If given a route path, find the corresponding:

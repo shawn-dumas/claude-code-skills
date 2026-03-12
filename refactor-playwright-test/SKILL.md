@@ -26,6 +26,21 @@ Relevant testing philosophy principles for integration tests:
 - **P9 Determinism**: No flaky waits, mock time if needed, seed data
 - **P10 Total Cleanup**: Route handlers cleaned between tests
 
+## Step 0: Run AST analysis tools
+
+```bash
+npx tsx scripts/AST/ast-test-analysis.ts $ARGUMENTS --pretty
+```
+
+Use the test analysis tool to get structured data on mock classification,
+assertion quality, cleanup hygiene, and data sourcing patterns. This
+provides the mechanical baseline for the audit in Steps 2-4.
+
+### AST-confirmed tagging
+
+When a finding is confirmed by AST tool output (mock count, assertion
+anti-pattern, missing cleanup), tag it `[AST-confirmed]` in the report.
+
 ## Step 1: Read the spec and its target pages
 
 Read the integration spec completely. For each route the spec navigates to:
@@ -134,15 +149,15 @@ for (const { name, data, expected } of eventTypes) {
 These checks address patterns that caused repeated agent failures during
 Playwright remediation. Check each one during the audit pass.
 
-| ID | Check | What to verify |
-|----|-------|----------------|
-| B1 | Sort test accounts for `sortDescFirst` | For every `assertColumnSortToggles` call: read the column definition in the production container. Verify `firstOrder` matches the TanStack toggle cycle (`sortDescFirst: true` = desc-first, `false` = asc-first). Verify the column is not pre-sorted on page load (if so, needs a pre-clear click on a different column first). |
-| B2 | Fixture data matches Zod schema | For specs using inline fixture data or `page.route()` interceptors: read the Zod schema for each intercepted API response. Verify no `null` values where schema uses `.optional()` (not `.nullable()`). Verify fixture matches the pre-mapped shape, not the post-mapped UI type. |
-| B3 | Modal assertions target visible children | For specs asserting on modals/dialogs: verify assertions target the heading or a visible child, NOT the Dialog wrapper element. Verify "modal closed" assertions wait for the heading to be hidden, not the wrapper. Headless UI Dialog wrappers can have zero dimensions. |
-| B4 | CRUD tests call `__reset` in beforeEach | For specs testing create/update/delete: verify `beforeEach` calls the mock server's `__reset` endpoint (`page.request.post('.../api/mock/__reset')`). Without reset, state from previous tests leaks and causes false failures. |
-| B5 | Empty array guard in custom assertion helpers | For specs using custom sort/comparison helpers: verify helpers throw on empty input instead of returning vacuous true via `Array.every([])`. Check for `expect(values.length).toBeGreaterThan(0)` before sort assertions. |
-| B6 | nuqs URL parameter stability | For specs navigating between tabs/views using nuqs URL params: verify the spec does NOT assume URL params persist across full-page navigations (nuqs Pages Router does not preserve params across `router.push` in some edge cases). If testing URL-param-backed state, verify the spec waits for URL to stabilize before asserting. |
-| B7 | Check session history for known flaky tests | Before diagnosing a failing test, query the session database for its run history. A test that passes individually but fails at position 100+ in a long serial run is resource contention, not a code bug. A test that fails only after a specific preceding spec is cross-test pollution. A test that has never passed in any session is a real bug. See build-playwright-test A8 for the exact SQL query. |
+| ID  | Check                                         | What to verify                                                                                                                                                                                                                                                                                                                                                                                             |
+| --- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1  | Sort test accounts for `sortDescFirst`        | For every `assertColumnSortToggles` call: read the column definition in the production container. Verify `firstOrder` matches the TanStack toggle cycle (`sortDescFirst: true` = desc-first, `false` = asc-first). Verify the column is not pre-sorted on page load (if so, needs a pre-clear click on a different column first).                                                                          |
+| B2  | Fixture data matches Zod schema               | For specs using inline fixture data or `page.route()` interceptors: read the Zod schema for each intercepted API response. Verify no `null` values where schema uses `.optional()` (not `.nullable()`). Verify fixture matches the pre-mapped shape, not the post-mapped UI type.                                                                                                                          |
+| B3  | Modal assertions target visible children      | For specs asserting on modals/dialogs: verify assertions target the heading or a visible child, NOT the Dialog wrapper element. Verify "modal closed" assertions wait for the heading to be hidden, not the wrapper. Headless UI Dialog wrappers can have zero dimensions.                                                                                                                                 |
+| B4  | CRUD tests call `__reset` in beforeEach       | For specs testing create/update/delete: verify `beforeEach` calls the mock server's `__reset` endpoint (`page.request.post('.../api/mock/__reset')`). Without reset, state from previous tests leaks and causes false failures.                                                                                                                                                                            |
+| B5  | Empty array guard in custom assertion helpers | For specs using custom sort/comparison helpers: verify helpers throw on empty input instead of returning vacuous true via `Array.every([])`. Check for `expect(values.length).toBeGreaterThan(0)` before sort assertions.                                                                                                                                                                                  |
+| B6  | nuqs URL parameter stability                  | For specs navigating between tabs/views using nuqs URL params: verify the spec does NOT assume URL params persist across full-page navigations (nuqs Pages Router does not preserve params across `router.push` in some edge cases). If testing URL-param-backed state, verify the spec waits for URL to stabilize before asserting.                                                                       |
+| B7  | Check session history for known flaky tests   | Before diagnosing a failing test, query the session database for its run history. A test that passes individually but fails at position 100+ in a long serial run is resource contention, not a code bug. A test that fails only after a specific preceding spec is cross-test pollution. A test that has never passed in any session is a real bug. See build-playwright-test A8 for the exact SQL query. |
 
 ## Step 4: Apply fixes
 

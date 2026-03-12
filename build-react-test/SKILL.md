@@ -21,19 +21,32 @@ sibling `__tests__/` or `tests/` directory.
 
 If a spec file exists, run the delete threshold check:
 
-| Condition | Decision |
-|-----------|----------|
-| Production file was deleted or moved | Delete the spec (orphaned) |
-| Spec scores ≤ 4/10 on the 10 principles (quick estimate) | Delete and rebuild from scratch |
-| Spec mocks ≥ 3 own hooks or components (`vi.mock` of non-boundary targets) | Delete and rebuild |
-| Spec references ≥ 2 deleted providers/hooks (stale mocks) | Delete and rebuild |
-| Production file changed from self-contained to DDAU (now receives all data via props, but spec still wraps in providers and mocks hooks) | Delete and rebuild |
-| Spec is a copy-paste of another spec (describe block names a different component) | Delete and rebuild |
+| Condition                                                                                                                                | Decision                        |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Production file was deleted or moved                                                                                                     | Delete the spec (orphaned)      |
+| Spec scores ≤ 4/10 on the 10 principles (quick estimate)                                                                                 | Delete and rebuild from scratch |
+| Spec mocks ≥ 3 own hooks or components (`vi.mock` of non-boundary targets)                                                               | Delete and rebuild              |
+| Spec references ≥ 2 deleted providers/hooks (stale mocks)                                                                                | Delete and rebuild              |
+| Production file changed from self-contained to DDAU (now receives all data via props, but spec still wraps in providers and mocks hooks) | Delete and rebuild              |
+| Spec is a copy-paste of another spec (describe block names a different component)                                                        | Delete and rebuild              |
 
 If the threshold is met: delete the old spec, report what was deleted and
 why, then continue to generate fresh. If the existing spec is close to
 compliant (scores 7+/10), report that and suggest using a future
 `refactor-react-test` skill instead of rebuilding.
+
+## Step 0b: Run AST analysis on the production file
+
+```bash
+npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
+```
+
+Use react-inventory to classify the production file (DDAU component vs
+container vs service hook vs utility hook) based on its hook calls,
+props, and context usage. Use data-layer to identify whether the file
+calls service hooks or fetchApi, distinguishing containers from DDAU
+components and informing the mock boundary decisions in Step 2.
 
 ## Step 1: Read the production file
 
@@ -53,14 +66,14 @@ Read the target file completely. Record:
 
 ## Step 2: Classify and select strategy
 
-| Classification | Criteria | Strategy |
-|----------------|----------|----------|
-| **DDAU component** | Receives all data via props, no service hooks, no context hooks, no router | **Unit test** |
-| **Container** | Calls service hooks, context hooks, useRouter, or wires data to children | **Integration test** |
-| **Service hook** | Calls useQuery/useMutation via useFetchApi | **Hook unit test** (mock fetchApi) |
-| **Utility hook** | DOM/state hook, no data fetching | **Hook unit test** (mock browser APIs if needed) |
-| **Pure function/utility** | No React, no side effects | **Function unit test** |
-| **Provider** | Creates React context, holds state | **Integration test** |
+| Classification            | Criteria                                                                   | Strategy                                         |
+| ------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------ |
+| **DDAU component**        | Receives all data via props, no service hooks, no context hooks, no router | **Unit test**                                    |
+| **Container**             | Calls service hooks, context hooks, useRouter, or wires data to children   | **Integration test**                             |
+| **Service hook**          | Calls useQuery/useMutation via useFetchApi                                 | **Hook unit test** (mock fetchApi)               |
+| **Utility hook**          | DOM/state hook, no data fetching                                           | **Hook unit test** (mock browser APIs if needed) |
+| **Pure function/utility** | No React, no side effects                                                  | **Function unit test**                           |
+| **Provider**              | Creates React context, holds state                                         | **Integration test**                             |
 
 If the user forced a strategy via the second argument, use that instead.
 
@@ -77,6 +90,7 @@ Read 1-2 existing spec files near the target to match:
 Match whatever conventions you find.
 
 Also check the global test setup:
+
 - `vitest.setup.ts` provides global `afterEach(() => vi.clearAllMocks())`
   and `afterAll(() => { fetchMocker.disableMocks(); vi.useRealTimers(); })`
 - `fetchMock` is globally available (from `vitest-fetch-mock`)
@@ -94,6 +108,7 @@ public API surface.
 The public API is: **props in → rendered output + callback invocations out**.
 
 For each prop:
+
 - **Data props**: At least one test verifying the prop's value appears in
   rendered output (via `getByText`, `getByRole`, or `getByTestId`)
 - **Callback props**: At least one test triggering the callback via user
@@ -217,11 +232,13 @@ describe('MyComponent', () => {
 ### Rules (the 10 principles, enforced during generation)
 
 **P1 — Public API Only:**
+
 - Assert on rendered output and callback invocations only
 - Never assert on hook call counts, internal state, or effect order
 - For hooks: assert on `result.current.*`, not on internal implementation
 
 **P2 — Boundary Mocking:**
+
 - Mock ONLY external boundaries: `fetchApi`/`fetchMock`, `localStorage`,
   `sessionStorage`, `next/router`, `next/navigation`, `firebase/*`
 - NEVER mock own hooks, own components, or own utilities
@@ -230,10 +247,12 @@ describe('MyComponent', () => {
 - Third-party mocks (posthog, echarts) are acceptable
 
 **P3 — System Isolation:**
+
 - Let pure presentational children render (do not mock them)
 - Only mock children that have side effects (network, storage)
 
 **P4 — Strict Strategies:**
+
 - Unit tests: render with props only, no `QueryClientProvider`, no providers
 - Integration tests (containers): wrap in `QueryClientProvider`, use `fetchMock`
 - Never mix: no provider-wrapped renders in unit tests
@@ -265,6 +284,7 @@ function setup(overrides?: Partial<ContainerProps>) {
 ```
 
 **P5 — Data Ownership:**
+
 - Each test file owns its data. Define `defaultProps` at file scope.
 - Use fixture builders (`build()`) for complex objects — they return new
   objects each call.
@@ -273,6 +293,7 @@ function setup(overrides?: Partial<ContainerProps>) {
   or `crypto.randomUUID()` (jsdom provides it).
 
 **P6 — Type-Safe Mocks:**
+
 - `defaultProps` is explicitly typed: `React.ComponentProps<typeof Comp>`
 - Mock return values use `satisfies` when mocking hook returns:
   ```typescript
@@ -282,11 +303,13 @@ function setup(overrides?: Partial<ContainerProps>) {
   `as unknown as WrongType` with a comment explaining the intent.
 
 **P7 — Refactor Sync:**
+
 - Read the CURRENT production file. Do not copy patterns from old tests.
 - If the production file's Props interface has changed since any old test
   was written, the new test uses the current interface.
 
 **P8 — User Outcomes:**
+
 - Use `screen.getByRole()` as the primary query (most accessible)
 - Fall back to `screen.getByText()`, then `screen.getByTestId()`
 - Assert on: `toBeVisible()`, `toBeInTheDocument()`, `toHaveTextContent()`,
@@ -295,6 +318,7 @@ function setup(overrides?: Partial<ContainerProps>) {
 - Never assert on CSS class names, DOM structure depth, or snapshot trees
 
 **P9 — Determinism:**
+
 - If the component displays dates or times: add `vi.useFakeTimers()` in a
   `beforeEach` and `vi.useRealTimers()` in `afterEach`
 - If using faker directly (not via fixtures): call `faker.seed(12345)` at
@@ -304,6 +328,7 @@ function setup(overrides?: Partial<ContainerProps>) {
   is the test file's responsibility
 
 **P10 — Total Cleanup:**
+
 - The global `vitest.setup.ts` already provides:
   - `afterEach(() => vi.clearAllMocks())`
   - `afterAll(() => { fetchMocker.disableMocks(); vi.useRealTimers(); })`

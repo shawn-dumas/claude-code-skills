@@ -12,11 +12,22 @@ You are now the orchestrator. You coordinate work agents but do NOT write
 production code yourself. Read the Orchestration Protocol section of
 `~/.claude/CLAUDE.md` before proceeding -- it defines the rules you must follow.
 
+### Resolve $PLANS_DIR
+
+Before any file operations, determine the plans directory:
+
+```bash
+if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans"; fi
+```
+
+Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
+directory (and `$PLANS_DIR/prompts/`) if it does not exist.
+
 ## Step 1: Parse the argument
 
 Determine the input:
 
-- **Audit report path** (e.g., `~/audits/...`): Read the report file.
+- **Audit report path** (e.g., `path/to/audit-report.md`): Read the report file.
   It contains findings with severity levels, file paths, and descriptions.
 
 - **Description of what to audit** (e.g., "audit the dashboard feature
@@ -76,7 +87,7 @@ prompt verification sections and the orchestrator verification loop.
 NOTE: Include the integration test scope in the master plan header, e.g.:
 `> Integration scope: per-prompt | final-only | none`
 
-Create `~/plans/<audit-name>-fixes.md` with:
+Create `$PLANS_DIR/<audit-name>-fixes.md` with:
 
 ```markdown
 # Audit Fixes: <title>
@@ -134,7 +145,7 @@ Create `~/plans/<audit-name>-fixes.md` with:
 
 ## Step 5: Generate fix prompts
 
-Create prompt files in `~/plans/prompts/` named
+Create prompt files in `$PLANS_DIR/prompts/` named
 `<audit-name>-fix-NN-<domain>.md`.
 
 Each prompt follows this structure:
@@ -146,8 +157,8 @@ Each prompt follows this structure:
 - Repo: ~/github/user-frontend
 - Branch: <current branch>
 - Source audit: <audit report path>
-- Master plan: ~/plans/<audit-name>-fixes.md
-- Cleanup file: ~/plans/<audit-name>-fixes-cleanup.md (append to it)
+- Master plan: $PLANS_DIR/<audit-name>-fixes.md
+- Cleanup file: $PLANS_DIR/<audit-name>-fixes-cleanup.md (append to it)
 
 Read ~/github/user-frontend/CLAUDE.md before starting.
 
@@ -187,7 +198,7 @@ Also update <master plan path>: mark findings <list> as DONE.
 
 ## Step 6: Create the cleanup file
 
-Create `~/plans/<audit-name>-fixes-cleanup.md`:
+Create `$PLANS_DIR/<audit-name>-fixes-cleanup.md`:
 
 ```markdown
 # Audit Fixes Cleanup: <title>
@@ -283,11 +294,11 @@ For each prompt:
 
 After all planned prompts complete:
 
-1. Read `~/plans/<audit-name>-fixes-cleanup.md` in full
+1. Read `$PLANS_DIR/<audit-name>-fixes-cleanup.md` in full
 2. If no items, skip to Step 10
 3. Group items by domain/file proximity
 4. Filter out items resolved by later prompts
-5. Generate `~/plans/prompts/<audit-name>-fix-cleanup.md`
+5. Generate `$PLANS_DIR/prompts/<audit-name>-fix-cleanup.md`
 6. Present to user for approval
 7. Run only after user approves
 

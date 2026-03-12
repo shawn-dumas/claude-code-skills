@@ -12,11 +12,22 @@ You are now the orchestrator. You coordinate work agents but do NOT write
 production code yourself. Read the Orchestration Protocol section of
 `~/.claude/CLAUDE.md` before proceeding -- it defines the rules you must follow.
 
+### Resolve $PLANS_DIR
+
+Before any file operations, determine the plans directory:
+
+```bash
+if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans"; fi
+```
+
+Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
+directory (and `$PLANS_DIR/prompts/`) if it does not exist.
+
 ## Step 1: Parse the argument
 
 Determine the input:
 
-- **Backlog file path** (e.g., `~/plans/uf-backlog.md`): Read the file.
+- **Backlog file path** (e.g., `$PLANS_DIR/uf-backlog.md`): Read the file.
   It contains a list of items to address.
 
 - **Description of items** (e.g., "clean up all the test infrastructure
@@ -78,7 +89,7 @@ prompt verification sections and the orchestrator verification loop.
 NOTE: Include the integration test scope in the master plan header, e.g.:
 `> Integration scope: per-prompt | final-only | none`
 
-Create `~/plans/<backlog-name>.md` (or update the existing backlog file)
+Create `$PLANS_DIR/<backlog-name>.md` (or update the existing backlog file)
 with:
 
 ```markdown
@@ -142,7 +153,7 @@ Prompt 5 (final validation)
 
 ## Step 5: Generate prompts
 
-Create prompt files in `~/plans/prompts/` named
+Create prompt files in `$PLANS_DIR/prompts/` named
 `<backlog-name>-NN-<topic>.md`.
 
 Each prompt follows this structure:
@@ -156,11 +167,11 @@ Prompt N of M in the <backlog-name> sequence.
 
 - Repo: ~/github/user-frontend
 - Branch: <current branch>
-- Master plan: ~/plans/<backlog-name>.md
-- Cleanup file: ~/plans/<backlog-name>-cleanup.md (append to it)
+- Master plan: $PLANS_DIR/<backlog-name>.md
+- Cleanup file: $PLANS_DIR/<backlog-name>-cleanup.md (append to it)
 
 Read ~/github/user-frontend/CLAUDE.md before starting.
-Check ~/plans/<backlog-name>-cleanup.md for issues from prior prompts.
+Check $PLANS_DIR/<backlog-name>-cleanup.md for issues from prior prompts.
 
 ## Prerequisite
 
@@ -190,7 +201,7 @@ Check ~/plans/<backlog-name>-cleanup.md for issues from prior prompts.
 
 ## Cleanup Protocol
 
-Append to ~/plans/<backlog-name>-cleanup.md:
+Append to $PLANS_DIR/<backlog-name>-cleanup.md:
 
 \`\`\`markdown
 ## Prompt N: <title>
@@ -204,8 +215,8 @@ Append to ~/plans/<backlog-name>-cleanup.md:
 <standard reconciliation block>
 
 ### Plan File Updates
-- ~/plans/<backlog-name>.md (update item status)
-- ~/plans/<backlog-name>-cleanup.md (append)
+- $PLANS_DIR/<backlog-name>.md (update item status)
+- $PLANS_DIR/<backlog-name>-cleanup.md (append)
 ```
 
 ### Prompt generation rules
@@ -220,7 +231,7 @@ Append to ~/plans/<backlog-name>-cleanup.md:
 
 ## Step 6: Create the cleanup file
 
-Create `~/plans/<backlog-name>-cleanup.md`:
+Create `$PLANS_DIR/<backlog-name>-cleanup.md`:
 
 ```markdown
 # Backlog Cleanup: <title>
@@ -319,11 +330,11 @@ For each prompt:
 
 After all planned prompts complete:
 
-1. Read `~/plans/<backlog-name>-cleanup.md` in full
+1. Read `$PLANS_DIR/<backlog-name>-cleanup.md` in full
 2. If no items, skip to Step 10
 3. Group items by domain/file proximity
 4. Filter out items resolved by later prompts
-5. Generate `~/plans/prompts/<backlog-name>-cleanup.md`
+5. Generate `$PLANS_DIR/prompts/<backlog-name>-cleanup.md`
 6. Present to user for approval
 7. Run only after user approves
 

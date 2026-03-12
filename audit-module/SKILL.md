@@ -15,11 +15,18 @@ modify any files. Produce a complete violation report.
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-env-access.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-storage-access.ts $ARGUMENTS --pretty
 ```
 
 Use the imports tool for G7 (dead exports, consumer list), the complexity
 tool for G4 (per-function complexity scores), and the type safety tool
-for G8 (any/cast/assertion violations).
+for G8 (any/cast/assertion violations). Use side-effects for G6 (console,
+toast, timer, analytics calls that indicate impure code). Use env-access
+for G2/G5 (ambient `process.env` reads vs validated env modules). Use
+storage-access for G5/G6 (raw `localStorage`/`sessionStorage` calls vs
+`typedStorage` wrappers, storage reads without Zod schemas).
 
 ### AST-confirmed tagging
 
@@ -27,13 +34,12 @@ When a finding is confirmed by AST tool output (a measured complexity score, a
 detected dead export, a counted `as any` occurrence, etc.), tag it `[AST-confirmed]`
 in the report. In the scorecard evidence and violation list, prefix the description
 with the tag. AST-confirmed findings carry a +1 concern-level bump in the master
-audit's Findings Index because the measurement is objective. See `~/audits/CLAUDE.md`
-"AST-Confirmed Finding Tier" for the full policy and the list of qualifying AST
-tool categories.
+audit's Findings Index because the measurement is objective.
 
 ## Step 1: Read the module and build context
 
 Read the target file. Then:
+
 - Read every file it imports (other local modules, types, utilities)
 - Find all consumers of this module (grep for its exports across the codebase)
 - Identify whether this module is re-exported through a barrel file
@@ -44,17 +50,17 @@ Build a map of what this module depends on and what depends on it.
 
 Determine what kind of module this is:
 
-| Classification | Criteria |
-|----------------|----------|
-| **Utility** | Pure functions that transform data. No I/O, no side effects. Lives in `src/shared/utils/` or a domain-specific utils directory. |
-| **Server processor** | Fetches, transforms, or aggregates data on the server side. Lives in `src/server/`. May mix I/O with transformation (a G6 concern). |
-| **API schema** | Zod schemas defining request/response shapes for an API endpoint. Lives alongside API handlers. |
-| **API handler** | Next.js API route handler. Parses requests, calls logic, returns responses. Lives in `src/pages/api/`. **Redirect to `audit-api-handler` for a more targeted audit.** |
-| **Type module** | Type definitions, branded types, or `as const` enums. Lives in `src/shared/types/`. |
-| **Fixture** | Test data builders. Lives in `src/fixtures/`. |
-| **Script** | One-off or periodic Node.js script. Lives in `scripts/`. |
-| **Constant** | Static configuration values, lookup tables, test IDs. Lives in `src/constants/`. |
-| **Infrastructure** | fetchApi, storage wrappers, analytics, auth utilities. Lives in `src/shared/lib/`. |
+| Classification       | Criteria                                                                                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Utility**          | Pure functions that transform data. No I/O, no side effects. Lives in `src/shared/utils/` or a domain-specific utils directory.                                       |
+| **Server processor** | Fetches, transforms, or aggregates data on the server side. Lives in `src/server/`. May mix I/O with transformation (a G6 concern).                                   |
+| **API schema**       | Zod schemas defining request/response shapes for an API endpoint. Lives alongside API handlers.                                                                       |
+| **API handler**      | Next.js API route handler. Parses requests, calls logic, returns responses. Lives in `src/pages/api/`. **Redirect to `audit-api-handler` for a more targeted audit.** |
+| **Type module**      | Type definitions, branded types, or `as const` enums. Lives in `src/shared/types/`.                                                                                   |
+| **Fixture**          | Test data builders. Lives in `src/fixtures/`.                                                                                                                         |
+| **Script**           | One-off or periodic Node.js script. Lives in `scripts/`.                                                                                                              |
+| **Constant**         | Static configuration values, lookup tables, test IDs. Lives in `src/constants/`.                                                                                      |
+| **Infrastructure**   | fetchApi, storage wrappers, analytics, auth utilities. Lives in `src/shared/lib/`.                                                                                    |
 
 ## Step 3: Audit against G1-G10
 
@@ -74,6 +80,7 @@ WARN if there is one function that feels out of place but the rest is cohesive.
 ### G2 -- Explicit Inputs, Explicit Outputs
 
 For each exported function:
+
 - Are all dependencies passed as parameters (not pulled from closures, globals, or env vars)?
 - Is the return type explicitly annotated (or unambiguously inferrable)?
 - Does any function mutate its arguments?
@@ -99,6 +106,7 @@ WARN if a utility abstraction is used only once (premature extraction).
 ### G4 -- Low Cyclomatic Complexity
 
 For each function, estimate cyclomatic complexity by counting:
+
 - `if` / `else if` / `else` branches
 - `switch` cases
 - `&&` / `||` / `??` in conditionals
@@ -110,6 +118,7 @@ FAIL if any function exceeds complexity of roughly 7.
 WARN if any function exceeds complexity of roughly 5.
 
 Flag specific patterns:
+
 - Nested if/else deeper than 2 levels
 - Switch statements with 5+ cases (candidate for lookup map)
 - Functions longer than 40 lines (complexity often correlates with length)
@@ -117,6 +126,7 @@ Flag specific patterns:
 ### G5 -- Parse, Don't Validate
 
 Identify trust boundaries in the module:
+
 - `JSON.parse` calls
 - `fetch` response handling
 - `localStorage`/`sessionStorage` reads
@@ -126,6 +136,7 @@ Identify trust boundaries in the module:
 - URL parameter reads
 
 For each:
+
 - Is the data validated/parsed into typed values at the boundary?
 - Is there a Zod schema, type guard, or branded type constructor?
 - Does downstream code re-check the same conditions (defensive programming)?
@@ -136,6 +147,7 @@ WARN if downstream code re-validates data that was already parsed at the boundar
 ### G6 -- Pure Core, Effects at the Edge
 
 Identify side effects in the module:
+
 - Database/API calls (fetch, Supabase client calls)
 - File system operations
 - Console output (console.log/warn/error)
@@ -144,6 +156,7 @@ Identify side effects in the module:
 - Timer setup (setTimeout, setInterval)
 
 For each side effect:
+
 - Is it in a separate function from the data transformation logic?
 - Could the transformation be extracted into a pure function that the side-effectful
   function calls?
@@ -165,6 +178,7 @@ WARN if the module exports more than consumers use (over-broad public API).
 ### G8 -- Types as Documentation
 
 For each exported function:
+
 - Does the type signature fully describe the contract?
 - Are parameter types specific enough (branded types for IDs, literal types for
   discriminants, discriminated unions for variants)?
@@ -214,11 +228,11 @@ Before recommending refactoring, assess the safety net:
 
 3. **Classify coverage level:**
 
-| Level | Criteria |
-|-------|----------|
-| **TESTED** | A dedicated spec file exists for this module |
+| Level                 | Criteria                                                                          |
+| --------------------- | --------------------------------------------------------------------------------- |
+| **TESTED**            | A dedicated spec file exists for this module                                      |
 | **INDIRECTLY_TESTED** | No dedicated spec, but other spec files import and exercise this module's exports |
-| **UNTESTED** | No spec file exists and no other spec imports from this module |
+| **UNTESTED**          | No spec file exists and no other spec imports from this module                    |
 
 4. **If UNTESTED:** Add a prominent warning to every item in the refactor checklist:
    "WARNING: No test coverage -- write tests before refactoring." Flag refactor risk
@@ -238,6 +252,7 @@ dead code. Flag for deletion, not refactoring.
 ### Debug artifacts
 
 Scan for:
+
 - `console.log` / `console.debug` / `console.info` (not `console.error` or `console.warn`)
 - Commented-out code blocks longer than 3 lines
 - `// TODO` / `// HACK` / `// FIXME` markers
@@ -246,6 +261,7 @@ Scan for:
 ### Type violations
 
 Apply the same type audit as `audit-react-feature` Step 3d:
+
 - Duplicate type definitions (exists in `src/shared/types/`)
 - Bare primitives that should be branded
 - `enum` that should be `as const`

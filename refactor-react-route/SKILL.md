@@ -24,16 +24,25 @@ npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
 # Also run on direct child components (from the imports output)
 npx tsx scripts/AST/ast-jsx-analysis.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-storage-access.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
 ```
 
 Use the inventory output across the route tree to identify all hook
 call sites in children (Step 2b), fetch depth (Step 2h), and effect
 bridges (Step 2f). Use JSX analysis for Step 2i (template complexity
-in children).
+in children). Use side-effects for Steps 2d/2e (toast call sites and
+analytics events scattered through the component tree). Use
+storage-access for Step 2c (storage boundary -- which components access
+storage, raw vs typedStorage, Zod-validated reads). Use data-layer for
+Steps 2a/2b/2h (service hook locations, query key ownership, fetchApi
+endpoints across the route tree).
 
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read:
+
 - Every component it renders (direct children and their children, 2-3 levels deep)
 - Every hook call in those children (context hooks, service hooks, router hooks,
   auth hooks, feature flag hooks)
@@ -86,6 +95,7 @@ escape-hatch criteria (stable, narrow, local, no orchestration).
 The container should be the sole reader/writer of storage for its route, using
 `readStorage`/`writeStorage`/`removeStorage` from `@/shared/utils/typedStorage`.
 Never use raw `localStorage`/`sessionStorage` calls. Check:
+
 - Do any child components directly read or write storage?
 - Does the container read stored defaults at mount and pass them as props?
 - Does the container write back to storage on state changes?
@@ -96,6 +106,7 @@ Never use raw `localStorage`/`sessionStorage` calls. Check:
 Toast calls (toastSuccess, toastError, toastWarning) belong in the container's
 mutation onSuccess/onError callbacks, not in service hooks or child components.
 Check:
+
 - Do any service hooks called by this route fire toasts?
 - Do any child components fire toasts directly?
 
@@ -103,6 +114,7 @@ Check:
 
 When a mutation in this route's domain must invalidate queries from another domain,
 that invalidation happens in the container's onSuccess callback. Check:
+
 - Do any service hooks import query keys from other domains?
 - Does the container handle cross-domain invalidation explicitly?
 
@@ -121,10 +133,12 @@ useEffect(() => {
 ```
 
 For each child in the route's tree, check whether any useEffect:
+
 - Reads a prop, transforms it, and calls a callback prop with the result
 - Initializes parent state on mount via a callback prop
 
 These writes should move to the container:
+
 - Transform-on-change: move to the container's event handler where the triggering
   state change originates (e.g., `handleFilterUpdate`)
 - Initialize-on-mount: move to the container's mount useEffect
@@ -142,6 +156,7 @@ duplicate prop-wiring for layout-level components across route containers.
 ### 2h. Fetch depth
 
 Check how deep data-fetching goes in the component tree:
+
 - Fetching at the container level (1 level) -- **good**
 - Children 2-3 levels deep calling their own query hooks -- **bad**
   This means the container is not absorbing all data needs.
@@ -157,6 +172,7 @@ derived values and rendering predicates into the container (or into named
 intermediates in the child), so the child's return is flat markup.
 
 Flag:
+
 - Chained ternaries in JSX (multi-way branching belongs in lookup maps)
 - Inline data transformation (.map/.filter/.reduce in the return)
 - Multi-statement inline handlers (should be named functions)

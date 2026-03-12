@@ -24,6 +24,17 @@ skill assumes the PRD already captures the feature's design. The PM
 describes what they want changed in the prompt. You ask clarifying
 questions only when the change description is ambiguous.
 
+### Resolve $PLANS_DIR
+
+Before any file operations, determine the plans directory:
+
+```bash
+if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans"; fi
+```
+
+Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
+directory (and `$PLANS_DIR/prompts/`) if it does not exist.
+
 ---
 
 ## Preconditions
@@ -31,18 +42,18 @@ questions only when the change description is ambiguous.
 Before proceeding, verify:
 
 1. **The PoC was created via `orchestrate-poc`.** Look for:
-   - `~/plans/poc-<slug>-prd.md` (the PRD)
-   - `~/plans/poc-<slug>-cleanup.md` (the cleanup file)
-   - Optionally: `~/plans/poc-<slug>-bff-handoff.md`
-   - Optionally: `~/plans/poc-<slug>-plan.md` (the master plan)
+   - `$PLANS_DIR/poc-<slug>-prd.md` (the PRD)
+   - `$PLANS_DIR/poc-<slug>-cleanup.md` (the cleanup file)
+   - Optionally: `$PLANS_DIR/poc-<slug>-bff-handoff.md`
+   - Optionally: `$PLANS_DIR/poc-<slug>-plan.md` (the master plan)
 
    If none of these exist, try the alternate naming convention:
-   - `~/plans/poc-<slug>.md`
+   - `$PLANS_DIR/poc-<slug>.md`
 
    If the PRD file cannot be found:
    > I cannot find the PRD for this PoC. The `iterate-poc` skill
    > requires artifacts from `orchestrate-poc`. Expected path:
-   > `~/plans/poc-<slug>-prd.md` or `~/plans/poc-<slug>.md`.
+   > `$PLANS_DIR/poc-<slug>-prd.md` or `$PLANS_DIR/poc-<slug>.md`.
    >
    > If this PoC was not created via `orchestrate-poc`, run
    > `orchestrate-poc` with the "Existing spike" path first to
@@ -52,9 +63,9 @@ Before proceeding, verify:
 
 2. **The PRD status is not `Escalated`.** Read the PRD header. If the
    status is `Escalated` or an escalation report exists at
-   `~/plans/poc-<slug>-escalation.md`:
+   `$PLANS_DIR/poc-<slug>-escalation.md`:
    > This PoC was escalated during `orchestrate-poc`. The escalation
-   > report at `~/plans/poc-<slug>-escalation.md` needs engineering
+   > report at `$PLANS_DIR/poc-<slug>-escalation.md` needs engineering
    > review before further iteration. Resolve the escalation first.
 
    Stop and wait for the PM to resolve.
@@ -121,7 +132,7 @@ Read these artifacts to understand what exists:
 
 ### 2.1 Read the PRD
 
-Read the full PRD at `~/plans/poc-<slug>-prd.md` (or `~/plans/poc-<slug>.md`).
+Read the full PRD at `$PLANS_DIR/poc-<slug>-prd.md` (or `$PLANS_DIR/poc-<slug>.md`).
 Extract:
 - Section 2 (Functional Requirements) -- what the feature currently does
 - Section 3 (User Experience) -- current flows and UI states
@@ -150,7 +161,7 @@ were made.
 
 ### 2.3 Read the Cleanup File
 
-Read `~/plans/poc-<slug>-cleanup.md`. Check if any existing cleanup
+Read `$PLANS_DIR/poc-<slug>-cleanup.md`. Check if any existing cleanup
 items are related to or affected by the requested change. If so, note
 them -- the change may resolve existing items or create conflicts.
 
@@ -273,7 +284,7 @@ Each prompt follows the standard orchestration prompt format from
 
 - **Context section** includes: "This is an iteration on an existing PoC.
   The feature was built via orchestrate-poc. The PRD is at
-  `~/plans/poc-<slug>-prd.md`. Read it for full context."
+  `$PLANS_DIR/poc-<slug>-prd.md`. Read it for full context."
 
 - **Scope section** is narrow: only the files identified in Step 3, not
   a full feature build.
@@ -303,7 +314,7 @@ Each prompt follows the standard orchestration prompt format from
   follow `docs/git-protocol.md`. Use `Phase: iteration` and the
   iteration prompt filename for the trailers.
 
-Write prompt files to `~/plans/prompts/poc-<slug>-iter-NN-<phase>.md`,
+Write prompt files to `$PLANS_DIR/prompts/poc-<slug>-iter-NN-<phase>.md`,
 where NN is a zero-padded sequence number. If previous iteration prompts
 exist, continue the numbering from where they left off.
 
@@ -316,7 +327,7 @@ fixtures, POMs, or integration specs, scope is `per-prompt`.
 
 ### 4.4 Master Plan Update
 
-If a master plan exists at `~/plans/poc-<slug>-plan.md`, append an
+If a master plan exists at `$PLANS_DIR/poc-<slug>-plan.md`, append an
 iteration section:
 
 ```markdown
@@ -338,7 +349,7 @@ iteration section:
 ```
 
 If no master plan exists, create a lightweight one at
-`~/plans/poc-<slug>-iter-plan.md` with just the iteration section.
+`$PLANS_DIR/poc-<slug>-iter-plan.md` with just the iteration section.
 
 ---
 
@@ -429,7 +440,7 @@ table.
 
 If the change affects API contracts (new fields, new endpoints, changed
 response shapes) and a BFF handoff document exists at
-`~/plans/poc-<slug>-bff-handoff.md`:
+`$PLANS_DIR/poc-<slug>-bff-handoff.md`:
 
 - Update the affected endpoint definitions.
 - Add a note at the top: "Updated <date>: <what changed>."
@@ -469,7 +480,7 @@ response shapes) and a BFF handoff document exists at
    > **PRD updated:** Sections <list>. Changelog entry added.
    > <If BFF handoff updated: "BFF handoff document updated.">
    >
-   > **Cleanup items added:** N (see ~/plans/poc-<slug>-cleanup.md)
+   > **Cleanup items added:** N (see $PLANS_DIR/poc-<slug>-cleanup.md)
    >
    > **To see the changes:** <how to navigate to the feature>
 

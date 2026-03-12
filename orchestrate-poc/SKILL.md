@@ -39,6 +39,17 @@ multiple-choice questions wherever possible. When the Question tool is
 unavailable or the question requires free-text, output the question as
 text and wait for a response. Never guess answers -- always ask.
 
+### Resolve $PLANS_DIR
+
+Before any file operations, determine the plans directory:
+
+```bash
+if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans"; fi
+```
+
+Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
+directory (and `$PLANS_DIR/prompts/`) if it does not exist.
+
 ---
 
 ## How This Skill Works
@@ -502,14 +513,14 @@ Acknowledge what you received and tell the PM you will walk them through
 a series of questions to flesh it out. Create the working PRD file
 immediately (unless already created in Phase 0):
 
-Create `~/plans/poc-<feature-slug>.md` with the PRD template from
+Create `$PLANS_DIR/poc-<feature-slug>.md` with the PRD template from
 the Reference: PRD Template section below. Fill in:
 - Feature Name from the argument
 - Status: `Draft`
 - Author(s): `[PM name -- ask if not provided]`
 - Last Updated: today's date
 
-Create `~/plans/poc-<feature-slug>-cleanup.md` with:
+Create `$PLANS_DIR/poc-<feature-slug>-cleanup.md` with:
 
 ```markdown
 # PoC Cleanup: <feature name>
@@ -951,7 +962,7 @@ Options:
 - Section 5.2 (Modified Existing Routes): Note any changes
 
 If new data entities exist, generate a BFF handoff document at
-`~/plans/poc-<feature-slug>-bff-handoff.md` containing:
+`$PLANS_DIR/poc-<feature-slug>-bff-handoff.md` containing:
 - Endpoint path (following the existing `/api/mock/users/data-api/` convention)
 - Request parameters (with Zod schema)
 - Response shape (with Zod schema)
@@ -1238,7 +1249,7 @@ the specific changes.
 
 ### Step 7.3: Generate the master plan
 
-Create `~/plans/poc-<feature-slug>.md` (update the existing PRD file
+Create `$PLANS_DIR/poc-<feature-slug>.md` (update the existing PRD file
 to add an Implementation Plan appendix, or create a separate plan file
 if the PRD is already long).
 
@@ -1273,7 +1284,7 @@ Follow the same master plan format as `orchestrate-feature`:
 
 ### Step 7.4: Generate implementation prompts
 
-Create prompt files in `~/plans/prompts/` named `poc-<slug>-NN-<phase>.md`.
+Create prompt files in `$PLANS_DIR/prompts/` named `poc-<slug>-NN-<phase>.md`.
 
 Each prompt follows the standard orchestration prompt template (see
 orchestrate-feature for the exact format). Key rules:
@@ -1326,7 +1337,7 @@ orchestrate-feature for the exact format). Key rules:
   > [body]
   >
   > PoC: <slug>
-  > PRD: ~/plans/poc-<slug>.md
+  > PRD: $PLANS_DIR/poc-<slug>.md
   > Phase: <phase>
   > Prompt: <prompt-filename>
   > Components: <comma-separated from: types, schemas, fixtures,
@@ -1342,7 +1353,7 @@ orchestrate-feature for the exact format). Key rules:
 
 If any data entities were marked "This is entirely new data" or
 "Existing data, new aggregation/projection" in Phase 3, create
-`~/plans/poc-<feature-slug>-bff-handoff.md`:
+`$PLANS_DIR/poc-<feature-slug>-bff-handoff.md`:
 
 ```markdown
 # BFF Handoff: <feature name>
@@ -1353,7 +1364,7 @@ This PoC feature requires N new or extended API endpoints that the BFF
 team needs to implement. The PoC currently runs against fixture data
 served by mock routes. When the real endpoints are ready, the service
 hooks will automatically route to them (fetchApi routes to /api/ in
-production/development/staging, and to /api/mock/ in both local and mocked modes).
+production/development/staging, and to /api/mock/ in mocked mode only).
 
 ## Endpoints
 
@@ -1507,12 +1518,12 @@ After each prompt completes, update the PRD:
 
 After all planned prompts complete:
 
-1. Read `~/plans/poc-<feature-slug>-cleanup.md` in full
+1. Read `$PLANS_DIR/poc-<feature-slug>-cleanup.md` in full
 2. If no items, skip to Step 10
 3. **Escalation check** (see below)
 4. Group items by domain/file proximity
 5. Filter out items already resolved by later prompts
-6. Generate `~/plans/prompts/poc-<slug>-cleanup.md`
+6. Generate `$PLANS_DIR/prompts/poc-<slug>-cleanup.md`
 7. Present to user for approval
 8. Run only after the user approves
 
@@ -1546,14 +1557,14 @@ many fixes.
 When either threshold is triggered:
 
 1. **Stop.** Do not generate the cleanup prompt.
-2. **Generate an escalation report** at `~/plans/poc-<feature-slug>-escalation.md`:
+2. **Generate an escalation report** at `$PLANS_DIR/poc-<feature-slug>-escalation.md`:
 
 ```markdown
 # Escalation: <feature name> PoC
 
 **Status:** Cleanup exceeds PoC scope. Engineering manager review needed.
 **Generated:** <date>
-**Cleanup file:** ~/plans/poc-<feature-slug>-cleanup.md
+**Cleanup file:** $PLANS_DIR/poc-<feature-slug>-cleanup.md
 
 ## Why This Escalated
 
@@ -1602,14 +1613,14 @@ When either threshold is triggered:
 3. **Present the escalation to the PM:**
    > The cleanup file has grown beyond what can be resolved in this PoC
    > session. I have generated an escalation report at
-   > `~/plans/poc-<feature-slug>-escalation.md`.
+   > `$PLANS_DIR/poc-<feature-slug>-escalation.md`.
    >
    > **Next step:** Share this report with your engineering manager.
    > The PoC is functional behind the feature flag -- it is safe to demo.
    > But the cleanup items need engineering review before this can move
    > toward production.
    >
-   > The PRD at `~/plans/poc-<feature-slug>.md` is current through the
+   > The PRD at `$PLANS_DIR/poc-<feature-slug>.md` is current through the
    > implementation prompts that completed. The escalation report lists
    > exactly what remains.
 

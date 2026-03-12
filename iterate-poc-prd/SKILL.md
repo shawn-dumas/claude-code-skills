@@ -22,6 +22,17 @@ implies code changes, you flag them as divergences and recommend
 in the prompt. You ask clarifying questions only when the feedback is
 ambiguous.
 
+### Resolve $PLANS_DIR
+
+Before any file operations, determine the plans directory:
+
+```bash
+if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans"; fi
+```
+
+Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
+directory (and `$PLANS_DIR/prompts/`) if it does not exist.
+
 ---
 
 ## Preconditions
@@ -29,12 +40,12 @@ ambiguous.
 Before proceeding, verify:
 
 1. **The PRD exists.** Look for:
-   - `~/plans/poc-<slug>-prd.md`
-   - Or: `~/plans/poc-<slug>.md`
+   - `$PLANS_DIR/poc-<slug>-prd.md`
+   - Or: `$PLANS_DIR/poc-<slug>.md`
 
    If the PRD cannot be found:
-   > I cannot find the PRD at `~/plans/poc-<slug>-prd.md` or
-   > `~/plans/poc-<slug>.md`. This skill requires a PRD produced by
+   > I cannot find the PRD at `$PLANS_DIR/poc-<slug>-prd.md` or
+   > `$PLANS_DIR/poc-<slug>.md`. This skill requires a PRD produced by
    > `orchestrate-poc`.
 
    Stop and wait for the PM to resolve.
@@ -262,7 +273,7 @@ produce a divergence summary:
 | Section N | <PRD claim> | <actual behavior> |
 ```
 
-Write this summary to `~/plans/poc-<slug>-divergences.md` (create or
+Write this summary to `$PLANS_DIR/poc-<slug>-divergences.md` (create or
 overwrite). This file serves as the input for a future `iterate-poc`
 run.
 
@@ -281,7 +292,7 @@ Report to the PM:
 >
 > <If divergences exist:>
 > **Code divergences found:** N items. Written to
-> `~/plans/poc-<slug>-divergences.md`.
+> `$PLANS_DIR/poc-<slug>-divergences.md`.
 >
 > To bring the code in line with the updated PRD, run:
 > ```
@@ -315,7 +326,7 @@ and the PRD edit requires a commit, use:
 docs(<slug>): <subject describing the PRD change>
 
 PoC: <slug>
-PRD: ~/plans/poc-<slug>.md
+PRD: $PLANS_DIR/poc-<slug>.md
 Phase: iteration
 Prompt: manual
 Components: docs

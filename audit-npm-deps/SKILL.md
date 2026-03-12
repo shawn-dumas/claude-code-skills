@@ -10,6 +10,18 @@ Audit the npm dependencies of the project at `$ARGUMENTS` (default: current work
 directory). This is a read-only diagnostic -- do not modify any files. Produce a
 complete dependency update plan.
 
+## Step 0: Run AST import analysis
+
+Run the import graph analyzer on the full source tree. This provides
+a structured map of which npm packages are actually imported and from
+where, replacing grep-based dead-dependency detection in Step 4 with
+machine-parsed data. It also catches type-only imports more reliably
+than regex.
+
+```bash
+npx tsx scripts/AST/ast-imports.ts src/ --pretty
+```
+
 ## Step 1: Read package.json
 
 Read `package.json` and record:

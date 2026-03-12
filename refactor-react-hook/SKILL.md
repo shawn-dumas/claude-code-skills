@@ -20,11 +20,16 @@ isolation.
 ```bash
 npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
 ```
 
 Use the inventory to classify the hook (Step 2) and identify its hook
 calls. Use imports to find all consumers and check for cross-domain
-imports (Step 3d).
+imports (Step 3d). Use side-effects for Step 3a (detecting toast,
+navigate, storage writes, and analytics calls that violate single
+responsibility). Use data-layer for Steps 3b-3d (factory indirection,
+mapper side effects in `select`, cross-domain query key imports).
 
 ## Step 1: Build the dependency picture
 
@@ -99,6 +104,7 @@ onSuccess callback, not inside the hook.
 
 Check if this hook duplicates logic that already exists in another hook or could be
 extracted into a shared utility:
+
 - Multiple hooks with the same click-outside/escape-key/resize pattern
 - Multiple hooks reading the same storage key independently
 - Multiple hooks with identical error handling or retry logic

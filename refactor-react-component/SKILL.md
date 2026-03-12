@@ -20,10 +20,16 @@ isolation.
 ```bash
 npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-jsx-analysis.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
 ```
 
 Use the inventory for Step 2 (hook calls, useEffect classification,
 props interface). Use JSX analysis for Step 2c-ii (template complexity).
+Use imports for Step 1 (dependency picture, consumer count, cross-domain
+imports) and Step 4 (updating imports after file splits). Use
+side-effects for Step 2a (hidden side effects in functions that look
+pure, toast calls in wrong layers) and Step 2e (timer patterns).
 
 ## Step 1: Build the dependency picture
 
@@ -39,6 +45,7 @@ For each violation found, note the file, the line, what is wrong, and what the f
 ### 2a. Zero spooky action at a distance
 
 Look for hidden communication channels:
+
 - Storage keys read or written without a single owner module, or accessed via
   raw `localStorage`/`sessionStorage` instead of `typedStorage` helpers
 - Context values consumed deep in the tree instead of passed as props
@@ -49,6 +56,7 @@ Look for hidden communication channels:
 ### 2b. Data Down, Actions Up (DDAU)
 
 The component's Props interface should be its complete dependency list.
+
 - Does the component call useContext, useRouter, useSearchParams, useQueryState,
   or any service hook directly?
 - Does it read URL params (router.query, useQueryState) instead of receiving them
@@ -72,6 +80,7 @@ The return statement should be a flat declaration of layout. All decision-making
 and data transformation lives above the return in named intermediate variables.
 
 Flag these in the return statement:
+
 - **Chained ternaries** (`a ? X : b ? Y : Z`) -- should be a lookup map or
   sub-component
 - **Complex guards** (3+ conditions in an `&&` chain) -- should be a named
@@ -89,6 +98,7 @@ Flag these in the return statement:
 ### 2d. Separation of concerns
 
 Check layer violations:
+
 - **Service hooks** should only fetch/mutate. No toasts, no navigation, no localStorage.
 - **Containers** wire service hooks to components, handle events, manage feedback.
   One container per orchestration boundary (typically per route, but also per
@@ -100,6 +110,7 @@ Check layer violations:
 ### 2e. useEffect discipline
 
 Flag every useEffect and classify it:
+
 - Derived state sync (useEffect + setState where useMemo works) -- **wrong**
 - Post-event work split across handler + effect -- **wrong**
 - Mount-only initialization that could be useState lazy init -- **wrong**
@@ -222,6 +233,7 @@ anti-pattern encountered repeatedly in real codebases.
 selected item no longer exists in the list.
 
 **Before (wrong):**
+
 ```tsx
 useEffect(() => {
   if (!selectedUser) return;
@@ -234,6 +246,7 @@ useEffect(() => {
 ```
 
 **After (correct):**
+
 ```tsx
 const effectiveSelectedUser = useMemo(() => {
   if (!selectedUser) return null;
@@ -246,6 +259,7 @@ Keep the raw `selectedUser` + `setSelectedUser` for state ownership and persiste
 callbacks. The raw value is what gets persisted; the effective value is what renders.
 
 Wire ALL downstream consumers to the effective value:
+
 - Other useMemo hooks that depend on the selection
 - useQuery `enabled` flags
 - Event handler comparisons (e.g., `effectiveSelectedUser === userEmail`)
@@ -263,6 +277,7 @@ retains a useEffect that transforms props and writes back to the parent via a
 callback. This is the most common post-extraction artifact.
 
 **Before (wrong):**
+
 ```tsx
 // In child wrapper component
 useEffect(() => {
@@ -272,11 +287,12 @@ useEffect(() => {
 ```
 
 **After (correct):**
+
 ```tsx
 // In container -- at the event boundary where filters are submitted
-const handleFilterUpdate = (newFilters) => {
+const handleFilterUpdate = newFilters => {
   setFilters(newFilters);
-  setParentFilters('key', transformFilters(newFilters));  // hoisted here
+  setParentFilters('key', transformFilters(newFilters)); // hoisted here
 };
 
 // In mount effect -- for session restore
@@ -296,6 +312,7 @@ The child wrapper becomes a thin passthrough or gets deleted entirely.
 and a `let isCancelled = false` cleanup pattern.
 
 **Before (wrong):**
+
 ```tsx
 const [data, setData] = useState([]);
 const [isLoading, setIsLoading] = useState(false);
@@ -313,11 +330,14 @@ useEffect(() => {
     }
   };
   void load();
-  return () => { isCancelled = true; };
+  return () => {
+    isCancelled = true;
+  };
 }, [company]);
 ```
 
 **After (correct):**
+
 ```tsx
 const { data = [], isLoading } = useQuery({
   queryKey: ['items', company],
@@ -341,6 +361,7 @@ changes and call `form.setValue` in response (e.g., resetting dependent fields w
 a parent field changes).
 
 **Before (suboptimal):**
+
 ```tsx
 const values = useWatch({ control: form.control });
 
@@ -352,6 +373,7 @@ useEffect(() => {
 ```
 
 **After (preferred):**
+
 ```tsx
 useEffect(() => {
   const subscription = form.watch((value, { name }) => {
@@ -379,12 +401,16 @@ respond to a specific field change without re-rendering on every keystroke.
 to detect client-side rendering for hydration-sensitive code.
 
 **Before (wrong):**
+
 ```tsx
 const [isMounted, setIsMounted] = useState(false);
-useEffect(() => { setIsMounted(true); }, []);
+useEffect(() => {
+  setIsMounted(true);
+}, []);
 ```
 
 **After (correct):**
+
 ```tsx
 const [isMounted] = useState(() => typeof window !== 'undefined');
 ```

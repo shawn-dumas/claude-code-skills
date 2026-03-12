@@ -12,6 +12,17 @@ You are now the orchestrator. You coordinate work agents but do NOT write
 production code yourself. Read the Orchestration Protocol section of
 `~/.claude/CLAUDE.md` before proceeding -- it defines the rules you must follow.
 
+### Resolve $PLANS_DIR
+
+Before any file operations, determine the plans directory:
+
+```bash
+if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans"; fi
+```
+
+Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
+directory (and `$PLANS_DIR/prompts/`) if it does not exist.
+
 ## Step 1: Parse the bug description
 
 Extract from the argument:
@@ -72,7 +83,7 @@ prompt verification sections and the orchestrator verification loop.
 
 ## Step 5: Generate the master plan
 
-Create `~/plans/<bug-name>-fix.md` with:
+Create `$PLANS_DIR/<bug-name>-fix.md` with:
 
 ```markdown
 # Bug Fix: <title>
@@ -121,7 +132,7 @@ NOTE: Include the integration test scope in the master plan header, e.g.:
 
 ## Step 6: Generate fix prompts
 
-Create prompt files in `~/plans/prompts/` named `<bug-name>-fix-NN.md`.
+Create prompt files in `$PLANS_DIR/prompts/` named `<bug-name>-fix-NN.md`.
 
 Each prompt follows this structure:
 
@@ -131,8 +142,8 @@ Each prompt follows this structure:
 ## Context
 - Repo: ~/github/user-frontend
 - Branch: <current branch>
-- Master plan: ~/plans/<bug-name>-fix.md
-- Cleanup file: ~/plans/<bug-name>-fix-cleanup.md (append to it)
+- Master plan: $PLANS_DIR/<bug-name>-fix.md
+- Cleanup file: $PLANS_DIR/<bug-name>-fix-cleanup.md (append to it)
 
 Read ~/github/user-frontend/CLAUDE.md before starting.
 
@@ -222,7 +233,7 @@ Work Left Undone: <none | list>
 
 ## Step 6: Create the cleanup file
 
-Create `~/plans/<bug-name>-fix-cleanup.md`:
+Create `$PLANS_DIR/<bug-name>-fix-cleanup.md`:
 
 ```markdown
 # Bug Fix Cleanup: <title>
@@ -321,11 +332,11 @@ For each prompt:
 
 After all planned prompts complete:
 
-1. Read `~/plans/<bug-name>-fix-cleanup.md` in full
+1. Read `$PLANS_DIR/<bug-name>-fix-cleanup.md` in full
 2. If no items were accumulated, skip to Step 10
 3. Group items by domain/file proximity
 4. Filter out items already resolved by later prompts
-5. Generate `~/plans/prompts/<bug-name>-fix-cleanup.md` with the standard
+5. Generate `$PLANS_DIR/prompts/<bug-name>-fix-cleanup.md` with the standard
    prompt structure, containing all remaining cleanup items as fixes
 6. Present to the user: "Here is the cleanup prompt with N items. Review
    and approve, or edit before I run it."

@@ -20,15 +20,24 @@ isolation.
 ```bash
 npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-storage-access.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
 ```
 
 Use the inventory for data-fetching detection (Step 2a), useEffect
 audit (Step 2e), and context interface analysis. Use imports to find
-all consumers and measure context breadth (Step 2c).
+all consumers and measure context breadth (Step 2c). Use side-effects
+for Step 2b (mapper side effects) and Step 2e (data-fetching side
+effects, toast calls, logout watchers). Use storage-access for Step 2f
+(storage coupling -- raw vs typedStorage, key ownership, cleanup
+registration). Use data-layer for Step 2a (useQuery/useMutation/factory
+hooks embedded in the provider that must be extracted).
 
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read:
+
 - The context definition (createContext call, type interface)
 - Every hook and utility the provider imports
 - Every consumer of the context (grep for the context hook name across the codebase)
@@ -42,6 +51,7 @@ actually uses.
 ### 2a. Data-fetching does not belong in providers
 
 Providers hold shared UI state only. Check for:
+
 - useQuery/useMutation calls defined inside the provider
 - Factory hook calls (createQueryFactory, createMutationFactory)
 - API calls or data transformation logic
@@ -53,6 +63,7 @@ should not know how data is fetched.
 ### 2b. Mapper side effects
 
 Check every useQuery `select` option and any data transformation callback:
+
 - Does `select` call setState, dispatch, or trigger any side effect?
 - `select` may be called multiple times or memoized by TanStack Query. It must be
   a pure function that returns transformed data, nothing else.
@@ -82,11 +93,13 @@ For each piece of state in the provider, classify it:
   reads the URL and passes values as props + setter callbacks.
 
   URL-worthy criteria (all three should be true):
+
   1. Changes what data is fetched or what view is rendered
   2. A user sharing the URL should see the same view (deep linking)
   3. The browser back button should restore it
 
   What stays OUT of the URL:
+
   - Session-level identity (company/tenant ID) -- multi-tenancy hidden from customers
   - Ephemeral UI state (modal open, tooltip visible)
   - Form-in-progress data (owned by the form library)
@@ -108,6 +121,7 @@ Decision tree after stripping queries and derived state:
 ### 2e. useEffect discipline
 
 Flag every useEffect in the provider and classify it:
+
 - Derived state sync (useEffect + setState where useMemo works) -- **wrong**
 - Data-fetching side effects (sync query data into provider state) -- **wrong**
 - Logout/reset watchers (useEffect on auth state to clear provider state) -- **wrong,
@@ -117,6 +131,7 @@ Flag every useEffect in the provider and classify it:
 ### 2f. Storage coupling
 
 Does the provider read or write localStorage/sessionStorage?
+
 - If so, does it own that key exclusively, or do other modules also read/write it?
 - Does the provider register a cleanup function for logout, or does some external
   logout function know about this provider's storage keys?
@@ -124,6 +139,7 @@ Does the provider read or write localStorage/sessionStorage?
 ### 2g. Cross-domain coupling
 
 Does the provider import query keys from other domains for cache invalidation?
+
 - Providers should not invalidate other domains' caches. That responsibility belongs
   to containers.
 - Check for circular imports between providers (Provider A imports Provider B's keys
@@ -200,7 +216,7 @@ Apply all fixes. Follow these rules:
   }
 
   export function runAllCleanups(): void {
-    cleanups.forEach((fn) => fn());
+    cleanups.forEach(fn => fn());
     cleanups.length = 0;
   }
   ```
@@ -221,6 +237,7 @@ Apply all fixes. Follow these rules:
   This inverts the dependency: the provider does not import auth concerns, and the
   auth layer does not know which providers exist. The registry is the only coupling
   point.
+
 - **Eliminate derived state.** Replace useEffect + setState patterns with useMemo or
   inline computation.
 - **Migrate URL-worthy state to nuqs.** For each field identified as URL-worthy in

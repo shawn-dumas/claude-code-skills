@@ -27,6 +27,19 @@ For `getServerSideProps`, auth token delivery requires a cookie-based mechanism
 available in SSR). See the [Server Auth Bootstrap](#server-auth-bootstrap)
 section at the end of this file for the cookie setup.
 
+## Step 0: Run AST analysis on the container
+
+After identifying the container file (follow imports from the page file
+into `src/ui/page_blocks/`), run:
+
+```bash
+npx tsx scripts/AST/ast-data-layer.ts <container-path> --pretty
+```
+
+Use data-layer to systematically extract every service hook the
+container calls, their fetchApi endpoints, query keys, and API paths.
+This replaces manual file reading for Step 1's data dependency table.
+
 ## Step 1: Map the page's data dependencies
 
 Read the target page file. Then read:
@@ -87,7 +100,7 @@ import { eq } from 'drizzle-orm';
 import { UsersResponseSchema } from '@/shared/types/users';
 
 export async function fetchUsersServer(organizationId: number) {
-  if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'local' || process.env.NEXT_PUBLIC_ENVIRONMENT === 'mocked') {
+  if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'mocked') {
     const { usersFixtures, createPool } = await import('@/fixtures');
     const pool = createPool({ seed: 42 });
     return usersFixtures.buildMany(15, undefined, pool);
@@ -104,9 +117,10 @@ export async function fetchUsersServer(organizationId: number) {
    `@/shared/types/`. If the schema is only defined inline in the hook, extract
    it to the shared types module first.
 
-2. **Fixture path for local mode.** When `NEXT_PUBLIC_ENVIRONMENT` is `'local'` or `'mocked'`,
-   return fixture data directly. Use dynamic `import('@/fixtures')` to keep fixtures
-   out of the production bundle. Use a deterministic seed.
+2. **Fixture path for mocked mode.** When `NEXT_PUBLIC_ENVIRONMENT` is `'mocked'`,
+   return fixture data directly. `local` mode uses real database queries via the BFF.
+   Use dynamic `import('@/fixtures')` to keep fixtures out of the production bundle.
+   Use a deterministic seed.
 
 3. **Production path queries the database directly.** Do NOT call the app's own
    API routes from `getServerSideProps` (that would be an HTTP round-trip to
@@ -403,7 +417,7 @@ interface ServerSession {
 export async function getServerSession(
   req: IncomingMessage & { cookies: Partial<Record<string, string>> },
 ): Promise<ServerSession | null> {
-  if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'local' || process.env.NEXT_PUBLIC_ENVIRONMENT === 'mocked') {
+  if (process.env.NEXT_PUBLIC_ENVIRONMENT === 'mocked') {
     return {
       uid: 'local-dev-user',
       organizationId: 0,
@@ -464,7 +478,7 @@ Remove the temporary code after confirming.
 ## Checklist (copy into PR description)
 
 - [ ] Server fetchers created in `src/server/fetchers/`
-- [ ] Fetchers return fixture data when `NEXT_PUBLIC_ENVIRONMENT` is `local` or `mocked`
+- [ ] Fetchers return fixture data when `NEXT_PUBLIC_ENVIRONMENT` is `mocked`
 - [ ] Fetchers query the database directly in production (no self HTTP call)
 - [ ] Fetchers reuse existing Zod schemas from `@/shared/types/`
 - [ ] `getServerSideProps` uses exact same query keys as client hooks

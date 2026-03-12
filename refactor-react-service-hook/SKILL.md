@@ -29,15 +29,21 @@ isolation.
 ```bash
 npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
 ```
 
-Use the inventory for side effect detection in hook body (Step 2a),
-mapper side effects in select (Step 2c). Use imports for cross-domain
-key detection (Step 2d) and consumer list.
+Use the inventory for hook classification and useEffect detection.
+Use imports for cross-domain key detection (Step 2d) and consumer
+list. Use side-effects for Step 2a (toast, navigate, storage writes,
+analytics calls that violate single responsibility). Use data-layer
+for Steps 2b/2c/2d/2f/2h (factory indirection, mapper side effects,
+cross-domain query keys, API path sourcing, manual fetch patterns).
 
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read:
+
 - Every file it imports (API utilities, query key constants, type files, other hooks)
 - Every consumer of this hook (grep for its name across the codebase)
 - The query key constants file for this domain
@@ -50,6 +56,7 @@ Build a map of what this hook depends on and what depends on it.
 ### 2a. Single responsibility
 
 A service hook fetches or mutates data. That is all. It must NOT:
+
 - Call toastSuccess/toastError/toastWarning (containers decide user feedback)
 - Call useRouter or navigate (containers decide navigation)
 - Write to localStorage/sessionStorage (containers or storage hooks own this)
@@ -64,6 +71,7 @@ container callback should absorb the responsibility.
 If the hook uses createQueryFactory, createMutationFactory, or any curried factory
 pattern, it must be rewritten as a direct useQuery/useMutation call. The hook should
 own its own:
+
 - useFetchApi() call
 - Query key
 - Query/mutation function
@@ -86,6 +94,7 @@ A service hook imports only its own domain's query key constants. It does NOT im
 keys from other domains for cache invalidation.
 
 If a mutation's onSuccess currently invalidates queries from another domain:
+
 - Remove the cross-domain invalidation from the hook
 - Document which container's onSuccess callback should own it instead
 
@@ -109,6 +118,7 @@ and remove the import.
 ### 2g. Return surface (least power)
 
 Check what the hook returns:
+
 - Does it return the full TanStack Query result, or a curated subset?
 - Does it return mutation functions that no consumer uses?
 - Does it return internal state that should be private?
@@ -137,6 +147,7 @@ useQuery:
 ### 2i. Correct file location
 
 Service hooks should live in:
+
 - `services/hooks/queries/` for useQuery hooks
 - `services/hooks/mutations/` for useMutation hooks
 

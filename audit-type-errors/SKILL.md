@@ -11,14 +11,17 @@ directory). This is a read-only diagnostic -- do not modify any files. Produce a
 structured report that groups errors by root cause and prioritizes fixes by
 cascade impact (fix one thing, eliminate N errors).
 
-## Step 0 (optional): Pre-scan with AST type safety tool
+## Step 0: Run AST analysis tools
 
-Before running tsc, optionally run the type safety scanner to identify
-`as any` concentration, trust boundary casts, and non-null assertion
-hotspots. This data supplements the tsc error output.
+Before running tsc, run the type safety scanner and import graph
+analyzer. The type safety tool identifies `as any` concentration,
+trust boundary casts, and non-null assertion hotspots. The imports
+tool provides the dependency graph needed for Step 3 (cascading
+error chain tracing) and Step 4 (duplicate type detection across files).
 
 ```bash
 npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
 ```
 
 ### AST-confirmed tagging
@@ -27,9 +30,7 @@ When a finding is confirmed by AST tool output (a counted `as any` concentration
 a trust boundary cast, a non-null assertion hotspot, etc.), tag it `[AST-confirmed]`
 in the report. In the cascading error chains and prioritized fix plan, prefix the
 description with the tag. AST-confirmed findings carry a +1 concern-level bump in
-the master audit's Findings Index because the measurement is objective. See
-`~/audits/CLAUDE.md` "AST-Confirmed Finding Tier" for the full policy and the list
-of qualifying AST tool categories.
+the master audit's Findings Index because the measurement is objective.
 
 ## Step 1: Run tsc and capture structured output
 
@@ -38,6 +39,7 @@ npx tsc --noEmit --pretty false 2>&1 || true
 ```
 
 Parse each error line. The format is:
+
 ```
 file(line,col): error TSxxxx: message
 ```
@@ -52,57 +54,57 @@ classify into one of these categories:
 
 ### Import/module errors
 
-| Code | Root cause | Fix pattern |
-|------|-----------|-------------|
-| MISSING_IMPORT | Import path does not resolve | Fix path or install missing package |
-| MOVED_FILE | File was moved but imports not updated | Update import paths |
-| CIRCULAR_DEP | Circular dependency causes undefined types | Break the cycle |
-| MISSING_EXPORT | Imported name does not exist in target module | Add export or fix name |
+| Code           | Root cause                                    | Fix pattern                         |
+| -------------- | --------------------------------------------- | ----------------------------------- |
+| MISSING_IMPORT | Import path does not resolve                  | Fix path or install missing package |
+| MOVED_FILE     | File was moved but imports not updated        | Update import paths                 |
+| CIRCULAR_DEP   | Circular dependency causes undefined types    | Break the cycle                     |
+| MISSING_EXPORT | Imported name does not exist in target module | Add export or fix name              |
 
 ### Type mismatch errors
 
-| Code | Root cause | Fix pattern |
-|------|-----------|-------------|
-| PROP_MISMATCH | Component receives wrong prop type | Fix the prop type or the value passed |
-| RETURN_MISMATCH | Function return type does not match declaration | Fix return type or return value |
-| ASSIGNMENT_MISMATCH | Variable assigned incompatible type | Fix type annotation or value |
-| ARGUMENT_MISMATCH | Function argument does not match parameter type | Fix argument or parameter type |
-| UNION_NARROWING | Value could be null/undefined but used without check | Add guard clause or optional chaining |
+| Code                | Root cause                                           | Fix pattern                           |
+| ------------------- | ---------------------------------------------------- | ------------------------------------- |
+| PROP_MISMATCH       | Component receives wrong prop type                   | Fix the prop type or the value passed |
+| RETURN_MISMATCH     | Function return type does not match declaration      | Fix return type or return value       |
+| ASSIGNMENT_MISMATCH | Variable assigned incompatible type                  | Fix type annotation or value          |
+| ARGUMENT_MISMATCH   | Function argument does not match parameter type      | Fix argument or parameter type        |
+| UNION_NARROWING     | Value could be null/undefined but used without check | Add guard clause or optional chaining |
 
 ### Missing type information
 
-| Code | Root cause | Fix pattern |
-|------|-----------|-------------|
-| IMPLICIT_ANY | Parameter or variable has no type and cannot be inferred | Add type annotation |
-| MISSING_PROPERTY | Object literal missing required properties | Add missing properties |
-| EXCESS_PROPERTY | Object literal has properties not in the target type | Remove excess properties or widen target type |
-| UNKNOWN_PROPERTY | Accessing property that does not exist on the type | Fix property name or add to type |
+| Code             | Root cause                                               | Fix pattern                                   |
+| ---------------- | -------------------------------------------------------- | --------------------------------------------- |
+| IMPLICIT_ANY     | Parameter or variable has no type and cannot be inferred | Add type annotation                           |
+| MISSING_PROPERTY | Object literal missing required properties               | Add missing properties                        |
+| EXCESS_PROPERTY  | Object literal has properties not in the target type     | Remove excess properties or widen target type |
+| UNKNOWN_PROPERTY | Accessing property that does not exist on the type       | Fix property name or add to type              |
 
 ### Type definition errors
 
-| Code | Root cause | Fix pattern |
-|------|-----------|-------------|
-| DUPLICATE_TYPE | Same name exported from multiple modules | Consolidate to single source in src/shared/types/ |
-| INCOMPATIBLE_OVERRIDE | Method override does not match parent signature | Fix override signature |
-| GENERIC_CONSTRAINT | Generic type argument does not satisfy constraint | Fix the type argument |
-| ENUM_MISMATCH | Enum value used where different enum or string expected | Unify enum types |
+| Code                  | Root cause                                              | Fix pattern                                       |
+| --------------------- | ------------------------------------------------------- | ------------------------------------------------- |
+| DUPLICATE_TYPE        | Same name exported from multiple modules                | Consolidate to single source in src/shared/types/ |
+| INCOMPATIBLE_OVERRIDE | Method override does not match parent signature         | Fix override signature                            |
+| GENERIC_CONSTRAINT    | Generic type argument does not satisfy constraint       | Fix the type argument                             |
+| ENUM_MISMATCH         | Enum value used where different enum or string expected | Unify enum types                                  |
 
 ### Escape hatch artifacts
 
-| Code | Root cause | Fix pattern |
-|------|-----------|-------------|
-| ANY_PROPAGATION | `any` type propagating through expressions | Type the source, narrowing flows downstream |
-| UNSAFE_CAST | `as` cast creates downstream type inconsistency | Remove cast, fix underlying type |
-| NON_NULL_VIOLATION | Non-null assertion on value that IS null at runtime | Add proper null check |
-| TS_EXPECT_STALE | `@ts-expect-error` on line that no longer has an error | Remove the directive |
+| Code               | Root cause                                             | Fix pattern                                 |
+| ------------------ | ------------------------------------------------------ | ------------------------------------------- |
+| ANY_PROPAGATION    | `any` type propagating through expressions             | Type the source, narrowing flows downstream |
+| UNSAFE_CAST        | `as` cast creates downstream type inconsistency        | Remove cast, fix underlying type            |
+| NON_NULL_VIOLATION | Non-null assertion on value that IS null at runtime    | Add proper null check                       |
+| TS_EXPECT_STALE    | `@ts-expect-error` on line that no longer has an error | Remove the directive                        |
 
 ### Third-party library errors
 
-| Code | Root cause | Fix pattern |
-|------|-----------|-------------|
-| LIBRARY_TYPES | Library's type definitions are wrong or outdated | Update @types/ package, or add declaration |
-| VERSION_MISMATCH | Types package version mismatched with library version | Align versions |
-| MISSING_DECLARATION | No type declarations for library | Install @types/ or write .d.ts |
+| Code                | Root cause                                            | Fix pattern                                |
+| ------------------- | ----------------------------------------------------- | ------------------------------------------ |
+| LIBRARY_TYPES       | Library's type definitions are wrong or outdated      | Update @types/ package, or add declaration |
+| VERSION_MISMATCH    | Types package version mismatched with library version | Align versions                             |
+| MISSING_DECLARATION | No type declarations for library                      | Install @types/ or write .d.ts             |
 
 ## Step 3: Identify cascading error chains
 
@@ -111,11 +113,13 @@ produces errors in every file that imports it. A wrong interface definition
 causes prop mismatches in every component that uses it.
 
 For each error, trace backward:
+
 - Is this error caused by a type defined in another file?
 - Is the type in that file itself an error (missing property, wrong shape)?
 - If so, this error is a **cascade** from the root error.
 
 Group cascading errors into chains:
+
 ```
 ROOT: src/shared/types/user.ts:15 -- User interface missing `email` property
   CASCADE: src/containers/UserContainer.tsx:42 -- Property 'email' does not exist
@@ -133,6 +137,7 @@ Check for these specific high-value patterns from the type refactor plan:
 ### Duplicate type definitions
 
 Grep for type/interface names that appear in 2+ files:
+
 ```bash
 # Find all exported type/interface declarations
 grep -rn "export \(type\|interface\) " src/ --include="*.ts" --include="*.tsx"
@@ -144,6 +149,7 @@ targets for `src/shared/types/`.
 ### `any` concentration
 
 Count `any` usage per file:
+
 ```bash
 grep -c ": any\|as any\|<any>\|any\[" src/**/*.ts src/**/*.tsx 2>/dev/null | grep -v ":0$"
 ```
@@ -155,6 +161,7 @@ at the source but creates mismatches downstream.
 ### Unsound type guards
 
 Grep for user-defined type guards:
+
 ```bash
 grep -rn "): .* is " src/ --include="*.ts" --include="*.tsx"
 ```
@@ -166,6 +173,7 @@ is unsound.
 ### Trust boundary casts
 
 Grep for `as` casts at data boundaries:
+
 ```bash
 # JSON.parse casts:
 grep -rn "JSON.parse.*) as " src/ --include="*.ts" --include="*.tsx"
