@@ -27,11 +27,11 @@ or description), use it. Otherwise, ask the user:
 Three forensic data sources exist, covering different time periods.
 Git forensics applies to all periods.
 
-| Period                | Source            | Reference file                          |
-| --------------------- | ----------------- | --------------------------------------- |
-| Feb 10 - Mar 6, 2026  | Claude Code JSONL | `~/postmortem/claude-code-forensics.md` |
-| Mar 3, 2026 - present | OpenCode SQLite   | `~/postmortem/opencode-forensics.md`    |
-| All periods           | Git history       | `~/postmortem/git-forensics.md`         |
+| Period                | Source            | Reference file                            |
+| --------------------- | ----------------- | ----------------------------------------- |
+| Feb 10 - Mar 6, 2026  | Claude Code JSONL | `docs/forensics/claude-code-forensics.md` |
+| Mar 3, 2026 - present | OpenCode SQLite   | `docs/forensics/opencode-forensics.md`    |
+| All periods           | Git history       | `docs/forensics/git-forensics.md`         |
 
 The overlap (Mar 3-6) may have data in both sources from different tools
 running concurrently. Do not double-count.
@@ -39,12 +39,12 @@ running concurrently. Do not double-count.
 **Determine the era from the incident date**, then read the relevant
 forensic reference(s) using the Read tool:
 
-1. **Always** read `~/postmortem/git-forensics.md` -- git evidence is
+1. **Always** read `docs/forensics/git-forensics.md` -- git evidence is
    used in every investigation.
 2. If the incident is **before Mar 3, 2026**: also read
-   `~/postmortem/claude-code-forensics.md`.
+   `docs/forensics/claude-code-forensics.md`.
 3. If the incident is **Mar 3, 2026 or later**: also read
-   `~/postmortem/opencode-forensics.md`.
+   `docs/forensics/opencode-forensics.md`.
 4. If the incident spans the **overlap period (Mar 3-6)**: read both.
 
 **Database locations:**
@@ -96,7 +96,7 @@ history and the session database.
 
 ### 2a: Git evidence
 
-Now read `~/postmortem/git-forensics.md` if you have not already.
+Now read `docs/forensics/git-forensics.md` if you have not already.
 
 6. Extract the commit sequence in the time window.
 7. For each commit, classify files as production vs. test.
@@ -268,8 +268,8 @@ instructions:
 > query cited in the report.
 
 The verification protocol (claim classification, omission checks,
-activity gap verification) is documented in `~/postmortem/CLAUDE.md`
-Phase 9.
+activity gap verification) is documented in the postmortem workflow.
+See `docs/forensics/` for the forensic reference docs.
 
 ## Step 10: Publish
 
