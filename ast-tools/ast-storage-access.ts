@@ -67,6 +67,142 @@ function isJsonParseZodGuarded(node: Node): boolean {
 const STORAGE_METHODS = new Set(['getItem', 'setItem', 'removeItem', 'clear']);
 
 // ---------------------------------------------------------------------------
+// Per-category classifiers
+// ---------------------------------------------------------------------------
+
+interface StorageNodeContext {
+  line: number;
+  column: number;
+}
+
+const DIRECT_STORAGE_TYPE_MAP: Record<string, StorageAccessType> = {
+  localStorage: 'DIRECT_LOCAL_STORAGE',
+  sessionStorage: 'DIRECT_SESSION_STORAGE',
+};
+
+const COOKIE_METHODS = new Set(['get', 'set', 'remove']);
+
+/** Classify direct localStorage/sessionStorage method calls and cookie access via property access. */
+function classifyStorageMethodCall(node: Node, ctx: StorageNodeContext): StorageAccessInstance | null {
+  if (!Node.isCallExpression(node)) return null;
+
+  const callee = node.getExpression();
+  if (!Node.isPropertyAccessExpression(callee)) return null;
+
+  const objText = callee.getExpression().getText();
+  const methodName = callee.getName();
+
+  const directType = DIRECT_STORAGE_TYPE_MAP[objText];
+  if (directType && STORAGE_METHODS.has(methodName)) {
+    return {
+      type: directType,
+      line: ctx.line,
+      column: ctx.column,
+      text: truncateText(node.getText(), 80),
+      containingFunction: getContainingFunctionName(node),
+      isViolation: true,
+    };
+  }
+
+  if (objText === 'Cookies' && COOKIE_METHODS.has(methodName)) {
+    return {
+      type: 'COOKIE_ACCESS',
+      line: ctx.line,
+      column: ctx.column,
+      text: truncateText(node.getText(), 80),
+      containingFunction: getContainingFunctionName(node),
+      isViolation: false,
+    };
+  }
+
+  return null;
+}
+
+/** Classify bare typedStorage function calls: readStorage, writeStorage, removeStorage. */
+function classifyTypedStorageCall(node: Node, ctx: StorageNodeContext): StorageAccessInstance | null {
+  if (!Node.isCallExpression(node)) return null;
+
+  const calleeText = node.getExpression().getText();
+
+  const typeMap: Record<string, StorageAccessType> = {
+    readStorage: 'TYPED_STORAGE_READ',
+    writeStorage: 'TYPED_STORAGE_WRITE',
+    removeStorage: 'TYPED_STORAGE_REMOVE',
+  };
+
+  const type = typeMap[calleeText];
+  if (!type) return null;
+
+  return {
+    type,
+    line: ctx.line,
+    column: ctx.column,
+    text: truncateText(node.getText(), 80),
+    containingFunction: getContainingFunctionName(node),
+    isViolation: false,
+  };
+}
+
+/** Classify JSON.parse calls that are not Zod-guarded. */
+function classifyJsonParse(node: Node, ctx: StorageNodeContext): StorageAccessInstance | null {
+  if (!Node.isCallExpression(node)) return null;
+
+  const calleeText = node.getExpression().getText();
+  if (calleeText !== 'JSON.parse') return null;
+
+  if (isJsonParseZodGuarded(node)) return null;
+
+  return {
+    type: 'JSON_PARSE_UNVALIDATED',
+    line: ctx.line,
+    column: ctx.column,
+    text: truncateText(node.getText(), 80),
+    containingFunction: getContainingFunctionName(node),
+    isViolation: true,
+  };
+}
+
+/** Get the text for a non-standard storage property access, including the parent call if applicable. */
+function getStoragePropertyText(node: Node): string {
+  const parent = node.getParent();
+  const isNonStandardCall = parent && Node.isCallExpression(parent) && parent.getExpression() === node;
+  return truncateText(isNonStandardCall ? parent.getText() : node.getText(), 80);
+}
+
+/** Classify property access on localStorage/sessionStorage (non-method) and document.cookie. */
+function classifyStoragePropertyAccess(node: Node, ctx: StorageNodeContext): StorageAccessInstance | null {
+  if (!Node.isPropertyAccessExpression(node)) return null;
+
+  const objText = node.getExpression().getText();
+  const propName = node.getName();
+
+  const directType = DIRECT_STORAGE_TYPE_MAP[objText];
+  if (directType && !STORAGE_METHODS.has(propName)) {
+    return {
+      type: directType,
+      line: ctx.line,
+      column: ctx.column,
+      text: getStoragePropertyText(node),
+      containingFunction: getContainingFunctionName(node),
+      isViolation: true,
+    };
+  }
+
+  if (objText === 'document' && propName === 'cookie') {
+    return {
+      type: 'COOKIE_ACCESS',
+      line: ctx.line,
+      column: ctx.column,
+      text: truncateText(node.getText(), 80),
+      containingFunction: getContainingFunctionName(node),
+      isViolation: false,
+    };
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // Main analysis walker
 // ---------------------------------------------------------------------------
 
@@ -76,184 +212,16 @@ function findAccesses(sf: SourceFile): StorageAccessInstance[] {
   sf.forEachDescendant(node => {
     const line = node.getStartLineNumber();
     const column = sf.getLineAndColumnAtPos(node.getStart()).column;
+    const ctx: StorageNodeContext = { line, column };
 
-    // --- Direct localStorage / sessionStorage method calls ---
-    // e.g., localStorage.getItem('key'), sessionStorage.setItem('key', 'val')
-    if (Node.isCallExpression(node)) {
-      const callee = node.getExpression();
-      if (Node.isPropertyAccessExpression(callee)) {
-        const objText = callee.getExpression().getText();
-        const methodName = callee.getName();
+    const result =
+      classifyStorageMethodCall(node, ctx) ??
+      classifyTypedStorageCall(node, ctx) ??
+      classifyJsonParse(node, ctx) ??
+      classifyStoragePropertyAccess(node, ctx);
 
-        // localStorage.getItem / setItem / removeItem / clear
-        if (objText === 'localStorage' && STORAGE_METHODS.has(methodName)) {
-          accesses.push({
-            type: 'DIRECT_LOCAL_STORAGE',
-            line,
-            column,
-            text: truncateText(node.getText(), 80),
-            containingFunction: getContainingFunctionName(node),
-            isViolation: true,
-          });
-          return;
-        }
-
-        // sessionStorage.getItem / setItem / removeItem / clear
-        if (objText === 'sessionStorage' && STORAGE_METHODS.has(methodName)) {
-          accesses.push({
-            type: 'DIRECT_SESSION_STORAGE',
-            line,
-            column,
-            text: truncateText(node.getText(), 80),
-            containingFunction: getContainingFunctionName(node),
-            isViolation: true,
-          });
-          return;
-        }
-
-        // --- typedStorage functions ---
-        // readStorage(...), writeStorage(...), removeStorage(...)
-        // These may appear as bare calls (no property access) -- handled below
-
-        // --- Cookies.get / Cookies.set / Cookies.remove (js-cookie) ---
-        if (objText === 'Cookies' && (methodName === 'get' || methodName === 'set' || methodName === 'remove')) {
-          accesses.push({
-            type: 'COOKIE_ACCESS',
-            line,
-            column,
-            text: truncateText(node.getText(), 80),
-            containingFunction: getContainingFunctionName(node),
-            isViolation: false,
-          });
-          return;
-        }
-      }
-
-      // --- Bare function calls: readStorage, writeStorage, removeStorage, JSON.parse ---
-      const calleeText = node.getExpression().getText();
-
-      if (calleeText === 'readStorage') {
-        accesses.push({
-          type: 'TYPED_STORAGE_READ',
-          line,
-          column,
-          text: truncateText(node.getText(), 80),
-          containingFunction: getContainingFunctionName(node),
-          isViolation: false,
-        });
-        return;
-      }
-
-      if (calleeText === 'writeStorage') {
-        accesses.push({
-          type: 'TYPED_STORAGE_WRITE',
-          line,
-          column,
-          text: truncateText(node.getText(), 80),
-          containingFunction: getContainingFunctionName(node),
-          isViolation: false,
-        });
-        return;
-      }
-
-      if (calleeText === 'removeStorage') {
-        accesses.push({
-          type: 'TYPED_STORAGE_REMOVE',
-          line,
-          column,
-          text: truncateText(node.getText(), 80),
-          containingFunction: getContainingFunctionName(node),
-          isViolation: false,
-        });
-        return;
-      }
-
-      // --- JSON.parse ---
-      if (calleeText === 'JSON.parse') {
-        if (!isJsonParseZodGuarded(node)) {
-          accesses.push({
-            type: 'JSON_PARSE_UNVALIDATED',
-            line,
-            column,
-            text: truncateText(node.getText(), 80),
-            containingFunction: getContainingFunctionName(node),
-            isViolation: true,
-          });
-        }
-        return;
-      }
-    }
-
-    // --- Property access on localStorage / sessionStorage (non-method) ---
-    // e.g., localStorage.length, or bare property reads
-    // We need to avoid double-counting method calls already handled above.
-    if (Node.isPropertyAccessExpression(node)) {
-      const objText = node.getExpression().getText();
-      const propName = node.getName();
-
-      if (objText === 'localStorage' && !STORAGE_METHODS.has(propName)) {
-        // Check this is not the callee of a call we already handled
-        const parent = node.getParent();
-        if (parent && Node.isCallExpression(parent) && parent.getExpression() === node) {
-          // This is the callee of a call expression -- method call on localStorage
-          // with a non-standard method. Still a direct access.
-          accesses.push({
-            type: 'DIRECT_LOCAL_STORAGE',
-            line,
-            column,
-            text: truncateText(parent.getText(), 80),
-            containingFunction: getContainingFunctionName(node),
-            isViolation: true,
-          });
-        } else {
-          accesses.push({
-            type: 'DIRECT_LOCAL_STORAGE',
-            line,
-            column,
-            text: truncateText(node.getText(), 80),
-            containingFunction: getContainingFunctionName(node),
-            isViolation: true,
-          });
-        }
-        return;
-      }
-
-      if (objText === 'sessionStorage' && !STORAGE_METHODS.has(propName)) {
-        const parent = node.getParent();
-        if (parent && Node.isCallExpression(parent) && parent.getExpression() === node) {
-          accesses.push({
-            type: 'DIRECT_SESSION_STORAGE',
-            line,
-            column,
-            text: truncateText(parent.getText(), 80),
-            containingFunction: getContainingFunctionName(node),
-            isViolation: true,
-          });
-        } else {
-          accesses.push({
-            type: 'DIRECT_SESSION_STORAGE',
-            line,
-            column,
-            text: truncateText(node.getText(), 80),
-            containingFunction: getContainingFunctionName(node),
-            isViolation: true,
-          });
-        }
-        return;
-      }
-
-      // --- document.cookie ---
-      if (objText === 'document' && propName === 'cookie') {
-        accesses.push({
-          type: 'COOKIE_ACCESS',
-          line,
-          column,
-          text: truncateText(node.getText(), 80),
-          containingFunction: getContainingFunctionName(node),
-          isViolation: false,
-        });
-        return;
-      }
+    if (result) {
+      accesses.push(result);
     }
   });
 
@@ -306,7 +274,7 @@ export function analyzeStorageAccess(filePath: string): StorageAccessAnalysis {
   };
 }
 
-function analyzeStorageAccessDirectory(dirPath: string): StorageAccessAnalysis[] {
+export function analyzeStorageAccessDirectory(dirPath: string): StorageAccessAnalysis[] {
   const absolute = path.isAbsolute(dirPath) ? dirPath : path.resolve(PROJECT_ROOT, dirPath);
   const filePaths = getFilesInDirectory(absolute);
 

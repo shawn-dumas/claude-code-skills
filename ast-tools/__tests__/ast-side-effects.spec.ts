@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeSideEffects } from '../ast-side-effects';
+import { analyzeSideEffects, analyzeSideEffectsDirectory } from '../ast-side-effects';
 import type { SideEffectsAnalysis, SideEffectType } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -18,10 +18,9 @@ function effectsOfType(analysis: SideEffectsAnalysis, type: SideEffectType) {
 }
 
 describe('ast-side-effects', () => {
-  const result = analyzeFixture('side-effects-samples.ts');
-
   describe('CONSOLE_CALL', () => {
     it('detects top-level console calls', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const consoles = effectsOfType(result, 'CONSOLE_CALL');
       const topLevel = consoles.filter(c => c.containingFunction === '<module>');
 
@@ -33,6 +32,7 @@ describe('ast-side-effects', () => {
     });
 
     it('marks top-level console calls as not inside useEffect', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const consoles = effectsOfType(result, 'CONSOLE_CALL');
       const topLevel = consoles.filter(c => c.containingFunction === '<module>');
 
@@ -42,6 +42,7 @@ describe('ast-side-effects', () => {
     });
 
     it('detects console inside useEffect with isInsideUseEffect: true', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const consoles = effectsOfType(result, 'CONSOLE_CALL');
       const insideEffect = consoles.filter(c => c.isInsideUseEffect);
 
@@ -51,6 +52,7 @@ describe('ast-side-effects', () => {
     });
 
     it('detects console.debug inside useLayoutEffect as inside useEffect', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const consoles = effectsOfType(result, 'CONSOLE_CALL');
       const layoutEffect = consoles.find(c => c.line === 53);
 
@@ -59,6 +61,7 @@ describe('ast-side-effects', () => {
     });
 
     it('detects console.info outside useEffect in component', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const consoles = effectsOfType(result, 'CONSOLE_CALL');
       const outside = consoles.find(c => c.line === 57);
 
@@ -70,6 +73,7 @@ describe('ast-side-effects', () => {
 
   describe('TOAST_CALL', () => {
     it('detects toast calls in named function', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const toasts = effectsOfType(result, 'TOAST_CALL');
 
       expect(toasts).toHaveLength(3);
@@ -80,6 +84,7 @@ describe('ast-side-effects', () => {
     });
 
     it('marks toast calls as not inside useEffect', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const toasts = effectsOfType(result, 'TOAST_CALL');
 
       for (const t of toasts) {
@@ -90,6 +95,7 @@ describe('ast-side-effects', () => {
 
   describe('TIMER_CALL', () => {
     it('detects timer calls in named function', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const timers = effectsOfType(result, 'TIMER_CALL');
       const inStartTimers = timers.filter(t => t.containingFunction === 'startTimers');
 
@@ -99,6 +105,7 @@ describe('ast-side-effects', () => {
     });
 
     it('detects timers inside useEffect', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const timers = effectsOfType(result, 'TIMER_CALL');
       const insideEffect = timers.filter(t => t.isInsideUseEffect);
 
@@ -106,6 +113,7 @@ describe('ast-side-effects', () => {
     });
 
     it('detects timers in nested functions inside useEffect', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const timers = effectsOfType(result, 'TIMER_CALL');
       const nestedClearInterval = timers.find(t => t.line === 66);
 
@@ -117,6 +125,7 @@ describe('ast-side-effects', () => {
 
   describe('POSTHOG_CALL', () => {
     it('detects posthog calls in arrow function', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const posthog = effectsOfType(result, 'POSTHOG_CALL');
 
       expect(posthog).toHaveLength(4);
@@ -126,6 +135,7 @@ describe('ast-side-effects', () => {
     });
 
     it('detects posthog method calls', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const posthog = effectsOfType(result, 'POSTHOG_CALL');
 
       expect(posthog[1].text).toContain('posthog.capture');
@@ -136,6 +146,7 @@ describe('ast-side-effects', () => {
 
   describe('WINDOW_MUTATION', () => {
     it('detects window mutation calls and assignments', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const mutations = effectsOfType(result, 'WINDOW_MUTATION');
       const inNavigateAway = mutations.filter(m => m.containingFunction === 'navigateAway');
 
@@ -145,6 +156,7 @@ describe('ast-side-effects', () => {
     });
 
     it('detects document.title assignment inside useEffect', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const mutations = effectsOfType(result, 'WINDOW_MUTATION');
       const effectTitle = mutations.find(m => m.line === 48);
 
@@ -153,6 +165,7 @@ describe('ast-side-effects', () => {
     });
 
     it('detects document.cookie assignment', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const mutations = effectsOfType(result, 'WINDOW_MUTATION');
       const cookie = mutations.find(m => m.line === 77);
 
@@ -164,17 +177,20 @@ describe('ast-side-effects', () => {
 
   describe('containingFunction', () => {
     it('uses <module> for top-level side effects', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const topLevel = result.sideEffects.filter(se => se.containingFunction === '<module>');
 
       expect(topLevel.length).toBeGreaterThan(0);
     });
 
     it('uses function name for named functions', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const inShowToast = result.sideEffects.filter(se => se.containingFunction === 'showToast');
       expect(inShowToast).toHaveLength(3);
     });
 
     it('uses variable name for arrow functions assigned to const', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const inTrackEvents = result.sideEffects.filter(se => se.containingFunction === 'trackEvents');
       expect(inTrackEvents).toHaveLength(4);
     });
@@ -182,6 +198,7 @@ describe('ast-side-effects', () => {
 
   describe('summary counts', () => {
     it('summary counts match individual side effect counts', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       const { summary, sideEffects } = result;
 
       for (const type of Object.keys(summary) as SideEffectType[]) {
@@ -191,11 +208,22 @@ describe('ast-side-effects', () => {
     });
 
     it('has non-zero counts for all expected types', () => {
+      const result = analyzeFixture('side-effects-samples.ts');
       expect(result.summary.CONSOLE_CALL).toBeGreaterThan(0);
       expect(result.summary.TOAST_CALL).toBeGreaterThan(0);
       expect(result.summary.TIMER_CALL).toBeGreaterThan(0);
       expect(result.summary.POSTHOG_CALL).toBeGreaterThan(0);
       expect(result.summary.WINDOW_MUTATION).toBeGreaterThan(0);
     });
+  });
+});
+
+describe('analyzeSideEffectsDirectory', () => {
+  it('analyzes all matching files in a directory', () => {
+    const results = analyzeSideEffectsDirectory(FIXTURES_DIR);
+    expect(results.length).toBeGreaterThan(0);
+    for (const r of results) {
+      expect(r.filePath).toBeDefined();
+    }
   });
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeComplexity } from '../ast-complexity';
+import { analyzeComplexity, analyzeComplexityDirectory } from '../ast-complexity';
 import type { ComplexityAnalysis, FunctionComplexity } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -20,9 +20,8 @@ function findFunction(analysis: ComplexityAnalysis, name: string): FunctionCompl
 }
 
 describe('ast-complexity', () => {
-  const result = analyzeFixture('complexity-samples.ts');
-
   it('simple function has complexity 1 and nesting depth 0', () => {
+    const result = analyzeFixture('complexity-samples.ts');
     // First "add" is the standalone function at line 5
     const fn = result.functions.find(f => f.name === 'add' && f.line === 5);
     expect(fn).toBeDefined();
@@ -32,6 +31,7 @@ describe('ast-complexity', () => {
   });
 
   it('if/else adds 1 to complexity', () => {
+    const result = analyzeFixture('complexity-samples.ts');
     const fn = findFunction(result, 'checkPositive');
     // base 1 + 1 if = 2
     expect(fn.cyclomaticComplexity).toBe(2);
@@ -40,6 +40,7 @@ describe('ast-complexity', () => {
   });
 
   it('switch with 3 cases + default reports complexity 4', () => {
+    const result = analyzeFixture('complexity-samples.ts');
     const fn = findFunction(result, 'dayType');
     // base 1 + 3 case clauses = 4 (default does NOT count)
     expect(fn.cyclomaticComplexity).toBe(4);
@@ -48,6 +49,7 @@ describe('ast-complexity', () => {
   });
 
   it('nested control flow reports correct nesting depth', () => {
+    const result = analyzeFixture('complexity-samples.ts');
     const fn = findFunction(result, 'processItems');
     // if > for > if = depth 3
     expect(fn.maxNestingDepth).toBe(3);
@@ -56,6 +58,7 @@ describe('ast-complexity', () => {
   });
 
   it('logical operators each add 1 to complexity', () => {
+    const result = analyzeFixture('complexity-samples.ts');
     const fn = findFunction(result, 'checkConditions');
     // base 1 + if + && + || = 4
     expect(fn.cyclomaticComplexity).toBe(4);
@@ -66,6 +69,7 @@ describe('ast-complexity', () => {
   });
 
   it('ternary adds 1 to complexity', () => {
+    const result = analyzeFixture('complexity-samples.ts');
     const fn = findFunction(result, 'ternaryExample');
     // base 1 + 1 ternary = 2
     expect(fn.cyclomaticComplexity).toBe(2);
@@ -74,6 +78,7 @@ describe('ast-complexity', () => {
   });
 
   it('try/catch adds 1 for catch', () => {
+    const result = analyzeFixture('complexity-samples.ts');
     const fn = findFunction(result, 'safeParse');
     // base 1 + 1 catch = 2
     expect(fn.cyclomaticComplexity).toBe(2);
@@ -82,6 +87,7 @@ describe('ast-complexity', () => {
   });
 
   it('inline callback if/else contributes to enclosing function complexity', () => {
+    const result = analyzeFixture('complexity-samples.ts');
     const fn = findFunction(result, 'processWithCallback');
     // The if inside the forEach callback should contribute to processWithCallback
     // base 1 + 1 if = 2
@@ -96,6 +102,7 @@ describe('ast-complexity', () => {
   });
 
   it('lineCount matches actual function span', () => {
+    const result = analyzeFixture('complexity-samples.ts');
     // add: lines 5-7 = 3 lines
     const addFn = result.functions.find(f => f.name === 'add' && f.line === 5);
     expect(addFn).toBeDefined();
@@ -107,6 +114,7 @@ describe('ast-complexity', () => {
   });
 
   it('contributors list has correct types and line numbers', () => {
+    const result = analyzeFixture('complexity-samples.ts');
     const fn = findFunction(result, 'processItems');
     // if at line 35, for at line 36, if at line 37
     expect(fn.contributors).toHaveLength(3);
@@ -117,6 +125,7 @@ describe('ast-complexity', () => {
   });
 
   it('fileTotalComplexity sums all functions', () => {
+    const result = analyzeFixture('complexity-samples.ts');
     const expected = result.functions.reduce((sum, f) => sum + f.cyclomaticComplexity, 0);
     expect(result.fileTotalComplexity).toBe(expected);
     // Verify it is a specific positive number
@@ -140,6 +149,7 @@ describe('ast-complexity', () => {
   });
 
   it('does not count optional chaining as complexity', () => {
+    const result = analyzeFixture('complexity-samples.ts');
     const fn = findFunction(result, 'withNullish');
     // base 1 + 1 ?? = 2 (optional chains should NOT add complexity)
     expect(fn.cyclomaticComplexity).toBe(2);
@@ -151,6 +161,7 @@ describe('ast-complexity', () => {
   });
 
   it('for-in loop adds to complexity', () => {
+    const result = analyzeFixture('complexity-samples.ts');
     const fn = findFunction(result, 'countKeys');
     // base 1 + 1 for-in = 2
     expect(fn.cyclomaticComplexity).toBe(2);
@@ -158,6 +169,7 @@ describe('ast-complexity', () => {
   });
 
   it('class methods get their own complexity entries', () => {
+    const result = analyzeFixture('complexity-samples.ts');
     // Calculator.add at line 123
     const classAdd = result.functions.find(f => f.name === 'add' && f.line === 123);
     expect(classAdd).toBeDefined();
@@ -166,5 +178,15 @@ describe('ast-complexity', () => {
     // Calculator.conditionalAdd at line 127
     const condAdd = findFunction(result, 'conditionalAdd');
     expect(condAdd.cyclomaticComplexity).toBe(2);
+  });
+});
+
+describe('analyzeComplexityDirectory', () => {
+  it('analyzes all matching files in a directory', () => {
+    const results = analyzeComplexityDirectory(FIXTURES_DIR);
+    expect(results.length).toBeGreaterThan(0);
+    for (const r of results) {
+      expect(r.filePath).toBeDefined();
+    }
   });
 });

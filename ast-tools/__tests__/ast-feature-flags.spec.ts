@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeFeatureFlags } from '../ast-feature-flags';
+import { analyzeFeatureFlags, analyzeFeatureFlagsDirectory } from '../ast-feature-flags';
 import type { FeatureFlagAnalysis, FeatureFlagUsageType } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -18,10 +18,9 @@ function usagesOfType(analysis: FeatureFlagAnalysis, type: FeatureFlagUsageType)
 }
 
 describe('ast-feature-flags', () => {
-  const result = analyzeFixture('feature-flag-samples.tsx');
-
   describe('FLAG_HOOK_CALL', () => {
     it('detects usePosthogContext with featureFlags destructured', () => {
+      const result = analyzeFixture('feature-flag-samples.tsx');
       const hookCalls = usagesOfType(result, 'FLAG_HOOK_CALL');
       const posthogCall = hookCalls.find(u => u.text.includes('usePosthogContext'));
 
@@ -31,6 +30,7 @@ describe('ast-feature-flags', () => {
     });
 
     it('detects useFeatureFlags direct call', () => {
+      const result = analyzeFixture('feature-flag-samples.tsx');
       const hookCalls = usagesOfType(result, 'FLAG_HOOK_CALL');
       const directCall = hookCalls.find(u => u.text.includes('useFeatureFlags'));
 
@@ -42,6 +42,7 @@ describe('ast-feature-flags', () => {
 
   describe('FLAG_READ', () => {
     it('detects property access on featureFlags', () => {
+      const result = analyzeFixture('feature-flag-samples.tsx');
       const flagReads = usagesOfType(result, 'FLAG_READ');
 
       expect(flagReads.length).toBeGreaterThanOrEqual(1);
@@ -52,6 +53,7 @@ describe('ast-feature-flags', () => {
     });
 
     it('detects flag reads in separate containers', () => {
+      const result = analyzeFixture('feature-flag-samples.tsx');
       const flagReads = usagesOfType(result, 'FLAG_READ');
       const analyzerRead = flagReads.find(u => u.flagName === 'analyzer_insights_enabled');
 
@@ -62,6 +64,7 @@ describe('ast-feature-flags', () => {
 
   describe('PAGE_GUARD', () => {
     it('detects useFeatureFlagPageGuard with flag name', () => {
+      const result = analyzeFixture('feature-flag-samples.tsx');
       const pageGuards = usagesOfType(result, 'PAGE_GUARD');
 
       expect(pageGuards.length).toBeGreaterThanOrEqual(1);
@@ -72,6 +75,7 @@ describe('ast-feature-flags', () => {
 
   describe('NAV_TAB_GATE', () => {
     it('detects object literals with featureFlag property', () => {
+      const result = analyzeFixture('feature-flag-samples.tsx');
       const navGates = usagesOfType(result, 'NAV_TAB_GATE');
 
       expect(navGates.length).toBeGreaterThanOrEqual(2);
@@ -84,6 +88,7 @@ describe('ast-feature-flags', () => {
 
   describe('CONDITIONAL_RENDER', () => {
     it('detects ternary on featureFlags in JSX', () => {
+      const result = analyzeFixture('feature-flag-samples.tsx');
       const conditionals = usagesOfType(result, 'CONDITIONAL_RENDER');
       const ternary = conditionals.find(u => u.flagName === 'systems_insights_enabled');
 
@@ -92,6 +97,7 @@ describe('ast-feature-flags', () => {
     });
 
     it('detects && guard on featureFlags in JSX', () => {
+      const result = analyzeFixture('feature-flag-samples.tsx');
       const conditionals = usagesOfType(result, 'CONDITIONAL_RENDER');
       const andGuard = conditionals.find(u => u.flagName === 'enable_details');
 
@@ -102,6 +108,7 @@ describe('ast-feature-flags', () => {
 
   describe('FLAG_OVERRIDE', () => {
     it('detects __setFeatureFlags call', () => {
+      const result = analyzeFixture('feature-flag-samples.tsx');
       const overrides = usagesOfType(result, 'FLAG_OVERRIDE');
       const setCall = overrides.find(u => u.text.includes('__setFeatureFlags'));
 
@@ -110,6 +117,7 @@ describe('ast-feature-flags', () => {
     });
 
     it('detects __clearFeatureFlags call', () => {
+      const result = analyzeFixture('feature-flag-samples.tsx');
       const overrides = usagesOfType(result, 'FLAG_OVERRIDE');
       const clearCall = overrides.find(u => u.text.includes('__clearFeatureFlags'));
 
@@ -120,6 +128,7 @@ describe('ast-feature-flags', () => {
 
   describe('flagsReferenced', () => {
     it('contains unique sorted list of all flag names', () => {
+      const result = analyzeFixture('feature-flag-samples.tsx');
       expect(result.flagsReferenced).toEqual(
         expect.arrayContaining([
           'analyzer_insights_enabled',
@@ -139,6 +148,7 @@ describe('ast-feature-flags', () => {
 
   describe('summary counts', () => {
     it('summary counts match individual usage counts', () => {
+      const result = analyzeFixture('feature-flag-samples.tsx');
       const { summary, usages } = result;
 
       for (const type of Object.keys(summary) as FeatureFlagUsageType[]) {
@@ -148,6 +158,7 @@ describe('ast-feature-flags', () => {
     });
 
     it('has non-zero counts for all expected usage types', () => {
+      const result = analyzeFixture('feature-flag-samples.tsx');
       expect(result.summary.FLAG_HOOK_CALL).toBeGreaterThan(0);
       expect(result.summary.FLAG_READ).toBeGreaterThan(0);
       expect(result.summary.PAGE_GUARD).toBeGreaterThan(0);
@@ -159,6 +170,7 @@ describe('ast-feature-flags', () => {
 
   describe('no double counting', () => {
     it('flags used in JSX conditionals are not also counted as FLAG_READ', () => {
+      const result = analyzeFixture('feature-flag-samples.tsx');
       const flagReads = usagesOfType(result, 'FLAG_READ');
       const conditionals = usagesOfType(result, 'CONDITIONAL_RENDER');
 
@@ -195,5 +207,15 @@ describe('ast-feature-flags', () => {
         expect(typeof realResult.summary[key]).toBe('number');
       }
     });
+  });
+});
+
+describe('analyzeFeatureFlagsDirectory', () => {
+  it('analyzes all matching files in a directory', () => {
+    const results = analyzeFeatureFlagsDirectory(FIXTURES_DIR);
+    expect(results.length).toBeGreaterThan(0);
+    for (const r of results) {
+      expect(r.filePath).toBeDefined();
+    }
   });
 });

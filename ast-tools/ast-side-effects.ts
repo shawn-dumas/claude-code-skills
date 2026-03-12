@@ -248,7 +248,7 @@ export function analyzeSideEffects(filePath: string): SideEffectsAnalysis {
   };
 }
 
-function analyzeSideEffectsDirectory(dirPath: string): SideEffectsAnalysis[] {
+export function analyzeSideEffectsDirectory(dirPath: string): SideEffectsAnalysis[] {
   const absolute = path.isAbsolute(dirPath) ? dirPath : path.resolve(PROJECT_ROOT, dirPath);
   const filePaths = getFilesInDirectory(absolute);
 

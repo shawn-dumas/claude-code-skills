@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeDataLayer } from '../ast-data-layer';
+import { analyzeDataLayer, analyzeDataLayerDirectory } from '../ast-data-layer';
 import type { DataLayerAnalysis, DataLayerUsageType } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -18,10 +18,9 @@ function usagesOfType(analysis: DataLayerAnalysis, type: DataLayerUsageType) {
 }
 
 describe('ast-data-layer', () => {
-  const result = analyzeFixture('data-layer-samples.ts');
-
   describe('QUERY_HOOK_DEF', () => {
     it('detects useQuery hook definitions', () => {
+      const result = analyzeFixture('data-layer-samples.ts');
       const queryHooks = usagesOfType(result, 'QUERY_HOOK_DEF');
 
       expect(queryHooks).toHaveLength(2);
@@ -31,6 +30,7 @@ describe('ast-data-layer', () => {
     });
 
     it('extracts queryKey from useQuery options', () => {
+      const result = analyzeFixture('data-layer-samples.ts');
       const queryHooks = usagesOfType(result, 'QUERY_HOOK_DEF');
       const usersHook = queryHooks.find(h => h.name === 'useUsersListQuery');
 
@@ -40,6 +40,7 @@ describe('ast-data-layer', () => {
     });
 
     it('detects inline queryKey arrays', () => {
+      const result = analyzeFixture('data-layer-samples.ts');
       const queryHooks = usagesOfType(result, 'QUERY_HOOK_DEF');
       const teamHook = queryHooks.find(h => h.name === 'useTeamDetailQuery');
 
@@ -50,6 +51,7 @@ describe('ast-data-layer', () => {
 
   describe('MUTATION_HOOK_DEF', () => {
     it('detects useMutation hook definitions', () => {
+      const result = analyzeFixture('data-layer-samples.ts');
       const mutationHooks = usagesOfType(result, 'MUTATION_HOOK_DEF');
 
       expect(mutationHooks).toHaveLength(1);
@@ -60,6 +62,7 @@ describe('ast-data-layer', () => {
 
   describe('QUERY_KEY_DEF', () => {
     it('detects query key factory objects', () => {
+      const result = analyzeFixture('data-layer-samples.ts');
       const keyDefs = usagesOfType(result, 'QUERY_KEY_DEF');
 
       expect(keyDefs).toHaveLength(1);
@@ -72,6 +75,7 @@ describe('ast-data-layer', () => {
 
   describe('FETCH_API_CALL', () => {
     it('detects fetchApi calls with URL and schema', () => {
+      const result = analyzeFixture('data-layer-samples.ts');
       const fetchCalls = usagesOfType(result, 'FETCH_API_CALL');
 
       expect(fetchCalls.length).toBeGreaterThanOrEqual(2);
@@ -82,6 +86,7 @@ describe('ast-data-layer', () => {
     });
 
     it('reports containing function for fetchApi calls', () => {
+      const result = analyzeFixture('data-layer-samples.ts');
       const fetchCalls = usagesOfType(result, 'FETCH_API_CALL');
       const inUsersQuery = fetchCalls.find(f => f.containingFunction === 'useUsersListQuery');
 
@@ -91,6 +96,7 @@ describe('ast-data-layer', () => {
 
   describe('API_ENDPOINT', () => {
     it('detects /api/ string patterns from fetchApi calls', () => {
+      const result = analyzeFixture('data-layer-samples.ts');
       const endpoints = usagesOfType(result, 'API_ENDPOINT');
 
       expect(endpoints.length).toBeGreaterThanOrEqual(2);
@@ -105,6 +111,7 @@ describe('ast-data-layer', () => {
 
   describe('QUERY_INVALIDATION', () => {
     it('detects queryClient.invalidateQueries calls', () => {
+      const result = analyzeFixture('data-layer-samples.ts');
       const invalidations = usagesOfType(result, 'QUERY_INVALIDATION');
 
       expect(invalidations).toHaveLength(1);
@@ -115,6 +122,7 @@ describe('ast-data-layer', () => {
 
   describe('summary counts', () => {
     it('summary counts match individual usage counts', () => {
+      const result = analyzeFixture('data-layer-samples.ts');
       const { summary, usages } = result;
 
       for (const type of Object.keys(summary) as DataLayerUsageType[]) {
@@ -124,6 +132,7 @@ describe('ast-data-layer', () => {
     });
 
     it('has non-zero counts for expected usage types', () => {
+      const result = analyzeFixture('data-layer-samples.ts');
       expect(result.summary.QUERY_HOOK_DEF).toBeGreaterThan(0);
       expect(result.summary.MUTATION_HOOK_DEF).toBeGreaterThan(0);
       expect(result.summary.QUERY_KEY_DEF).toBeGreaterThan(0);
@@ -170,5 +179,15 @@ describe('ast-data-layer', () => {
       expect(realResult.filePath).toContain('users');
       expect(realResult.summary.QUERY_KEY_DEF).toBeGreaterThan(0);
     });
+  });
+});
+
+describe('analyzeDataLayerDirectory', () => {
+  it('analyzes all matching files in a directory', () => {
+    const results = analyzeDataLayerDirectory(FIXTURES_DIR);
+    expect(results.length).toBeGreaterThan(0);
+    for (const r of results) {
+      expect(r.filePath).toBeDefined();
+    }
   });
 });

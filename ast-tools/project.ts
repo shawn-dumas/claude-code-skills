@@ -19,11 +19,6 @@ export function getProject(): Project {
   return cachedProject;
 }
 
-/** Clear the cached Project singleton so tests start with a clean slate. */
-function resetProject(): void {
-  cachedProject = null;
-}
-
 export function getSourceFile(filePath: string): SourceFile {
   const project = getProject();
   const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(PROJECT_ROOT, filePath);

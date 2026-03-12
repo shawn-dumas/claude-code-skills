@@ -367,7 +367,7 @@ export function analyzeDataLayer(filePath: string): DataLayerAnalysis {
   };
 }
 
-function analyzeDataLayerDirectory(dirPath: string): DataLayerAnalysis[] {
+export function analyzeDataLayerDirectory(dirPath: string): DataLayerAnalysis[] {
   const absolute = path.isAbsolute(dirPath) ? dirPath : path.resolve(PROJECT_ROOT, dirPath);
   const filePaths = getFilesInDirectory(absolute);
 

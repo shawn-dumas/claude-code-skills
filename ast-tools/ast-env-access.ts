@@ -222,7 +222,7 @@ export function analyzeEnvAccess(filePath: string): EnvAccessAnalysis {
   };
 }
 
-function analyzeEnvAccessDirectory(dirPath: string): EnvAccessAnalysis[] {
+export function analyzeEnvAccessDirectory(dirPath: string): EnvAccessAnalysis[] {
   const absolute = path.isAbsolute(dirPath) ? dirPath : path.resolve(PROJECT_ROOT, dirPath);
   const filePaths = getFilesInDirectory(absolute);
 

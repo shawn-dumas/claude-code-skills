@@ -437,6 +437,77 @@ function isNextJsPage(filePath: string): boolean {
   return rel.startsWith('src/pages/') || rel.startsWith('src/pages\\');
 }
 
+// ---------------------------------------------------------------------------
+// Dead export detection helpers
+// ---------------------------------------------------------------------------
+
+/** Check if any edge in the graph imports this export name from this file. */
+function isConsumedByEdge(
+  exportName: string,
+  fileRelativePath: string,
+  allEdges: Array<{ from: string; to: string; specifiers: string[] }>,
+): boolean {
+  return allEdges.some(
+    e =>
+      e.to === fileRelativePath &&
+      (e.specifiers.includes(exportName) || e.specifiers.includes('*') || e.specifiers.includes(`* as ${exportName}`)),
+  );
+}
+
+/** Check if any barrel file re-exports this name. */
+function isReexportedByBarrel(exportName: string, consumerCandidates: string[]): boolean {
+  return consumerCandidates.some(consumer => {
+    if (!isBarrelFile(consumer)) return false;
+    try {
+      const consumerSf = getSourceFile(consumer);
+      for (const exportDecl of consumerSf.getExportDeclarations()) {
+        if (exportDecl.isNamespaceExport() && exportDecl.getModuleSpecifierValue()) {
+          return true;
+        }
+        for (const named of exportDecl.getNamedExports()) {
+          if (named.getName() === exportName) return true;
+        }
+      }
+    } catch (error) {
+      console.error(
+        `[ast-imports] isReexportedByBarrel: could not check re-exports in ${consumer}: ${error instanceof Error ? error.message : error}`,
+      );
+    }
+    return false;
+  });
+}
+
+/** Check if a single consumer file imports the given export name from filePath. */
+function consumerImportsName(consumer: string, exportName: string, filePath: string): boolean {
+  const consumerSf = getSourceFile(consumer);
+  for (const imp of consumerSf.getImportDeclarations()) {
+    const resolvedSf = imp.getModuleSpecifierSourceFile();
+    if (!resolvedSf) continue;
+    if (resolvedSf.getFilePath() !== filePath) continue;
+
+    for (const named of imp.getNamedImports()) {
+      if (named.getName() === exportName) return true;
+    }
+    if (exportName === 'default' && imp.getDefaultImport()) return true;
+    if (imp.getNamespaceImport()) return true;
+  }
+  return false;
+}
+
+/** Check if any file outside the graph directly imports this name. */
+function isConsumedExternally(exportName: string, filePath: string, consumerCandidates: string[]): boolean {
+  return consumerCandidates.some(consumer => {
+    try {
+      return consumerImportsName(consumer, exportName, filePath);
+    } catch (error) {
+      console.error(
+        `[ast-imports] isConsumedExternally: could not check external consumers of ${consumer}: ${error instanceof Error ? error.message : error}`,
+      );
+    }
+    return false;
+  });
+}
+
 function detectDeadExports(
   files: FileNode[],
   allEdges: Array<{ from: string; to: string; specifiers: string[] }>,
@@ -445,6 +516,15 @@ function detectDeadExports(
   const dead: Array<{ file: string; export: string; line: number }> = [];
   // Cache consumer candidates per file path to avoid repeated ripgrep calls
   const consumerCache = new Map<string, string[]>();
+
+  function getConsumerCandidates(filePath: string): string[] {
+    let candidates = consumerCache.get(filePath);
+    if (!candidates) {
+      candidates = fixtureSearchDir ? findConsumerFiles(filePath, fixtureSearchDir) : findConsumerFiles(filePath);
+      consumerCache.set(filePath, candidates);
+    }
+    return candidates;
+  }
 
   for (const file of files) {
     // Skip Next.js page files -- their default exports are consumed by the framework
@@ -456,73 +536,12 @@ function detectDeadExports(
       // Skip star re-export entries
       if (exp.name.startsWith('* from ')) continue;
 
-      // Check if any edge in the graph imports this name from this file
-      const isConsumedByEdge = allEdges.some(
-        e =>
-          e.to === file.relativePath &&
-          (e.specifiers.includes(exp.name) || e.specifiers.includes('*') || e.specifiers.includes(`* as ${exp.name}`)),
-      );
+      if (isConsumedByEdge(exp.name, file.relativePath, allEdges)) continue;
 
-      if (isConsumedByEdge) continue;
+      const consumerCandidates = getConsumerCandidates(file.path);
 
-      // Check barrel re-exports: if this export is re-exported by a barrel, it is alive
-      let consumerCandidates = consumerCache.get(file.path);
-      if (!consumerCandidates) {
-        consumerCandidates = fixtureSearchDir
-          ? findConsumerFiles(file.path, fixtureSearchDir)
-          : findConsumerFiles(file.path);
-        consumerCache.set(file.path, consumerCandidates);
-      }
-
-      const isReexported = consumerCandidates.some(consumer => {
-        if (!isBarrelFile(consumer)) return false;
-        try {
-          const consumerSf = getSourceFile(consumer);
-          for (const exportDecl of consumerSf.getExportDeclarations()) {
-            if (exportDecl.isNamespaceExport() && exportDecl.getModuleSpecifierValue()) {
-              return true;
-            }
-            for (const named of exportDecl.getNamedExports()) {
-              if (named.getName() === exp.name) return true;
-            }
-          }
-        } catch (error) {
-          console.error(
-            `[ast-imports] detectDeadExports: could not check re-exports in ${consumer}: ${error instanceof Error ? error.message : error}`,
-          );
-        }
-        return false;
-      });
-
-      if (isReexported) continue;
-
-      // Check if any file outside the graph actually imports this name
-      const isConsumedExternally = consumerCandidates.some(consumer => {
-        try {
-          const consumerSf = getSourceFile(consumer);
-          for (const imp of consumerSf.getImportDeclarations()) {
-            const resolvedSf = imp.getModuleSpecifierSourceFile();
-            if (!resolvedSf) continue;
-            if (resolvedSf.getFilePath() !== file.path) continue;
-
-            // Check named imports
-            for (const named of imp.getNamedImports()) {
-              if (named.getName() === exp.name) return true;
-            }
-            // Check default import
-            if (exp.name === 'default' && imp.getDefaultImport()) return true;
-            // Check namespace import
-            if (imp.getNamespaceImport()) return true;
-          }
-        } catch (error) {
-          console.error(
-            `[ast-imports] detectDeadExports: could not check external consumers of ${consumer}: ${error instanceof Error ? error.message : error}`,
-          );
-        }
-        return false;
-      });
-
-      if (isConsumedExternally) continue;
+      if (isReexportedByBarrel(exp.name, consumerCandidates)) continue;
+      if (isConsumedExternally(exp.name, file.path, consumerCandidates)) continue;
 
       dead.push({
         file: file.relativePath,

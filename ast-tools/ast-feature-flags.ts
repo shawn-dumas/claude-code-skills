@@ -22,24 +22,6 @@ function emptySummary(): Record<FeatureFlagUsageType, number> {
 }
 
 // ---------------------------------------------------------------------------
-// Known feature flag names (from FeatureFlagsToLoad values)
-// ---------------------------------------------------------------------------
-
-const KNOWN_FLAG_NAMES = new Set([
-  'insights_chat_enabled',
-  'enable_details',
-  'enable_realtime_insights',
-  'workstream_analysis_insights_enabled',
-  'analyzer_insights_enabled',
-  'filters_date-range_max_days',
-  'enable_last_event_date_on_users_table',
-  'relay_usage_insights_enabled',
-  'favorite_usage_insights_enabled',
-  'opportunities_insights_enabled',
-  'systems_insights_enabled',
-  'system_latency_insights_enabled',
-]);
-
 // ---------------------------------------------------------------------------
 // featureFlags binding detection
 // ---------------------------------------------------------------------------
@@ -98,7 +80,174 @@ function collectFeatureFlagBindings(sf: SourceFile): Set<string> {
 }
 
 // ---------------------------------------------------------------------------
-// Usage detectors
+// Per-category classifiers
+// ---------------------------------------------------------------------------
+
+interface FlagNodeContext {
+  line: number;
+  column: number;
+  flagBindings: Set<string>;
+}
+
+/** Classify useFeatureFlags() and usePosthogContext() calls that access feature flags. */
+function classifyFlagHookCall(node: Node, ctx: FlagNodeContext): FeatureFlagUsage | null {
+  if (!Node.isCallExpression(node)) return null;
+
+  const callee = node.getExpression().getText();
+
+  if (callee === 'useFeatureFlags') {
+    return {
+      type: 'FLAG_HOOK_CALL',
+      line: ctx.line,
+      column: ctx.column,
+      flagName: null,
+      containingFunction: getContainingFunctionName(node),
+      text: truncateText(node.getText(), 80),
+    };
+  }
+
+  if (callee === 'usePosthogContext') {
+    const parent = node.getParent();
+    if (!parent || !Node.isVariableDeclaration(parent)) return null;
+
+    const nameNode = parent.getNameNode();
+    if (!Node.isObjectBindingPattern(nameNode)) return null;
+
+    const hasFeatureFlags = nameNode.getElements().some(el => el.getName() === 'featureFlags');
+    if (!hasFeatureFlags) return null;
+
+    return {
+      type: 'FLAG_HOOK_CALL',
+      line: ctx.line,
+      column: ctx.column,
+      flagName: null,
+      containingFunction: getContainingFunctionName(node),
+      text: truncateText(node.getText(), 80),
+    };
+  }
+
+  return null;
+}
+
+/** Classify useFeatureFlagPageGuard() calls. */
+function classifyPageGuard(node: Node, ctx: FlagNodeContext): FeatureFlagUsage | null {
+  if (!Node.isCallExpression(node)) return null;
+
+  const callee = node.getExpression().getText();
+  if (callee !== 'useFeatureFlagPageGuard') return null;
+
+  const args = node.getArguments();
+  const flagName = args.length > 0 && Node.isStringLiteral(args[0]) ? args[0].getLiteralValue() : null;
+
+  return {
+    type: 'PAGE_GUARD',
+    line: ctx.line,
+    column: ctx.column,
+    flagName,
+    containingFunction: getContainingFunctionName(node),
+    text: truncateText(node.getText(), 80),
+  };
+}
+
+const FLAG_OVERRIDE_FNS = new Set(['__setFeatureFlags', '__clearFeatureFlags']);
+
+/** Classify __setFeatureFlags and __clearFeatureFlags calls. */
+function classifyFlagOverride(node: Node, ctx: FlagNodeContext): FeatureFlagUsage | null {
+  if (!Node.isCallExpression(node)) return null;
+
+  const callee = node.getExpression().getText();
+  if (!FLAG_OVERRIDE_FNS.has(callee)) return null;
+
+  return {
+    type: 'FLAG_OVERRIDE',
+    line: ctx.line,
+    column: ctx.column,
+    flagName: null,
+    containingFunction: getContainingFunctionName(node),
+    text: truncateText(node.getText(), 80),
+  };
+}
+
+/** Classify navigation tab gating via `featureFlag` property assignments. */
+function classifyNavTabGate(node: Node, ctx: FlagNodeContext): FeatureFlagUsage | null {
+  if (!Node.isPropertyAssignment(node)) return null;
+  if (node.getName() !== 'featureFlag') return null;
+
+  const init = node.getInitializer();
+  const flagName = init && Node.isStringLiteral(init) ? init.getLiteralValue() : null;
+
+  return {
+    type: 'NAV_TAB_GATE',
+    line: ctx.line,
+    column: ctx.column,
+    flagName,
+    containingFunction: getContainingFunctionName(node),
+    text: truncateText(node.getParent()?.getText() ?? node.getText(), 80),
+  };
+}
+
+/** Classify property access on a featureFlags binding (non-JSX-conditional reads). */
+function classifyFlagRead(node: Node, ctx: FlagNodeContext): FeatureFlagUsage | null {
+  if (!Node.isPropertyAccessExpression(node)) return null;
+
+  const objText = node.getExpression().getText();
+  if (!ctx.flagBindings.has(objText)) return null;
+
+  // Skip reads inside JSX conditionals -- handled by classifyConditionalRender
+  if (isInsideJsxConditional(node, ctx.flagBindings)) return null;
+
+  return {
+    type: 'FLAG_READ',
+    line: ctx.line,
+    column: ctx.column,
+    flagName: node.getName(),
+    containingFunction: getContainingFunctionName(node),
+    text: truncateText(node.getText(), 80),
+  };
+}
+
+/** Classify JSX conditionals gated on a feature flag (ternary or && guard). */
+function classifyConditionalRender(node: Node, ctx: FlagNodeContext): FeatureFlagUsage | null {
+  if (!Node.isJsxExpression(node)) return null;
+
+  const expr = node.getExpression();
+  if (!expr) return null;
+
+  // Ternary: featureFlags.x ? <A /> : <B />
+  if (Node.isConditionalExpression(expr)) {
+    const flagName = extractFlagFromExpression(expr.getCondition(), ctx.flagBindings);
+    if (flagName) {
+      return {
+        type: 'CONDITIONAL_RENDER',
+        line: ctx.line,
+        column: ctx.column,
+        flagName,
+        containingFunction: getContainingFunctionName(node),
+        text: truncateText(node.getText(), 80),
+      };
+    }
+  }
+
+  // Binary &&: featureFlags.x && <Component />
+  if (Node.isBinaryExpression(expr) && expr.getOperatorToken().getText() === '&&') {
+    const flagName = extractFlagFromExpression(expr.getLeft(), ctx.flagBindings);
+    if (flagName) {
+      return {
+        type: 'CONDITIONAL_RENDER',
+        line: ctx.line,
+        column: ctx.column,
+        flagName,
+        containingFunction: getContainingFunctionName(node),
+        text: truncateText(node.getText(), 80),
+      };
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Usage walker
 // ---------------------------------------------------------------------------
 
 function findUsages(sf: SourceFile): FeatureFlagUsage[] {
@@ -108,166 +257,18 @@ function findUsages(sf: SourceFile): FeatureFlagUsage[] {
   sf.forEachDescendant(node => {
     const line = node.getStartLineNumber();
     const column = sf.getLineAndColumnAtPos(node.getStart()).column;
+    const ctx: FlagNodeContext = { line, column, flagBindings };
 
-    // --- FLAG_HOOK_CALL: useFeatureFlags() or usePosthogContext() with featureFlags destructured ---
-    if (Node.isCallExpression(node)) {
-      const callee = node.getExpression().getText();
+    const result =
+      classifyFlagHookCall(node, ctx) ??
+      classifyPageGuard(node, ctx) ??
+      classifyFlagOverride(node, ctx) ??
+      classifyNavTabGate(node, ctx) ??
+      classifyFlagRead(node, ctx) ??
+      classifyConditionalRender(node, ctx);
 
-      if (callee === 'useFeatureFlags') {
-        usages.push({
-          type: 'FLAG_HOOK_CALL',
-          line,
-          column,
-          flagName: null,
-          containingFunction: getContainingFunctionName(node),
-          text: truncateText(node.getText(), 80),
-        });
-        return;
-      }
-
-      if (callee === 'usePosthogContext') {
-        // Check if featureFlags is destructured from the result
-        const parent = node.getParent();
-        if (parent && Node.isVariableDeclaration(parent)) {
-          const nameNode = parent.getNameNode();
-          if (Node.isObjectBindingPattern(nameNode)) {
-            const elements = nameNode.getElements();
-            const hasFeatureFlags = elements.some(el => el.getName() === 'featureFlags');
-            if (hasFeatureFlags) {
-              usages.push({
-                type: 'FLAG_HOOK_CALL',
-                line,
-                column,
-                flagName: null,
-                containingFunction: getContainingFunctionName(node),
-                text: truncateText(node.getText(), 80),
-              });
-            }
-          }
-        }
-        return;
-      }
-
-      // --- PAGE_GUARD: useFeatureFlagPageGuard('flag_name') ---
-      if (callee === 'useFeatureFlagPageGuard') {
-        const args = node.getArguments();
-        let flagName: string | null = null;
-        if (args.length > 0 && Node.isStringLiteral(args[0])) {
-          flagName = args[0].getLiteralValue();
-        }
-        usages.push({
-          type: 'PAGE_GUARD',
-          line,
-          column,
-          flagName,
-          containingFunction: getContainingFunctionName(node),
-          text: truncateText(node.getText(), 80),
-        });
-        return;
-      }
-
-      // --- FLAG_OVERRIDE: __setFeatureFlags or __clearFeatureFlags ---
-      if (callee === '__setFeatureFlags' || callee === '__clearFeatureFlags') {
-        usages.push({
-          type: 'FLAG_OVERRIDE',
-          line,
-          column,
-          flagName: null,
-          containingFunction: getContainingFunctionName(node),
-          text: truncateText(node.getText(), 80),
-        });
-        return;
-      }
-    }
-
-    // --- NAV_TAB_GATE: object literal with a `featureFlag` property ---
-    if (Node.isPropertyAssignment(node)) {
-      if (node.getName() === 'featureFlag') {
-        const init = node.getInitializer();
-        let flagName: string | null = null;
-        if (init && Node.isStringLiteral(init)) {
-          flagName = init.getLiteralValue();
-        }
-        usages.push({
-          type: 'NAV_TAB_GATE',
-          line,
-          column,
-          flagName,
-          containingFunction: getContainingFunctionName(node),
-          text: truncateText(node.getParent()?.getText() ?? node.getText(), 80),
-        });
-        return;
-      }
-    }
-
-    // --- FLAG_READ: property access on a featureFlags binding ---
-    if (Node.isPropertyAccessExpression(node)) {
-      const objText = node.getExpression().getText();
-      if (flagBindings.has(objText)) {
-        const propName = node.getName();
-
-        // Check if this property access is part of a JSX conditional
-        // (handled by CONDITIONAL_RENDER below). We skip it here and let
-        // the conditional render check handle it to avoid double-counting.
-        if (isInsideJsxConditional(node, flagBindings)) {
-          return;
-        }
-
-        usages.push({
-          type: 'FLAG_READ',
-          line,
-          column,
-          flagName: propName,
-          containingFunction: getContainingFunctionName(node),
-          text: truncateText(node.getText(), 80),
-        });
-        return;
-      }
-    }
-
-    // --- CONDITIONAL_RENDER: JSX conditionals gated on a flag ---
-    // Pattern 1: featureFlags.x && <Component />  (within JsxExpression)
-    // Pattern 2: featureFlags.x ? <A /> : <B />   (within JsxExpression)
-    if (Node.isJsxExpression(node)) {
-      const expr = node.getExpression();
-      if (!expr) return;
-
-      // Ternary: featureFlags.x ? <A /> : <B />
-      if (Node.isConditionalExpression(expr)) {
-        const condition = expr.getCondition();
-        const flagName = extractFlagFromExpression(condition, flagBindings);
-        if (flagName) {
-          usages.push({
-            type: 'CONDITIONAL_RENDER',
-            line,
-            column,
-            flagName,
-            containingFunction: getContainingFunctionName(node),
-            text: truncateText(node.getText(), 80),
-          });
-          return;
-        }
-      }
-
-      // Binary &&: featureFlags.x && <Component />
-      if (Node.isBinaryExpression(expr)) {
-        const operator = expr.getOperatorToken().getText();
-        if (operator === '&&') {
-          const left = expr.getLeft();
-          const flagName = extractFlagFromExpression(left, flagBindings);
-          if (flagName) {
-            usages.push({
-              type: 'CONDITIONAL_RENDER',
-              line,
-              column,
-              flagName,
-              containingFunction: getContainingFunctionName(node),
-              text: truncateText(node.getText(), 80),
-            });
-            return;
-          }
-        }
-      }
+    if (result) {
+      usages.push(result);
     }
   });
 
@@ -372,7 +373,7 @@ export function analyzeFeatureFlags(filePath: string): FeatureFlagAnalysis {
   };
 }
 
-function analyzeFeatureFlagsDirectory(dirPath: string): FeatureFlagAnalysis[] {
+export function analyzeFeatureFlagsDirectory(dirPath: string): FeatureFlagAnalysis[] {
   const absolute = path.isAbsolute(dirPath) ? dirPath : path.resolve(PROJECT_ROOT, dirPath);
   const filePaths = getFilesInDirectory(absolute);
 

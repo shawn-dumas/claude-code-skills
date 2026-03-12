@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeStorageAccess } from '../ast-storage-access';
+import { analyzeStorageAccess, analyzeStorageAccessDirectory } from '../ast-storage-access';
 import type { StorageAccessAnalysis, StorageAccessType } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -18,10 +18,9 @@ function accessesOfType(analysis: StorageAccessAnalysis, type: StorageAccessType
 }
 
 describe('ast-storage-access', () => {
-  const result = analyzeFixture('storage-access-samples.ts');
-
   describe('DIRECT_LOCAL_STORAGE', () => {
     it('detects localStorage.getItem', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const direct = accessesOfType(result, 'DIRECT_LOCAL_STORAGE');
 
       expect(direct.length).toBeGreaterThanOrEqual(1);
@@ -32,6 +31,7 @@ describe('ast-storage-access', () => {
     });
 
     it('detects localStorage.setItem', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const direct = accessesOfType(result, 'DIRECT_LOCAL_STORAGE');
       const setItem = direct.find(a => a.text.includes('localStorage.setItem'));
 
@@ -40,6 +40,7 @@ describe('ast-storage-access', () => {
     });
 
     it('detects localStorage.removeItem', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const direct = accessesOfType(result, 'DIRECT_LOCAL_STORAGE');
       const removeItem = direct.find(a => a.text.includes('localStorage.removeItem'));
 
@@ -47,6 +48,7 @@ describe('ast-storage-access', () => {
     });
 
     it('detects localStorage.clear', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const direct = accessesOfType(result, 'DIRECT_LOCAL_STORAGE');
       const clear = direct.find(a => a.text.includes('localStorage.clear'));
 
@@ -56,6 +58,7 @@ describe('ast-storage-access', () => {
 
   describe('DIRECT_SESSION_STORAGE', () => {
     it('detects sessionStorage.getItem', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const direct = accessesOfType(result, 'DIRECT_SESSION_STORAGE');
 
       expect(direct.length).toBeGreaterThanOrEqual(1);
@@ -65,6 +68,7 @@ describe('ast-storage-access', () => {
     });
 
     it('detects sessionStorage.setItem', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const direct = accessesOfType(result, 'DIRECT_SESSION_STORAGE');
       const setItem = direct.find(a => a.text.includes('sessionStorage.setItem'));
 
@@ -75,6 +79,7 @@ describe('ast-storage-access', () => {
 
   describe('TYPED_STORAGE_READ', () => {
     it('detects readStorage as compliant', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const reads = accessesOfType(result, 'TYPED_STORAGE_READ');
 
       expect(reads.length).toBeGreaterThanOrEqual(1);
@@ -85,6 +90,7 @@ describe('ast-storage-access', () => {
 
   describe('TYPED_STORAGE_WRITE', () => {
     it('detects writeStorage as compliant', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const writes = accessesOfType(result, 'TYPED_STORAGE_WRITE');
 
       expect(writes.length).toBeGreaterThanOrEqual(1);
@@ -95,6 +101,7 @@ describe('ast-storage-access', () => {
 
   describe('TYPED_STORAGE_REMOVE', () => {
     it('detects removeStorage as compliant', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const removes = accessesOfType(result, 'TYPED_STORAGE_REMOVE');
 
       expect(removes.length).toBeGreaterThanOrEqual(1);
@@ -105,6 +112,7 @@ describe('ast-storage-access', () => {
 
   describe('JSON_PARSE_UNVALIDATED', () => {
     it('detects JSON.parse without Zod validation', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const unvalidated = accessesOfType(result, 'JSON_PARSE_UNVALIDATED');
 
       expect(unvalidated.length).toBeGreaterThanOrEqual(1);
@@ -113,6 +121,7 @@ describe('ast-storage-access', () => {
     });
 
     it('does NOT flag JSON.parse wrapped in schema.parse()', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const unvalidated = accessesOfType(result, 'JSON_PARSE_UNVALIDATED');
       const zodGuarded = unvalidated.filter(a => a.containingFunction === 'jsonParseWithZodParse');
 
@@ -120,6 +129,7 @@ describe('ast-storage-access', () => {
     });
 
     it('does NOT flag JSON.parse wrapped in schema.safeParse()', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const unvalidated = accessesOfType(result, 'JSON_PARSE_UNVALIDATED');
       const zodGuarded = unvalidated.filter(a => a.containingFunction === 'jsonParseWithZodSafeParse');
 
@@ -129,6 +139,7 @@ describe('ast-storage-access', () => {
 
   describe('COOKIE_ACCESS', () => {
     it('detects document.cookie read', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const cookies = accessesOfType(result, 'COOKIE_ACCESS');
       const docCookie = cookies.find(a => a.text.includes('document.cookie'));
 
@@ -137,6 +148,7 @@ describe('ast-storage-access', () => {
     });
 
     it('detects Cookies.get (js-cookie)', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const cookies = accessesOfType(result, 'COOKIE_ACCESS');
       const jsGet = cookies.find(a => a.text.includes('Cookies.get'));
 
@@ -145,6 +157,7 @@ describe('ast-storage-access', () => {
     });
 
     it('detects Cookies.set (js-cookie)', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const cookies = accessesOfType(result, 'COOKIE_ACCESS');
       const jsSet = cookies.find(a => a.text.includes('Cookies.set'));
 
@@ -152,6 +165,7 @@ describe('ast-storage-access', () => {
     });
 
     it('detects Cookies.remove (js-cookie)', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const cookies = accessesOfType(result, 'COOKIE_ACCESS');
       const jsRemove = cookies.find(a => a.text.includes('Cookies.remove'));
 
@@ -161,6 +175,7 @@ describe('ast-storage-access', () => {
 
   describe('summary counts', () => {
     it('summary counts match individual access counts', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const { summary, accesses } = result;
 
       for (const type of Object.keys(summary) as StorageAccessType[]) {
@@ -170,6 +185,7 @@ describe('ast-storage-access', () => {
     });
 
     it('has non-zero counts for expected access types', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       expect(result.summary.DIRECT_LOCAL_STORAGE).toBeGreaterThan(0);
       expect(result.summary.DIRECT_SESSION_STORAGE).toBeGreaterThan(0);
       expect(result.summary.TYPED_STORAGE_READ).toBeGreaterThan(0);
@@ -182,22 +198,26 @@ describe('ast-storage-access', () => {
 
   describe('violation and compliant counts', () => {
     it('violationCount matches violations in accesses', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const violations = result.accesses.filter(a => a.isViolation);
       expect(result.violationCount).toBe(violations.length);
     });
 
     it('compliantCount matches compliant accesses', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const compliant = result.accesses.filter(a => !a.isViolation);
       expect(result.compliantCount).toBe(compliant.length);
     });
 
     it('violationCount + compliantCount equals total accesses', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       expect(result.violationCount + result.compliantCount).toBe(result.accesses.length);
     });
   });
 
   describe('containingFunction', () => {
     it('reports the correct containing function name', () => {
+      const result = analyzeFixture('storage-access-samples.ts');
       const direct = accessesOfType(result, 'DIRECT_LOCAL_STORAGE');
       const setItemAccess = direct.find(a => a.text.includes('localStorage.setItem'));
 
@@ -229,5 +249,15 @@ describe('ast-storage-access', () => {
         expect(typeof realResult.summary[key]).toBe('number');
       }
     });
+  });
+});
+
+describe('analyzeStorageAccessDirectory', () => {
+  it('analyzes all matching files in a directory', () => {
+    const results = analyzeStorageAccessDirectory(FIXTURES_DIR);
+    expect(results.length).toBeGreaterThan(0);
+    for (const r of results) {
+      expect(r.filePath).toBeDefined();
+    }
   });
 });

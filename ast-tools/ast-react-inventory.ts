@@ -11,7 +11,7 @@ import {
 import path from 'path';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
-import { isPascalCase, containsJsx, getBody } from './shared';
+import { getBody, detectComponents } from './shared';
 import type { ReactInventory, ComponentInfo, HookCall, UseEffectInfo, PropField } from './types';
 import { MAY_REMAIN_HOOKS, SCOPED_HOOK_PATTERN, KNOWN_CONTEXT_HOOKS, REACT_BUILTIN_HOOKS } from './types';
 
@@ -59,75 +59,58 @@ function resolveImportsForFile(sf: SourceFile): ResolvedImport[] {
 
 type HookClassification = HookCall['classification'];
 
+const TANSTACK_QUERY_HOOKS = new Set(['useQuery', 'useMutation', 'useInfiniteQuery']);
+
+function classifyByNameList(hookName: string): HookClassification | null {
+  if ((MAY_REMAIN_HOOKS as readonly string[]).includes(hookName)) return 'may-remain';
+  if (SCOPED_HOOK_PATTERN.test(hookName)) return 'may-remain';
+  if ((REACT_BUILTIN_HOOKS as readonly string[]).includes(hookName)) return 'state-utility';
+  return null;
+}
+
+function classifyByImportPath(hookName: string, resolvedImports: ResolvedImport[]): HookClassification | null {
+  const imp = resolvedImports.find(i => i.specifier === hookName);
+  if (!imp) return null;
+
+  const src = imp.sourcePath ?? imp.rawSource;
+  if (src.includes('services/hooks') || src.includes('@tanstack/react-query')) return 'service';
+  if (src.includes('providers/') || src.includes('context/')) return 'context';
+  if (src.includes('shared/hooks')) return 'dom-utility';
+  if (TANSTACK_QUERY_HOOKS.has(hookName)) return 'service';
+
+  return null;
+}
+
+function classifyByLocalBody(hookName: string, localHookBodies: Map<string, Node>): HookClassification | null {
+  const localBody = localHookBodies.get(hookName);
+  if (!localBody) return null;
+
+  const bodyText = localBody.getText();
+  if (bodyText.includes('useContext')) return 'context';
+  if (bodyText.includes('useQuery') || bodyText.includes('useMutation') || bodyText.includes('useInfiniteQuery')) {
+    return 'service';
+  }
+  return null;
+}
+
+function classifyByHeuristic(hookName: string): HookClassification {
+  if ((KNOWN_CONTEXT_HOOKS as readonly string[]).includes(hookName)) return 'context';
+  if (TANSTACK_QUERY_HOOKS.has(hookName)) return 'service';
+  if (hookName === 'useContext') return 'context';
+  return 'unknown';
+}
+
 function classifyHook(
   hookName: string,
   resolvedImports: ResolvedImport[],
   localHookBodies: Map<string, Node>,
 ): HookClassification {
-  // 1. may-remain (ambient UI hooks)
-  if ((MAY_REMAIN_HOOKS as readonly string[]).includes(hookName)) {
-    return 'may-remain';
-  }
-  if (SCOPED_HOOK_PATTERN.test(hookName)) {
-    return 'may-remain';
-  }
-
-  // 2. React built-in state-utility
-  if ((REACT_BUILTIN_HOOKS as readonly string[]).includes(hookName)) {
-    return 'state-utility';
-  }
-
-  // 3. Check import source path
-  const imp = resolvedImports.find(i => i.specifier === hookName);
-
-  if (imp) {
-    const src = imp.sourcePath ?? imp.rawSource;
-
-    // service: from services/hooks/ or react-query package
-    if (src.includes('services/hooks') || src.includes('@tanstack/react-query')) {
-      return 'service';
-    }
-
-    // context: from providers/ or context/
-    if (src.includes('providers/') || src.includes('context/')) {
-      return 'context';
-    }
-
-    // dom-utility: from shared/hooks/
-    if (src.includes('shared/hooks')) {
-      return 'dom-utility';
-    }
-
-    // Known service hook packages
-    if (hookName === 'useQuery' || hookName === 'useMutation' || hookName === 'useInfiniteQuery') {
-      return 'service';
-    }
-  }
-
-  // 4. Known context hooks fallback (by name)
-  if ((KNOWN_CONTEXT_HOOKS as readonly string[]).includes(hookName)) {
-    return 'context';
-  }
-
-  // 5. Check locally-defined hooks
-  const localBody = localHookBodies.get(hookName);
-  if (localBody) {
-    const bodyText = localBody.getText();
-    if (bodyText.includes('useContext')) return 'context';
-    if (bodyText.includes('useQuery') || bodyText.includes('useMutation') || bodyText.includes('useInfiniteQuery')) {
-      return 'service';
-    }
-  }
-
-  // 6. Name-based heuristics for unresolved imports
-  if (hookName === 'useQuery' || hookName === 'useMutation' || hookName === 'useInfiniteQuery') {
-    return 'service';
-  }
-  if (hookName === 'useContext') {
-    return 'context';
-  }
-
-  return 'unknown';
+  return (
+    classifyByNameList(hookName) ??
+    classifyByImportPath(hookName, resolvedImports) ??
+    classifyByLocalBody(hookName, localHookBodies) ??
+    classifyByHeuristic(hookName)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -239,68 +222,73 @@ function visitStatementForHooks(
 // useEffect body analysis
 // ---------------------------------------------------------------------------
 
-function extractUseEffects(funcNode: Node, parentName: string, sf: SourceFile): UseEffectInfo[] {
-  const effects: UseEffectInfo[] = [];
-  const body = getBody(funcNode);
-  if (!body) return effects;
-
-  // Collect useState setters for setState detection
+/**
+ * Collect useState setter names from a function body's direct statements.
+ */
+function collectStateSetters(body: Node & { getStatements(): Node[] }): Set<string> {
   const stateSetters = new Set<string>();
   for (const stmt of body.getStatements()) {
-    if (Node.isVariableStatement(stmt)) {
-      for (const decl of stmt.getDeclarationList().getDeclarations()) {
-        const init = decl.getInitializer();
-        if (init && Node.isCallExpression(init)) {
-          const callName = init.getExpression().getText();
-          if (callName === 'useState') {
-            const nameNode = decl.getNameNode();
-            if (Node.isArrayBindingPattern(nameNode)) {
-              const elements = nameNode.getElements();
-              if (elements.length >= 2 && Node.isBindingElement(elements[1])) {
-                stateSetters.add(elements[1].getName());
-              }
-            }
-          }
-        }
+    if (!Node.isVariableStatement(stmt)) continue;
+    for (const decl of stmt.getDeclarationList().getDeclarations()) {
+      const init = decl.getInitializer();
+      if (!init || !Node.isCallExpression(init)) continue;
+      if (init.getExpression().getText() !== 'useState') continue;
+      const nameNode = decl.getNameNode();
+      if (!Node.isArrayBindingPattern(nameNode)) continue;
+      const elements = nameNode.getElements();
+      if (elements.length >= 2 && Node.isBindingElement(elements[1])) {
+        stateSetters.add(elements[1].getName());
       }
     }
   }
+  return stateSetters;
+}
 
-  // Find useEffect calls in direct body statements
+/**
+ * Build a UseEffectInfo from a useEffect/useLayoutEffect CallExpression.
+ */
+function buildEffectInfo(
+  expr: Node & { getArguments(): Node[] },
+  parentName: string,
+  stateSetters: Set<string>,
+): UseEffectInfo | null {
+  const args = expr.getArguments();
+  if (args.length === 0) return null;
+
+  const callback = args[0];
+  const depArg = args.length > 1 ? args[1] : null;
+
+  let depArray: string[] | 'none' = 'none';
+  if (depArg && Node.isArrayLiteralExpression(depArg)) {
+    depArray = depArg.getElements().map(el => el.getText());
+  }
+
+  return {
+    line: expr.getStartLineNumber(),
+    parentFunction: parentName,
+    depArray,
+    hasCleanup: analyzeCleanup(callback),
+    bodyAnalysis: analyzeEffectBody(callback, stateSetters),
+  };
+}
+
+const EFFECT_HOOK_NAMES = new Set(['useEffect', 'useLayoutEffect']);
+
+function extractUseEffects(funcNode: Node, parentName: string, _sf: SourceFile): UseEffectInfo[] {
+  const body = getBody(funcNode);
+  if (!body) return [];
+
+  const stateSetters = collectStateSetters(body);
+  const effects: UseEffectInfo[] = [];
+
   for (const stmt of body.getStatements()) {
-    if (Node.isExpressionStatement(stmt)) {
-      const expr = stmt.getExpression();
-      if (Node.isCallExpression(expr)) {
-        const callName = expr.getExpression().getText();
-        if (callName === 'useEffect' || callName === 'useLayoutEffect') {
-          const args = expr.getArguments();
-          if (args.length === 0) continue;
+    if (!Node.isExpressionStatement(stmt)) continue;
+    const expr = stmt.getExpression();
+    if (!Node.isCallExpression(expr)) continue;
+    if (!EFFECT_HOOK_NAMES.has(expr.getExpression().getText())) continue;
 
-          const callback = args[0];
-          const depArg = args.length > 1 ? args[1] : null;
-
-          // Extract dependency array
-          let depArray: string[] | 'none' = 'none';
-          if (depArg && Node.isArrayLiteralExpression(depArg)) {
-            depArray = depArg.getElements().map(el => el.getText());
-          }
-
-          // Analyze cleanup
-          const hasCleanup = analyzeCleanup(callback);
-
-          // Analyze body
-          const bodyAnalysis = analyzeEffectBody(callback, stateSetters);
-
-          effects.push({
-            line: expr.getStartLineNumber(),
-            parentFunction: parentName,
-            depArray,
-            hasCleanup,
-            bodyAnalysis,
-          });
-        }
-      }
-    }
+    const info = buildEffectInfo(expr, parentName, stateSetters);
+    if (info) effects.push(info);
   }
 
   return effects;
@@ -326,10 +314,41 @@ function analyzeCleanup(callback: Node): boolean {
   return false;
 }
 
+type EffectBodyKey = 'callsFetch' | 'callsNavigation' | 'callsStorage' | 'callsToast' | 'hasTimers';
+
+const EFFECT_BODY_PATTERNS: Array<{ key: EffectBodyKey; pattern: RegExp }> = [
+  { key: 'callsFetch', pattern: /\bfetch\s*\(|\bfetchApi\s*\(|\baxios\b/ },
+  { key: 'callsNavigation', pattern: /\brouter\.push\b|\brouter\.replace\b|\bnavigate\s*\(/ },
+  {
+    key: 'callsStorage',
+    pattern: /\blocalStorage\b|\bsessionStorage\b|\breadStorage\b|\bwriteStorage\b|\bremoveStorage\b/,
+  },
+  { key: 'callsToast', pattern: /\btoast\w*\s*\(/ },
+  { key: 'hasTimers', pattern: /\bsetTimeout\s*\(|\bsetInterval\s*\(|\brequestAnimationFrame\s*\(/ },
+];
+
+function detectStateSetters(bodyText: string, knownSetters: Set<string>): string[] {
+  const found: string[] = [];
+  for (const setter of knownSetters) {
+    const setterPattern = new RegExp(`\\b${setter}\\s*\\(`);
+    if (setterPattern.test(bodyText)) {
+      found.push(setter);
+    }
+  }
+  if (/\bdispatch\s*\(/.test(bodyText) && !found.includes('dispatch')) {
+    found.push('dispatch');
+  }
+  return found;
+}
+
 function analyzeEffectBody(callback: Node, knownSetters: Set<string>): UseEffectInfo['bodyAnalysis'] {
-  const result = {
-    callsSetState: false,
-    stateSetters: [] as string[],
+  const bodyText = callback.getText();
+
+  const stateSetters = detectStateSetters(bodyText, knownSetters);
+
+  const result: UseEffectInfo['bodyAnalysis'] = {
+    callsSetState: stateSetters.length > 0,
+    stateSetters,
     callsFetch: false,
     callsNavigation: false,
     callsStorage: false,
@@ -337,58 +356,10 @@ function analyzeEffectBody(callback: Node, knownSetters: Set<string>): UseEffect
     hasTimers: false,
   };
 
-  const bodyText = callback.getText();
-
-  // State setters -- use word-boundary regex to avoid false positives
-  // (e.g. 'setCount' matching 'resetCount(' via substring includes)
-  for (const setter of knownSetters) {
-    const setterPattern = new RegExp(`\\b${setter}\\s*\\(`);
-    if (setterPattern.test(bodyText)) {
-      result.stateSetters.push(setter);
-      result.callsSetState = true;
+  for (const { key, pattern } of EFFECT_BODY_PATTERNS) {
+    if (pattern.test(bodyText)) {
+      result[key] = true;
     }
-  }
-  // Also check for dispatch
-  if (/\bdispatch\s*\(/.test(bodyText)) {
-    result.callsSetState = true;
-    if (!result.stateSetters.includes('dispatch')) {
-      result.stateSetters.push('dispatch');
-    }
-  }
-
-  // Fetch calls
-  if (/\bfetch\s*\(/.test(bodyText) || /\bfetchApi\s*\(/.test(bodyText) || /\baxios\b/.test(bodyText)) {
-    result.callsFetch = true;
-  }
-
-  // Navigation
-  if (/\brouter\.push\b/.test(bodyText) || /\brouter\.replace\b/.test(bodyText) || /\bnavigate\s*\(/.test(bodyText)) {
-    result.callsNavigation = true;
-  }
-
-  // Storage
-  if (
-    /\blocalStorage\b/.test(bodyText) ||
-    /\bsessionStorage\b/.test(bodyText) ||
-    /\breadStorage\b/.test(bodyText) ||
-    /\bwriteStorage\b/.test(bodyText) ||
-    /\bremoveStorage\b/.test(bodyText)
-  ) {
-    result.callsStorage = true;
-  }
-
-  // Toasts
-  if (/\btoast\w*\s*\(/.test(bodyText)) {
-    result.callsToast = true;
-  }
-
-  // Timers
-  if (
-    /\bsetTimeout\s*\(/.test(bodyText) ||
-    /\bsetInterval\s*\(/.test(bodyText) ||
-    /\brequestAnimationFrame\s*\(/.test(bodyText)
-  ) {
-    result.hasTimers = true;
   }
 
   return result;
@@ -398,49 +369,48 @@ function analyzeEffectBody(callback: Node, knownSetters: Set<string>): UseEffect
 // Props extraction
 // ---------------------------------------------------------------------------
 
-function extractProps(funcNode: Node, sf: SourceFile, wrapperCall: Node | null): PropField[] {
-  let params: ParameterDeclaration[] = [];
-
-  if (Node.isFunctionDeclaration(funcNode)) {
-    params = funcNode.getParameters();
-  } else if (Node.isArrowFunction(funcNode) || Node.isFunctionExpression(funcNode)) {
-    params = funcNode.getParameters();
+function getFirstParam(funcNode: Node): ParameterDeclaration | null {
+  if (Node.isFunctionDeclaration(funcNode) || Node.isArrowFunction(funcNode) || Node.isFunctionExpression(funcNode)) {
+    const params = funcNode.getParameters();
+    return params.length > 0 ? params[0] : null;
   }
+  return null;
+}
 
-  if (params.length === 0) return [];
+/**
+ * When binding-extracted fields all have unknown types, try the wrapper's
+ * generic type arg and merge hasDefault info from the binding.
+ */
+function mergeWithWrapperGeneric(fields: PropField[], wrapperCall: Node, sf: SourceFile): PropField[] | null {
+  if (fields.length === 0 || !fields.every(f => f.type === 'unknown')) return null;
 
-  const firstParam = params[0];
+  const genericFields = extractPropsFromWrapperGeneric(wrapperCall, sf);
+  if (genericFields.length === 0) return null;
+
+  const defaultNames = new Set(fields.filter(f => f.hasDefault).map(f => f.name));
+  for (const gf of genericFields) {
+    if (defaultNames.has(gf.name)) gf.hasDefault = true;
+  }
+  return genericFields;
+}
+
+function extractProps(funcNode: Node, sf: SourceFile, wrapperCall: Node | null): PropField[] {
+  const firstParam = getFirstParam(funcNode);
+  if (!firstParam) return [];
+
   const nameNode = firstParam.getNameNode();
 
-  // Only process destructured props -- single-name params (like 'props')
-  // are handled differently based on their type annotation
   if (Node.isObjectBindingPattern(nameNode)) {
     const fields = extractPropsFromObjectBinding(nameNode, firstParam, sf);
-    // If we got fields with unknown types and there's a wrapper call, try the generic
-    if (fields.length > 0 && fields.every(f => f.type === 'unknown') && wrapperCall) {
-      const genericFields = extractPropsFromWrapperGeneric(wrapperCall, sf);
-      if (genericFields.length > 0) {
-        // Merge: use generic fields for type info, binding fields for hasDefault
-        const defaultNames = new Set(fields.filter(f => f.hasDefault).map(f => f.name));
-        for (const gf of genericFields) {
-          if (defaultNames.has(gf.name)) gf.hasDefault = true;
-        }
-        return genericFields;
-      }
+    if (wrapperCall) {
+      return mergeWithWrapperGeneric(fields, wrapperCall, sf) ?? fields;
     }
     return fields;
   }
 
-  // For non-destructured params, try to extract from type annotation
   const typeNode = firstParam.getTypeNode();
-  if (typeNode) {
-    return extractPropsFromTypeNode(typeNode, sf, firstParam);
-  }
-
-  // Fallback: try wrapper call generic
-  if (wrapperCall) {
-    return extractPropsFromWrapperGeneric(wrapperCall, sf);
-  }
+  if (typeNode) return extractPropsFromTypeNode(typeNode, sf, firstParam);
+  if (wrapperCall) return extractPropsFromWrapperGeneric(wrapperCall, sf);
 
   return [];
 }
@@ -584,7 +554,7 @@ function isFunctionType(typeText: string, name: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Component detection
+// Return statement detection
 // ---------------------------------------------------------------------------
 
 function findReturnStatementLines(funcNode: Node): { start: number; end: number } {
@@ -616,109 +586,6 @@ function findReturnStatementLines(funcNode: Node): { start: number; end: number 
   }
 
   return { start: 0, end: 0 };
-}
-
-interface DetectedComponent {
-  name: string;
-  line: number;
-  kind: ComponentInfo['kind'];
-  funcNode: Node;
-  /** For memo/forwardRef, the wrapping CallExpression -- used for type arg extraction */
-  wrapperCall: Node | null;
-}
-
-function detectComponents(sf: SourceFile): DetectedComponent[] {
-  const components: DetectedComponent[] = [];
-
-  // 1. Function declarations: export function Foo(...) { ... }
-  for (const func of sf.getFunctions()) {
-    const name = func.getName();
-    if (!name || !isPascalCase(name)) continue;
-    if (containsJsx(func)) {
-      components.push({ name, line: func.getStartLineNumber(), kind: 'function', funcNode: func, wrapperCall: null });
-    }
-  }
-
-  // 2. Variable declarations: export const Foo = ...
-  for (const varStmt of sf.getVariableStatements()) {
-    for (const decl of varStmt.getDeclarationList().getDeclarations()) {
-      const name = decl.getName();
-      if (!isPascalCase(name)) continue;
-
-      const init = decl.getInitializer();
-      if (!init) continue;
-
-      // Arrow function: const Foo = () => ...
-      if (Node.isArrowFunction(init)) {
-        if (containsJsx(init)) {
-          components.push({ name, line: decl.getStartLineNumber(), kind: 'arrow', funcNode: init, wrapperCall: null });
-        }
-        continue;
-      }
-
-      // Function expression: const Foo = function() { ... }
-      if (Node.isFunctionExpression(init)) {
-        if (containsJsx(init)) {
-          components.push({ name, line: decl.getStartLineNumber(), kind: 'arrow', funcNode: init, wrapperCall: null });
-        }
-        continue;
-      }
-
-      // memo(): const Foo = memo(function Foo(...) { ... }) or memo((...) => ...)
-      if (Node.isCallExpression(init)) {
-        const callee = init.getExpression().getText();
-
-        if (callee === 'memo' || callee === 'React.memo') {
-          const args = init.getArguments();
-          if (args.length > 0) {
-            const inner = args[0];
-            if ((Node.isArrowFunction(inner) || Node.isFunctionExpression(inner)) && containsJsx(inner)) {
-              components.push({
-                name,
-                line: decl.getStartLineNumber(),
-                kind: 'memo',
-                funcNode: inner,
-                wrapperCall: init,
-              });
-            }
-          }
-          continue;
-        }
-
-        // forwardRef(): const Foo = forwardRef(function Foo(...) { ... })
-        if (callee === 'forwardRef' || callee === 'React.forwardRef') {
-          const args = init.getArguments();
-          if (args.length > 0) {
-            const inner = args[0];
-            if ((Node.isArrowFunction(inner) || Node.isFunctionExpression(inner)) && containsJsx(inner)) {
-              components.push({
-                name,
-                line: decl.getStartLineNumber(),
-                kind: 'forwardRef',
-                funcNode: inner,
-                wrapperCall: init,
-              });
-            }
-          }
-          continue;
-        }
-      }
-    }
-  }
-
-  // 3. Non-exported inner function declarations (PascalCase, returns JSX)
-  sf.forEachDescendant(node => {
-    if (!Node.isFunctionDeclaration(node)) return;
-    const name = node.getName();
-    if (!name || !isPascalCase(name)) return;
-    // Skip if already detected
-    if (components.some(c => c.name === name && c.line === node.getStartLineNumber())) return;
-    if (containsJsx(node)) {
-      components.push({ name, line: node.getStartLineNumber(), kind: 'function', funcNode: node, wrapperCall: null });
-    }
-  });
-
-  return components;
 }
 
 // ---------------------------------------------------------------------------

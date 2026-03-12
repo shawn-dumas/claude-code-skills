@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeTypeSafety } from '../ast-type-safety';
+import { analyzeTypeSafety, analyzeTypeSafetyDirectory } from '../ast-type-safety';
 import type { TypeSafetyAnalysis, TypeSafetyViolationType } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -18,10 +18,9 @@ function violationsOfType(analysis: TypeSafetyAnalysis, type: TypeSafetyViolatio
 }
 
 describe('ast-type-safety', () => {
-  const result = analyzeFixture('type-safety-violations.ts');
-
   describe('AS_ANY', () => {
     it('detects as any with line number', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       const asAny = violationsOfType(result, 'AS_ANY');
 
       expect(asAny.length).toBeGreaterThanOrEqual(1);
@@ -32,6 +31,7 @@ describe('ast-type-safety', () => {
 
   describe('AS_UNKNOWN_AS (double cast)', () => {
     it('detects as unknown as T', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       const doubleCast = violationsOfType(result, 'AS_UNKNOWN_AS');
 
       expect(doubleCast.length).toBeGreaterThanOrEqual(1);
@@ -42,6 +42,7 @@ describe('ast-type-safety', () => {
 
   describe('NON_NULL_ASSERTION (unguarded)', () => {
     it('detects unguarded non-null assertion', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       const nonNull = violationsOfType(result, 'NON_NULL_ASSERTION');
       const unguarded = nonNull.filter(v => v.context === 'guarded: false');
 
@@ -52,6 +53,7 @@ describe('ast-type-safety', () => {
 
   describe('NON_NULL_ASSERTION (guarded)', () => {
     it('marks non-null assertion after .has() guard as guarded: true', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       const nonNull = violationsOfType(result, 'NON_NULL_ASSERTION');
       const guarded = nonNull.filter(v => v.context === 'guarded: true');
 
@@ -61,6 +63,7 @@ describe('ast-type-safety', () => {
 
   describe('EXPLICIT_ANY_ANNOTATION', () => {
     it('detects function parameter typed as any', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       const explicitAny = violationsOfType(result, 'EXPLICIT_ANY_ANNOTATION');
 
       expect(explicitAny.length).toBeGreaterThanOrEqual(1);
@@ -71,6 +74,7 @@ describe('ast-type-safety', () => {
 
   describe('Record<string, any>', () => {
     it('detects any in generic type arguments', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       const explicitAny = violationsOfType(result, 'EXPLICIT_ANY_ANNOTATION');
       const recordAny = explicitAny.find(v => v.text.includes('any'));
 
@@ -80,6 +84,7 @@ describe('ast-type-safety', () => {
 
   describe('CATCH_ERROR_ANY', () => {
     it('detects catch (error: any)', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       const catchAny = violationsOfType(result, 'CATCH_ERROR_ANY');
 
       expect(catchAny.length).toBeGreaterThanOrEqual(1);
@@ -89,6 +94,7 @@ describe('ast-type-safety', () => {
 
   describe('TS_DIRECTIVE_NO_COMMENT', () => {
     it('detects @ts-expect-error without explanatory comment', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       const directives = violationsOfType(result, 'TS_DIRECTIVE_NO_COMMENT');
       const tsExpectError = directives.find(v => v.text.includes('@ts-expect-error'));
 
@@ -96,6 +102,7 @@ describe('ast-type-safety', () => {
     });
 
     it('does NOT flag @ts-expect-error with comment', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       const directives = violationsOfType(result, 'TS_DIRECTIVE_NO_COMMENT');
       const withComment = directives.filter(v => v.text.includes('-- testing type coercion'));
 
@@ -103,6 +110,7 @@ describe('ast-type-safety', () => {
     });
 
     it('detects eslint-disable without comment', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       const directives = violationsOfType(result, 'TS_DIRECTIVE_NO_COMMENT');
       const eslintDisable = directives.find(v => v.text.includes('eslint-disable') && !v.text.includes('--'));
 
@@ -112,6 +120,7 @@ describe('ast-type-safety', () => {
 
   describe('TRUST_BOUNDARY_CAST', () => {
     it('detects JSON.parse(...) as T', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       const trustBoundary = violationsOfType(result, 'TRUST_BOUNDARY_CAST');
 
       expect(trustBoundary.length).toBeGreaterThanOrEqual(1);
@@ -122,6 +131,7 @@ describe('ast-type-safety', () => {
 
   describe('as const', () => {
     it('does NOT flag as const', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       const allViolations = result.violations;
       const asConstViolation = allViolations.find(v => v.text.includes('as const'));
 
@@ -131,6 +141,7 @@ describe('ast-type-safety', () => {
 
   describe('satisfies', () => {
     it('does NOT flag satisfies', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       const allViolations = result.violations;
       const satisfiesViolation = allViolations.find(v => v.text.includes('satisfies'));
 
@@ -140,6 +151,7 @@ describe('ast-type-safety', () => {
 
   describe('summary counts', () => {
     it('summary counts match individual violation counts', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       const { summary, violations } = result;
 
       for (const type of Object.keys(summary) as TypeSafetyViolationType[]) {
@@ -149,6 +161,7 @@ describe('ast-type-safety', () => {
     });
 
     it('has non-zero counts for expected violation types', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
       expect(result.summary.AS_ANY).toBeGreaterThan(0);
       expect(result.summary.AS_UNKNOWN_AS).toBeGreaterThan(0);
       expect(result.summary.NON_NULL_ASSERTION).toBeGreaterThan(0);
@@ -182,5 +195,15 @@ describe('ast-type-safety', () => {
         expect(typeof realResult.summary[key]).toBe('number');
       }
     });
+  });
+});
+
+describe('analyzeTypeSafetyDirectory', () => {
+  it('analyzes all matching files in a directory', () => {
+    const results = analyzeTypeSafetyDirectory(FIXTURES_DIR);
+    expect(results.length).toBeGreaterThan(0);
+    for (const r of results) {
+      expect(r.filePath).toBeDefined();
+    }
   });
 });

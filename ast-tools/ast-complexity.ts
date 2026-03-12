@@ -74,122 +74,89 @@ function isIIFE(node: Node): boolean {
   return current !== undefined && Node.isCallExpression(current);
 }
 
+/**
+ * Resolve the name for an arrow function or function expression from its parent.
+ */
+function resolveAssignedName(node: Node, fallback: string): string {
+  const parent = node.getParent();
+  if (parent && Node.isVariableDeclaration(parent)) return parent.getName();
+  if (parent && Node.isExportAssignment(parent)) return '<default export>';
+  return fallback;
+}
+
+function buildBounds(name: string, node: Node, bodyStart: number, bodyEnd: number): FunctionBounds {
+  return {
+    name,
+    line: node.getStartLineNumber(),
+    endLine: node.getEndLineNumber(),
+    bodyStart,
+    bodyEnd,
+    node,
+  };
+}
+
+function extractFunctionDeclaration(node: Node): FunctionBounds | null {
+  if (!Node.isFunctionDeclaration(node)) return null;
+  const body = node.getBody();
+  if (!body) return null;
+  return buildBounds(node.getName() ?? '<anonymous>', node, body.getStart(), body.getEnd());
+}
+
+function extractArrowFunction(node: Node): FunctionBounds | null {
+  if (!Node.isArrowFunction(node)) return null;
+  if (isInlineCallback(node) || isIIFE(node)) return null;
+  const body = node.getBody();
+  return buildBounds(resolveAssignedName(node, '<anonymous>'), node, body.getStart(), body.getEnd());
+}
+
+function extractFunctionExpression(node: Node): FunctionBounds | null {
+  if (!Node.isFunctionExpression(node)) return null;
+  if (isInlineCallback(node) || isIIFE(node)) return null;
+  const body = node.getBody();
+  return buildBounds(resolveAssignedName(node, node.getName() ?? '<anonymous>'), node, body.getStart(), body.getEnd());
+}
+
+function extractMethodDeclaration(node: Node): FunctionBounds | null {
+  if (!Node.isMethodDeclaration(node)) return null;
+  const body = node.getBody();
+  if (!body) return null;
+  return buildBounds(node.getName(), node, body.getStart(), body.getEnd());
+}
+
+function extractConstructor(node: Node): FunctionBounds | null {
+  if (!Node.isConstructorDeclaration(node)) return null;
+  const body = node.getBody();
+  if (!body) return null;
+  return buildBounds('constructor', node, body.getStart(), body.getEnd());
+}
+
+function extractAccessor(node: Node): FunctionBounds | null {
+  if (!Node.isGetAccessorDeclaration(node) && !Node.isSetAccessorDeclaration(node)) return null;
+  const body = node.getBody();
+  if (!body) return null;
+  const prefix = Node.isGetAccessorDeclaration(node) ? 'get ' : 'set ';
+  return buildBounds(prefix + node.getName(), node, body.getStart(), body.getEnd());
+}
+
+const FUNCTION_EXTRACTORS = [
+  extractFunctionDeclaration,
+  extractArrowFunction,
+  extractFunctionExpression,
+  extractMethodDeclaration,
+  extractConstructor,
+  extractAccessor,
+] as const;
+
 function findFunctions(sf: SourceFile): FunctionBounds[] {
   const functions: FunctionBounds[] = [];
 
-  sf.forEachDescendant((node, traversal) => {
-    // Function declarations
-    if (Node.isFunctionDeclaration(node)) {
-      const body = node.getBody();
-      if (!body) return;
-      functions.push({
-        name: node.getName() ?? '<anonymous>',
-        line: node.getStartLineNumber(),
-        endLine: node.getEndLineNumber(),
-        bodyStart: body.getStart(),
-        bodyEnd: body.getEnd(),
-        node,
-      });
-      return;
-    }
-
-    // Arrow functions
-    if (Node.isArrowFunction(node)) {
-      if (isInlineCallback(node) || isIIFE(node)) return;
-
-      const parent = node.getParent();
-      let name = '<anonymous>';
-
-      // const foo = () => ...
-      if (parent && Node.isVariableDeclaration(parent)) {
-        name = parent.getName();
+  sf.forEachDescendant(node => {
+    for (const extractor of FUNCTION_EXTRACTORS) {
+      const result = extractor(node);
+      if (result) {
+        functions.push(result);
+        return;
       }
-      // export default () => ...
-      if (parent && Node.isExportAssignment(parent)) {
-        name = '<default export>';
-      }
-
-      const body = node.getBody();
-      functions.push({
-        name,
-        line: node.getStartLineNumber(),
-        endLine: node.getEndLineNumber(),
-        bodyStart: body.getStart(),
-        bodyEnd: body.getEnd(),
-        node,
-      });
-      return;
-    }
-
-    // Function expressions: const foo = function() { ... }
-    if (Node.isFunctionExpression(node)) {
-      if (isInlineCallback(node) || isIIFE(node)) return;
-
-      const parent = node.getParent();
-      let name = node.getName() ?? '<anonymous>';
-
-      if (parent && Node.isVariableDeclaration(parent)) {
-        name = parent.getName();
-      }
-      if (parent && Node.isExportAssignment(parent)) {
-        name = '<default export>';
-      }
-
-      const body = node.getBody();
-      functions.push({
-        name,
-        line: node.getStartLineNumber(),
-        endLine: node.getEndLineNumber(),
-        bodyStart: body.getStart(),
-        bodyEnd: body.getEnd(),
-        node,
-      });
-      return;
-    }
-
-    // Class method declarations
-    if (Node.isMethodDeclaration(node)) {
-      const body = node.getBody();
-      if (!body) return;
-      functions.push({
-        name: node.getName(),
-        line: node.getStartLineNumber(),
-        endLine: node.getEndLineNumber(),
-        bodyStart: body.getStart(),
-        bodyEnd: body.getEnd(),
-        node,
-      });
-      return;
-    }
-
-    // Constructor declarations
-    if (Node.isConstructorDeclaration(node)) {
-      const body = node.getBody();
-      if (!body) return;
-      functions.push({
-        name: 'constructor',
-        line: node.getStartLineNumber(),
-        endLine: node.getEndLineNumber(),
-        bodyStart: body.getStart(),
-        bodyEnd: body.getEnd(),
-        node,
-      });
-      return;
-    }
-
-    // Getters and setters
-    if (Node.isGetAccessorDeclaration(node) || Node.isSetAccessorDeclaration(node)) {
-      const body = node.getBody();
-      if (!body) return;
-      const prefix = Node.isGetAccessorDeclaration(node) ? 'get ' : 'set ';
-      functions.push({
-        name: prefix + node.getName(),
-        line: node.getStartLineNumber(),
-        endLine: node.getEndLineNumber(),
-        bodyStart: body.getStart(),
-        bodyEnd: body.getEnd(),
-        node,
-      });
     }
   });
 
@@ -229,6 +196,42 @@ interface ContributorInfo {
   line: number;
 }
 
+function classifyIfStatement(node: Node): ContributorType {
+  const parent = node.getParent();
+  if (parent && Node.isIfStatement(parent) && parent.getElseStatement() === node) {
+    return 'else-if';
+  }
+  return 'if';
+}
+
+const LOOP_KINDS = new Set([
+  SyntaxKind.ForStatement,
+  SyntaxKind.ForInStatement,
+  SyntaxKind.ForOfStatement,
+  SyntaxKind.WhileStatement,
+  SyntaxKind.DoStatement,
+]);
+
+const LOGICAL_OP_MAP = new Map<SyntaxKind, ContributorType>([
+  [SyntaxKind.AmpersandAmpersandToken, 'logical-and'],
+  [SyntaxKind.BarBarToken, 'logical-or'],
+  [SyntaxKind.QuestionQuestionToken, 'nullish-coalesce'],
+]);
+
+function classifyComplexityContributor(node: Node): ContributorType | null {
+  if (Node.isIfStatement(node)) return classifyIfStatement(node);
+  if (node.getKind() === SyntaxKind.CaseClause) return 'switch-case';
+  if (Node.isCatchClause(node)) return 'catch';
+  if (LOOP_KINDS.has(node.getKind())) return 'loop';
+  if (Node.isConditionalExpression(node)) return 'ternary';
+
+  if (Node.isBinaryExpression(node)) {
+    return LOGICAL_OP_MAP.get(node.getOperatorToken().getKind()) ?? null;
+  }
+
+  return null;
+}
+
 function computeComplexity(
   sf: SourceFile,
   fn: FunctionBounds,
@@ -239,61 +242,9 @@ function computeComplexity(
   sf.forEachDescendant(node => {
     if (!isOwnedByFunction(node, fn, allFunctions)) return;
 
-    const line = node.getStartLineNumber();
-
-    // IfStatement
-    if (Node.isIfStatement(node)) {
-      // Check if this is an else-if: the parent is an IfStatement and
-      // this node is in the else branch
-      const parent = node.getParent();
-      if (parent && Node.isIfStatement(parent) && parent.getElseStatement() === node) {
-        contributors.push({ type: 'else-if', line });
-      } else {
-        contributors.push({ type: 'if', line });
-      }
-      return;
-    }
-
-    // Switch case clauses (not default)
-    if (node.getKind() === SyntaxKind.CaseClause) {
-      contributors.push({ type: 'switch-case', line });
-      return;
-    }
-
-    // Catch clause
-    if (Node.isCatchClause(node)) {
-      contributors.push({ type: 'catch', line });
-      return;
-    }
-
-    // Loops
-    if (
-      Node.isForStatement(node) ||
-      Node.isForInStatement(node) ||
-      Node.isForOfStatement(node) ||
-      Node.isWhileStatement(node) ||
-      Node.isDoStatement(node)
-    ) {
-      contributors.push({ type: 'loop', line });
-      return;
-    }
-
-    // Ternary (conditional expression)
-    if (Node.isConditionalExpression(node)) {
-      contributors.push({ type: 'ternary', line });
-      return;
-    }
-
-    // Logical operators: &&, ||, ??
-    if (Node.isBinaryExpression(node)) {
-      const opToken = node.getOperatorToken().getKind();
-      if (opToken === SyntaxKind.AmpersandAmpersandToken) {
-        contributors.push({ type: 'logical-and', line });
-      } else if (opToken === SyntaxKind.BarBarToken) {
-        contributors.push({ type: 'logical-or', line });
-      } else if (opToken === SyntaxKind.QuestionQuestionToken) {
-        contributors.push({ type: 'nullish-coalesce', line });
-      }
+    const type = classifyComplexityContributor(node);
+    if (type) {
+      contributors.push({ type, line: node.getStartLineNumber() });
     }
   });
 
@@ -390,7 +341,7 @@ export function analyzeComplexity(filePath: string): ComplexityAnalysis {
   };
 }
 
-function analyzeComplexityDirectory(dirPath: string): ComplexityAnalysis[] {
+export function analyzeComplexityDirectory(dirPath: string): ComplexityAnalysis[] {
   const absolute = path.isAbsolute(dirPath) ? dirPath : path.resolve(PROJECT_ROOT, dirPath);
   const filePaths = getFilesInDirectory(absolute);
 

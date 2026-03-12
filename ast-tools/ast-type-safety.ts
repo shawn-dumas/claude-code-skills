@@ -55,46 +55,53 @@ const TRUST_BOUNDARY_CALLS = ['JSON.parse', 'readStorage'] as const;
 const TRUST_BOUNDARY_METHOD_CALLS = ['.json'] as const;
 const TRUST_BOUNDARY_PROPERTY_ACCESS = ['localStorage.getItem', 'sessionStorage.getItem', 'process.env'] as const;
 
-function isTrustBoundaryExpression(node: Node): boolean {
-  // Direct call: JSON.parse(...), readStorage(...)
-  if (Node.isCallExpression(node)) {
-    const exprText = node.getExpression().getText();
-    for (const pattern of TRUST_BOUNDARY_CALLS) {
-      if (exprText === pattern) return true;
+const TRUST_BOUNDARY_CALL_SET = new Set<string>(TRUST_BOUNDARY_CALLS);
+const TRUST_BOUNDARY_METHOD_SET = new Set(TRUST_BOUNDARY_METHOD_CALLS.map(p => p.substring(1)));
+
+function matchesPropertyAccessPattern(
+  propAccess: Node & { getText(): string; getExpression(): Node; getName(): string },
+): boolean {
+  const fullText = propAccess.getText();
+  const objText = propAccess.getExpression().getText();
+  for (const pattern of TRUST_BOUNDARY_PROPERTY_ACCESS) {
+    const lastSegment = pattern.split('.').pop();
+    if ((fullText === pattern || fullText.endsWith(`.${lastSegment}`)) && pattern.startsWith(objText)) {
+      return true;
     }
-    // Method call: response.json()
-    if (Node.isPropertyAccessExpression(node.getExpression())) {
-      const methodName = node.getExpression().asKind(SyntaxKind.PropertyAccessExpression)?.getName();
-      for (const pattern of TRUST_BOUNDARY_METHOD_CALLS) {
-        if (methodName === pattern.substring(1)) return true;
-      }
-    }
-    // localStorage.getItem(...), sessionStorage.getItem(...)
-    if (Node.isPropertyAccessExpression(node.getExpression())) {
-      const propAccess = node.getExpression().asKind(SyntaxKind.PropertyAccessExpression);
-      if (propAccess) {
-        const fullText = propAccess.getText();
-        for (const pattern of TRUST_BOUNDARY_PROPERTY_ACCESS) {
-          if (fullText === pattern || fullText.endsWith(`.${pattern.split('.').pop()}`)) {
-            const objText = propAccess.getExpression().getText();
-            if (pattern.startsWith(objText)) return true;
-          }
-        }
-      }
-    }
-    return false;
   }
+  return false;
+}
+
+function isTrustBoundaryCall(node: Node): boolean {
+  if (!Node.isCallExpression(node)) return false;
+
+  const calleeExpr = node.getExpression();
+
+  // Direct call: JSON.parse(...), readStorage(...)
+  if (TRUST_BOUNDARY_CALL_SET.has(calleeExpr.getText())) return true;
+
+  if (!Node.isPropertyAccessExpression(calleeExpr)) return false;
+  const propAccess = calleeExpr.asKind(SyntaxKind.PropertyAccessExpression);
+  if (!propAccess) return false;
+
+  // Method call: response.json()
+  if (TRUST_BOUNDARY_METHOD_SET.has(propAccess.getName())) return true;
+
+  // localStorage.getItem(...), sessionStorage.getItem(...)
+  return matchesPropertyAccessPattern(propAccess);
+}
+
+function isTrustBoundaryExpression(node: Node): boolean {
+  if (isTrustBoundaryCall(node)) return true;
 
   // Property access: process.env.VAR
   if (Node.isPropertyAccessExpression(node)) {
-    const text = node.getText();
-    if (text.startsWith('process.env.')) return true;
+    if (node.getText().startsWith('process.env.')) return true;
   }
 
   // Await of a trust boundary call: await response.json()
   if (Node.isAwaitExpression(node)) {
-    const inner = node.getExpression();
-    return isTrustBoundaryExpression(inner);
+    return isTrustBoundaryExpression(node.getExpression());
   }
 
   return false;
@@ -103,6 +110,105 @@ function isTrustBoundaryExpression(node: Node): boolean {
 // ---------------------------------------------------------------------------
 // Non-null assertion guard detection
 // ---------------------------------------------------------------------------
+
+/**
+ * Check whether a text matches a has()/get() guard pattern.
+ * e.g. map.has(key) guards map.get(key)!
+ */
+function matchesHasGuard(guardText: string, exprText: string): boolean {
+  if (!guardText.includes('.has(')) return false;
+  const dotGet = exprText.match(/^(.+)\.get\(/);
+  if (!dotGet) return false;
+  return guardText.includes(`${dotGet[1]}.has(`);
+}
+
+/**
+ * Check whether a condition text is a null/truthiness guard for the given expression.
+ */
+function matchesNullGuard(condText: string, exprText: string): boolean {
+  return (
+    condText === exprText ||
+    condText === `${exprText} != null` ||
+    condText === `${exprText} !== null` ||
+    condText === `${exprText} !== undefined` ||
+    condText === `${exprText} != undefined`
+  );
+}
+
+/**
+ * Walk up from the node to find the nearest containing block and check whether
+ * any ancestor if-statement condition guards the expression.
+ * Returns `{ guarded: true }` if an ancestor guard is found, or `{ block }` for
+ * the containing block (to check preceding statements).
+ */
+function findContainingBlockAndAncestorGuard(
+  node: Node,
+  exprText: string,
+): { guarded: true } | { guarded: false; block: Node | undefined } {
+  let current: Node | undefined = node.getParent();
+  let containingBlock: Node | undefined;
+  while (current) {
+    if (Node.isBlock(current)) {
+      const blockParent = current.getParent();
+      if (blockParent && Node.isIfStatement(blockParent)) {
+        const condText = blockParent.getExpression().getText();
+        if (matchesHasGuard(condText, exprText) || matchesNullGuard(condText, exprText)) {
+          return { guarded: true };
+        }
+      }
+      if (!containingBlock) {
+        containingBlock = current;
+      }
+    }
+    current = current.getParent();
+  }
+  return { guarded: false, block: containingBlock };
+}
+
+/**
+ * Find the index of the statement that contains the given node.
+ */
+function findContainingStatementIndex(statements: Node[], node: Node): number {
+  for (let i = 0; i < statements.length; i++) {
+    if (statements[i].getPos() <= node.getPos() && statements[i].getEnd() >= node.getEnd()) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Check whether a single statement is a guard for the given expression.
+ */
+function isStatementGuard(stmt: Node, exprText: string): boolean {
+  if (matchesHasGuard(stmt.getText(), exprText)) return true;
+
+  if (Node.isIfStatement(stmt)) {
+    const condText = stmt.asKind(SyntaxKind.IfStatement)?.getExpression().getText() ?? '';
+    if (matchesNullGuard(condText, exprText)) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Check whether a preceding statement (within 3 statements) guards the
+ * non-null expression via a .has() call or null-check if-statement.
+ */
+function hasPrecedingGuard(node: Node, exprText: string, block: Node): boolean {
+  if (!Node.isBlock(block)) return false;
+
+  const statements = block.getStatements();
+  const nodeStmtIndex = findContainingStatementIndex(statements, node);
+  if (nodeStmtIndex <= 0) return false;
+
+  const lookback = Math.max(0, nodeStmtIndex - 3);
+  for (let i = lookback; i < nodeStmtIndex; i++) {
+    if (isStatementGuard(statements[i], exprText)) return true;
+  }
+
+  return false;
+}
 
 /**
  * Check whether a NonNullExpression is guarded by a preceding check in
@@ -115,85 +221,11 @@ function isTrustBoundaryExpression(node: Node): boolean {
 function isNonNullGuarded(node: Node): boolean {
   const exprText = node.asKind(SyntaxKind.NonNullExpression)?.getExpression().getText() ?? '';
 
-  // Walk up to find the containing block, checking for if-statement guards
-  let current: Node | undefined = node.getParent();
-  let containingBlock: Node | undefined;
-  while (current) {
-    // Check if we are inside an if-statement's then-block
-    if (Node.isBlock(current)) {
-      const blockParent = current.getParent();
-      if (blockParent && Node.isIfStatement(blockParent)) {
-        const condText = blockParent.getExpression().getText();
-        // if (map.has(key)) { map.get(key)! }
-        if (condText.includes('.has(')) {
-          const dotGet = exprText.match(/^(.+)\.get\(/);
-          if (dotGet) {
-            const obj = dotGet[1];
-            if (condText.includes(`${obj}.has(`)) return true;
-          }
-        }
-        // if (x) or if (x != null) etc.
-        if (
-          condText === exprText ||
-          condText === `${exprText} != null` ||
-          condText === `${exprText} !== null` ||
-          condText === `${exprText} !== undefined` ||
-          condText === `${exprText} != undefined`
-        ) {
-          return true;
-        }
-      }
+  const result = findContainingBlockAndAncestorGuard(node, exprText);
+  if (result.guarded) return true;
 
-      if (!containingBlock) {
-        containingBlock = current;
-      }
-    }
-    current = current.getParent();
-  }
-
-  if (!containingBlock || !Node.isBlock(containingBlock)) return false;
-
-  // Find the statement containing our node
-  const statements = containingBlock.getStatements();
-  let nodeStmtIndex = -1;
-  for (let i = 0; i < statements.length; i++) {
-    if (statements[i].getPos() <= node.getPos() && statements[i].getEnd() >= node.getEnd()) {
-      nodeStmtIndex = i;
-      break;
-    }
-  }
-
-  if (nodeStmtIndex <= 0) return false;
-
-  // Check previous 3 statements for guard patterns
-  const lookback = Math.max(0, nodeStmtIndex - 3);
-  for (let i = lookback; i < nodeStmtIndex; i++) {
-    const stmtText = statements[i].getText();
-
-    // .has() check
-    if (stmtText.includes('.has(')) {
-      const dotGet = exprText.match(/^(.+)\.get\(/);
-      if (dotGet) {
-        const obj = dotGet[1];
-        if (stmtText.includes(`${obj}.has(`)) return true;
-      }
-    }
-
-    // if (x) / if (x != null) guard
-    if (Node.isIfStatement(statements[i])) {
-      const condText = statements[i].asKind(SyntaxKind.IfStatement)?.getExpression().getText() ?? '';
-      if (
-        condText === exprText ||
-        condText === `${exprText} != null` ||
-        condText === `${exprText} !== null` ||
-        condText === `${exprText} !== undefined`
-      ) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+  if (!result.block) return false;
+  return hasPrecedingGuard(node, exprText, result.block);
 }
 
 // ---------------------------------------------------------------------------
@@ -248,6 +280,124 @@ function findDirectiveViolations(sf: SourceFile): TypeSafetyViolation[] {
 }
 
 // ---------------------------------------------------------------------------
+// Per-category classifiers
+// ---------------------------------------------------------------------------
+
+function classifyAsExpression(node: Node, line: number, column: number): TypeSafetyViolation | null {
+  if (!Node.isAsExpression(node)) return null;
+
+  const typeNode = node.getTypeNode();
+  if (!typeNode) return null;
+
+  const typeText = typeNode.getText();
+
+  // "as const" is NOT a violation
+  if (typeText === 'const') return null;
+
+  if (typeText === 'any') {
+    return {
+      type: 'AS_ANY',
+      line,
+      column,
+      text: truncateText(node.getText(), 80),
+      context: 'Unsafe cast to any',
+    };
+  }
+
+  // AS_UNKNOWN_AS (double cast)
+  const innerExpr = node.getExpression();
+  if (Node.isAsExpression(innerExpr)) {
+    const innerType = innerExpr.getTypeNode()?.getText();
+    if (innerType === 'unknown') {
+      return {
+        type: 'AS_UNKNOWN_AS',
+        line,
+        column,
+        text: truncateText(node.getText(), 80),
+        context: `Double cast via unknown to ${typeText}`,
+      };
+    }
+  }
+
+  // TRUST_BOUNDARY_CAST
+  if (typeText !== 'unknown') {
+    const castExpr = node.getExpression();
+    if (isTrustBoundaryExpression(castExpr)) {
+      return {
+        type: 'TRUST_BOUNDARY_CAST',
+        line,
+        column,
+        text: truncateText(node.getText(), 80),
+        context: `Trust boundary cast to ${typeText} -- use Zod/type guard instead`,
+      };
+    }
+  }
+
+  return null;
+}
+
+function classifyNonNullAssertion(node: Node, line: number, column: number): TypeSafetyViolation | null {
+  if (!Node.isNonNullExpression(node)) return null;
+
+  const guarded = isNonNullGuarded(node);
+  return {
+    type: 'NON_NULL_ASSERTION',
+    line,
+    column,
+    text: truncateText(node.getText(), 80),
+    context: guarded ? 'guarded: true' : 'guarded: false',
+  };
+}
+
+function isCatchClauseDescendant(node: Node): boolean {
+  let cur: Node | undefined = node;
+  while (cur) {
+    if (Node.isCatchClause(cur)) return true;
+    if (Node.isStatement(cur)) return false;
+    cur = cur.getParent();
+  }
+  return false;
+}
+
+function classifyAnyAnnotation(node: Node, line: number, column: number): TypeSafetyViolation | null {
+  if (node.getKind() !== SyntaxKind.AnyKeyword) return null;
+  if (isInsideComplexTypeDefinition(node)) return null;
+
+  // Skip if this is the type node of an AsExpression (handled by AS_ANY)
+  const parent = node.getParent();
+  if (parent && Node.isAsExpression(parent) && parent.getTypeNode() === node) return null;
+
+  // Skip if inside a catch clause (handled by CATCH_ERROR_ANY)
+  if (isCatchClauseDescendant(node)) return null;
+
+  return {
+    type: 'EXPLICIT_ANY_ANNOTATION',
+    line,
+    column,
+    text: truncateText(parent?.getText() ?? 'any', 80),
+    context: 'Explicit any in type annotation',
+  };
+}
+
+function classifyCatchError(node: Node, line: number, column: number): TypeSafetyViolation | null {
+  if (!Node.isCatchClause(node)) return null;
+
+  const variableDecl = node.getVariableDeclaration();
+  if (!variableDecl) return null;
+
+  const typeNode = variableDecl.getTypeNode();
+  if (!typeNode || typeNode.getText() !== 'any') return null;
+
+  return {
+    type: 'CATCH_ERROR_ANY',
+    line,
+    column,
+    text: truncateText(node.getText().split('{')[0].trim(), 80),
+    context: 'Use catch (error: unknown) instead',
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Main analysis walker
 // ---------------------------------------------------------------------------
 
@@ -258,117 +408,14 @@ function findViolations(sf: SourceFile): TypeSafetyViolation[] {
     const line = node.getStartLineNumber();
     const column = sf.getLineAndColumnAtPos(node.getStart()).column;
 
-    // --- AS_ANY ---
-    if (Node.isAsExpression(node)) {
-      const typeNode = node.getTypeNode();
-      if (typeNode) {
-        const typeText = typeNode.getText();
+    const violation =
+      classifyAsExpression(node, line, column) ??
+      classifyNonNullAssertion(node, line, column) ??
+      classifyAnyAnnotation(node, line, column) ??
+      classifyCatchError(node, line, column);
 
-        // "as const" is NOT a violation
-        if (typeText === 'const') return;
-
-        if (typeText === 'any') {
-          violations.push({
-            type: 'AS_ANY',
-            line,
-            column,
-            text: truncateText(node.getText(), 80),
-            context: 'Unsafe cast to any',
-          });
-          return;
-        }
-
-        // --- AS_UNKNOWN_AS (double cast) ---
-        const innerExpr = node.getExpression();
-        if (Node.isAsExpression(innerExpr)) {
-          const innerType = innerExpr.getTypeNode()?.getText();
-          if (innerType === 'unknown') {
-            violations.push({
-              type: 'AS_UNKNOWN_AS',
-              line,
-              column,
-              text: truncateText(node.getText(), 80),
-              context: `Double cast via unknown to ${typeText}`,
-            });
-            return;
-          }
-        }
-
-        // --- TRUST_BOUNDARY_CAST ---
-        if (typeText !== 'any' && typeText !== 'unknown') {
-          const castExpr = node.getExpression();
-          if (isTrustBoundaryExpression(castExpr)) {
-            violations.push({
-              type: 'TRUST_BOUNDARY_CAST',
-              line,
-              column,
-              text: truncateText(node.getText(), 80),
-              context: `Trust boundary cast to ${typeText} -- use Zod/type guard instead`,
-            });
-          }
-        }
-      }
-    }
-
-    // --- NON_NULL_ASSERTION ---
-    if (Node.isNonNullExpression(node)) {
-      const guarded = isNonNullGuarded(node);
-      violations.push({
-        type: 'NON_NULL_ASSERTION',
-        line,
-        column,
-        text: truncateText(node.getText(), 80),
-        context: guarded ? 'guarded: true' : 'guarded: false',
-      });
-    }
-
-    // --- EXPLICIT_ANY_ANNOTATION ---
-    // Check type keywords that are `any`
-    if (node.getKind() === SyntaxKind.AnyKeyword) {
-      // Skip if inside a complex type definition (conditional/mapped types)
-      if (isInsideComplexTypeDefinition(node)) return;
-
-      // Skip if this is the type node of an AsExpression (handled by AS_ANY)
-      const parent = node.getParent();
-      if (parent && Node.isAsExpression(parent) && parent.getTypeNode() === node) return;
-
-      // Check if this is a catch clause variable type (handled by CATCH_ERROR_ANY)
-      let isCatchParam = false;
-      let cur: Node | undefined = node;
-      while (cur) {
-        if (Node.isCatchClause(cur)) {
-          isCatchParam = true;
-          break;
-        }
-        if (Node.isStatement(cur)) break;
-        cur = cur.getParent();
-      }
-      if (isCatchParam) return;
-
-      violations.push({
-        type: 'EXPLICIT_ANY_ANNOTATION',
-        line,
-        column,
-        text: truncateText(parent?.getText() ?? 'any', 80),
-        context: 'Explicit any in type annotation',
-      });
-    }
-
-    // --- CATCH_ERROR_ANY ---
-    if (Node.isCatchClause(node)) {
-      const variableDecl = node.getVariableDeclaration();
-      if (variableDecl) {
-        const typeNode = variableDecl.getTypeNode();
-        if (typeNode && typeNode.getText() === 'any') {
-          violations.push({
-            type: 'CATCH_ERROR_ANY',
-            line,
-            column,
-            text: truncateText(node.getText().split('{')[0].trim(), 80),
-            context: 'Use catch (error: unknown) instead',
-          });
-        }
-      }
+    if (violation) {
+      violations.push(violation);
     }
   });
 
@@ -412,7 +459,7 @@ export function analyzeTypeSafety(filePath: string): TypeSafetyAnalysis {
   };
 }
 
-function analyzeTypeSafetyDirectory(dirPath: string): TypeSafetyAnalysis[] {
+export function analyzeTypeSafetyDirectory(dirPath: string): TypeSafetyAnalysis[] {
   const absolute = path.isAbsolute(dirPath) ? dirPath : path.resolve(PROJECT_ROOT, dirPath);
   const filePaths = getFilesInDirectory(absolute);
 

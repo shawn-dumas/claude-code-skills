@@ -3,7 +3,8 @@
  *
  * - truncateText, getContainingFunctionName: common helpers used by most tools
  * - getFilesInDirectory: recursive TS/TSX file discovery with consistent exclusions
- * - isPascalCase, containsJsx, getBody, detectComponents: component detection
+ * - isPascalCase, containsJsx, getBody: component detection primitives
+ * - detectComponents: unified component detector with full metadata (name, line, kind, wrapperCall)
  */
 
 import fs from 'fs';
@@ -159,29 +160,67 @@ export function getBody(node: Node): (Node & { getStatements(): Node[] }) | null
   return null;
 }
 
+export type ComponentKind = 'function' | 'arrow' | 'memo' | 'forwardRef';
+
 export interface DetectedComponent {
   name: string;
+  line: number;
+  kind: ComponentKind;
   funcNode: Node;
+  /** For memo/forwardRef, the wrapping CallExpression -- used for type arg extraction */
+  wrapperCall: Node | null;
 }
 
-/**
- * Detect React components in a source file. Returns a minimal list with name
- * and function node. Tools that need richer metadata (line numbers, kind,
- * wrapper call info) should extend this result locally.
- */
-export function detectComponents(sf: SourceFile): DetectedComponent[] {
-  const components: DetectedComponent[] = [];
+// Callee names recognized as wrapper HOCs
+const WRAPPER_HOC_MAP: Record<string, ComponentKind> = {
+  memo: 'memo',
+  'React.memo': 'memo',
+  forwardRef: 'forwardRef',
+  'React.forwardRef': 'forwardRef',
+};
 
-  // 1. Function declarations: export function Foo(...) { ... }
+function detectFunctionComponents(sf: SourceFile): DetectedComponent[] {
+  const components: DetectedComponent[] = [];
   for (const func of sf.getFunctions()) {
     const name = func.getName();
     if (!name || !isPascalCase(name)) continue;
     if (containsJsx(func)) {
-      components.push({ name, funcNode: func });
+      components.push({ name, line: func.getStartLineNumber(), kind: 'function', funcNode: func, wrapperCall: null });
     }
   }
+  return components;
+}
 
-  // 2. Variable declarations: const Foo = () => ... | memo(...) | forwardRef(...)
+function classifyVariableDeclaration(
+  name: string,
+  decl: Node & { getStartLineNumber(): number },
+  init: Node,
+): DetectedComponent | null {
+  // Arrow function or function expression
+  if (Node.isArrowFunction(init) || Node.isFunctionExpression(init)) {
+    if (!containsJsx(init)) return null;
+    return { name, line: decl.getStartLineNumber(), kind: 'arrow', funcNode: init, wrapperCall: null };
+  }
+
+  // memo() / forwardRef() wrappers
+  if (!Node.isCallExpression(init)) return null;
+  const wrapperKind = WRAPPER_HOC_MAP[init.getExpression().getText()];
+  if (!wrapperKind) return null;
+
+  const args = init.getArguments();
+  if (args.length === 0) return null;
+
+  const inner = args[0];
+  if ((Node.isArrowFunction(inner) || Node.isFunctionExpression(inner)) && containsJsx(inner)) {
+    return { name, line: decl.getStartLineNumber(), kind: wrapperKind, funcNode: inner, wrapperCall: init };
+  }
+
+  return null;
+}
+
+function detectVariableComponents(sf: SourceFile): DetectedComponent[] {
+  const components: DetectedComponent[] = [];
+
   for (const varStmt of sf.getVariableStatements()) {
     for (const decl of varStmt.getDeclarationList().getDeclarations()) {
       const name = decl.getName();
@@ -190,40 +229,39 @@ export function detectComponents(sf: SourceFile): DetectedComponent[] {
       const init = decl.getInitializer();
       if (!init) continue;
 
-      // Arrow function or function expression
-      if (Node.isArrowFunction(init) || Node.isFunctionExpression(init)) {
-        if (containsJsx(init)) {
-          components.push({ name, funcNode: init });
-        }
-        continue;
-      }
-
-      // memo() / forwardRef() wrappers
-      if (Node.isCallExpression(init)) {
-        const callee = init.getExpression().getText();
-        if (callee === 'memo' || callee === 'React.memo' || callee === 'forwardRef' || callee === 'React.forwardRef') {
-          const args = init.getArguments();
-          if (args.length > 0) {
-            const inner = args[0];
-            if ((Node.isArrowFunction(inner) || Node.isFunctionExpression(inner)) && containsJsx(inner)) {
-              components.push({ name, funcNode: inner });
-            }
-          }
-        }
-      }
+      const comp = classifyVariableDeclaration(name, decl, init);
+      if (comp) components.push(comp);
     }
   }
 
-  // 3. Non-exported inner function declarations (PascalCase, returns JSX)
+  return components;
+}
+
+function detectInnerFunctionComponents(sf: SourceFile, alreadyFound: DetectedComponent[]): DetectedComponent[] {
+  const components: DetectedComponent[] = [];
+
   sf.forEachDescendant(node => {
     if (!Node.isFunctionDeclaration(node)) return;
     const name = node.getName();
     if (!name || !isPascalCase(name)) return;
-    if (components.some(c => c.name === name)) return;
+    if (alreadyFound.some(c => c.name === name && c.line === node.getStartLineNumber())) return;
     if (containsJsx(node)) {
-      components.push({ name, funcNode: node });
+      components.push({ name, line: node.getStartLineNumber(), kind: 'function', funcNode: node, wrapperCall: null });
     }
   });
 
   return components;
+}
+
+/**
+ * Detect React components in a source file. Returns component metadata
+ * including name, line, kind (function/arrow/memo/forwardRef), the function
+ * node, and the wrapper call expression (for memo/forwardRef).
+ */
+export function detectComponents(sf: SourceFile): DetectedComponent[] {
+  const funcComponents = detectFunctionComponents(sf);
+  const varComponents = detectVariableComponents(sf);
+  const topLevel = [...funcComponents, ...varComponents];
+  const innerComponents = detectInnerFunctionComponents(sf, topLevel);
+  return [...topLevel, ...innerComponents];
 }

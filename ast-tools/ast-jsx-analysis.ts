@@ -192,6 +192,177 @@ function hasComputedValue(node: Node): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Per-category classifiers
+// ---------------------------------------------------------------------------
+
+interface NodeContext {
+  sf: { getLineAndColumnAtPos(pos: number): { column: number } };
+  line: number;
+  column: number;
+  componentName: string;
+}
+
+function classifyChainedTernary(node: Node, ctx: NodeContext): JsxViolation | null {
+  if (!Node.isConditionalExpression(node)) return null;
+
+  const depth = countTernaryDepth(node);
+  if (depth < 2) return null;
+
+  // Only report the outermost chained ternary, not the inner ones
+  const parent = node.getParent();
+  if (parent && Node.isConditionalExpression(parent)) return null;
+
+  const attrName = getEnclosingJsxAttributeName(node);
+  if (attrName === 'className') return null; // handled by classifyComplexClassName
+
+  const condition = node.getCondition();
+  return {
+    type: 'CHAINED_TERNARY',
+    line: ctx.line,
+    column: ctx.column,
+    description: `Chained ternary (depth ${depth}): ${truncateText(condition.getText(), 60)}`,
+    parentComponent: ctx.componentName,
+  };
+}
+
+function classifyComplexGuard(node: Node, ctx: NodeContext): JsxViolation | null {
+  if (!isAndExpression(node)) return null;
+
+  // Only report the outermost && chain
+  const parent = node.getParent();
+  if (parent && isAndExpression(parent)) return null;
+
+  // Skip if inside a JSX attribute (event handlers, className, etc.)
+  if (isInsideJsxAttribute(node)) return null;
+
+  const operandCount = countAndChainDepth(node);
+  // The last operand in a JSX guard is the rendered element, not a condition
+  const conditionCount = operandCount - 1;
+  if (conditionCount < 3) return null;
+
+  return {
+    type: 'COMPLEX_GUARD',
+    line: ctx.line,
+    column: ctx.column,
+    description: `Guard chain with ${conditionCount} conditions: ${truncateText(node.getText(), 80)}`,
+    parentComponent: ctx.componentName,
+  };
+}
+
+function classifyInlineTransform(node: Node, ctx: NodeContext): JsxViolation | null {
+  if (!Node.isCallExpression(node)) return null;
+
+  const chain = isArrayTransformChain(node);
+  if (!chain) return null;
+
+  // Only report the outermost chain call
+  const parent = node.getParent();
+  if (parent && Node.isCallExpression(parent) && isArrayTransformChain(parent)) return null;
+
+  return {
+    type: 'INLINE_TRANSFORM',
+    line: ctx.line,
+    column: ctx.column,
+    description: `Chained array transform: .${chain.methods.join('.')}()`,
+    parentComponent: ctx.componentName,
+  };
+}
+
+function classifyIife(node: Node, ctx: NodeContext): JsxViolation | null {
+  if (!isIIFE(node)) return null;
+
+  const bodyLines = getIIFEBodyLineCount(node);
+  return {
+    type: 'IIFE_IN_JSX',
+    line: ctx.line,
+    column: ctx.column,
+    description: `IIFE in JSX (${bodyLines} lines)`,
+    parentComponent: ctx.componentName,
+  };
+}
+
+function classifyMultiStmtHandler(node: Node, ctx: NodeContext): JsxViolation | null {
+  if (!Node.isJsxAttribute(node)) return null;
+
+  const attrName = node.getNameNode().getText();
+  if (!/^on[A-Z]/.test(attrName)) return null;
+
+  const initializer = node.getInitializer();
+  if (!initializer || !Node.isJsxExpression(initializer)) return null;
+
+  const expr = initializer.getExpression();
+  if (!expr || (!Node.isArrowFunction(expr) && !Node.isFunctionExpression(expr))) return null;
+
+  const stmtCount = getStatementCount(expr);
+  if (stmtCount < 2) return null;
+
+  return {
+    type: 'MULTI_STMT_HANDLER',
+    line: expr.getStartLineNumber(),
+    column: ctx.sf.getLineAndColumnAtPos(expr.getStart()).column,
+    description: `Multi-statement ${attrName} handler (${stmtCount} statements)`,
+    parentComponent: ctx.componentName,
+  };
+}
+
+function classifyInlineStyle(node: Node, ctx: NodeContext): JsxViolation | null {
+  if (!Node.isJsxAttribute(node)) return null;
+
+  const attrName = node.getNameNode().getText();
+  if (attrName !== 'style') return null;
+
+  const initializer = node.getInitializer();
+  if (!initializer || !Node.isJsxExpression(initializer)) return null;
+
+  const expr = initializer.getExpression();
+  if (!expr || !Node.isObjectLiteralExpression(expr)) return null;
+
+  if (!hasComputedValue(expr)) return null;
+
+  return {
+    type: 'INLINE_STYLE_OBJECT',
+    line: expr.getStartLineNumber(),
+    column: ctx.sf.getLineAndColumnAtPos(expr.getStart()).column,
+    description: `Inline style with computed values`,
+    parentComponent: ctx.componentName,
+  };
+}
+
+function classifyComplexClassName(node: Node, ctx: NodeContext): JsxViolation | null {
+  if (!Node.isJsxAttribute(node)) return null;
+
+  const attrName = node.getNameNode().getText();
+  if (attrName !== 'className') return null;
+
+  const initializer = node.getInitializer();
+  if (!initializer || !Node.isJsxExpression(initializer)) return null;
+
+  const expr = initializer.getExpression();
+  if (!expr) return null;
+
+  // Count total ternary instances (not nesting depth) for
+  // consistent measurement regardless of whether ternaries are
+  // nested or siblings.
+  let ternaryCount = 0;
+  if (Node.isConditionalExpression(expr)) ternaryCount++;
+  expr.forEachDescendant(child => {
+    if (Node.isConditionalExpression(child)) {
+      ternaryCount++;
+    }
+  });
+
+  if (ternaryCount < 2) return null;
+
+  return {
+    type: 'COMPLEX_CLASSNAME',
+    line: expr.getStartLineNumber(),
+    column: ctx.sf.getLineAndColumnAtPos(expr.getStart()).column,
+    description: `Complex className with ${ternaryCount} ternaries`,
+    parentComponent: ctx.componentName,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Main violation walker
 // ---------------------------------------------------------------------------
 
@@ -202,169 +373,19 @@ function findViolationsInReturn(returnNode: Node, componentName: string): JsxVio
     const sf = node.getSourceFile();
     const line = node.getStartLineNumber();
     const column = sf.getLineAndColumnAtPos(node.getStart()).column;
+    const ctx: NodeContext = { sf, line, column, componentName };
 
-    // --- CHAINED_TERNARY ---
-    if (Node.isConditionalExpression(node)) {
-      const depth = countTernaryDepth(node);
-      if (depth >= 2) {
-        // Only report the outermost chained ternary, not the inner ones
-        const parent = node.getParent();
-        if (parent && Node.isConditionalExpression(parent)) {
-          // This ternary is nested inside another -- skip it to avoid double-reporting
-          return;
-        }
+    const result =
+      classifyChainedTernary(node, ctx) ??
+      classifyComplexGuard(node, ctx) ??
+      classifyInlineTransform(node, ctx) ??
+      classifyIife(node, ctx) ??
+      classifyMultiStmtHandler(node, ctx) ??
+      classifyInlineStyle(node, ctx) ??
+      classifyComplexClassName(node, ctx);
 
-        const attrName = getEnclosingJsxAttributeName(node);
-        if (attrName === 'className') {
-          // Will be handled by COMPLEX_CLASSNAME
-          return;
-        }
-
-        const condition = node.getCondition();
-        violations.push({
-          type: 'CHAINED_TERNARY',
-          line,
-          column,
-          description: `Chained ternary (depth ${depth}): ${truncateText(condition.getText(), 60)}`,
-          parentComponent: componentName,
-        });
-      }
-    }
-
-    // --- COMPLEX_GUARD ---
-    if (isAndExpression(node)) {
-      // Only report the outermost && chain
-      const parent = node.getParent();
-      if (parent && isAndExpression(parent)) {
-        return;
-      }
-
-      // Skip if inside a JSX attribute (event handlers, className, etc.)
-      if (isInsideJsxAttribute(node)) return;
-
-      const operandCount = countAndChainDepth(node);
-      // The last operand in a JSX guard is the rendered element, not a condition
-      const conditionCount = operandCount - 1;
-      if (conditionCount >= 3) {
-        violations.push({
-          type: 'COMPLEX_GUARD',
-          line,
-          column,
-          description: `Guard chain with ${conditionCount} conditions: ${truncateText(node.getText(), 80)}`,
-          parentComponent: componentName,
-        });
-      }
-    }
-
-    // --- INLINE_TRANSFORM ---
-    if (Node.isCallExpression(node)) {
-      const chain = isArrayTransformChain(node);
-      if (chain) {
-        // Only report the outermost chain call
-        const parent = node.getParent();
-        if (parent && Node.isCallExpression(parent) && isArrayTransformChain(parent)) {
-          return;
-        }
-
-        violations.push({
-          type: 'INLINE_TRANSFORM',
-          line,
-          column,
-          description: `Chained array transform: .${chain.methods.join('.')}()`,
-          parentComponent: componentName,
-        });
-      }
-    }
-
-    // --- IIFE_IN_JSX ---
-    if (isIIFE(node)) {
-      const bodyLines = getIIFEBodyLineCount(node);
-      violations.push({
-        type: 'IIFE_IN_JSX',
-        line,
-        column,
-        description: `IIFE in JSX (${bodyLines} lines)`,
-        parentComponent: componentName,
-      });
-    }
-
-    // --- MULTI_STMT_HANDLER ---
-    if (Node.isJsxAttribute(node)) {
-      const attrName = node.getNameNode().getText();
-      if (/^on[A-Z]/.test(attrName)) {
-        const initializer = node.getInitializer();
-        if (initializer && Node.isJsxExpression(initializer)) {
-          const expr = initializer.getExpression();
-          if (expr && (Node.isArrowFunction(expr) || Node.isFunctionExpression(expr))) {
-            const stmtCount = getStatementCount(expr);
-            if (stmtCount >= 2) {
-              violations.push({
-                type: 'MULTI_STMT_HANDLER',
-                line: expr.getStartLineNumber(),
-                column: sf.getLineAndColumnAtPos(expr.getStart()).column,
-                description: `Multi-statement ${attrName} handler (${stmtCount} statements)`,
-                parentComponent: componentName,
-              });
-            }
-          }
-        }
-      }
-    }
-
-    // --- INLINE_STYLE_OBJECT ---
-    if (Node.isJsxAttribute(node)) {
-      const attrName = node.getNameNode().getText();
-      if (attrName === 'style') {
-        const initializer = node.getInitializer();
-        if (initializer && Node.isJsxExpression(initializer)) {
-          const expr = initializer.getExpression();
-          if (expr && Node.isObjectLiteralExpression(expr)) {
-            const hasDynamic = hasComputedValue(expr);
-            if (hasDynamic) {
-              violations.push({
-                type: 'INLINE_STYLE_OBJECT',
-                line: expr.getStartLineNumber(),
-                column: sf.getLineAndColumnAtPos(expr.getStart()).column,
-                description: `Inline style with computed values`,
-                parentComponent: componentName,
-              });
-            }
-          }
-        }
-      }
-    }
-
-    // --- COMPLEX_CLASSNAME ---
-    if (Node.isJsxAttribute(node)) {
-      const attrName = node.getNameNode().getText();
-      if (attrName === 'className') {
-        const initializer = node.getInitializer();
-        if (initializer && Node.isJsxExpression(initializer)) {
-          const expr = initializer.getExpression();
-          if (expr) {
-            // Count total ternary instances (not nesting depth) for
-            // consistent measurement regardless of whether ternaries are
-            // nested or siblings.
-            let ternaryCount = 0;
-            if (Node.isConditionalExpression(expr)) ternaryCount++;
-            expr.forEachDescendant(child => {
-              if (Node.isConditionalExpression(child)) {
-                ternaryCount++;
-              }
-            });
-
-            if (ternaryCount >= 2) {
-              violations.push({
-                type: 'COMPLEX_CLASSNAME',
-                line: expr.getStartLineNumber(),
-                column: sf.getLineAndColumnAtPos(expr.getStart()).column,
-                description: `Complex className with ${ternaryCount} ternaries`,
-                parentComponent: componentName,
-              });
-            }
-          }
-        }
-      }
+    if (result) {
+      violations.push(result);
     }
   });
 
