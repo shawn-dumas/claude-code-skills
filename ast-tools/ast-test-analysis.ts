@@ -111,11 +111,7 @@ function isTestHelperPath(source: string): boolean {
 // Module resolution (adapted from ast-imports patterns)
 // ---------------------------------------------------------------------------
 
-function resolveModulePath(importSource: string, importingFilePath: string): string | null {
-  if (!importSource.startsWith('.') && !importSource.startsWith('@/')) {
-    return null;
-  }
-
+function resolveViaProject(importSource: string, importingFilePath: string): string | null {
   const project = getProject();
   const sf = project.getSourceFile(importingFilePath);
   if (!sf) return null;
@@ -126,17 +122,29 @@ function resolveModulePath(importSource: string, importingFilePath: string): str
       if (resolved) return resolved.getFilePath();
     }
   }
+  return null;
+}
 
-  if (importSource.startsWith('.')) {
-    const dir = path.dirname(importingFilePath);
-    const extensions = ['.ts', '.tsx', '/index.ts', '/index.tsx'];
-    for (const ext of extensions) {
-      const candidate = path.resolve(dir, importSource + ext);
-      if (fs.existsSync(candidate)) return candidate;
-    }
-    const exact = path.resolve(dir, importSource);
-    if (fs.existsSync(exact)) return exact;
+const RESOLVE_EXTENSIONS = ['.ts', '.tsx', '/index.ts', '/index.tsx'];
+
+function resolveViaFilesystem(importSource: string, importingFilePath: string): string | null {
+  const dir = path.dirname(importingFilePath);
+  for (const ext of RESOLVE_EXTENSIONS) {
+    const candidate = path.resolve(dir, importSource + ext);
+    if (fs.existsSync(candidate)) return candidate;
   }
+  const exact = path.resolve(dir, importSource);
+  if (fs.existsSync(exact)) return exact;
+  return null;
+}
+
+function resolveModulePath(importSource: string, importingFilePath: string): string | null {
+  if (!importSource.startsWith('.') && !importSource.startsWith('@/')) return null;
+
+  const projectResolved = resolveViaProject(importSource, importingFilePath);
+  if (projectResolved) return projectResolved;
+
+  if (importSource.startsWith('.')) return resolveViaFilesystem(importSource, importingFilePath);
 
   return null;
 }
@@ -149,98 +157,114 @@ function isPackageImport(source: string): boolean {
 // Subject detection
 // ---------------------------------------------------------------------------
 
-function detectSubject(sf: SourceFile, filePath: string): { subjectPath: string; subjectExists: boolean } {
+type SubjectResult = { subjectPath: string; subjectExists: boolean };
+
+function resolveImportToSubject(source: string, filePath: string): SubjectResult {
+  const resolved = resolveModulePath(source, filePath);
+  if (resolved) return { subjectPath: path.relative(PROJECT_ROOT, resolved), subjectExists: true };
+  return { subjectPath: source, subjectExists: false };
+}
+
+function isSkippableImport(source: string): boolean {
+  return isTestHelperPath(source) || (isPackageImport(source) && !source.startsWith('@/'));
+}
+
+function matchesByBasename(source: string, baseNameWithoutExt: string): boolean {
+  const sourceBasename = path.basename(source);
+  return (
+    sourceBasename === baseNameWithoutExt ||
+    sourceBasename === `${baseNameWithoutExt}.ts` ||
+    sourceBasename === `${baseNameWithoutExt}.tsx`
+  );
+}
+
+function findSubjectByName(
+  imports: ReturnType<SourceFile['getImportDeclarations']>,
+  filePath: string,
+  baseNameWithoutExt: string,
+): SubjectResult | null {
+  for (const decl of imports) {
+    const source = decl.getModuleSpecifierValue();
+    if (isSkippableImport(source)) continue;
+    if (matchesByBasename(source, baseNameWithoutExt)) return resolveImportToSubject(source, filePath);
+  }
+  return null;
+}
+
+function findSubjectByFirstRelativeImport(
+  imports: ReturnType<SourceFile['getImportDeclarations']>,
+  filePath: string,
+): SubjectResult | null {
+  for (const decl of imports) {
+    const source = decl.getModuleSpecifierValue();
+    if (isTestHelperPath(source)) continue;
+    if (decl.isTypeOnly()) continue;
+    if (!source.startsWith('.') && !source.startsWith('@/')) continue;
+
+    const resolved = resolveModulePath(source, filePath);
+    if (resolved) {
+      if (isTestFile(resolved)) continue;
+      return { subjectPath: path.relative(PROJECT_ROOT, resolved), subjectExists: true };
+    }
+    return { subjectPath: source, subjectExists: false };
+  }
+  return null;
+}
+
+function detectSubject(sf: SourceFile, filePath: string): SubjectResult {
   const imports = sf.getImportDeclarations();
   const testFileName = path.basename(filePath);
   const baseNameWithoutExt = testFileName.replace(/\.spec\.tsx?$/, '').replace(/\.test\.tsx?$/, '');
 
-  // First pass: look for an import whose source matches the test file name
-  for (const decl of imports) {
-    const source = decl.getModuleSpecifierValue();
-
-    if (isTestHelperPath(source)) continue;
-    if (isPackageImport(source) && !source.startsWith('@/')) continue;
-
-    const sourceBasename = path.basename(source);
-    if (
-      sourceBasename === baseNameWithoutExt ||
-      sourceBasename === `${baseNameWithoutExt}.ts` ||
-      sourceBasename === `${baseNameWithoutExt}.tsx`
-    ) {
-      const resolved = resolveModulePath(source, filePath);
-      if (resolved) {
-        return { subjectPath: path.relative(PROJECT_ROOT, resolved), subjectExists: true };
-      }
-      return { subjectPath: source, subjectExists: false };
-    }
-  }
-
-  // Second pass: first non-test, non-package, non-helper relative import
-  for (const decl of imports) {
-    const source = decl.getModuleSpecifierValue();
-
-    if (isTestHelperPath(source)) continue;
-    if (decl.isTypeOnly()) continue;
-
-    if (source.startsWith('.') || source.startsWith('@/')) {
-      const resolved = resolveModulePath(source, filePath);
-      if (resolved) {
-        if (isTestFile(resolved)) continue;
-        return { subjectPath: path.relative(PROJECT_ROOT, resolved), subjectExists: true };
-      }
-      return { subjectPath: source, subjectExists: false };
-    }
-  }
-
-  return { subjectPath: '', subjectExists: false };
+  return (
+    findSubjectByName(imports, filePath, baseNameWithoutExt) ??
+    findSubjectByFirstRelativeImport(imports, filePath) ?? { subjectPath: '', subjectExists: false }
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Mock classification
 // ---------------------------------------------------------------------------
 
+function classifyUnresolvedTarget(target: string): MockClassification {
+  if (target.includes('firebase') || target.includes('supabase')) return 'BOUNDARY';
+  if (target.startsWith('.') || target.startsWith('@/')) return classifyByPath(target);
+  return 'THIRD_PARTY';
+}
+
+function classifyResolvedFile(resolved: string, relativePath: string, subjectDomainDir: string): MockClassification {
+  const resolvedSf = getSourceFile(resolved);
+  const exportedNames = getExportedFunctionNames(resolvedSf);
+
+  const hasHooks = exportedNames.some(
+    name => name.startsWith('use') && name.length > 3 && name[3] === name[3].toUpperCase(),
+  );
+  if (hasHooks) {
+    if (subjectDomainDir && isDifferentDomain(relativePath, subjectDomainDir)) {
+      return 'DOMAIN_BOUNDARY';
+    }
+    return 'OWN_HOOK';
+  }
+
+  const hasComponents = exportedNames.some(name => /^[A-Z]/.test(name));
+  if (hasComponents && resolved.endsWith('.tsx')) return 'OWN_COMPONENT';
+
+  return 'OWN_UTILITY';
+}
+
 function classifyMockTarget(target: string, filePath: string, subjectDomainDir: string): MockClassification {
   if (BOUNDARY_PACKAGES.has(target)) return 'BOUNDARY';
   if (BOUNDARY_FUNCTION_NAMES.has(target)) return 'BOUNDARY';
-
   if (isPackageImport(target)) return 'THIRD_PARTY';
 
   const resolved = resolveModulePath(target, filePath);
-
-  if (!resolved) {
-    if (target.includes('firebase') || target.includes('supabase')) return 'BOUNDARY';
-    if (target.startsWith('.') || target.startsWith('@/')) {
-      return classifyByPath(target);
-    }
-    return 'THIRD_PARTY';
-  }
+  if (!resolved) return classifyUnresolvedTarget(target);
 
   const relativePath = path.relative(PROJECT_ROOT, resolved);
-
   if (isBoundaryByPath(relativePath)) return 'BOUNDARY';
 
-  // Read the resolved file to classify its exports
   try {
-    const resolvedSf = getSourceFile(resolved);
-    const exportedNames = getExportedFunctionNames(resolvedSf);
-
-    const hasHooks = exportedNames.some(
-      name => name.startsWith('use') && name.length > 3 && name[3] === name[3].toUpperCase(),
-    );
-    if (hasHooks) {
-      // Check domain boundary
-      if (subjectDomainDir && isDifferentDomain(relativePath, subjectDomainDir)) {
-        return 'DOMAIN_BOUNDARY';
-      }
-      return 'OWN_HOOK';
-    }
-
-    const hasComponents = exportedNames.some(name => /^[A-Z]/.test(name));
-    if (hasComponents && resolved.endsWith('.tsx')) {
-      return 'OWN_COMPONENT';
-    }
-
-    return 'OWN_UTILITY';
+    return classifyResolvedFile(resolved, relativePath, subjectDomainDir);
   } catch (error) {
     console.error(
       `[ast-test-analysis] classifyMockTarget: could not resolve ${target}: ${error instanceof Error ? error.message : error}`,
@@ -312,70 +336,79 @@ function extractMockReturnShape(node: Node): string {
   return 'unknown';
 }
 
+function collectViMock(node: CallExpression, filePath: string, subjectDomainDir: string): MockInfo | null {
+  const args = node.getArguments();
+  if (args.length === 0) return null;
+
+  const firstArg = args[0];
+  if (!Node.isStringLiteral(firstArg)) return null;
+
+  const target = firstArg.getLiteralValue();
+  const classification = classifyMockTarget(target, filePath, subjectDomainDir);
+  const resolved = resolveModulePath(target, filePath);
+  const resolvedPath = resolved ? path.relative(PROJECT_ROOT, resolved) : target;
+  const returnShape = extractMockReturnShape(node);
+
+  return { target, resolvedPath, classification, line: node.getStartLineNumber(), returnShape };
+}
+
+function classifySpyTarget(
+  sf: SourceFile,
+  spyTarget: string,
+  filePath: string,
+  subjectDomainDir: string,
+): MockClassification {
+  if (BOUNDARY_GLOBALS.has(spyTarget)) return 'BOUNDARY';
+
+  for (const imp of sf.getImportDeclarations()) {
+    const ns = imp.getNamespaceImport();
+    if (ns && ns.getText() === spyTarget) {
+      return classifyMockTarget(imp.getModuleSpecifierValue(), filePath, subjectDomainDir);
+    }
+  }
+  return 'OWN_UTILITY';
+}
+
+function collectViSpyOn(
+  node: CallExpression,
+  sf: SourceFile,
+  filePath: string,
+  subjectDomainDir: string,
+): MockInfo | null {
+  const args = node.getArguments();
+  if (args.length < 2) return null;
+
+  const spyTarget = args[0].getText();
+  const classification = classifySpyTarget(sf, spyTarget, filePath, subjectDomainDir);
+
+  return {
+    target: `${spyTarget}.${args[1].getText().replace(/['"]/g, '')}`,
+    resolvedPath: spyTarget,
+    classification,
+    line: node.getStartLineNumber(),
+    returnShape: 'spy',
+  };
+}
+
 function extractMocks(sf: SourceFile, filePath: string, subjectDomainDir: string): MockInfo[] {
   const mocks: MockInfo[] = [];
 
   sf.forEachDescendant(node => {
     if (!Node.isCallExpression(node)) return;
     const expr = node.getExpression();
+    if (!Node.isPropertyAccessExpression(expr)) return;
 
-    // vi.mock(path, factory?)
-    if (Node.isPropertyAccessExpression(expr)) {
-      const objText = expr.getExpression().getText();
-      const methodName = expr.getName();
+    const objText = expr.getExpression().getText();
+    if (objText !== 'vi') return;
 
-      if (objText === 'vi' && methodName === 'mock') {
-        const args = node.getArguments();
-        if (args.length === 0) return;
+    const methodName = expr.getName();
 
-        const firstArg = args[0];
-        if (!Node.isStringLiteral(firstArg)) return;
-
-        const target = firstArg.getLiteralValue();
-        const classification = classifyMockTarget(target, filePath, subjectDomainDir);
-        const resolved = resolveModulePath(target, filePath);
-        const resolvedPath = resolved ? path.relative(PROJECT_ROOT, resolved) : target;
-        const returnShape = extractMockReturnShape(node);
-
-        mocks.push({
-          target,
-          resolvedPath,
-          classification,
-          line: node.getStartLineNumber(),
-          returnShape,
-        });
-      }
-
-      // vi.spyOn(object, method)
-      if (objText === 'vi' && methodName === 'spyOn') {
-        const args = node.getArguments();
-        if (args.length < 2) return;
-
-        const spyTarget = args[0].getText();
-        let classification: MockClassification = 'OWN_UTILITY';
-
-        if (BOUNDARY_GLOBALS.has(spyTarget)) {
-          classification = 'BOUNDARY';
-        } else {
-          // Check if the spy target is a module namespace import
-          for (const imp of sf.getImportDeclarations()) {
-            const ns = imp.getNamespaceImport();
-            if (ns && ns.getText() === spyTarget) {
-              const source = imp.getModuleSpecifierValue();
-              classification = classifyMockTarget(source, filePath, subjectDomainDir);
-              break;
-            }
-          }
-        }
-
-        mocks.push({
-          target: `${spyTarget}.${args[1].getText().replace(/['"]/g, '')}`,
-          resolvedPath: spyTarget,
-          classification,
-          line: node.getStartLineNumber(),
-          returnShape: 'spy',
-        });
-      }
+    if (methodName === 'mock') {
+      const mock = collectViMock(node, filePath, subjectDomainDir);
+      if (mock) mocks.push(mock);
+    } else if (methodName === 'spyOn') {
+      const mock = collectViSpyOn(node, sf, filePath, subjectDomainDir);
+      if (mock) mocks.push(mock);
     }
   });
 
@@ -439,6 +472,34 @@ function getMatcherName(node: CallExpression): string | null {
   return null;
 }
 
+const SNAPSHOT_MATCHERS = new Set(['toMatchSnapshot', 'toMatchInlineSnapshot']);
+
+const CALLED_MATCHERS = new Set(['toHaveBeenCalled', 'toHaveBeenCalledWith', 'toHaveBeenCalledTimes']);
+
+function classifyByExpectArg(
+  expectArgText: string,
+  matcherName: string | null,
+): AssertionInfo['classification'] | null {
+  if (expectArgText.includes('result.current')) return 'HOOK_RETURN';
+  if (containsTestingLibraryQuery(expectArgText)) return 'USER_VISIBLE';
+  if (matcherName && USER_VISIBLE_MATCHERS.has(matcherName)) return 'USER_VISIBLE';
+  if (expectArgText.includes('screen.')) return 'USER_VISIBLE';
+  return null;
+}
+
+function isAriaAttributeAssertion(outerCall: CallExpression, matcherName: string | null): boolean {
+  if (matcherName !== 'toHaveAttribute') return false;
+  const matcherArgs = [...outerCall.getArguments()];
+  return matcherArgs.length > 0 && matcherArgs[0].getText().includes('aria-');
+}
+
+function classifyCalledMatcher(expectArgText: string, propCallbackNames: Set<string>): AssertionInfo['classification'] {
+  if (propCallbackNames.has(expectArgText) || expectArgText.startsWith('props.') || expectArgText.startsWith('on')) {
+    return 'CALLBACK_FIRED';
+  }
+  return 'IMPLEMENTATION_DETAIL';
+}
+
 function classifyExpectChain(
   outerCall: CallExpression,
   expectCall: CallExpression,
@@ -446,59 +507,26 @@ function classifyExpectChain(
 ): AssertionInfo | null {
   const line = outerCall.getStartLineNumber();
   const text = truncateText(outerCall.getText(), 120);
-
-  // Determine the matcher name from the outermost call
   const matcherName = getMatcherName(outerCall);
 
-  // Check for snapshot matchers
-  if (matcherName === 'toMatchSnapshot' || matcherName === 'toMatchInlineSnapshot') {
+  if (matcherName && SNAPSHOT_MATCHERS.has(matcherName)) {
     return { line, classification: 'LARGE_SNAPSHOT', text };
   }
 
-  // Get the argument to expect()
   const expectArgs = expectCall.getArguments();
   if (expectArgs.length === 0) return null;
 
   const expectArgText = expectArgs[0].getText();
 
-  // HOOK_RETURN: result.current.*
-  if (expectArgText.includes('result.current')) {
-    return { line, classification: 'HOOK_RETURN', text };
-  }
+  const argClassification = classifyByExpectArg(expectArgText, matcherName);
+  if (argClassification) return { line, classification: argClassification, text };
 
-  // USER_VISIBLE: testing-library query in expect argument
-  if (containsTestingLibraryQuery(expectArgText)) {
+  if (isAriaAttributeAssertion(outerCall, matcherName)) {
     return { line, classification: 'USER_VISIBLE', text };
   }
 
-  // USER_VISIBLE matchers (toBeVisible, toBeInTheDocument, etc.)
-  if (matcherName && USER_VISIBLE_MATCHERS.has(matcherName)) {
-    return { line, classification: 'USER_VISIBLE', text };
-  }
-
-  // Check for .toHaveAttribute('aria-*')
-  if (matcherName === 'toHaveAttribute') {
-    const matcherArgs = [...outerCall.getArguments()];
-    if (matcherArgs.length > 0 && matcherArgs[0].getText().includes('aria-')) {
-      return { line, classification: 'USER_VISIBLE', text };
-    }
-  }
-
-  // CALLBACK_FIRED: mock function passed as prop callback
-  if (
-    matcherName === 'toHaveBeenCalled' ||
-    matcherName === 'toHaveBeenCalledWith' ||
-    matcherName === 'toHaveBeenCalledTimes'
-  ) {
-    if (propCallbackNames.has(expectArgText) || expectArgText.startsWith('props.') || expectArgText.startsWith('on')) {
-      return { line, classification: 'CALLBACK_FIRED', text };
-    }
-    return { line, classification: 'IMPLEMENTATION_DETAIL', text };
-  }
-
-  // Default for screen queries in the argument
-  if (expectArgText.includes('screen.')) {
-    return { line, classification: 'USER_VISIBLE', text };
+  if (matcherName && CALLED_MATCHERS.has(matcherName)) {
+    return { line, classification: classifyCalledMatcher(expectArgText, propCallbackNames), text };
   }
 
   return null;
@@ -578,101 +606,103 @@ function detectPropCallbackNames(sf: SourceFile): Set<string> {
 // Strategy detection
 // ---------------------------------------------------------------------------
 
+const PLAYWRIGHT_SOURCES = new Set(['@playwright/test']);
+
+function hasPlaywrightImport(sf: SourceFile): boolean {
+  return sf.getImportDeclarations().some(d => {
+    const source = d.getModuleSpecifierValue();
+    return PLAYWRIGHT_SOURCES.has(source) || source.endsWith('/fixture') || source.endsWith('../fixture');
+  });
+}
+
+interface StrategySignals {
+  hasRender: boolean;
+  hasRenderHook: boolean;
+  hasMsw: boolean;
+  hasProviderWrapper: boolean;
+}
+
+function collectStrategySignals(fullText: string): StrategySignals {
+  return {
+    hasRender: fullText.includes('render(') || fullText.includes('render(<'),
+    hasRenderHook: fullText.includes('renderHook(') || fullText.includes('renderHook<'),
+    hasMsw: fullText.includes('server.use(') || fullText.includes('fetchMock'),
+    hasProviderWrapper:
+      fullText.includes('QueryClientProvider') ||
+      fullText.includes('QueryClient(') ||
+      fullText.includes('AuthProvider') ||
+      fullText.includes('wrapper:') ||
+      fullText.includes('renderWith'),
+  };
+}
+
 function detectStrategy(sf: SourceFile): TestStrategy {
   const fullText = sf.getFullText();
 
-  // Playwright detection
-  if (fullText.includes('@playwright/test') || fullText.includes('../fixture')) {
-    const hasPlaywrightImport = sf.getImportDeclarations().some(d => {
-      const source = d.getModuleSpecifierValue();
-      return source === '@playwright/test' || source.endsWith('/fixture') || source.endsWith('../fixture');
-    });
-    if (hasPlaywrightImport) return 'playwright';
-  }
+  if (hasPlaywrightImport(sf)) return 'playwright';
 
-  const hasRender = fullText.includes('render(') || fullText.includes('render(<');
-  const hasRenderHook = fullText.includes('renderHook(') || fullText.includes('renderHook<');
-  const hasMsw = fullText.includes('server.use(') || fullText.includes('fetchMock');
+  const signals = collectStrategySignals(fullText);
+  if (signals.hasMsw) return 'integration-msw';
 
-  if (hasMsw) return 'integration-msw';
-
-  const hasProviderWrapper =
-    fullText.includes('QueryClientProvider') ||
-    fullText.includes('QueryClient(') ||
-    fullText.includes('AuthProvider') ||
-    fullText.includes('wrapper:') ||
-    fullText.includes('renderWith');
-
-  if (hasRender || hasRenderHook) {
-    if (hasProviderWrapper) return 'integration-providers';
-
-    // Check if there are also pure function calls (mixed strategy)
-    const hasPureCalls = hasPureFunctionCalls(sf);
-    if (hasPureCalls && hasRender) return 'mixed';
-
+  if (signals.hasRender || signals.hasRenderHook) {
+    if (signals.hasProviderWrapper) return 'integration-providers';
+    if (hasPureFunctionCalls(sf) && signals.hasRender) return 'mixed';
     return 'unit-props';
   }
 
   return 'unit-pure';
 }
 
-function hasPureFunctionCalls(sf: SourceFile): boolean {
-  // Detect whether a test file contains direct function calls (not render/
-  // renderHook) inside it/test blocks, indicating it tests pure logic
-  // alongside component rendering (mixed strategy).
-  let found = false;
+// Names that are NOT pure function calls under test
+const NON_PURE_NAMES = new Set([
+  'render',
+  'renderHook',
+  'expect',
+  'describe',
+  'it',
+  'test',
+  'beforeEach',
+  'afterEach',
+  'beforeAll',
+  'afterAll',
+  'vi',
+  'jest',
+  'screen',
+  'within',
+  'waitFor',
+  'act',
+  'cleanup',
+  'fireEvent',
+  'userEvent',
+]);
 
-  // Names that are NOT pure function calls under test
-  const nonPureNames = new Set([
-    'render',
-    'renderHook',
-    'expect',
-    'describe',
-    'it',
-    'test',
-    'beforeEach',
-    'afterEach',
-    'beforeAll',
-    'afterAll',
-    'vi',
-    'jest',
-    'screen',
-    'within',
-    'waitFor',
-    'act',
-    'cleanup',
-    'fireEvent',
-    'userEvent',
-  ]);
+function isInsideTestBlock(node: Node): boolean {
+  let ancestor = node.getParent();
+  while (ancestor) {
+    if (Node.isCallExpression(ancestor)) {
+      const ancestorExpr = ancestor.getExpression();
+      if (Node.isIdentifier(ancestorExpr)) {
+        const name = ancestorExpr.getText();
+        if (name === 'it' || name === 'test') return true;
+      }
+    }
+    ancestor = ancestor.getParent();
+  }
+  return false;
+}
+
+function hasPureFunctionCalls(sf: SourceFile): boolean {
+  let found = false;
 
   sf.forEachDescendant(node => {
     if (found) return;
     if (!Node.isCallExpression(node)) return;
-
-    // Only count calls inside it/test blocks
-    let insideTest = false;
-    let ancestor = node.getParent();
-    while (ancestor) {
-      if (Node.isCallExpression(ancestor)) {
-        const ancestorExpr = ancestor.getExpression();
-        if (Node.isIdentifier(ancestorExpr)) {
-          const name = ancestorExpr.getText();
-          if (name === 'it' || name === 'test') {
-            insideTest = true;
-            break;
-          }
-        }
-      }
-      ancestor = ancestor.getParent();
-    }
-    if (!insideTest) return;
+    if (!isInsideTestBlock(node)) return;
 
     const expr = node.getExpression();
     if (Node.isIdentifier(expr)) {
       const name = expr.getText();
-      if (!nonPureNames.has(name) && !name.startsWith('use')) {
-        found = true;
-      }
+      if (!NON_PURE_NAMES.has(name) && !name.startsWith('use')) found = true;
     }
   });
 
@@ -690,49 +720,43 @@ interface CleanupInfo {
   clearsStorage: boolean;
 }
 
-function analyzeCleanup(sf: SourceFile): CleanupInfo {
-  const fullText = sf.getFullText();
-  const hasAfterEach = fullText.includes('afterEach(') || fullText.includes('afterEach (');
+const MOCK_RESTORE_PATTERNS = ['restoreAllMocks', 'clearAllMocks', 'resetAllMocks'];
+const STORAGE_CLEAR_PATTERNS = ['localStorage.clear', 'sessionStorage.clear'];
 
-  // Check what's inside afterEach blocks
+function scanAfterEachBodies(sf: SourceFile): Pick<CleanupInfo, 'restoresMocks' | 'restoresTimers' | 'clearsStorage'> {
   let restoresMocks = false;
   let restoresTimers = false;
   let clearsStorage = false;
 
-  if (hasAfterEach) {
-    sf.forEachDescendant(node => {
-      if (!Node.isCallExpression(node)) return;
-      const expr = node.getExpression();
-      if (!Node.isIdentifier(expr)) return;
-      if (expr.getText() !== 'afterEach') return;
+  sf.forEachDescendant(node => {
+    if (!Node.isCallExpression(node)) return;
+    const expr = node.getExpression();
+    if (!Node.isIdentifier(expr) || expr.getText() !== 'afterEach') return;
 
-      const args = node.getArguments();
-      if (args.length === 0) return;
+    const args = node.getArguments();
+    if (args.length === 0) return;
 
-      const callbackText = args[0].getText();
-      if (
-        callbackText.includes('restoreAllMocks') ||
-        callbackText.includes('clearAllMocks') ||
-        callbackText.includes('resetAllMocks')
-      ) {
-        restoresMocks = true;
-      }
-      if (callbackText.includes('useRealTimers')) {
-        restoresTimers = true;
-      }
-      if (callbackText.includes('localStorage.clear') || callbackText.includes('sessionStorage.clear')) {
-        clearsStorage = true;
-      }
-    });
-  }
+    const callbackText = args[0].getText();
+    if (MOCK_RESTORE_PATTERNS.some(p => callbackText.includes(p))) restoresMocks = true;
+    if (callbackText.includes('useRealTimers')) restoresTimers = true;
+    if (STORAGE_CLEAR_PATTERNS.some(p => callbackText.includes(p))) clearsStorage = true;
+  });
 
-  // Check if timers are used at all
+  return { restoresMocks, restoresTimers, clearsStorage };
+}
+
+function analyzeCleanup(sf: SourceFile): CleanupInfo {
+  const fullText = sf.getFullText();
+  const hasAfterEach = fullText.includes('afterEach(') || fullText.includes('afterEach (');
+
+  const bodyResults = hasAfterEach
+    ? scanAfterEachBodies(sf)
+    : { restoresMocks: false, restoresTimers: false, clearsStorage: false };
+
   const usesTimers = fullText.includes('useFakeTimers');
-  if (!usesTimers) {
-    restoresTimers = false; // Not applicable
-  }
+  if (!usesTimers) bodyResults.restoresTimers = false;
 
-  return { hasAfterEach, restoresMocks, restoresTimers, clearsStorage };
+  return { hasAfterEach, ...bodyResults };
 }
 
 // ---------------------------------------------------------------------------
@@ -745,35 +769,42 @@ interface DataSourcingInfo {
   asAnyCount: number;
 }
 
-function analyzeDataSourcing(sf: SourceFile): DataSourcingInfo {
+function isFixtureImport(source: string): boolean {
+  return source.includes('fixtures') || source === '@/fixtures' || source.startsWith('@/fixtures/');
+}
+
+function isSharedMutableImport(source: string): boolean {
+  return isTestFile(source) || source.includes('__tests__/constants') || source.includes('test-constants');
+}
+
+function scanDataImports(sf: SourceFile): Pick<DataSourcingInfo, 'usesFixtureSystem' | 'usesSharedMutableConstants'> {
   let usesFixtureSystem = false;
   let usesSharedMutableConstants = false;
-  let asAnyCount = 0;
 
-  // Check imports for fixture system
   for (const decl of sf.getImportDeclarations()) {
     const source = decl.getModuleSpecifierValue();
-    if (source.includes('fixtures') || source === '@/fixtures' || source.startsWith('@/fixtures/')) {
-      usesFixtureSystem = true;
-    }
-
-    // Check for shared mutable constants (imports from other test files or non-fixture shared modules)
-    if (isTestFile(source) || source.includes('__tests__/constants') || source.includes('test-constants')) {
-      usesSharedMutableConstants = true;
-    }
+    if (isFixtureImport(source)) usesFixtureSystem = true;
+    if (isSharedMutableImport(source)) usesSharedMutableConstants = true;
   }
 
-  // Count `as any` occurrences using AST
+  return { usesFixtureSystem, usesSharedMutableConstants };
+}
+
+function countAsAnyCasts(sf: SourceFile): number {
+  let count = 0;
   sf.forEachDescendant(node => {
     if (Node.isAsExpression(node)) {
       const typeNode = node.getTypeNode();
-      if (typeNode && typeNode.getText() === 'any') {
-        asAnyCount++;
-      }
+      if (typeNode && typeNode.getText() === 'any') count++;
     }
   });
+  return count;
+}
 
-  return { usesFixtureSystem, usesSharedMutableConstants, asAnyCount };
+function analyzeDataSourcing(sf: SourceFile): DataSourcingInfo {
+  const imports = scanDataImports(sf);
+  const asAnyCount = countAsAnyCasts(sf);
+  return { ...imports, asAnyCount };
 }
 
 // ---------------------------------------------------------------------------

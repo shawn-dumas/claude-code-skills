@@ -42,6 +42,26 @@ const POSTHOG_METHOD_CALLS = new Set(['capture', 'identify', 'reset', 'register'
 const WINDOW_MUTATION_CALLS = new Set(['pushState', 'replaceState', 'open']);
 
 // ---------------------------------------------------------------------------
+// Dispatch maps for classifyCallExpression
+// ---------------------------------------------------------------------------
+
+/** Maps direct identifier text to side effect type. */
+const DIRECT_CALL_MAP = new Map<string, SideEffectType>([
+  ['toast', 'TOAST_CALL'],
+  ...[...TIMER_FUNCTIONS].map((fn): [string, SideEffectType] => [fn, 'TIMER_CALL']),
+  ...[...POSTHOG_DIRECT_CALLS].map((fn): [string, SideEffectType] => [fn, 'POSTHOG_CALL']),
+]);
+
+/** Maps property-access object text to a function that classifies the method. */
+const PROPERTY_ACCESS_MAP = new Map<string, (method: string) => SideEffectType | null>([
+  ['console', method => (CONSOLE_METHODS.has(method) ? 'CONSOLE_CALL' : null)],
+  ['toast', () => 'TOAST_CALL'],
+  ['posthog', method => (POSTHOG_METHOD_CALLS.has(method) ? 'POSTHOG_CALL' : null)],
+  ['window', method => (method === 'open' ? 'WINDOW_MUTATION' : null)],
+  ['history', method => (WINDOW_MUTATION_CALLS.has(method) ? 'WINDOW_MUTATION' : null)],
+]);
+
+// ---------------------------------------------------------------------------
 // useEffect detection
 // ---------------------------------------------------------------------------
 
@@ -76,65 +96,38 @@ function classifyCallExpression(node: Node): SideEffectType | null {
   if (!Node.isCallExpression(node)) return null;
 
   const expr = node.getExpression();
-  const exprText = expr.getText();
 
-  // --- CONSOLE_CALL: console.log, console.warn, etc. ---
+  // Direct identifier calls: toast(), setTimeout(), sendPosthogEvent(), etc.
+  if (Node.isIdentifier(expr)) {
+    return DIRECT_CALL_MAP.get(expr.getText()) ?? null;
+  }
+
+  // Property access calls: console.log(), posthog.capture(), window.open(), etc.
   if (Node.isPropertyAccessExpression(expr)) {
-    const obj = expr.getExpression();
-    const method = expr.getName();
-    if (obj.getText() === 'console' && CONSOLE_METHODS.has(method)) {
-      return 'CONSOLE_CALL';
-    }
+    return classifyPropertyAccess(expr);
   }
 
-  // --- TOAST_CALL: toast(), toast.success(), etc. ---
-  if (exprText === 'toast') {
-    return 'TOAST_CALL';
-  }
-  if (Node.isPropertyAccessExpression(expr)) {
-    const obj = expr.getExpression();
-    if (obj.getText() === 'toast') {
-      return 'TOAST_CALL';
-    }
-  }
+  return null;
+}
 
-  // --- TIMER_CALL: setTimeout, setInterval, etc. ---
-  if (Node.isIdentifier(expr) && TIMER_FUNCTIONS.has(exprText)) {
-    return 'TIMER_CALL';
-  }
+/** Classify a property-access call expression (e.g. console.log, posthog.people.set). */
+function classifyPropertyAccess(expr: import('ts-morph').PropertyAccessExpression): SideEffectType | null {
+  const obj = expr.getExpression();
+  const method = expr.getName();
+  const objText = obj.getText();
 
-  // --- POSTHOG_CALL: sendPosthogEvent, posthog.capture, etc. ---
-  if (Node.isIdentifier(expr) && POSTHOG_DIRECT_CALLS.has(exprText)) {
+  // Standard object.method patterns via dispatch map
+  const classifier = PROPERTY_ACCESS_MAP.get(objText);
+  if (classifier) return classifier(method);
+
+  // Nested property access: posthog.people.set
+  if (
+    Node.isPropertyAccessExpression(obj) &&
+    obj.getExpression().getText() === 'posthog' &&
+    obj.getName() === 'people' &&
+    method === 'set'
+  ) {
     return 'POSTHOG_CALL';
-  }
-  if (Node.isPropertyAccessExpression(expr)) {
-    const obj = expr.getExpression();
-    const method = expr.getName();
-    // posthog.capture, posthog.identify, posthog.reset, posthog.register
-    if (obj.getText() === 'posthog' && POSTHOG_METHOD_CALLS.has(method)) {
-      return 'POSTHOG_CALL';
-    }
-    // posthog.people.set
-    if (Node.isPropertyAccessExpression(obj)) {
-      const outerObj = obj.getExpression();
-      if (outerObj.getText() === 'posthog' && obj.getName() === 'people' && method === 'set') {
-        return 'POSTHOG_CALL';
-      }
-    }
-  }
-
-  // --- WINDOW_MUTATION: window.open, history.pushState, history.replaceState ---
-  if (Node.isPropertyAccessExpression(expr)) {
-    const obj = expr.getExpression();
-    const method = expr.getName();
-    const objText = obj.getText();
-
-    if (objText === 'window' && method === 'open') {
-      return 'WINDOW_MUTATION';
-    }
-    if (objText === 'history' && WINDOW_MUTATION_CALLS.has(method)) {
-      return 'WINDOW_MUTATION';
-    }
   }
 
   return null;

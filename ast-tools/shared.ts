@@ -36,6 +36,27 @@ const HOOK_OPTION_PROPERTIES = new Set([
   'enabled',
 ]);
 
+/**
+ * For an arrow function or function expression, resolve the name from
+ * its parent context. Returns the name string, 'skip' to continue
+ * walking past a hook-option callback, or null if unresolvable.
+ */
+function resolveClosureName(current: Node): string | 'skip' | null {
+  const parent = current.getParent();
+  if (parent && Node.isVariableDeclaration(parent)) {
+    return parent.getName();
+  }
+  if (parent && Node.isPropertyAssignment(parent)) {
+    const propName = parent.getName();
+    if (HOOK_OPTION_PROPERTIES.has(propName)) return 'skip';
+    return propName;
+  }
+  if (Node.isFunctionExpression(current) && current.getName()) {
+    return current.getName()!;
+  }
+  return null;
+}
+
 export function getContainingFunctionName(node: Node): string {
   let current: Node | undefined = node.getParent();
   while (current) {
@@ -43,22 +64,12 @@ export function getContainingFunctionName(node: Node): string {
       return current.getName() ?? '<anonymous>';
     }
     if (Node.isArrowFunction(current) || Node.isFunctionExpression(current)) {
-      const parent = current.getParent();
-      if (parent && Node.isVariableDeclaration(parent)) {
-        return parent.getName();
+      const name = resolveClosureName(current);
+      if (name === 'skip') {
+        current = current.getParent();
+        continue;
       }
-      if (parent && Node.isPropertyAssignment(parent)) {
-        const propName = parent.getName();
-        // Skip past hook option callbacks (queryFn, onSuccess, etc.)
-        if (HOOK_OPTION_PROPERTIES.has(propName)) {
-          current = current.getParent();
-          continue;
-        }
-        return propName;
-      }
-      if (Node.isFunctionExpression(current) && current.getName()) {
-        return current.getName()!;
-      }
+      if (name) return name;
       current = current.getParent();
       continue;
     }
@@ -76,6 +87,14 @@ export function getContainingFunctionName(node: Node): string {
 
 const SKIP_DIRS = new Set(['node_modules', '.next', 'dist']);
 
+/** Filename suffixes excluded from production file discovery. */
+const EXCLUDED_SUFFIXES = ['.spec.ts', '.spec.tsx', '.test.ts', '.test.tsx', '.d.ts'];
+
+function isProductionTsFile(name: string): boolean {
+  if (!/\.(ts|tsx)$/.test(name)) return false;
+  return !EXCLUDED_SUFFIXES.some(suffix => name.endsWith(suffix));
+}
+
 /**
  * Recursively collect .ts/.tsx production files from a directory.
  * Skips node_modules, .next, dist, .spec.*, .test.*, and .d.ts files.
@@ -89,15 +108,7 @@ export function getFilesInDirectory(dirPath: string): string[] {
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name)) continue;
       results.push(...getFilesInDirectory(fullPath));
-    } else if (
-      entry.isFile() &&
-      /\.(ts|tsx)$/.test(entry.name) &&
-      !entry.name.endsWith('.spec.ts') &&
-      !entry.name.endsWith('.spec.tsx') &&
-      !entry.name.endsWith('.test.ts') &&
-      !entry.name.endsWith('.test.tsx') &&
-      !entry.name.endsWith('.d.ts')
-    ) {
+    } else if (entry.isFile() && isProductionTsFile(entry.name)) {
       results.push(fullPath);
     }
   }
@@ -113,34 +124,33 @@ export function isPascalCase(name: string): boolean {
   return /^[A-Z]/.test(name);
 }
 
+const JSX_KINDS = new Set([SyntaxKind.JsxElement, SyntaxKind.JsxSelfClosingElement, SyntaxKind.JsxFragment]);
+
+const JSX_RETURN_TYPE_MARKERS = ['JSX', 'ReactNode', 'ReactElement'];
+
+/** Check whether a function-like node has a JSX/ReactNode return type annotation. */
+function hasJsxReturnType(node: Node): boolean {
+  if (!Node.isFunctionDeclaration(node) && !Node.isArrowFunction(node) && !Node.isFunctionExpression(node)) {
+    return false;
+  }
+  const returnType = (node as FunctionDeclaration).getReturnTypeNode?.();
+  if (!returnType) return false;
+  const text = returnType.getText();
+  return JSX_RETURN_TYPE_MARKERS.some(marker => text.includes(marker));
+}
+
 /**
  * Check whether a function node contains JSX in its body or has a JSX/ReactNode
  * return type annotation. The react-inventory version (richer) is used here --
  * it checks both return type annotations and body content.
  */
 export function containsJsx(node: Node): boolean {
-  // Check return type annotation
-  if (Node.isFunctionDeclaration(node) || Node.isArrowFunction(node) || Node.isFunctionExpression(node)) {
-    const returnType = (node as FunctionDeclaration).getReturnTypeNode?.();
-    if (returnType) {
-      const text = returnType.getText();
-      if (text.includes('JSX') || text.includes('ReactNode') || text.includes('ReactElement')) {
-        return true;
-      }
-    }
-  }
+  if (hasJsxReturnType(node)) return true;
 
-  // Check for JSX in the body
   let found = false;
   node.forEachDescendant(child => {
     if (found) return;
-    if (
-      child.getKind() === SyntaxKind.JsxElement ||
-      child.getKind() === SyntaxKind.JsxSelfClosingElement ||
-      child.getKind() === SyntaxKind.JsxFragment
-    ) {
-      found = true;
-    }
+    if (JSX_KINDS.has(child.getKind())) found = true;
   });
   return found;
 }

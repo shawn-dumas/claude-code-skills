@@ -26,6 +26,49 @@ function emptySummary(): Record<FeatureFlagUsageType, number> {
 // featureFlags binding detection
 // ---------------------------------------------------------------------------
 
+const FEATURE_FLAG_HOOKS = new Set(['usePosthogContext', 'useFeatureFlags']);
+
+/** Detect `const featureFlags = useFeatureFlags();` direct assignment patterns. */
+function collectDirectAssignmentBindings(sf: SourceFile, bindings: Set<string>): void {
+  sf.forEachDescendant(node => {
+    if (!Node.isVariableDeclaration(node)) return;
+
+    const init = node.getInitializer();
+    if (!init || !Node.isCallExpression(init)) return;
+
+    if (init.getExpression().getText() === 'useFeatureFlags') {
+      bindings.add(node.getName());
+    }
+  });
+}
+
+/** Walk up from a BindingElement to its owning VariableDeclaration. */
+function findOwningVariableDeclaration(node: Node): Node | undefined {
+  let current: Node | undefined = node.getParent();
+  while (current && !Node.isVariableDeclaration(current)) {
+    current = current.getParent();
+  }
+  return current;
+}
+
+/** Detect `const { featureFlags } = usePosthogContext();` destructuring patterns. */
+function collectDestructuredBindings(sf: SourceFile, bindings: Set<string>): void {
+  sf.forEachDescendant(node => {
+    if (!Node.isBindingElement(node)) return;
+    if (node.getName() !== 'featureFlags') return;
+
+    const decl = findOwningVariableDeclaration(node);
+    if (!decl || !Node.isVariableDeclaration(decl)) return;
+
+    const init = decl.getInitializer();
+    if (!init || !Node.isCallExpression(init)) return;
+
+    if (FEATURE_FLAG_HOOKS.has(init.getExpression().getText())) {
+      bindings.add('featureFlags');
+    }
+  });
+}
+
 /**
  * Collect the names of local variables that hold a featureFlags object.
  * Patterns:
@@ -34,48 +77,8 @@ function emptySummary(): Record<FeatureFlagUsageType, number> {
  */
 function collectFeatureFlagBindings(sf: SourceFile): Set<string> {
   const bindings = new Set<string>();
-
-  sf.forEachDescendant(node => {
-    if (!Node.isVariableDeclaration(node)) return;
-
-    const init = node.getInitializer();
-    if (!init) return;
-
-    // const featureFlags = useFeatureFlags();
-    if (Node.isCallExpression(init)) {
-      const callee = init.getExpression().getText();
-      if (callee === 'useFeatureFlags') {
-        bindings.add(node.getName());
-      }
-    }
-
-    // const { featureFlags } = usePosthogContext();
-    // Handled via the destructuring pattern: the binding name is "featureFlags"
-    // in the BindingElement. The VariableDeclaration name for object binding
-    // patterns is not directly useful. We detect this by walking BindingElements.
-  });
-
-  // Walk ObjectBindingPatterns for destructured featureFlags
-  sf.forEachDescendant(node => {
-    if (!Node.isBindingElement(node)) return;
-    if (node.getName() !== 'featureFlags') return;
-
-    // Verify the parent variable declaration initializes from a relevant call
-    let current: Node | undefined = node.getParent();
-    while (current && !Node.isVariableDeclaration(current)) {
-      current = current.getParent();
-    }
-    if (!current || !Node.isVariableDeclaration(current)) return;
-
-    const init = current.getInitializer();
-    if (init && Node.isCallExpression(init)) {
-      const callee = init.getExpression().getText();
-      if (callee === 'usePosthogContext' || callee === 'useFeatureFlags') {
-        bindings.add('featureFlags');
-      }
-    }
-  });
-
+  collectDirectAssignmentBindings(sf, bindings);
+  collectDestructuredBindings(sf, bindings);
   return bindings;
 }
 

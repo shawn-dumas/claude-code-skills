@@ -10,45 +10,49 @@ import type { DependencyGraph, FileNode, ImportInfo, ExportInfo } from './types'
 // Import extraction
 // ---------------------------------------------------------------------------
 
+/** Collect all specifier strings from a single import declaration. */
+function collectImportSpecifiers(decl: ReturnType<SourceFile['getImportDeclarations']>[number]): string[] {
+  const specifiers: string[] = [];
+
+  const defaultImport = decl.getDefaultImport();
+  if (defaultImport) specifiers.push(defaultImport.getText());
+
+  const namespaceImport = decl.getNamespaceImport();
+  if (namespaceImport) specifiers.push(`* as ${namespaceImport.getText()}`);
+
+  for (const named of decl.getNamedImports()) {
+    const alias = named.getAliasNode();
+    specifiers.push(alias ? `${named.getName()} as ${alias.getText()}` : named.getName());
+  }
+
+  return specifiers;
+}
+
+/** Merge specifiers into an existing ImportInfo entry, or insert a new one. */
+function mergeImportEntry(
+  merged: Map<string, ImportInfo>,
+  source: string,
+  specifiers: string[],
+  isTypeOnly: boolean,
+  line: number,
+): void {
+  const existing = merged.get(source);
+  if (existing) {
+    for (const s of specifiers) {
+      if (!existing.specifiers.includes(s)) existing.specifiers.push(s);
+    }
+    existing.isTypeOnly = existing.isTypeOnly && isTypeOnly;
+  } else {
+    merged.set(source, { source, specifiers, isTypeOnly, line });
+  }
+}
+
 function extractImports(sf: SourceFile): ImportInfo[] {
   const merged = new Map<string, ImportInfo>();
 
   for (const decl of sf.getImportDeclarations()) {
-    const source = decl.getModuleSpecifierValue();
-    const line = decl.getStartLineNumber();
-    const isTypeOnly = decl.isTypeOnly();
-    const specifiers: string[] = [];
-
-    const defaultImport = decl.getDefaultImport();
-    if (defaultImport) {
-      specifiers.push(defaultImport.getText());
-    }
-
-    const namespaceImport = decl.getNamespaceImport();
-    if (namespaceImport) {
-      specifiers.push(`* as ${namespaceImport.getText()}`);
-    }
-
-    for (const named of decl.getNamedImports()) {
-      const alias = named.getAliasNode();
-      if (alias) {
-        specifiers.push(`${named.getName()} as ${alias.getText()}`);
-      } else {
-        specifiers.push(named.getName());
-      }
-    }
-
-    const existing = merged.get(source);
-    if (existing) {
-      for (const s of specifiers) {
-        if (!existing.specifiers.includes(s)) {
-          existing.specifiers.push(s);
-        }
-      }
-      existing.isTypeOnly = existing.isTypeOnly && isTypeOnly;
-    } else {
-      merged.set(source, { source, specifiers, isTypeOnly, line });
-    }
+    const specifiers = collectImportSpecifiers(decl);
+    mergeImportEntry(merged, decl.getModuleSpecifierValue(), specifiers, decl.isTypeOnly(), decl.getStartLineNumber());
   }
 
   return Array.from(merged.values());
@@ -86,49 +90,61 @@ function extractDynamicImports(sf: SourceFile): ImportInfo[] {
 // Export extraction
 // ---------------------------------------------------------------------------
 
+/** Maps a ts-morph Node guard to the ExportInfo kind it implies. */
+const DECLARATION_KIND_CHECKS: Array<{
+  guard: (node: Node) => boolean;
+  kind: ExportInfo['kind'];
+}> = [
+  { guard: Node.isFunctionDeclaration, kind: 'function' },
+  { guard: Node.isClassDeclaration, kind: 'class' },
+  { guard: Node.isTypeAliasDeclaration, kind: 'type' },
+  { guard: Node.isInterfaceDeclaration, kind: 'interface' },
+  { guard: Node.isEnumDeclaration, kind: 'enum' },
+];
+
+/** If the declaration is a variable initialized to a function expression, return 'function'. */
+function classifyVariableDeclaration(decl: Node): ExportInfo['kind'] {
+  if (!Node.isVariableDeclaration(decl)) return 'const';
+  const init = decl.getInitializer();
+  if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
+    return 'function';
+  }
+  return 'const';
+}
+
 function classifyExportKind(name: string, declarations: ExportedDeclarations[]): ExportInfo['kind'] {
   if (declarations.length === 0) return 'const';
   const decl = declarations[0];
 
-  if (Node.isFunctionDeclaration(decl)) return 'function';
-  if (Node.isClassDeclaration(decl)) return 'class';
-  if (Node.isTypeAliasDeclaration(decl)) return 'type';
-  if (Node.isInterfaceDeclaration(decl)) return 'interface';
-  if (Node.isEnumDeclaration(decl)) return 'enum';
+  const matched = DECLARATION_KIND_CHECKS.find(check => check.guard(decl));
+  if (matched) return matched.kind;
 
-  if (Node.isVariableDeclaration(decl)) {
-    const init = decl.getInitializer();
-    if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
-      return 'function';
-    }
-    return 'const';
-  }
+  if (Node.isVariableDeclaration(decl)) return classifyVariableDeclaration(decl);
 
   if (name === 'default') return 'default';
   return 'const';
 }
 
-function extractExports(sf: SourceFile): ExportInfo[] {
+/** Collect exports from ts-morph's getExportedDeclarations map. */
+function collectDeclaredExports(sf: SourceFile): ExportInfo[] {
   const exports: ExportInfo[] = [];
-  const exportedMap = sf.getExportedDeclarations();
-
-  for (const [name, declarations] of exportedMap) {
+  for (const [name, declarations] of sf.getExportedDeclarations()) {
     const kind = classifyExportKind(name, declarations);
     const isTypeOnly = kind === 'type' || kind === 'interface';
-
     const firstDecl = declarations[0];
     const line = firstDecl ? firstDecl.getStartLineNumber() : 1;
-
     exports.push({ name, kind, isTypeOnly, line });
   }
+  return exports;
+}
 
-  // Detect re-exports from export declarations
+/** Add re-export entries from `export { ... } from '...'` and `export * from '...'`. */
+function collectReexportEntries(sf: SourceFile, exports: ExportInfo[]): void {
   for (const exportDecl of sf.getExportDeclarations()) {
     const moduleSpecifier = exportDecl.getModuleSpecifierValue();
     if (!moduleSpecifier) continue;
 
     if (exportDecl.isNamespaceExport()) {
-      // export * from './foo'
       exports.push({
         name: `* from ${moduleSpecifier}`,
         kind: 'reexport',
@@ -138,7 +154,6 @@ function extractExports(sf: SourceFile): ExportInfo[] {
     } else {
       for (const named of exportDecl.getNamedExports()) {
         const exportName = named.getAliasNode()?.getText() ?? named.getName();
-        // Only add if not already tracked by getExportedDeclarations
         const alreadyTracked = exports.some(e => e.name === exportName && e.kind !== 'reexport');
         if (!alreadyTracked) {
           exports.push({
@@ -151,9 +166,10 @@ function extractExports(sf: SourceFile): ExportInfo[] {
       }
     }
   }
+}
 
-  // Mark re-exported names: if the source file has an export declaration
-  // with a module specifier for a named export, override its kind to reexport
+/** Override kind to 'reexport' for named exports that are re-exported with a module specifier. */
+function markReexportedNames(sf: SourceFile, exports: ExportInfo[]): void {
   for (const exportDecl of sf.getExportDeclarations()) {
     const moduleSpecifier = exportDecl.getModuleSpecifierValue();
     if (!moduleSpecifier) continue;
@@ -167,7 +183,12 @@ function extractExports(sf: SourceFile): ExportInfo[] {
       }
     }
   }
+}
 
+function extractExports(sf: SourceFile): ExportInfo[] {
+  const exports = collectDeclaredExports(sf);
+  collectReexportEntries(sf, exports);
+  markReexportedNames(sf, exports);
   return exports;
 }
 
@@ -207,44 +228,58 @@ function extractReexportImports(sf: SourceFile): ImportInfo[] {
 // Module resolution
 // ---------------------------------------------------------------------------
 
-function resolveModulePath(importSource: string, importingFilePath: string): string | null {
-  // Package imports -- return as-is
-  if (!importSource.startsWith('.') && !importSource.startsWith('@/')) {
-    return null;
-  }
-
-  // Use ts-morph's built-in resolution for both relative and alias imports
-  const project = getProject();
-  const sf = project.getSourceFile(importingFilePath);
-  if (!sf) return null;
-
-  // Find the matching import declaration
+/** Resolve via ts-morph import declarations. */
+function resolveViaImportDeclarations(sf: SourceFile, importSource: string): string | null {
   for (const decl of sf.getImportDeclarations()) {
     if (decl.getModuleSpecifierValue() === importSource) {
       const resolved = decl.getModuleSpecifierSourceFile();
       if (resolved) return resolved.getFilePath();
     }
   }
+  return null;
+}
 
-  // Check export declarations (re-exports)
+/** Resolve via ts-morph export declarations (re-exports). */
+function resolveViaExportDeclarations(sf: SourceFile, importSource: string): string | null {
   for (const decl of sf.getExportDeclarations()) {
     if (decl.getModuleSpecifierValue() === importSource) {
       const resolved = decl.getModuleSpecifierSourceFile();
       if (resolved) return resolved.getFilePath();
     }
   }
+  return null;
+}
 
-  // Manual fallback for relative imports
+/** Manual filesystem fallback for relative imports. */
+function resolveRelativeFallback(importSource: string, importingFilePath: string): string | null {
+  const dir = path.dirname(importingFilePath);
+  const extensions = ['.ts', '.tsx', '/index.ts', '/index.tsx'];
+  for (const ext of extensions) {
+    const candidate = path.resolve(dir, importSource + ext);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  const exact = path.resolve(dir, importSource);
+  if (fs.existsSync(exact)) return exact;
+  return null;
+}
+
+function resolveModulePath(importSource: string, importingFilePath: string): string | null {
+  if (!importSource.startsWith('.') && !importSource.startsWith('@/')) {
+    return null;
+  }
+
+  const project = getProject();
+  const sf = project.getSourceFile(importingFilePath);
+  if (!sf) return null;
+
+  const fromImport = resolveViaImportDeclarations(sf, importSource);
+  if (fromImport) return fromImport;
+
+  const fromExport = resolveViaExportDeclarations(sf, importSource);
+  if (fromExport) return fromExport;
+
   if (importSource.startsWith('.')) {
-    const dir = path.dirname(importingFilePath);
-    const extensions = ['.ts', '.tsx', '/index.ts', '/index.tsx'];
-    for (const ext of extensions) {
-      const candidate = path.resolve(dir, importSource + ext);
-      if (fs.existsSync(candidate)) return candidate;
-    }
-    // Try exact path (already has extension)
-    const exact = path.resolve(dir, importSource);
-    if (fs.existsSync(exact)) return exact;
+    return resolveRelativeFallback(importSource, importingFilePath);
   }
 
   return null;
@@ -378,6 +413,19 @@ function isBarrelFile(filePath: string): boolean {
   return path.basename(filePath).startsWith('index.');
 }
 
+/** Check if an export declaration re-exports the given name (namespace or named). */
+function exportDeclMatchesName(
+  exportDecl: ReturnType<SourceFile['getExportDeclarations']>[number],
+  exportName: string,
+): boolean {
+  if (exportDecl.isNamespaceExport()) return true;
+  for (const named of exportDecl.getNamedExports()) {
+    const name = named.getAliasNode()?.getText() ?? named.getName();
+    if (name === exportName) return true;
+  }
+  return false;
+}
+
 /**
  * Given an export name and a file path, trace through barrel re-export
  * chains to find the original source file.
@@ -394,29 +442,12 @@ function traceBarrelChain(exportName: string, filePath: string, visited = new Se
     for (const exportDecl of sf.getExportDeclarations()) {
       const moduleSpecifier = exportDecl.getModuleSpecifierValue();
       if (!moduleSpecifier) continue;
+      if (!exportDeclMatchesName(exportDecl, exportName)) continue;
 
-      let matches = false;
-
-      if (exportDecl.isNamespaceExport()) {
-        // export * -- could include anything
-        matches = true;
-      } else {
-        for (const named of exportDecl.getNamedExports()) {
-          const name = named.getAliasNode()?.getText() ?? named.getName();
-          if (name === exportName) {
-            matches = true;
-            break;
-          }
-        }
-      }
-
-      if (matches) {
-        const resolved = exportDecl.getModuleSpecifierSourceFile();
-        if (resolved) {
-          const resolvedPath = resolved.getFilePath();
-          const deeper = traceBarrelChain(exportName, resolvedPath, visited);
-          chain.push(...deeper);
-        }
+      const resolved = exportDecl.getModuleSpecifierSourceFile();
+      if (resolved) {
+        const deeper = traceBarrelChain(exportName, resolved.getFilePath(), visited);
+        chain.push(...deeper);
       }
     }
   } catch (error) {
@@ -558,6 +589,19 @@ function detectDeadExports(
 // Consumer detection (for single-file mode)
 // ---------------------------------------------------------------------------
 
+/** Check whether a source file imports or re-exports from the given target path. */
+function fileReferencesTarget(candidateSf: SourceFile, targetPath: string): boolean {
+  for (const imp of candidateSf.getImportDeclarations()) {
+    const resolved = imp.getModuleSpecifierSourceFile();
+    if (resolved && resolved.getFilePath() === targetPath) return true;
+  }
+  for (const exp of candidateSf.getExportDeclarations()) {
+    const resolved = exp.getModuleSpecifierSourceFile();
+    if (resolved && resolved.getFilePath() === targetPath) return true;
+  }
+  return false;
+}
+
 function findConsumersForFile(targetFile: FileNode, searchDir?: string): FileNode[] {
   const consumers: FileNode[] = [];
   const candidatePaths = searchDir ? findConsumerFiles(targetFile.path, searchDir) : findConsumerFiles(targetFile.path);
@@ -565,29 +609,7 @@ function findConsumersForFile(targetFile: FileNode, searchDir?: string): FileNod
   for (const candidatePath of candidatePaths) {
     try {
       const candidateSf = getSourceFile(candidatePath);
-
-      // Check if any import resolves to the target file
-      let isConsumer = false;
-      for (const imp of candidateSf.getImportDeclarations()) {
-        const resolved = imp.getModuleSpecifierSourceFile();
-        if (resolved && resolved.getFilePath() === targetFile.path) {
-          isConsumer = true;
-          break;
-        }
-      }
-
-      // Also check export declarations (re-exports)
-      if (!isConsumer) {
-        for (const exp of candidateSf.getExportDeclarations()) {
-          const resolved = exp.getModuleSpecifierSourceFile();
-          if (resolved && resolved.getFilePath() === targetFile.path) {
-            isConsumer = true;
-            break;
-          }
-        }
-      }
-
-      if (isConsumer) {
+      if (fileReferencesTarget(candidateSf, targetFile.path)) {
         consumers.push(analyzeFile(candidatePath));
       }
     } catch (error) {

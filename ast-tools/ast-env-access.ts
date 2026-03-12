@@ -98,85 +98,99 @@ function findEnvImports(sf: SourceFile): EnvAccessInstance[] {
 // Property access and raw env detection
 // ---------------------------------------------------------------------------
 
+/** Map of identifier name -> EnvAccessType for typed env wrapper objects. */
+const ENV_WRAPPER_IDENTIFIERS: Record<string, EnvAccessType> = {
+  clientEnv: 'CLIENT_ENV_ACCESS',
+  serverEnv: 'SERVER_ENV_ACCESS',
+};
+
+/**
+ * Try to classify a PropertyAccessExpression as a direct process.env access
+ * (process.env.PROPERTY) and return an EnvAccessInstance, or null.
+ */
+function classifyDirectProcessEnv(
+  node: import('ts-morph').PropertyAccessExpression,
+  sf: SourceFile,
+): EnvAccessInstance | null {
+  const text = node.getText();
+  if (!text.startsWith('process.env.') || text.split('.').length !== 3) return null;
+
+  const propertyName = text.split('.')[2];
+  const isGuard = hasTreeShakingComment(node, sf);
+  return {
+    type: 'DIRECT_PROCESS_ENV',
+    line: node.getStartLineNumber(),
+    column: sf.getLineAndColumnAtPos(node.getStart()).column,
+    text: truncateText(text, 120),
+    propertyName,
+    containingFunction: getContainingFunctionName(node),
+    isViolation: !isGuard,
+    isTreeShakingGuard: isGuard,
+  };
+}
+
+/**
+ * Try to classify a PropertyAccessExpression as a typed env wrapper access
+ * (clientEnv.PROPERTY or serverEnv.PROPERTY) and return an EnvAccessInstance, or null.
+ */
+function classifyEnvWrapperAccess(
+  node: import('ts-morph').PropertyAccessExpression,
+  sf: SourceFile,
+): EnvAccessInstance | null {
+  const exprNode = node.getExpression();
+  if (!Node.isIdentifier(exprNode)) return null;
+
+  const accessType = ENV_WRAPPER_IDENTIFIERS[exprNode.getText()];
+  if (!accessType) return null;
+
+  return {
+    type: accessType,
+    line: node.getStartLineNumber(),
+    column: sf.getLineAndColumnAtPos(node.getStart()).column,
+    text: truncateText(node.getText(), 120),
+    propertyName: node.getName(),
+    containingFunction: getContainingFunctionName(node),
+    isViolation: false,
+    isTreeShakingGuard: false,
+  };
+}
+
+/**
+ * Try to classify a VariableDeclaration as a raw env import
+ * (const env = process.env) and return an EnvAccessInstance, or null.
+ */
+function classifyRawEnvImport(node: import('ts-morph').VariableDeclaration, sf: SourceFile): EnvAccessInstance | null {
+  const init = node.getInitializer();
+  if (!init || !Node.isPropertyAccessExpression(init) || init.getText() !== 'process.env') return null;
+
+  return {
+    type: 'RAW_ENV_IMPORT',
+    line: node.getStartLineNumber(),
+    column: sf.getLineAndColumnAtPos(node.getStart()).column,
+    text: truncateText(node.getText(), 120),
+    propertyName: null,
+    containingFunction: getContainingFunctionName(node),
+    isViolation: true,
+    isTreeShakingGuard: false,
+  };
+}
+
 function findEnvPropertyAccesses(sf: SourceFile): EnvAccessInstance[] {
   const accesses: EnvAccessInstance[] = [];
 
   sf.forEachDescendant(node => {
-    // --- DIRECT_PROCESS_ENV: process.env.ANYTHING ---
     if (Node.isPropertyAccessExpression(node)) {
-      const text = node.getText();
-      const line = node.getStartLineNumber();
-      const column = sf.getLineAndColumnAtPos(node.getStart()).column;
-
-      // Match process.env.PROPERTY (3-level property access)
-      if (text.startsWith('process.env.') && text.split('.').length === 3) {
-        const propertyName = text.split('.')[2];
-        const isGuard = hasTreeShakingComment(node, sf);
-        accesses.push({
-          type: 'DIRECT_PROCESS_ENV',
-          line,
-          column,
-          text: truncateText(text, 120),
-          propertyName,
-          containingFunction: getContainingFunctionName(node),
-          isViolation: !isGuard,
-          isTreeShakingGuard: isGuard,
-        });
-        return;
-      }
-
-      // Match clientEnv.PROPERTY
-      const exprNode = node.getExpression();
-      const propName = node.getName();
-      if (Node.isIdentifier(exprNode) && exprNode.getText() === 'clientEnv') {
-        accesses.push({
-          type: 'CLIENT_ENV_ACCESS',
-          line,
-          column,
-          text: truncateText(text, 120),
-          propertyName: propName,
-          containingFunction: getContainingFunctionName(node),
-          isViolation: false,
-          isTreeShakingGuard: false,
-        });
-        return;
-      }
-
-      // Match serverEnv.PROPERTY
-      if (Node.isIdentifier(exprNode) && exprNode.getText() === 'serverEnv') {
-        accesses.push({
-          type: 'SERVER_ENV_ACCESS',
-          line,
-          column,
-          text: truncateText(text, 120),
-          propertyName: propName,
-          containingFunction: getContainingFunctionName(node),
-          isViolation: false,
-          isTreeShakingGuard: false,
-        });
+      const match = classifyDirectProcessEnv(node, sf) ?? classifyEnvWrapperAccess(node, sf);
+      if (match) {
+        accesses.push(match);
         return;
       }
     }
 
-    // --- RAW_ENV_IMPORT: const env = process.env ---
     if (Node.isVariableDeclaration(node)) {
-      const init = node.getInitializer();
-      if (init && Node.isPropertyAccessExpression(init)) {
-        const initText = init.getText();
-        if (initText === 'process.env') {
-          const line = node.getStartLineNumber();
-          const column = sf.getLineAndColumnAtPos(node.getStart()).column;
-          accesses.push({
-            type: 'RAW_ENV_IMPORT',
-            line,
-            column,
-            text: truncateText(node.getText(), 120),
-            propertyName: null,
-            containingFunction: getContainingFunctionName(node),
-            isViolation: true,
-            isTreeShakingGuard: false,
-          });
-        }
+      const match = classifyRawEnvImport(node, sf);
+      if (match) {
+        accesses.push(match);
       }
     }
   });

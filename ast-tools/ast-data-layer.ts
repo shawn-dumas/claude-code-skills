@@ -96,6 +96,54 @@ function extractFetchApiSchema(callNode: Node): string | null {
 // Detection: query/mutation hook definitions
 // ---------------------------------------------------------------------------
 
+function classifyHookName(name: string): 'QUERY_HOOK_DEF' | 'MUTATION_HOOK_DEF' | null {
+  if (/^use\w+Query$/.test(name)) return 'QUERY_HOOK_DEF';
+  if (/^use\w+Mutation$/.test(name)) return 'MUTATION_HOOK_DEF';
+  return null;
+}
+
+function extractQueryKeyFromBody(body: Node): string | null {
+  let queryKey: string | null = null;
+  body.forEachDescendant(child => {
+    if (queryKey) return;
+    if (Node.isCallExpression(child)) {
+      const callee = child.getExpression().getText();
+      if (callee === 'useQuery') {
+        queryKey = extractQueryKeyFromCallArgs(child);
+      }
+    }
+  });
+  return queryKey;
+}
+
+function buildHookDefUsage(
+  type: 'QUERY_HOOK_DEF' | 'MUTATION_HOOK_DEF',
+  line: number,
+  column: number,
+  name: string,
+  textPrefix: string,
+  body: Node | null,
+): DataLayerUsage {
+  const details: DataLayerDetails = {};
+  if (type === 'QUERY_HOOK_DEF' && body) {
+    const queryKey = extractQueryKeyFromBody(body);
+    if (queryKey) details.queryKey = queryKey;
+  }
+  return {
+    type,
+    line,
+    column,
+    name,
+    text: truncateText(`${textPrefix}${name}(...)`, 80),
+    containingFunction: '<module>',
+    details,
+  };
+}
+
+function isFunctionLikeInit(node: Node): boolean {
+  return Node.isArrowFunction(node) || Node.isFunctionExpression(node);
+}
+
 function findHookDefinitions(sf: SourceFile): DataLayerUsage[] {
   const usages: DataLayerUsage[] = [];
 
@@ -103,46 +151,12 @@ function findHookDefinitions(sf: SourceFile): DataLayerUsage[] {
   for (const func of sf.getFunctions()) {
     const name = func.getName();
     if (!name) continue;
+    const type = classifyHookName(name);
+    if (!type) continue;
 
     const line = func.getStartLineNumber();
     const column = sf.getLineAndColumnAtPos(func.getStart()).column;
-
-    if (/^use\w+Query$/.test(name)) {
-      // Look for queryKey inside the function body
-      let queryKey: string | null = null;
-      func.forEachDescendant(child => {
-        if (queryKey) return;
-        if (Node.isCallExpression(child)) {
-          const callee = child.getExpression().getText();
-          if (callee === 'useQuery') {
-            queryKey = extractQueryKeyFromCallArgs(child);
-          }
-        }
-      });
-
-      const details: DataLayerDetails = {};
-      if (queryKey) details.queryKey = queryKey;
-
-      usages.push({
-        type: 'QUERY_HOOK_DEF',
-        line,
-        column,
-        name,
-        text: truncateText(`function ${name}(...)`, 80),
-        containingFunction: '<module>',
-        details,
-      });
-    } else if (/^use\w+Mutation$/.test(name)) {
-      usages.push({
-        type: 'MUTATION_HOOK_DEF',
-        line,
-        column,
-        name,
-        text: truncateText(`function ${name}(...)`, 80),
-        containingFunction: '<module>',
-        details: {},
-      });
-    }
+    usages.push(buildHookDefUsage(type, line, column, name, 'function ', func));
   }
 
   // Variable declarations: const useXxxQuery = (...) => ...
@@ -151,46 +165,14 @@ function findHookDefinitions(sf: SourceFile): DataLayerUsage[] {
       const name = decl.getName();
       const init = decl.getInitializer();
       if (!init) continue;
-      if (!Node.isArrowFunction(init) && !Node.isFunctionExpression(init)) continue;
+      if (!isFunctionLikeInit(init)) continue;
+
+      const type = classifyHookName(name);
+      if (!type) continue;
 
       const line = varStmt.getStartLineNumber();
       const column = sf.getLineAndColumnAtPos(varStmt.getStart()).column;
-
-      if (/^use\w+Query$/.test(name)) {
-        let queryKey: string | null = null;
-        init.forEachDescendant(child => {
-          if (queryKey) return;
-          if (Node.isCallExpression(child)) {
-            const callee = child.getExpression().getText();
-            if (callee === 'useQuery') {
-              queryKey = extractQueryKeyFromCallArgs(child);
-            }
-          }
-        });
-
-        const details: DataLayerDetails = {};
-        if (queryKey) details.queryKey = queryKey;
-
-        usages.push({
-          type: 'QUERY_HOOK_DEF',
-          line,
-          column,
-          name,
-          text: truncateText(`const ${name} = (...)`, 80),
-          containingFunction: '<module>',
-          details,
-        });
-      } else if (/^use\w+Mutation$/.test(name)) {
-        usages.push({
-          type: 'MUTATION_HOOK_DEF',
-          line,
-          column,
-          name,
-          text: truncateText(`const ${name} = (...)`, 80),
-          containingFunction: '<module>',
-          details: {},
-        });
-      }
+      usages.push(buildHookDefUsage(type, line, column, name, 'const ', init));
     }
   }
 
@@ -250,6 +232,58 @@ function findQueryKeyDefinitions(sf: SourceFile): DataLayerUsage[] {
 // Detection: fetchApi calls, API endpoints, query invalidations
 // ---------------------------------------------------------------------------
 
+function collectFetchApiUsages(node: Node, line: number, column: number, containingFunction: string): DataLayerUsage[] {
+  const url = extractFetchApiUrl(node);
+  const schema = extractFetchApiSchema(node);
+  const details: DataLayerDetails = {};
+  if (url) details.url = url;
+  if (schema) details.schema = schema;
+
+  const results: DataLayerUsage[] = [
+    {
+      type: 'FETCH_API_CALL',
+      line,
+      column,
+      name: url ?? 'fetchApi',
+      text: truncateText(node.getText(), 80),
+      containingFunction,
+      details,
+    },
+  ];
+
+  // Also emit API_ENDPOINT if URL matches /api/ pattern
+  if (url && /\/api\//.test(url)) {
+    results.push({
+      type: 'API_ENDPOINT',
+      line,
+      column,
+      name: url,
+      text: url,
+      containingFunction,
+      details: schema ? { schema } : {},
+    });
+  }
+
+  return results;
+}
+
+function extractInvalidationKeyText(node: Node): string {
+  if (!Node.isCallExpression(node)) return '';
+  const args = node.getArguments();
+  if (args.length === 0) return '';
+
+  const firstArg = args[0];
+  if (Node.isObjectLiteralExpression(firstArg)) {
+    const queryKeyProp = firstArg.getProperty('queryKey');
+    if (queryKeyProp && Node.isPropertyAssignment(queryKeyProp)) {
+      const init = queryKeyProp.getInitializer();
+      if (init) return truncateText(init.getText(), 120);
+    }
+    return '';
+  }
+  return truncateText(firstArg.getText(), 120);
+}
+
 function findCallSiteUsages(sf: SourceFile): DataLayerUsage[] {
   const usages: DataLayerUsage[] = [];
 
@@ -265,67 +299,23 @@ function findCallSiteUsages(sf: SourceFile): DataLayerUsage[] {
     // --- FETCH_API_CALL: fetchApi(...) or useFetchApi() ---
     if (exprText === 'fetchApi' || exprText === 'useFetchApi') {
       if (exprText === 'fetchApi') {
-        const url = extractFetchApiUrl(node);
-        const schema = extractFetchApiSchema(node);
-        const details: DataLayerDetails = {};
-        if (url) details.url = url;
-        if (schema) details.schema = schema;
-
-        usages.push({
-          type: 'FETCH_API_CALL',
-          line,
-          column,
-          name: url ?? 'fetchApi',
-          text: truncateText(node.getText(), 80),
-          containingFunction,
-          details,
-        });
-
-        // Also emit API_ENDPOINT if URL matches /api/ pattern
-        if (url && /\/api\//.test(url)) {
-          usages.push({
-            type: 'API_ENDPOINT',
-            line,
-            column,
-            name: url,
-            text: url,
-            containingFunction,
-            details: schema ? { schema } : {},
-          });
-        }
+        usages.push(...collectFetchApiUsages(node, line, column, containingFunction));
       }
       return;
     }
 
     // --- QUERY_INVALIDATION: queryClient.invalidateQueries(...) ---
-    if (Node.isPropertyAccessExpression(expr)) {
-      const method = expr.getName();
-      if (method === 'invalidateQueries') {
-        const args = node.getArguments();
-        let keyText = '';
-        if (args.length > 0) {
-          const firstArg = args[0];
-          if (Node.isObjectLiteralExpression(firstArg)) {
-            const queryKeyProp = firstArg.getProperty('queryKey');
-            if (queryKeyProp && Node.isPropertyAssignment(queryKeyProp)) {
-              const init = queryKeyProp.getInitializer();
-              if (init) keyText = truncateText(init.getText(), 120);
-            }
-          } else {
-            keyText = truncateText(firstArg.getText(), 120);
-          }
-        }
-
-        usages.push({
-          type: 'QUERY_INVALIDATION',
-          line,
-          column,
-          name: keyText || 'invalidateQueries',
-          text: truncateText(node.getText(), 80),
-          containingFunction,
-          details: keyText ? { queryKey: keyText } : {},
-        });
-      }
+    if (Node.isPropertyAccessExpression(expr) && expr.getName() === 'invalidateQueries') {
+      const keyText = extractInvalidationKeyText(node);
+      usages.push({
+        type: 'QUERY_INVALIDATION',
+        line,
+        column,
+        name: keyText || 'invalidateQueries',
+        text: truncateText(node.getText(), 80),
+        containingFunction,
+        details: keyText ? { queryKey: keyText } : {},
+      });
     }
   });
 
