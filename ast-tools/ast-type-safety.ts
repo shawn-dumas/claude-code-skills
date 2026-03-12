@@ -117,9 +117,10 @@ function isTrustBoundaryExpression(node: Node): boolean {
  */
 function matchesHasGuard(guardText: string, exprText: string): boolean {
   if (!guardText.includes('.has(')) return false;
-  const dotGet = exprText.match(/^(.+)\.get\(/);
-  if (!dotGet) return false;
-  return guardText.includes(`${dotGet[1]}.has(`);
+  const getIndex = exprText.lastIndexOf('.get(');
+  if (getIndex === -1) return false;
+  const obj = exprText.substring(0, getIndex);
+  return guardText.includes(`${obj}.has(`);
 }
 
 /**

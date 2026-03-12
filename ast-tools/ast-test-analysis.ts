@@ -211,10 +211,17 @@ function findSubjectByFirstRelativeImport(
   return null;
 }
 
+function stripTestExtension(fileName: string): string {
+  for (const ext of ['.spec.tsx', '.spec.ts', '.test.tsx', '.test.ts']) {
+    if (fileName.endsWith(ext)) return fileName.slice(0, -ext.length);
+  }
+  return fileName;
+}
+
 function detectSubject(sf: SourceFile, filePath: string): SubjectResult {
   const imports = sf.getImportDeclarations();
   const testFileName = path.basename(filePath);
-  const baseNameWithoutExt = testFileName.replace(/\.spec\.tsx?$/, '').replace(/\.test\.tsx?$/, '');
+  const baseNameWithoutExt = stripTestExtension(testFileName);
 
   return (
     findSubjectByName(imports, filePath, baseNameWithoutExt) ??
@@ -246,7 +253,7 @@ function classifyResolvedFile(resolved: string, relativePath: string, subjectDom
     return 'OWN_HOOK';
   }
 
-  const hasComponents = exportedNames.some(name => /^[A-Z]/.test(name));
+  const hasComponents = exportedNames.some(name => name.length > 0 && name[0] >= 'A' && name[0] <= 'Z');
   if (hasComponents && resolved.endsWith('.tsx')) return 'OWN_COMPONENT';
 
   return 'OWN_UTILITY';
@@ -275,7 +282,11 @@ function classifyMockTarget(target: string, filePath: string, subjectDomainDir: 
 
 function classifyByPath(target: string): MockClassification {
   if (target.includes('/hooks/') || target.includes('use')) return 'OWN_HOOK';
-  if (/\/[A-Z][a-zA-Z]+/.test(target) && (target.endsWith('.tsx') || !target.includes('.'))) return 'OWN_COMPONENT';
+  if (
+    target.split('/').some(seg => seg.length > 0 && seg[0] >= 'A' && seg[0] <= 'Z') &&
+    (target.endsWith('.tsx') || !target.includes('.'))
+  )
+    return 'OWN_COMPONENT';
   return 'OWN_UTILITY';
 }
 
@@ -382,7 +393,7 @@ function collectViSpyOn(
   const classification = classifySpyTarget(sf, spyTarget, filePath, subjectDomainDir);
 
   return {
-    target: `${spyTarget}.${args[1].getText().replace(/['"]/g, '')}`,
+    target: `${spyTarget}.${Node.isStringLiteral(args[1]) ? args[1].getLiteralValue() : args[1].getText()}`,
     resolvedPath: spyTarget,
     classification,
     line: node.getStartLineNumber(),
@@ -589,7 +600,7 @@ function detectPropCallbackNames(sf: SourceFile): Set<string> {
           if (name.startsWith('on') && name.length > 2) {
             const init = child.getInitializer();
             if (init) {
-              const initText = init.getText().replace(/[{}]/g, '').trim();
+              const initText = Node.isJsxExpression(init) ? (init.getExpression()?.getText() ?? '') : init.getText();
               names.add(initText);
               names.add(name);
             }

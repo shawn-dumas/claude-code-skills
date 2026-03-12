@@ -285,7 +285,7 @@ function classifyMultiStmtHandler(node: Node, ctx: NodeContext): JsxViolation | 
   if (!Node.isJsxAttribute(node)) return null;
 
   const attrName = node.getNameNode().getText();
-  if (!/^on[A-Z]/.test(attrName)) return null;
+  if (!(attrName.startsWith('on') && attrName.length > 2 && attrName[2] >= 'A' && attrName[2] <= 'Z')) return null;
 
   const initializer = node.getInitializer();
   if (!initializer || !Node.isJsxExpression(initializer)) return null;

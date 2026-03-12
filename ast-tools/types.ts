@@ -16,12 +16,6 @@ export const MAY_REMAIN_HOOKS = [
 ] as const;
 
 /**
- * Pattern for scoped context hooks (useXxxScope).
- * Matched separately from the list above.
- */
-export const SCOPED_HOOK_PATTERN = /^use\w+Scope$/;
-
-/**
  * Known context hooks. Import path classification takes priority,
  * but these names are used as a fallback when import path is ambiguous.
  */

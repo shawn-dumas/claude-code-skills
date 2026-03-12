@@ -97,8 +97,8 @@ function extractFetchApiSchema(callNode: Node): string | null {
 // ---------------------------------------------------------------------------
 
 function classifyHookName(name: string): 'QUERY_HOOK_DEF' | 'MUTATION_HOOK_DEF' | null {
-  if (/^use\w+Query$/.test(name)) return 'QUERY_HOOK_DEF';
-  if (/^use\w+Mutation$/.test(name)) return 'MUTATION_HOOK_DEF';
+  if (name.startsWith('use') && name.endsWith('Query') && name.length > 8) return 'QUERY_HOOK_DEF';
+  if (name.startsWith('use') && name.endsWith('Mutation') && name.length > 11) return 'MUTATION_HOOK_DEF';
   return null;
 }
 
@@ -189,7 +189,7 @@ function findQueryKeyDefinitions(sf: SourceFile): DataLayerUsage[] {
   for (const varStmt of sf.getVariableStatements()) {
     for (const decl of varStmt.getDeclarationList().getDeclarations()) {
       const name = decl.getName();
-      if (!/(Keys|QueryKeys)$/.test(name)) continue;
+      if (!name.endsWith('Keys')) continue;
 
       let init = decl.getInitializer();
       if (!init) continue;
@@ -252,7 +252,7 @@ function collectFetchApiUsages(node: Node, line: number, column: number, contain
   ];
 
   // Also emit API_ENDPOINT if URL matches /api/ pattern
-  if (url && /\/api\//.test(url)) {
+  if (url && url.includes('/api/')) {
     results.push({
       type: 'API_ENDPOINT',
       line,

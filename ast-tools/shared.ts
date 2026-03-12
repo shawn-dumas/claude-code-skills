@@ -91,7 +91,7 @@ const SKIP_DIRS = new Set(['node_modules', '.next', 'dist']);
 const EXCLUDED_SUFFIXES = ['.spec.ts', '.spec.tsx', '.test.ts', '.test.tsx', '.d.ts'];
 
 function isProductionTsFile(name: string): boolean {
-  if (!/\.(ts|tsx)$/.test(name)) return false;
+  if (!name.endsWith('.ts') && !name.endsWith('.tsx')) return false;
   return !EXCLUDED_SUFFIXES.some(suffix => name.endsWith(suffix));
 }
 
@@ -121,7 +121,7 @@ export function getFilesInDirectory(dirPath: string): string[] {
 // ---------------------------------------------------------------------------
 
 export function isPascalCase(name: string): boolean {
-  return /^[A-Z]/.test(name);
+  return name.length > 0 && name[0] >= 'A' && name[0] <= 'Z';
 }
 
 const JSX_KINDS = new Set([SyntaxKind.JsxElement, SyntaxKind.JsxSelfClosingElement, SyntaxKind.JsxFragment]);

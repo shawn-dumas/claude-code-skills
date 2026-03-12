@@ -13,7 +13,7 @@ import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
 import { getBody, detectComponents } from './shared';
 import type { ReactInventory, ComponentInfo, HookCall, UseEffectInfo, PropField } from './types';
-import { MAY_REMAIN_HOOKS, SCOPED_HOOK_PATTERN, KNOWN_CONTEXT_HOOKS, REACT_BUILTIN_HOOKS } from './types';
+import { MAY_REMAIN_HOOKS, KNOWN_CONTEXT_HOOKS, REACT_BUILTIN_HOOKS } from './types';
 
 // ---------------------------------------------------------------------------
 // Import resolution (lightweight, file-scoped)
@@ -63,7 +63,7 @@ const TANSTACK_QUERY_HOOKS = new Set(['useQuery', 'useMutation', 'useInfiniteQue
 
 function classifyByNameList(hookName: string): HookClassification | null {
   if ((MAY_REMAIN_HOOKS as readonly string[]).includes(hookName)) return 'may-remain';
-  if (SCOPED_HOOK_PATTERN.test(hookName)) return 'may-remain';
+  if (hookName.startsWith('use') && hookName.endsWith('Scope') && hookName.length > 8) return 'may-remain';
   if ((REACT_BUILTIN_HOOKS as readonly string[]).includes(hookName)) return 'state-utility';
   return null;
 }
@@ -118,7 +118,7 @@ function classifyHook(
 // ---------------------------------------------------------------------------
 
 function isHookCall(name: string): boolean {
-  return /^use[A-Z]/.test(name) || name === 'useId';
+  return (name.startsWith('use') && name.length > 3 && name[3] >= 'A' && name[3] <= 'Z') || name === 'useId';
 }
 
 function getDestructuredNames(decl: VariableDeclaration | null): string[] {
@@ -314,41 +314,17 @@ function analyzeCleanup(callback: Node): boolean {
   return false;
 }
 
-type EffectBodyKey = 'callsFetch' | 'callsNavigation' | 'callsStorage' | 'callsToast' | 'hasTimers';
-
-const EFFECT_BODY_PATTERNS: Array<{ key: EffectBodyKey; pattern: RegExp }> = [
-  { key: 'callsFetch', pattern: /\bfetch\s*\(|\bfetchApi\s*\(|\baxios\b/ },
-  { key: 'callsNavigation', pattern: /\brouter\.push\b|\brouter\.replace\b|\bnavigate\s*\(/ },
-  {
-    key: 'callsStorage',
-    pattern: /\blocalStorage\b|\bsessionStorage\b|\breadStorage\b|\bwriteStorage\b|\bremoveStorage\b/,
-  },
-  { key: 'callsToast', pattern: /\btoast\w*\s*\(/ },
-  { key: 'hasTimers', pattern: /\bsetTimeout\s*\(|\bsetInterval\s*\(|\brequestAnimationFrame\s*\(/ },
-];
-
-function detectStateSetters(bodyText: string, knownSetters: Set<string>): string[] {
-  const found: string[] = [];
-  for (const setter of knownSetters) {
-    const setterPattern = new RegExp(`\\b${setter}\\s*\\(`);
-    if (setterPattern.test(bodyText)) {
-      found.push(setter);
-    }
-  }
-  if (/\bdispatch\s*\(/.test(bodyText) && !found.includes('dispatch')) {
-    found.push('dispatch');
-  }
-  return found;
-}
+const FETCH_FUNCTIONS = new Set(['fetch', 'fetchApi']);
+const TIMER_FUNCTIONS = new Set(['setTimeout', 'setInterval', 'requestAnimationFrame']);
+const ROUTER_NAV_METHODS = new Set(['push', 'replace']);
+const STORAGE_OBJECTS = new Set(['localStorage', 'sessionStorage']);
+const STORAGE_IDENTIFIERS = new Set(['localStorage', 'sessionStorage', 'readStorage', 'writeStorage', 'removeStorage']);
+const NAVIGATE_FUNCTIONS = new Set(['navigate']);
 
 function analyzeEffectBody(callback: Node, knownSetters: Set<string>): UseEffectInfo['bodyAnalysis'] {
-  const bodyText = callback.getText();
-
-  const stateSetters = detectStateSetters(bodyText, knownSetters);
-
   const result: UseEffectInfo['bodyAnalysis'] = {
-    callsSetState: stateSetters.length > 0,
-    stateSetters,
+    callsSetState: false,
+    stateSetters: [],
     callsFetch: false,
     callsNavigation: false,
     callsStorage: false,
@@ -356,12 +332,45 @@ function analyzeEffectBody(callback: Node, knownSetters: Set<string>): UseEffect
     hasTimers: false,
   };
 
-  for (const { key, pattern } of EFFECT_BODY_PATTERNS) {
-    if (pattern.test(bodyText)) {
-      result[key] = true;
-    }
-  }
+  const stateSetters: string[] = [];
 
+  callback.forEachDescendant(node => {
+    if (Node.isCallExpression(node)) {
+      const callee = node.getExpression();
+
+      // Direct function calls: check identifier name
+      if (Node.isIdentifier(callee)) {
+        const name = callee.getText();
+        if (FETCH_FUNCTIONS.has(name)) result.callsFetch = true;
+        if (TIMER_FUNCTIONS.has(name)) result.hasTimers = true;
+        if (name === 'toast') result.callsToast = true;
+        if (NAVIGATE_FUNCTIONS.has(name)) result.callsNavigation = true;
+        if (knownSetters.has(name) && !stateSetters.includes(name)) stateSetters.push(name);
+        if (name === 'dispatch' && !stateSetters.includes('dispatch')) stateSetters.push('dispatch');
+      }
+
+      // Property access calls: obj.method()
+      if (Node.isPropertyAccessExpression(callee)) {
+        const obj = callee.getExpression().getText();
+        const method = callee.getName();
+        if (obj === 'router' && ROUTER_NAV_METHODS.has(method)) result.callsNavigation = true;
+        if (STORAGE_OBJECTS.has(obj)) result.callsStorage = true;
+        if (obj === 'toast') result.callsToast = true;
+        // axios.get(), axios.post(), etc.
+        if (obj === 'axios') result.callsFetch = true;
+      }
+    }
+
+    // Bare identifier references for storage and axios
+    if (Node.isIdentifier(node)) {
+      const name = node.getText();
+      if (STORAGE_IDENTIFIERS.has(name)) result.callsStorage = true;
+      if (name === 'axios') result.callsFetch = true;
+    }
+  });
+
+  result.stateSetters = stateSetters;
+  result.callsSetState = stateSetters.length > 0;
   return result;
 }
 
@@ -549,7 +558,7 @@ function propSignatureToField(prop: PropertySignature): PropField {
 function isFunctionType(typeText: string, name: string): boolean {
   if (typeText.startsWith('(') && typeText.includes('=>')) return true;
   if (typeText.includes('=>')) return true;
-  if (/^on[A-Z]/.test(name)) return true;
+  if (name.startsWith('on') && name.length > 2 && name[2] >= 'A' && name[2] <= 'Z') return true;
   return false;
 }
 
