@@ -52,17 +52,18 @@ No silent guessing.
 
 ## Evolution
 
-The AST tools evolved through three eras:
+The AST tools evolved through four eras:
 
-| Era          | Approach                            | Classification Location                            |
-| ------------ | ----------------------------------- | -------------------------------------------------- |
-| Pre-AST      | grep + manual reading               | Human judgment in reports                          |
-| Original AST | Tools with embedded classifications | `hookCalls[].classification: "service"`            |
-| Current      | Observation/assessment separation   | Observations in tools, assessments in interpreters |
+| Era            | Approach                            | Classification Location                            | Performance   |
+| -------------- | ----------------------------------- | -------------------------------------------------- | ------------- |
+| Pre-AST        | grep + manual reading               | Human judgment in reports                          | 24s (teams/)  |
+| Original AST   | Tools with embedded classifications | `hookCalls[].classification: "service"`            | 78s (teams/)  |
+| Current        | Observation/assessment separation   | Observations in tools, assessments in interpreters | 68s (teams/)  |
+| Current+Cached | Current + content-addressed caching | Same as Current                                    | 9.4s (teams/) |
 
-**The bottom line:** Current uses 3x more tool output tokens but zero
-classification reasoning tokens, is idempotent, and produces traceable
-evidence chains.
+**The bottom line:** Current+Cached delivers the richest data (confidence levels,
+rationale, traceability) at near-grep speeds. The cache provides 76x speedup for
+full codebase scans.
 
 ### Why This Matters
 
@@ -86,6 +87,67 @@ The current architecture emerged from limitations of the original AST approach:
 - No confidence levels (everything was certain or "unknown")
 - No rationale (couldn't explain WHY something was classified)
 - No traceability (couldn't link findings to source evidence)
+
+## Caching
+
+All observation tools support content-addressed caching for massive speedups
+on repeated analysis.
+
+### How It Works
+
+```
+File Content -> SHA256 Hash -> Cache Lookup
+                                  |
+                         +--------+--------+
+                         |                 |
+                     Cache Hit         Cache Miss
+                         |                 |
+                    Return JSON       Run Analysis
+                                          |
+                                    Write to Cache
+                                          |
+                                     Return JSON
+```
+
+- Cache location: `.ast-cache/` (gitignored)
+- Key format: `{tool}-{contentHash}.json`
+- Auto-invalidates when `ast-config.ts` changes (config hash in manifest)
+
+### Usage
+
+```bash
+# Warm cache for entire codebase (one-time, ~66s)
+npx tsx scripts/AST/ast-cache-warm.ts
+
+# Warm cache for specific directory
+npx tsx scripts/AST/ast-cache-warm.ts src/ui/page_blocks/teams/
+
+# Subsequent tool runs use cache automatically
+npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/teams/
+# Output: Cache: 12 hits, 0 misses
+
+# Bypass cache and force re-analysis
+npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/teams/ --no-cache
+```
+
+### Performance
+
+| Scenario             | Cold (no cache) | Warm (cached) | Speedup |
+| -------------------- | --------------- | ------------- | ------- |
+| teams/ (16 files)    | 11.9s           | 9.4s          | 1.3x    |
+| Full codebase (1431) | 66s             | 865ms         | 76x     |
+
+**Why speedup varies:** ts-morph initialization is ~500ms fixed cost per tool
+invocation. For small directories, this overhead dominates. For large directories,
+analysis time dominates and caching provides dramatic speedup.
+
+### Cache Invalidation
+
+The cache auto-invalidates in these scenarios:
+
+1. **File content changes:** SHA256 hash differs
+2. **Config changes:** `ast-config.ts` modification time changes
+3. **Manual clear:** `rm -rf .ast-cache/`
 
 ## Tool Inventory
 
