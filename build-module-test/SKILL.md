@@ -34,11 +34,24 @@ npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
 ```
 
-Use imports to classify dependencies (boundary vs internal) for the
-mock strategy decision. Use complexity to identify high-complexity
-functions that need more test branches. Use side-effects to determine
-whether the module is truly pure or has hidden I/O (console, toast,
-timer, analytics calls), directly feeding the Step 2 classification.
+Use import observations to classify dependencies for mock strategy:
+
+- `STATIC_IMPORT` observations with `source` field identify all dependencies
+- Check `isTypeOnly` evidence to distinguish type imports (no mock needed)
+- Imports from boundary packages (fetch, fs, database clients) need mocking
+- Imports from internal modules should NOT be mocked
+
+Use complexity observations to identify high-complexity functions:
+
+- `FUNCTION_COMPLEXITY` observations with `cyclomaticComplexity > 5` need
+  more test branches to cover all paths
+- High `maxNestingDepth` indicates complex conditional logic
+
+Use side-effect observations to classify the module:
+
+- `CONSOLE_CALL`, `TOAST_CALL`, `TIMER_CALL`, `POSTHOG_CALL`, `WINDOW_MUTATION`
+  observations indicate the module is NOT pure
+- Presence of side effects changes strategy from zero-mocks to boundary-mocks
 
 ## Step 1: Read the production file
 

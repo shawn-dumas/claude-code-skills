@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeDataLayer, analyzeDataLayerDirectory } from '../ast-data-layer';
+import { analyzeDataLayer, analyzeDataLayerDirectory, extractDataLayerObservations } from '../ast-data-layer';
 import type { DataLayerAnalysis, DataLayerUsageType } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -189,5 +189,97 @@ describe('analyzeDataLayerDirectory', () => {
     for (const r of results) {
       expect(r.filePath).toBeDefined();
     }
+  });
+});
+
+describe('extractDataLayerObservations', () => {
+  it('extracts observations from analysis results', () => {
+    const analysis = analyzeFixture('data-layer-samples.ts');
+    const result = extractDataLayerObservations(analysis);
+
+    expect(result.filePath).toBe(analysis.filePath);
+    expect(result.observations.length).toBe(analysis.usages.length);
+  });
+
+  it('maps usage types to observation kinds correctly', () => {
+    const analysis = analyzeFixture('data-layer-samples.ts');
+    const result = extractDataLayerObservations(analysis);
+
+    const queryHookObs = result.observations.filter(o => o.kind === 'QUERY_HOOK_DEFINITION');
+    const mutationHookObs = result.observations.filter(o => o.kind === 'MUTATION_HOOK_DEFINITION');
+    const queryKeyObs = result.observations.filter(o => o.kind === 'QUERY_KEY_FACTORY');
+
+    expect(queryHookObs.length).toBe(analysis.summary.QUERY_HOOK_DEF);
+    expect(mutationHookObs.length).toBe(analysis.summary.MUTATION_HOOK_DEF);
+    expect(queryKeyObs.length).toBe(analysis.summary.QUERY_KEY_DEF);
+  });
+
+  it('observation evidence contains name and containingFunction', () => {
+    const analysis = analyzeFixture('data-layer-samples.ts');
+    const result = extractDataLayerObservations(analysis);
+
+    for (const obs of result.observations) {
+      expect(obs.evidence.name).toBeDefined();
+      expect(obs.evidence.containingFunction).toBeDefined();
+    }
+  });
+
+  it('FETCH_API_CALL observations include url in evidence', () => {
+    const analysis = analyzeFixture('data-layer-samples.ts');
+    const result = extractDataLayerObservations(analysis);
+
+    const fetchObs = result.observations.filter(o => o.kind === 'FETCH_API_CALL');
+    expect(fetchObs.length).toBeGreaterThan(0);
+
+    const obsWithUrl = fetchObs.find(o => o.evidence.url);
+    expect(obsWithUrl).toBeDefined();
+  });
+
+  it('QUERY_KEY_FACTORY observations include keys in evidence', () => {
+    const analysis = analyzeFixture('data-layer-samples.ts');
+    const result = extractDataLayerObservations(analysis);
+
+    const keyObs = result.observations.filter(o => o.kind === 'QUERY_KEY_FACTORY');
+    expect(keyObs.length).toBeGreaterThan(0);
+
+    const obsWithKeys = keyObs.find(o => o.evidence.keys && o.evidence.keys.length > 0);
+    expect(obsWithKeys).toBeDefined();
+  });
+});
+
+describe('negative fixture tests', () => {
+  it('detects useCustomQuery as QUERY_HOOK_DEF (name pattern match)', () => {
+    const analysis = analyzeFixture('data-layer-negative.ts');
+    const queryHooks = usagesOfType(analysis, 'QUERY_HOOK_DEF');
+
+    // useCustomQuery should be detected based on name pattern
+    const customQuery = queryHooks.find(h => h.name === 'useCustomQuery');
+    expect(customQuery).toBeDefined();
+  });
+
+  it('detects itemsQueryKeys as QUERY_KEY_DEF (proper factory pattern)', () => {
+    const analysis = analyzeFixture('data-layer-negative.ts');
+    const keyDefs = usagesOfType(analysis, 'QUERY_KEY_DEF');
+
+    // itemsQueryKeys should be detected (proper object literal with as const)
+    const itemsKeys = keyDefs.find(k => k.name === 'itemsQueryKeys');
+    expect(itemsKeys).toBeDefined();
+  });
+
+  it('does not detect colorKeys as QUERY_KEY_DEF (array, not object)', () => {
+    const analysis = analyzeFixture('data-layer-negative.ts');
+    const keyDefs = usagesOfType(analysis, 'QUERY_KEY_DEF');
+
+    // colorKeys is an array, not a query key factory object
+    const colorKeys = keyDefs.find(k => k.name === 'colorKeys');
+    expect(colorKeys).toBeUndefined();
+  });
+
+  it('does not detect bare fetch() as FETCH_API_CALL', () => {
+    const analysis = analyzeFixture('data-layer-negative.ts');
+    const fetchCalls = usagesOfType(analysis, 'FETCH_API_CALL');
+
+    // The bare fetch() call should not be detected
+    expect(fetchCalls.length).toBe(0);
   });
 });

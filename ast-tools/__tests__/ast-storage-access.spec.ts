@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeStorageAccess, analyzeStorageAccessDirectory } from '../ast-storage-access';
-import type { StorageAccessAnalysis, StorageAccessType } from '../types';
+import { analyzeStorageAccess, analyzeStorageAccessDirectory, extractStorageObservations } from '../ast-storage-access';
+import { getSourceFile } from '../project';
+import type { StorageAccessAnalysis, StorageAccessType, StorageObservation, StorageObservationKind } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
 
@@ -15,6 +16,10 @@ function analyzeFixture(name: string): StorageAccessAnalysis {
 
 function accessesOfType(analysis: StorageAccessAnalysis, type: StorageAccessType) {
   return analysis.accesses.filter(a => a.type === type);
+}
+
+function observationsOfKind(observations: StorageObservation[], kind: StorageObservationKind) {
+  return observations.filter(o => o.kind === kind);
 }
 
 describe('ast-storage-access', () => {
@@ -259,5 +264,105 @@ describe('analyzeStorageAccessDirectory', () => {
     for (const r of results) {
       expect(r.filePath).toBeDefined();
     }
+  });
+});
+
+describe('observations', () => {
+  it('emits observations alongside legacy accesses', () => {
+    const result = analyzeFixture('storage-access-samples.ts');
+    expect(result.observations).toBeDefined();
+    expect(result.observations.length).toBeGreaterThan(0);
+  });
+
+  it('emits DIRECT_STORAGE_CALL for localStorage methods', () => {
+    const result = analyzeFixture('storage-access-samples.ts');
+    const direct = observationsOfKind(result.observations, 'DIRECT_STORAGE_CALL');
+    expect(direct.length).toBeGreaterThanOrEqual(1);
+    const getItem = direct.find(o => o.evidence.method === 'getItem');
+    expect(getItem).toBeDefined();
+    expect(getItem!.evidence.storageType).toBe('localStorage');
+  });
+
+  it('emits TYPED_STORAGE_CALL for readStorage/writeStorage/removeStorage', () => {
+    const result = analyzeFixture('storage-access-samples.ts');
+    const typed = observationsOfKind(result.observations, 'TYPED_STORAGE_CALL');
+    expect(typed.length).toBeGreaterThanOrEqual(3);
+    expect(typed.some(o => o.evidence.helperName === 'readStorage')).toBe(true);
+    expect(typed.some(o => o.evidence.helperName === 'writeStorage')).toBe(true);
+    expect(typed.some(o => o.evidence.helperName === 'removeStorage')).toBe(true);
+  });
+
+  it('emits JSON_PARSE_CALL for unguarded JSON.parse', () => {
+    const result = analyzeFixture('storage-access-samples.ts');
+    const jsonParse = observationsOfKind(result.observations, 'JSON_PARSE_CALL');
+    expect(jsonParse.length).toBeGreaterThanOrEqual(1);
+    expect(jsonParse[0].evidence.isZodGuarded).toBe(false);
+  });
+
+  it('emits JSON_PARSE_ZOD_GUARDED for Zod-wrapped JSON.parse', () => {
+    const result = analyzeFixture('storage-access-samples.ts');
+    const guarded = observationsOfKind(result.observations, 'JSON_PARSE_ZOD_GUARDED');
+    expect(guarded.length).toBeGreaterThanOrEqual(2);
+    expect(guarded[0].evidence.isZodGuarded).toBe(true);
+  });
+
+  it('emits COOKIE_CALL for Cookies.get/set/remove and document.cookie', () => {
+    const result = analyzeFixture('storage-access-samples.ts');
+    const cookies = observationsOfKind(result.observations, 'COOKIE_CALL');
+    expect(cookies.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('includes file path in observations', () => {
+    const result = analyzeFixture('storage-access-samples.ts');
+    for (const obs of result.observations) {
+      expect(obs.file).toContain('storage-access-samples.ts');
+    }
+  });
+});
+
+describe('extractStorageObservations', () => {
+  it('extracts observations directly from source file', () => {
+    const sf = getSourceFile(fixturePath('storage-access-samples.ts'));
+    const observations = extractStorageObservations(sf);
+    expect(observations.length).toBeGreaterThan(0);
+  });
+});
+
+describe('negative fixtures', () => {
+  it('still detects shadowed localStorage (no scope tracking)', () => {
+    const result = analyzeFixture('storage-negative.ts');
+    const direct = accessesOfType(result, 'DIRECT_LOCAL_STORAGE');
+    // Shadowed localStorage.getItem is still detected
+    expect(direct.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('does NOT flag method call on object with readStorage method', () => {
+    const result = analyzeFixture('storage-negative.ts');
+    const observations = result.observations;
+    // store.readStorage() should NOT be TYPED_STORAGE_CALL
+    const typed = observationsOfKind(observations, 'TYPED_STORAGE_CALL');
+    // There should be 0 typed storage calls in negative fixture
+    expect(typed.length).toBe(0);
+  });
+
+  it('detects JSON.parse even in non-storage context', () => {
+    const result = analyzeFixture('storage-negative.ts');
+    const jsonParse = observationsOfKind(result.observations, 'JSON_PARSE_CALL');
+    expect(jsonParse.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('detects sessionStorage.length as STORAGE_PROPERTY_ACCESS', () => {
+    const result = analyzeFixture('storage-negative.ts');
+    const propAccess = observationsOfKind(result.observations, 'STORAGE_PROPERTY_ACCESS');
+    expect(propAccess.length).toBeGreaterThanOrEqual(1);
+    const lengthAccess = propAccess.find(o => o.evidence.method === 'length');
+    expect(lengthAccess).toBeDefined();
+  });
+
+  it('does NOT flag MyCookies.get as COOKIE_CALL', () => {
+    const result = analyzeFixture('storage-negative.ts');
+    const cookies = observationsOfKind(result.observations, 'COOKIE_CALL');
+    // Only Cookies.* calls should be flagged, not MyCookies.*
+    expect(cookies.length).toBe(0);
   });
 });

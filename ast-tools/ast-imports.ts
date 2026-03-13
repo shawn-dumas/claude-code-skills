@@ -4,7 +4,16 @@ import fs from 'fs';
 import { getProject, getSourceFile, findConsumerFiles, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
 import { getFilesInDirectory } from './shared';
-import type { DependencyGraph, FileNode, ImportInfo, ExportInfo } from './types';
+import { astConfig } from './ast-config';
+import type {
+  DependencyGraph,
+  FileNode,
+  ImportInfo,
+  ExportInfo,
+  ImportObservation,
+  ImportObservationKind,
+  ObservationResult,
+} from './types';
 
 // ---------------------------------------------------------------------------
 // Import extraction
@@ -253,7 +262,7 @@ function resolveViaExportDeclarations(sf: SourceFile, importSource: string): str
 /** Manual filesystem fallback for relative imports. */
 function resolveRelativeFallback(importSource: string, importingFilePath: string): string | null {
   const dir = path.dirname(importingFilePath);
-  const extensions = ['.ts', '.tsx', '/index.ts', '/index.tsx'];
+  const extensions = astConfig.fileDiscovery.moduleResolutionExtensions;
   for (const ext of extensions) {
     const candidate = path.resolve(dir, importSource + ext);
     if (fs.existsSync(candidate)) return candidate;
@@ -264,7 +273,8 @@ function resolveRelativeFallback(importSource: string, importingFilePath: string
 }
 
 function resolveModulePath(importSource: string, importingFilePath: string): string | null {
-  if (!importSource.startsWith('.') && !importSource.startsWith('@/')) {
+  const pathAliasPrefix = astConfig.fileDiscovery.pathAliasPrefix;
+  if (!importSource.startsWith('.') && !importSource.startsWith(pathAliasPrefix)) {
     return null;
   }
 
@@ -465,7 +475,8 @@ function traceBarrelChain(exportName: string, filePath: string, visited = new Se
 
 function isNextJsPage(filePath: string): boolean {
   const rel = path.relative(PROJECT_ROOT, filePath);
-  return rel.startsWith('src/pages/') || rel.startsWith('src/pages\\');
+  const prefix = astConfig.imports.nextJsPagePrefix;
+  return rel.startsWith(prefix) || rel.startsWith(prefix.replace(/\//g, '\\'));
 }
 
 // ---------------------------------------------------------------------------
@@ -620,6 +631,150 @@ function findConsumersForFile(targetFile: FileNode, searchDir?: string): FileNod
   }
 
   return consumers;
+}
+
+// ---------------------------------------------------------------------------
+// Observation extraction
+// ---------------------------------------------------------------------------
+
+function extractStaticImportObservations(file: FileNode): ImportObservation[] {
+  const observations: ImportObservation[] = [];
+
+  for (const imp of file.imports) {
+    // Skip dynamic imports (those with '*' specifiers are usually dynamic)
+    // Side-effect imports have empty specifiers
+    const isSideEffect = imp.specifiers.length === 0;
+    const isDynamic = imp.specifiers.length === 1 && imp.specifiers[0] === '*';
+
+    if (isSideEffect) {
+      observations.push({
+        kind: 'SIDE_EFFECT_IMPORT' as ImportObservationKind,
+        file: file.relativePath,
+        line: imp.line,
+        evidence: {
+          source: imp.source,
+          specifiers: imp.specifiers,
+          isTypeOnly: imp.isTypeOnly,
+        },
+      });
+    } else if (isDynamic) {
+      observations.push({
+        kind: 'DYNAMIC_IMPORT' as ImportObservationKind,
+        file: file.relativePath,
+        line: imp.line,
+        evidence: {
+          source: imp.source,
+          specifiers: imp.specifiers,
+          isTypeOnly: imp.isTypeOnly,
+        },
+      });
+    } else {
+      observations.push({
+        kind: 'STATIC_IMPORT' as ImportObservationKind,
+        file: file.relativePath,
+        line: imp.line,
+        evidence: {
+          source: imp.source,
+          specifiers: imp.specifiers,
+          isTypeOnly: imp.isTypeOnly,
+        },
+      });
+    }
+  }
+
+  return observations;
+}
+
+function extractExportObservations(file: FileNode): ImportObservation[] {
+  const observations: ImportObservation[] = [];
+
+  for (const exp of file.exports) {
+    if (exp.kind === 'reexport') {
+      observations.push({
+        kind: 'REEXPORT_IMPORT' as ImportObservationKind,
+        file: file.relativePath,
+        line: exp.line,
+        evidence: {
+          exportName: exp.name,
+          exportKind: exp.kind,
+          isTypeOnly: exp.isTypeOnly,
+        },
+      });
+    } else {
+      observations.push({
+        kind: 'EXPORT_DECLARATION' as ImportObservationKind,
+        file: file.relativePath,
+        line: exp.line,
+        evidence: {
+          exportName: exp.name,
+          exportKind: exp.kind,
+          isTypeOnly: exp.isTypeOnly,
+        },
+      });
+    }
+  }
+
+  return observations;
+}
+
+function extractCircularDependencyObservations(circularDeps: string[][], files: FileNode[]): ImportObservation[] {
+  const observations: ImportObservation[] = [];
+  const fileMap = new Map(files.map(f => [f.relativePath, f]));
+
+  for (const cycle of circularDeps) {
+    if (cycle.length > 0) {
+      const firstFile = fileMap.get(cycle[0]);
+      observations.push({
+        kind: 'CIRCULAR_DEPENDENCY' as ImportObservationKind,
+        file: cycle[0],
+        line: firstFile?.imports[0]?.line ?? 1,
+        evidence: {
+          cyclePath: cycle,
+        },
+      });
+    }
+  }
+
+  return observations;
+}
+
+function extractDeadExportObservations(
+  deadExports: Array<{ file: string; export: string; line: number }>,
+): ImportObservation[] {
+  return deadExports.map(dead => ({
+    kind: 'DEAD_EXPORT_CANDIDATE' as ImportObservationKind,
+    file: dead.file,
+    line: dead.line,
+    evidence: {
+      exportName: dead.export,
+      consumerCount: 0,
+      isBarrelReexported: false,
+      isNextJsPage: false,
+    },
+  }));
+}
+
+/**
+ * Extract observations from a dependency graph.
+ * This is the observation-layer API for ast-imports.
+ */
+export function extractImportObservations(graph: DependencyGraph): ObservationResult<ImportObservation> {
+  const allObservations: ImportObservation[] = [];
+
+  // Per-file observations
+  for (const file of graph.files) {
+    allObservations.push(...extractStaticImportObservations(file));
+    allObservations.push(...extractExportObservations(file));
+  }
+
+  // Cross-file observations
+  allObservations.push(...extractCircularDependencyObservations(graph.circularDeps, graph.files));
+  allObservations.push(...extractDeadExportObservations(graph.deadExports));
+
+  return {
+    filePath: graph.files.length > 0 ? graph.files[0].relativePath : '',
+    observations: allObservations,
+  };
 }
 
 // ---------------------------------------------------------------------------

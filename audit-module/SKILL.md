@@ -9,32 +9,97 @@ argument-hint: <path/to/module.ts>
 Audit the TypeScript module at `$ARGUMENTS`. This is a read-only diagnostic -- do not
 modify any files. Produce a complete violation report.
 
-## Step 0: Run AST analysis tools
+## Step 0: Run AST analysis tools and interpreters
 
 ```bash
+# --- Observation-producing tools ---
+
+# Dependency graph (emits STATIC_IMPORT, DEAD_EXPORT_CANDIDATE observations)
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+
+# Complexity (emits FUNCTION_COMPLEXITY observations)
 npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
+
+# Type safety (emits AS_ANY_CAST, NON_NULL_ASSERTION, TRUST_BOUNDARY_CAST, EXPLICIT_ANY_ANNOTATION observations)
 npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+
+# Side effects (emits CONSOLE_CALL, TOAST_CALL, TIMER_CALL, POSTHOG_CALL observations)
 npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+
+# Environment access (emits PROCESS_ENV_ACCESS, ENV_WRAPPER_ACCESS, ENV_WRAPPER_IMPORT observations)
 npx tsx scripts/AST/ast-env-access.ts $ARGUMENTS --pretty
+
+# Storage access (emits DIRECT_STORAGE_CALL, TYPED_STORAGE_CALL, JSON_PARSE_CALL observations)
 npx tsx scripts/AST/ast-storage-access.ts $ARGUMENTS --pretty
+
+# --- Interpreters ---
+
+# Dead code detection (emits DEAD_EXPORT, POSSIBLY_DEAD_EXPORT, CIRCULAR_DEPENDENCY assessments)
+npx tsx scripts/AST/ast-interpret-dead-code.ts $ARGUMENTS --pretty
 ```
 
-Use the imports tool for G7 (dead exports, consumer list), the complexity
-tool for G4 (per-function complexity scores), and the type safety tool
-for G8 (any/cast/assertion violations). Use side-effects for G6 (console,
-toast, timer, analytics calls that indicate impure code). Use env-access
-for G2/G5 (ambient `process.env` reads vs validated env modules). Use
-storage-access for G5/G6 (raw `localStorage`/`sessionStorage` calls vs
-`typedStorage` wrappers, storage reads without Zod schemas).
+### Using observations and assessments
+
+**Observations** are structural facts with no classification (line X has
+an `as any` cast, line Y has complexity 12). They populate inventory tables
+and evidence columns.
+
+**Assessments** are interpretations over observations with confidence
+levels and rationale. Use `DEAD_EXPORT` assessments for G7 (narrow exports).
+
+### Tool-to-principle mapping
+
+| Principle               | Tool                                | Observations/Assessments used                                                     |
+| ----------------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
+| G4 Low Complexity       | ast-complexity                      | `FUNCTION_COMPLEXITY` observations with `cyclomaticComplexity` evidence           |
+| G5 Parse Don't Validate | ast-type-safety, ast-storage-access | `TRUST_BOUNDARY_CAST`, `JSON_PARSE_CALL` observations                             |
+| G6 Pure Core            | ast-side-effects                    | `CONSOLE_CALL`, `TOAST_CALL`, `TIMER_CALL`, `POSTHOG_CALL` observations           |
+| G7 Narrow Exports       | ast-interpret-dead-code             | `DEAD_EXPORT`, `POSSIBLY_DEAD_EXPORT` assessments                                 |
+| G8 Types as Docs        | ast-type-safety                     | `AS_ANY_CAST`, `EXPLICIT_ANY_ANNOTATION` observations                             |
+| G2/G5 Env access        | ast-env-access                      | `PROCESS_ENV_ACCESS` observations (violations), `ENV_WRAPPER_ACCESS` (compliant)  |
+| G5/G6 Storage           | ast-storage-access                  | `DIRECT_STORAGE_CALL` observations (violations), `TYPED_STORAGE_CALL` (compliant) |
+
+## Report Policy
 
 ### AST-confirmed tagging
 
-When a finding is confirmed by AST tool output (a measured complexity score, a
-detected dead export, a counted `as any` occurrence, etc.), tag it `[AST-confirmed]`
-in the report. In the scorecard evidence and violation list, prefix the description
-with the tag. AST-confirmed findings carry a +1 concern-level bump in the master
-audit's Findings Index because the measurement is objective.
+An observation or assessment qualifies for `[AST-confirmed]` tagging when ALL of:
+
+- Based on structural fact (count, graph edge, syntax detection) with no interpretive leap
+- For assessments: confidence is `high`, `isCandidate: false`, `requiresManualReview: false`
+
+Examples that qualify:
+
+- `FUNCTION_COMPLEXITY` observation with complexity > threshold -> `[AST-confirmed]`
+- `AS_ANY_CAST` observation -> `[AST-confirmed]`
+- `DEAD_EXPORT` assessment with high confidence -> `[AST-confirmed]`
+- `DIRECT_STORAGE_CALL` observation -> `[AST-confirmed]`
+- `PROCESS_ENV_ACCESS` observation -> `[AST-confirmed]`
+
+Examples that do NOT qualify:
+
+- `POSSIBLY_DEAD_EXPORT` -- low confidence, may have dynamic consumers
+- Any assessment where `requiresManualReview: true`
+
+### Severity bumping
+
+`[AST-confirmed]` findings get +1 concern-level bump:
+
+- Bug/Low -> Bug/Medium
+- Architecture/Medium -> Architecture/High
+
+### Complexity thresholds (report policy)
+
+These thresholds are presentation decisions, not tool configuration:
+
+- **FAIL**: cyclomatic complexity > 7 (from `FUNCTION_COMPLEXITY` observation)
+- **WARN**: cyclomatic complexity > 5
+- **Flag**: nesting depth > 2, line count > 40
+
+### Type safety concentration (report policy)
+
+Flag files for priority when `AS_ANY_CAST` observation count >= 5. This
+threshold is a skill-level escalation rule, not an interpreter judgment.
 
 ## Step 1: Read the module and build context
 
@@ -246,8 +311,10 @@ spec file path (if any), and which exports are covered vs uncovered.
 
 ### Dead exports
 
-For each export, verify it has at least one consumer. Exports with zero consumers are
-dead code. Flag for deletion, not refactoring.
+Use `DEAD_EXPORT` and `POSSIBLY_DEAD_EXPORT` assessments from ast-interpret-dead-code.
+`DEAD_EXPORT` assessments (high confidence, zero consumers) are dead code -- flag for
+deletion, not refactoring. `POSSIBLY_DEAD_EXPORT` assessments need manual review (may
+have dynamic consumers in API routes or scripts).
 
 ### Debug artifacts
 

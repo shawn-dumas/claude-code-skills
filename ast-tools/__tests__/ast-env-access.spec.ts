@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeEnvAccess, analyzeEnvAccessDirectory } from '../ast-env-access';
-import type { EnvAccessAnalysis, EnvAccessType } from '../types';
+import { analyzeEnvAccess, analyzeEnvAccessDirectory, extractEnvObservations } from '../ast-env-access';
+import { getSourceFile } from '../project';
+import type { EnvAccessAnalysis, EnvAccessType, EnvObservation, EnvObservationKind } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
 
@@ -15,6 +16,10 @@ function analyzeFixture(name: string): EnvAccessAnalysis {
 
 function accessesOfType(analysis: EnvAccessAnalysis, type: EnvAccessType) {
   return analysis.accesses.filter(a => a.type === type);
+}
+
+function observationsOfKind(observations: EnvObservation[], kind: EnvObservationKind) {
+  return observations.filter(o => o.kind === kind);
 }
 
 describe('ast-env-access', () => {
@@ -214,5 +219,98 @@ describe('analyzeEnvAccessDirectory', () => {
     for (const r of results) {
       expect(r.filePath).toBeDefined();
     }
+  });
+});
+
+describe('observations', () => {
+  it('emits observations alongside legacy accesses', () => {
+    const result = analyzeFixture('env-access-samples.ts');
+    expect(result.observations).toBeDefined();
+    expect(result.observations.length).toBeGreaterThan(0);
+  });
+
+  it('emits ENV_WRAPPER_IMPORT for clientEnv/serverEnv imports', () => {
+    const result = analyzeFixture('env-access-samples.ts');
+    const imports = observationsOfKind(result.observations, 'ENV_WRAPPER_IMPORT');
+    expect(imports.length).toBe(2);
+    expect(imports.some(o => o.evidence.wrapperName === 'clientEnv')).toBe(true);
+    expect(imports.some(o => o.evidence.wrapperName === 'serverEnv')).toBe(true);
+  });
+
+  it('emits ENV_WRAPPER_ACCESS for clientEnv.PROPERTY accesses', () => {
+    const result = analyzeFixture('env-access-samples.ts');
+    const accesses = observationsOfKind(result.observations, 'ENV_WRAPPER_ACCESS');
+    expect(accesses.length).toBeGreaterThanOrEqual(3);
+    const clientAccess = accesses.find(o => o.evidence.propertyName === 'NEXT_PUBLIC_API_URL');
+    expect(clientAccess).toBeDefined();
+    expect(clientAccess!.evidence.wrapperName).toBe('clientEnv');
+  });
+
+  it('emits PROCESS_ENV_ACCESS for direct process.env accesses', () => {
+    const result = analyzeFixture('env-access-samples.ts');
+    const direct = observationsOfKind(result.observations, 'PROCESS_ENV_ACCESS');
+    expect(direct.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('includes hasTreeShakingComment in evidence for guarded accesses', () => {
+    const result = analyzeFixture('env-access-samples.ts');
+    const direct = observationsOfKind(result.observations, 'PROCESS_ENV_ACCESS');
+    const guarded = direct.filter(o => o.evidence.hasTreeShakingComment);
+    expect(guarded.length).toBe(2);
+  });
+
+  it('emits RAW_ENV_IMPORT for const env = process.env', () => {
+    const result = analyzeFixture('env-access-samples.ts');
+    const rawImports = observationsOfKind(result.observations, 'RAW_ENV_IMPORT');
+    expect(rawImports.length).toBe(1);
+  });
+
+  it('includes file path in observations', () => {
+    const result = analyzeFixture('env-access-samples.ts');
+    for (const obs of result.observations) {
+      expect(obs.file).toContain('env-access-samples.ts');
+    }
+  });
+});
+
+describe('extractEnvObservations', () => {
+  it('extracts observations directly from source file', () => {
+    const sf = getSourceFile(fixturePath('env-access-samples.ts'));
+    const observations = extractEnvObservations(sf);
+    expect(observations.length).toBeGreaterThan(0);
+  });
+});
+
+describe('negative fixtures', () => {
+  it('still detects shadowed process.env (no scope tracking)', () => {
+    const result = analyzeFixture('env-negative.ts');
+    const observations = result.observations;
+    // Shadowed process.env.NODE_ENV is still detected
+    const direct = observationsOfKind(observations, 'PROCESS_ENV_ACCESS');
+    expect(direct.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('does NOT flag myClientEnv as ENV_WRAPPER_ACCESS', () => {
+    const result = analyzeFixture('env-negative.ts');
+    const observations = result.observations;
+    const wrapperAccesses = observationsOfKind(observations, 'ENV_WRAPPER_ACCESS');
+    // myClientEnv is not clientEnv, so should not be flagged
+    expect(wrapperAccesses.length).toBe(0);
+  });
+
+  it('detects tree-shaking guard comments', () => {
+    const result = analyzeFixture('env-negative.ts');
+    const observations = result.observations;
+    const direct = observationsOfKind(observations, 'PROCESS_ENV_ACCESS');
+    const guarded = direct.filter(o => o.evidence.hasTreeShakingComment);
+    expect(guarded.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('does NOT flag fake env import from environments/config', () => {
+    const result = analyzeFixture('env-negative.ts');
+    const observations = result.observations;
+    const imports = observationsOfKind(observations, 'ENV_WRAPPER_IMPORT');
+    // environments/config should not be detected as env wrapper import
+    expect(imports.length).toBe(0);
   });
 });

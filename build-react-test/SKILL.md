@@ -40,13 +40,19 @@ compliant (scores 7+/10), report that and suggest using a future
 ```bash
 npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-ownership.ts $ARGUMENTS --pretty
 ```
 
-Use react-inventory to classify the production file (DDAU component vs
-container vs service hook vs utility hook) based on its hook calls,
-props, and context usage. Use data-layer to identify whether the file
-calls service hooks or fetchApi, distinguishing containers from DDAU
-components and informing the mock boundary decisions in Step 2.
+Use react-inventory to extract component and hook observations (props,
+hook calls, effects). Use data-layer to identify service hook definitions
+and fetchApi calls. Use ast-interpret-ownership to classify the production
+file as `CONTAINER`, `DDAU_COMPONENT`, or `LEAF_VIOLATION`:
+
+- `CONTAINER` -- owns data orchestration, needs integration test strategy
+- `DDAU_COMPONENT` -- receives all data via props, needs unit test strategy
+- `LEAF_VIOLATION` -- calls hooks it should not, needs investigation before testing
+
+The ownership assessments directly inform the test strategy decision in Step 2.
 
 ## Step 1: Read the production file
 
@@ -66,14 +72,24 @@ Read the target file completely. Record:
 
 ## Step 2: Classify and select strategy
 
-| Classification            | Criteria                                                                   | Strategy                                         |
-| ------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------ |
-| **DDAU component**        | Receives all data via props, no service hooks, no context hooks, no router | **Unit test**                                    |
-| **Container**             | Calls service hooks, context hooks, useRouter, or wires data to children   | **Integration test**                             |
-| **Service hook**          | Calls useQuery/useMutation via useFetchApi                                 | **Hook unit test** (mock fetchApi)               |
-| **Utility hook**          | DOM/state hook, no data fetching                                           | **Hook unit test** (mock browser APIs if needed) |
-| **Pure function/utility** | No React, no side effects                                                  | **Function unit test**                           |
-| **Provider**              | Creates React context, holds state                                         | **Integration test**                             |
+Use the ownership assessment from Step 0b to determine the test strategy:
+
+| Ownership Assessment | Criteria                                                                   | Strategy                                  |
+| -------------------- | -------------------------------------------------------------------------- | ----------------------------------------- |
+| **DDAU_COMPONENT**   | Receives all data via props, no service hooks, no context hooks, no router | **Unit test**                             |
+| **CONTAINER**        | Calls service hooks, context hooks, useRouter, or wires data to children   | **Integration test**                      |
+| **LEAF_VIOLATION**   | Component with prop evidence but disallowed hooks                          | Investigate -- may need refactoring first |
+| **AMBIGUOUS**        | Mixed signals                                                              | Use data layer observations to decide     |
+
+For non-component files (hooks, utilities), check the data layer observations:
+
+| Data Layer Observation     | Classification    | Strategy                                     |
+| -------------------------- | ----------------- | -------------------------------------------- |
+| `QUERY_HOOK_DEFINITION`    | Service hook      | **Hook unit test** (mock fetchApi)           |
+| `MUTATION_HOOK_DEFINITION` | Service hook      | **Hook unit test** (mock fetchApi)           |
+| No data layer observations | Utility hook/func | **Hook unit test** or **Function unit test** |
+
+For providers, use **Integration test** strategy with consumer components.
 
 If the user forced a strategy via the second argument, use that instead.
 

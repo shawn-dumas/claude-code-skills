@@ -149,10 +149,11 @@ describe('ast-react-inventory', () => {
       expect(hookNames).toContain('useEffect');
     });
 
-    it('classifies built-in hooks as state-utility', () => {
+    it('reports built-in hooks without classification (observation-only)', () => {
       const result = analyzeFixture('component-with-effects.tsx');
       for (const hook of result.components[0].hookCalls) {
-        expect(hook.classification).toBe('state-utility');
+        // HookCall no longer has classification field -- that's now handled by interpreters
+        expect(hook).not.toHaveProperty('classification');
       }
     });
 
@@ -164,52 +165,35 @@ describe('ast-react-inventory', () => {
     });
   });
 
-  describe('hook classification', () => {
-    it('classifies locally-defined context hooks via useContext detection', () => {
+  describe('hook extraction (observation-only, no classification)', () => {
+    it('extracts hooks without classification -- classification is now done by interpreters', () => {
       const result = analyzeFixture('hook-classification.tsx');
       const comp = result.components.find(c => c.name === 'ClassifiedComponent');
       expect(comp).toBeDefined();
 
+      // Verify hooks are detected
       const authHook = comp!.hookCalls.find(h => h.name === 'useAuthState');
       expect(authHook).toBeDefined();
-      // useAuthState is in KNOWN_CONTEXT_HOOKS, should be classified as context
-      expect(authHook!.classification).toBe('context');
-    });
 
-    it('classifies useState as state-utility', () => {
-      const result = analyzeFixture('hook-classification.tsx');
-      const comp = result.components.find(c => c.name === 'ClassifiedComponent');
       const useStateHook = comp!.hookCalls.find(h => h.name === 'useState');
       expect(useStateHook).toBeDefined();
-      expect(useStateHook!.classification).toBe('state-utility');
-    });
 
-    it('classifies useMemo and useCallback as state-utility', () => {
-      const result = analyzeFixture('hook-classification.tsx');
-      const comp = result.components.find(c => c.name === 'ClassifiedComponent');
       const memoHook = comp!.hookCalls.find(h => h.name === 'useMemo');
       expect(memoHook).toBeDefined();
-      expect(memoHook!.classification).toBe('state-utility');
 
       const callbackHook = comp!.hookCalls.find(h => h.name === 'useCallback');
       expect(callbackHook).toBeDefined();
-      expect(callbackHook!.classification).toBe('state-utility');
-    });
 
-    it('classifies may-remain hooks by name', () => {
-      const result = analyzeFixture('hook-classification.tsx');
-      const comp = result.components.find(c => c.name === 'ClassifiedComponent');
       const breakpoints = comp!.hookCalls.find(h => h.name === 'useBreakpoints');
       expect(breakpoints).toBeDefined();
-      expect(breakpoints!.classification).toBe('may-remain');
-    });
 
-    it('classifies scoped hooks matching use*Scope pattern', () => {
-      const result = analyzeFixture('hook-classification.tsx');
-      const comp = result.components.find(c => c.name === 'ClassifiedComponent');
       const scoped = comp!.hookCalls.find(h => h.name === 'useFilterScope');
       expect(scoped).toBeDefined();
-      expect(scoped!.classification).toBe('may-remain');
+
+      // None should have classification -- that field was removed
+      for (const hook of comp!.hookCalls) {
+        expect(hook).not.toHaveProperty('classification');
+      }
     });
   });
 
@@ -398,7 +382,8 @@ describe('ast-react-inventory', () => {
         expect(hook).toHaveProperty('column');
         expect(hook).toHaveProperty('parentFunction');
         expect(hook).toHaveProperty('destructuredNames');
-        expect(hook).toHaveProperty('classification');
+        // classification was removed -- now handled by interpreters
+        expect(hook).not.toHaveProperty('classification');
         expect(typeof hook.line).toBe('number');
         expect(typeof hook.column).toBe('number');
       }
@@ -431,6 +416,207 @@ describe('ast-react-inventory', () => {
     });
   });
 
+  describe('effect observations', () => {
+    it('emits EFFECT_LOCATION for each useEffect', () => {
+      const result = analyzeFixture('component-with-effects.tsx');
+      const comp = result.components[0];
+      const locations = comp.effectObservations.filter(o => o.kind === 'EFFECT_LOCATION');
+
+      // Timer component has 4 useEffects
+      expect(locations).toHaveLength(4);
+      for (const loc of locations) {
+        expect(loc.evidence.parentFunction).toBe('Timer');
+        expect(loc.evidence.effectLine).toBeGreaterThan(0);
+      }
+    });
+
+    it('emits EFFECT_DEP_ENTRY for each dependency', () => {
+      const result = analyzeFixture('component-with-effects.tsx');
+      const comp = result.components[0];
+      const depEntries = comp.effectObservations.filter(o => o.kind === 'EFFECT_DEP_ENTRY');
+
+      // First effect: [initialCount] -> 1 dep
+      // Second effect: [] -> 0 deps
+      // Third effect: [count, onTick] -> 2 deps
+      // Fourth effect: [count] -> 1 dep
+      // Total: 4 deps
+      expect(depEntries).toHaveLength(4);
+      expect(depEntries.some(e => e.evidence.identifier === 'initialCount')).toBe(true);
+      expect(depEntries.some(e => e.evidence.identifier === 'count')).toBe(true);
+      expect(depEntries.some(e => e.evidence.identifier === 'onTick')).toBe(true);
+    });
+
+    it('emits EFFECT_CLEANUP_PRESENT for effects with cleanup', () => {
+      const result = analyzeFixture('component-with-effects.tsx');
+      const comp = result.components[0];
+      const cleanups = comp.effectObservations.filter(o => o.kind === 'EFFECT_CLEANUP_PRESENT');
+
+      // Only the second effect has cleanup (clearInterval)
+      expect(cleanups).toHaveLength(1);
+    });
+
+    it('emits EFFECT_STATE_SETTER_CALL for setState calls', () => {
+      const result = analyzeFixture('component-with-effects.tsx');
+      const comp = result.components[0];
+      const setterCalls = comp.effectObservations.filter(o => o.kind === 'EFFECT_STATE_SETTER_CALL');
+
+      // First effect: setCount(initialCount)
+      // Second effect: setCount in interval callback
+      // Both should emit state setter observations
+      expect(setterCalls.length).toBeGreaterThanOrEqual(2);
+      expect(setterCalls.every(s => s.evidence.identifier === 'setCount')).toBe(true);
+    });
+
+    it('emits EFFECT_FETCH_CALL for fetch calls', () => {
+      const result = analyzeFixture('component-with-effects.tsx');
+      const comp = result.components[0];
+      const fetchCalls = comp.effectObservations.filter(o => o.kind === 'EFFECT_FETCH_CALL');
+
+      // Fourth effect: fetch('/api/log', ...)
+      expect(fetchCalls).toHaveLength(1);
+      expect(fetchCalls[0].evidence.identifier).toBe('fetch');
+    });
+
+    it('emits EFFECT_TIMER_CALL for timer calls', () => {
+      const result = analyzeFixture('component-with-effects.tsx');
+      const comp = result.components[0];
+      const timerCalls = comp.effectObservations.filter(o => o.kind === 'EFFECT_TIMER_CALL');
+
+      // Second effect: setInterval
+      expect(timerCalls).toHaveLength(1);
+      expect(timerCalls[0].evidence.identifier).toBe('setInterval');
+    });
+
+    it('emits EFFECT_PROP_READ for prop reads in effect', () => {
+      const result = analyzeFixture('component-with-effects.tsx');
+      const comp = result.components[0];
+      const propReads = comp.effectObservations.filter(o => o.kind === 'EFFECT_PROP_READ');
+
+      // Effects read initialCount, onTick, count
+      // initialCount and onTick are props
+      const propNames = propReads.map(p => p.evidence.identifier);
+      expect(propNames).toContain('initialCount');
+      expect(propNames).toContain('onTick');
+    });
+
+    it('preserves backward compatibility with useEffects field', () => {
+      const result = analyzeFixture('component-with-effects.tsx');
+      const comp = result.components[0];
+
+      // useEffects should still be populated with old format
+      expect(comp.useEffects).toHaveLength(4);
+      expect(comp.useEffects[0]).toHaveProperty('bodyAnalysis');
+      expect(comp.useEffects[0].bodyAnalysis).toHaveProperty('callsSetState');
+      expect(comp.useEffects[0].bodyAnalysis).toHaveProperty('stateSetters');
+
+      // Both fields should be present
+      expect(comp.effectObservations).toBeDefined();
+      expect(Array.isArray(comp.effectObservations)).toBe(true);
+    });
+  });
+
+  describe('effect observations - negative cases', () => {
+    it('does not emit EFFECT_FETCH_CALL for indirect fetch (helper wrapper)', () => {
+      const result = analyzeFixture('effect-negative.tsx');
+      const comp = result.components.find(c => c.name === 'IndirectFetch');
+      expect(comp).toBeDefined();
+
+      const fetchCalls = comp!.effectObservations.filter(o => o.kind === 'EFFECT_FETCH_CALL');
+      // The refetch() call is NOT a direct fetch, so no EFFECT_FETCH_CALL
+      expect(fetchCalls).toHaveLength(0);
+    });
+
+    it('emits EFFECT_STATE_SETTER_CALL for nested setData in .then chain', () => {
+      const result = analyzeFixture('effect-negative.tsx');
+      const comp = result.components.find(c => c.name === 'NestedSetState');
+      expect(comp).toBeDefined();
+
+      const setterCalls = comp!.effectObservations.filter(o => o.kind === 'EFFECT_STATE_SETTER_CALL');
+      expect(setterCalls.some(s => s.evidence.identifier === 'setData')).toBe(true);
+    });
+
+    it('emits EFFECT_STORAGE_CALL for shadowed localStorage (known limitation)', () => {
+      // Note: AST tool cannot distinguish shadowed variables from globals
+      // without full scope analysis. This documents the limitation.
+      const result = analyzeFixture('effect-negative.tsx');
+      const comp = result.components.find(c => c.name === 'ShadowedStorage');
+      expect(comp).toBeDefined();
+
+      const storageCalls = comp!.effectObservations.filter(o => o.kind === 'EFFECT_STORAGE_CALL');
+      // Will emit because we see localStorage.getItem() syntactically
+      expect(storageCalls).toHaveLength(1);
+    });
+
+    it('has no effect observations for component without useEffect', () => {
+      const result = analyzeFixture('effect-negative.tsx');
+      const comp = result.components.find(c => c.name === 'TimerOutsideEffect');
+      expect(comp).toBeDefined();
+
+      // No useEffect in this component, so no effect observations
+      expect(comp!.effectObservations).toHaveLength(0);
+    });
+
+    it('has no EFFECT_REF_TOUCH for ref access outside effect', () => {
+      const result = analyzeFixture('effect-negative.tsx');
+      const comp = result.components.find(c => c.name === 'RefOutsideEffect');
+      expect(comp).toBeDefined();
+
+      // Ref is accessed in measure() function, not in an effect
+      const refTouches = comp!.effectObservations.filter(o => o.kind === 'EFFECT_REF_TOUCH');
+      expect(refTouches).toHaveLength(0);
+    });
+
+    it('emits only EFFECT_LOCATION for empty effect', () => {
+      const result = analyzeFixture('effect-negative.tsx');
+      const comp = result.components.find(c => c.name === 'EmptyEffect');
+      expect(comp).toBeDefined();
+
+      // Only EFFECT_LOCATION should be emitted for empty effect
+      expect(comp!.effectObservations.filter(o => o.kind === 'EFFECT_LOCATION')).toHaveLength(1);
+      expect(comp!.effectObservations.filter(o => o.kind !== 'EFFECT_LOCATION')).toHaveLength(0);
+    });
+
+    it('does not track aliased setter (known limitation)', () => {
+      // Known limitation: aliased setters are not tracked
+      const result = analyzeFixture('effect-negative.tsx');
+      const comp = result.components.find(c => c.name === 'AliasedSetter');
+      expect(comp).toBeDefined();
+
+      const setterCalls = comp!.effectObservations.filter(o => o.kind === 'EFFECT_STATE_SETTER_CALL');
+      // update(1) is NOT detected as setCount because alias is not resolved
+      expect(setterCalls.some(s => s.evidence.identifier === 'setCount')).toBe(false);
+      expect(setterCalls.some(s => s.evidence.identifier === 'update')).toBe(false);
+    });
+
+    it('detects useLayoutEffect same as useEffect', () => {
+      const result = analyzeFixture('effect-negative.tsx');
+      const comp = result.components.find(c => c.name === 'LayoutEffect');
+      expect(comp).toBeDefined();
+
+      const locations = comp!.effectObservations.filter(o => o.kind === 'EFFECT_LOCATION');
+      expect(locations).toHaveLength(1);
+    });
+
+    it('emits EFFECT_ASYNC_CALL for async function in effect', () => {
+      const result = analyzeFixture('effect-negative.tsx');
+      const comp = result.components.find(c => c.name === 'AsyncEffect');
+      expect(comp).toBeDefined();
+
+      const asyncCalls = comp!.effectObservations.filter(o => o.kind === 'EFFECT_ASYNC_CALL');
+      expect(asyncCalls.length).toBeGreaterThan(0);
+    });
+
+    it('emits EFFECT_DOM_API for window.addEventListener', () => {
+      const result = analyzeFixture('effect-negative.tsx');
+      const comp = result.components.find(c => c.name === 'DomApiEffect');
+      expect(comp).toBeDefined();
+
+      const domCalls = comp!.effectObservations.filter(o => o.kind === 'EFFECT_DOM_API');
+      expect(domCalls.length).toBeGreaterThan(0);
+      expect(domCalls.some(d => d.evidence.targetObject === 'window')).toBe(true);
+    });
+  });
+
   describe('real file smoke test', () => {
     it('analyzes ProductivityContainer.tsx and produces valid output', () => {
       const result = analyzeReactFile('src/ui/page_blocks/dashboard/team/ProductivityContainer.tsx');
@@ -442,21 +628,271 @@ describe('ast-react-inventory', () => {
       expect(container.name).toBe('ProductivityContainer');
       expect(container.hookCalls.length).toBeGreaterThan(0);
 
-      // Should have a service hook classified correctly
+      // Should have hooks detected (classification is now done by interpreters)
       const serviceHook = container.hookCalls.find(h => h.name === 'useTeamsHostTimeQuery');
       expect(serviceHook).toBeDefined();
-      expect(serviceHook!.classification).toBe('service');
+      expect(serviceHook).not.toHaveProperty('classification');
 
-      // Should have state-utility hooks
       const memoHooks = container.hookCalls.filter(h => h.name === 'useMemo');
       expect(memoHooks.length).toBeGreaterThan(0);
       for (const h of memoHooks) {
-        expect(h.classification).toBe('state-utility');
+        expect(h).not.toHaveProperty('classification');
       }
 
       // Output should be serializable
       const json = JSON.stringify(result);
       expect(() => JSON.parse(json)).not.toThrow();
+    });
+  });
+
+  describe('hook observations', () => {
+    it('emits HOOK_CALL observations without classification', () => {
+      const result = analyzeFixture('hook-classification.tsx');
+
+      // File-level hook observations
+      expect(result.hookObservations).toBeDefined();
+      expect(result.hookObservations.length).toBeGreaterThan(0);
+
+      // All observations should be HOOK_CALL
+      const hookCalls = result.hookObservations.filter(o => o.kind === 'HOOK_CALL');
+      expect(hookCalls.length).toBeGreaterThan(0);
+
+      // Observations should NOT have classification - that's the interpreter's job
+      for (const obs of hookCalls) {
+        expect(obs.evidence).not.toHaveProperty('classification');
+        expect(obs.evidence).toHaveProperty('hookName');
+        expect(obs.evidence).toHaveProperty('isReactBuiltin');
+      }
+    });
+
+    it('marks React builtin hooks with isReactBuiltin: true', () => {
+      const result = analyzeFixture('hook-classification.tsx');
+
+      const useStateObs = result.hookObservations.find(
+        o => o.kind === 'HOOK_CALL' && o.evidence.hookName === 'useState',
+      );
+      expect(useStateObs).toBeDefined();
+      expect(useStateObs!.evidence.isReactBuiltin).toBe(true);
+
+      const useMemoObs = result.hookObservations.find(o => o.kind === 'HOOK_CALL' && o.evidence.hookName === 'useMemo');
+      expect(useMemoObs).toBeDefined();
+      expect(useMemoObs!.evidence.isReactBuiltin).toBe(true);
+    });
+
+    it('marks custom hooks with isReactBuiltin: false', () => {
+      const result = analyzeFixture('hook-classification.tsx');
+
+      const useAuthStateObs = result.hookObservations.find(
+        o => o.kind === 'HOOK_CALL' && o.evidence.hookName === 'useAuthState',
+      );
+      expect(useAuthStateObs).toBeDefined();
+      expect(useAuthStateObs!.evidence.isReactBuiltin).toBe(false);
+    });
+
+    it('captures destructuredNames in hook observations', () => {
+      const result = analyzeFixture('hook-classification.tsx');
+
+      const useStateObs = result.hookObservations.find(
+        o => o.kind === 'HOOK_CALL' && o.evidence.hookName === 'useState',
+      );
+      expect(useStateObs).toBeDefined();
+      expect(useStateObs!.evidence.destructuredNames).toEqual(['count', 'setCount']);
+    });
+
+    it('captures parentFunction in hook observations', () => {
+      const result = analyzeFixture('hook-classification.tsx');
+
+      const hookCalls = result.hookObservations.filter(o => o.kind === 'HOOK_CALL');
+      const fromClassifiedComponent = hookCalls.filter(o => o.evidence.parentFunction === 'ClassifiedComponent');
+      expect(fromClassifiedComponent.length).toBeGreaterThan(0);
+    });
+
+    it('HookCall no longer has classification field (observation-only)', () => {
+      const result = analyzeFixture('hook-classification.tsx');
+      const comp = result.components.find(c => c.name === 'ClassifiedComponent');
+      expect(comp).toBeDefined();
+
+      // HookCall no longer has classification -- that's the interpreter's job
+      for (const hook of comp!.hookCalls) {
+        expect(hook).not.toHaveProperty('classification');
+      }
+    });
+  });
+
+  describe('component observations', () => {
+    it('emits COMPONENT_DECLARATION for each component', () => {
+      const result = analyzeFixture('multiple-components.tsx');
+
+      const compDecls = result.componentObservations.filter(o => o.kind === 'COMPONENT_DECLARATION');
+      const compNames = compDecls.map(o => o.evidence.componentName);
+
+      expect(compNames).toContain('StatusBadge');
+      expect(compNames).toContain('Container');
+      expect(compNames).toContain('ContentBlock');
+      expect(compNames).toContain('MemoCard');
+      expect(compNames).toContain('InputField');
+    });
+
+    it('captures component kind in COMPONENT_DECLARATION', () => {
+      const result = analyzeFixture('multiple-components.tsx');
+
+      const compDecls = result.componentObservations.filter(o => o.kind === 'COMPONENT_DECLARATION');
+
+      const memoCard = compDecls.find(o => o.evidence.componentName === 'MemoCard');
+      expect(memoCard).toBeDefined();
+      expect(memoCard!.evidence.kind).toBe('memo');
+
+      const inputField = compDecls.find(o => o.evidence.componentName === 'InputField');
+      expect(inputField).toBeDefined();
+      expect(inputField!.evidence.kind).toBe('forwardRef');
+    });
+
+    it('emits PROP_FIELD for each prop', () => {
+      const result = analyzeFixture('props-extraction.tsx');
+
+      const propFields = result.componentObservations.filter(o => o.kind === 'PROP_FIELD');
+      expect(propFields.length).toBeGreaterThan(0);
+
+      // Check InlineComponent props
+      const inlineProps = propFields.filter(o => o.evidence.componentName === 'InlineComponent');
+      const propNames = inlineProps.map(o => o.evidence.propName);
+      expect(propNames).toContain('label');
+      expect(propNames).toContain('count');
+    });
+
+    it('captures isCallback correctly for callback props', () => {
+      const result = analyzeFixture('props-extraction.tsx');
+
+      const propFields = result.componentObservations.filter(o => o.kind === 'PROP_FIELD');
+
+      // onSave should be marked as callback
+      const onSave = propFields.find(o => o.evidence.propName === 'onSave');
+      expect(onSave).toBeDefined();
+      expect(onSave!.evidence.isCallback).toBe(true);
+
+      // id should not be callback
+      const id = propFields.find(o => o.evidence.propName === 'id');
+      expect(id).toBeDefined();
+      expect(id!.evidence.isCallback).toBe(false);
+    });
+
+    it('captures isOptional and hasDefault', () => {
+      const result = analyzeFixture('props-extraction.tsx');
+
+      const propFields = result.componentObservations.filter(o => o.kind === 'PROP_FIELD');
+
+      // count in InlineComponent is optional with default
+      const count = propFields.find(
+        o => o.evidence.componentName === 'InlineComponent' && o.evidence.propName === 'count',
+      );
+      expect(count).toBeDefined();
+      expect(count!.evidence.isOptional).toBe(true);
+      expect(count!.evidence.hasDefault).toBe(true);
+
+      // label in InlineComponent is required
+      const label = propFields.find(
+        o => o.evidence.componentName === 'InlineComponent' && o.evidence.propName === 'label',
+      );
+      expect(label).toBeDefined();
+      expect(label!.evidence.isOptional).toBe(false);
+    });
+
+    it('emits no PROP_FIELD for component with no props', () => {
+      const result = analyzeFixture('hook-classification-negative.tsx');
+
+      const noPropCompDecl = result.componentObservations.find(
+        o => o.kind === 'COMPONENT_DECLARATION' && o.evidence.componentName === 'NoPropComponent',
+      );
+      expect(noPropCompDecl).toBeDefined();
+
+      const noPropProps = result.componentObservations.filter(
+        o => o.kind === 'PROP_FIELD' && o.evidence.componentName === 'NoPropComponent',
+      );
+      expect(noPropProps).toHaveLength(0);
+    });
+  });
+
+  describe('hook observations - negative cases', () => {
+    it('detects local useQuery as non-React-builtin', () => {
+      const result = analyzeFixture('hook-classification-negative.tsx');
+
+      // The local useQuery function should still be detected as a hook call
+      const localUseQuery = result.hookObservations.find(
+        o => o.kind === 'HOOK_CALL' && o.evidence.hookName === 'useQuery',
+      );
+      expect(localUseQuery).toBeDefined();
+      // importSource should be undefined (local function, not imported)
+      expect(localUseQuery!.evidence.importSource).toBeUndefined();
+      expect(localUseQuery!.evidence.isReactBuiltin).toBe(false);
+    });
+
+    it('detects useId as React builtin', () => {
+      const result = analyzeFixture('hook-classification-negative.tsx');
+
+      const useIdObs = result.hookObservations.find(o => o.kind === 'HOOK_CALL' && o.evidence.hookName === 'useId');
+      expect(useIdObs).toBeDefined();
+      expect(useIdObs!.evidence.isReactBuiltin).toBe(true);
+    });
+
+    it('does not detect useful() as a hook', () => {
+      const result = analyzeFixture('hook-classification-negative.tsx');
+
+      // useful is not a hook (use + lowercase)
+      const usefulObs = result.hookObservations.find(o => o.kind === 'HOOK_CALL' && o.evidence.hookName === 'useful');
+      expect(usefulObs).toBeUndefined();
+    });
+
+    it('detects hook with no destructuring', () => {
+      const result = analyzeFixture('hook-classification-negative.tsx');
+
+      const noDestructHook = result.hookObservations.find(
+        o =>
+          o.kind === 'HOOK_CALL' &&
+          o.evidence.hookName === 'useState' &&
+          o.evidence.parentFunction === 'NoDestructuringHook',
+      );
+      expect(noDestructHook).toBeDefined();
+      expect(noDestructHook!.evidence.destructuredNames).toEqual([]);
+    });
+
+    it('detects multiple useState calls in same component', () => {
+      const result = analyzeFixture('hook-classification-negative.tsx');
+
+      const multipleHookObs = result.hookObservations.filter(
+        o =>
+          o.kind === 'HOOK_CALL' &&
+          o.evidence.hookName === 'useState' &&
+          o.evidence.parentFunction === 'MultipleHooksComponent',
+      );
+      expect(multipleHookObs).toHaveLength(2);
+    });
+
+    it('captures callback prop correctly from type annotation', () => {
+      const result = analyzeFixture('hook-classification-negative.tsx');
+
+      const callbackProps = result.componentObservations.filter(
+        o => o.kind === 'PROP_FIELD' && o.evidence.componentName === 'CallbackPropsComponent',
+      );
+
+      // onClick should be callback (on[A-Z] pattern)
+      const onClick = callbackProps.find(o => o.evidence.propName === 'onClick');
+      expect(onClick).toBeDefined();
+      expect(onClick!.evidence.isCallback).toBe(true);
+
+      // transformer should be callback (=> in type)
+      const transformer = callbackProps.find(o => o.evidence.propName === 'transformer');
+      expect(transformer).toBeDefined();
+      expect(transformer!.evidence.isCallback).toBe(true);
+
+      // data should NOT be callback
+      const data = callbackProps.find(o => o.evidence.propName === 'data');
+      expect(data).toBeDefined();
+      expect(data!.evidence.isCallback).toBe(false);
+
+      // processItems should be callback (=> in type)
+      const processItems = callbackProps.find(o => o.evidence.propName === 'processItems');
+      expect(processItems).toBeDefined();
+      expect(processItems!.evidence.isCallback).toBe(true);
     });
   });
 });

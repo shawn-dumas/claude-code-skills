@@ -4,7 +4,16 @@ import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
 import { getFilesInDirectory, truncateText, getContainingFunctionName } from './shared';
-import type { DataLayerAnalysis, DataLayerDetails, DataLayerUsage, DataLayerUsageType } from './types';
+import { astConfig } from './ast-config';
+import type {
+  DataLayerAnalysis,
+  DataLayerDetails,
+  DataLayerUsage,
+  DataLayerUsageType,
+  DataLayerObservation,
+  DataLayerObservationKind,
+  ObservationResult,
+} from './types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -97,8 +106,14 @@ function extractFetchApiSchema(callNode: Node): string | null {
 // ---------------------------------------------------------------------------
 
 function classifyHookName(name: string): 'QUERY_HOOK_DEF' | 'MUTATION_HOOK_DEF' | null {
-  if (name.startsWith('use') && name.endsWith('Query') && name.length > 8) return 'QUERY_HOOK_DEF';
-  if (name.startsWith('use') && name.endsWith('Mutation') && name.length > 11) return 'MUTATION_HOOK_DEF';
+  const querySuffix = astConfig.dataLayer.queryHookSuffix;
+  const mutationSuffix = astConfig.dataLayer.mutationHookSuffix;
+  if (name.startsWith('use') && name.endsWith(querySuffix) && name.length > 3 + querySuffix.length) {
+    return 'QUERY_HOOK_DEF';
+  }
+  if (name.startsWith('use') && name.endsWith(mutationSuffix) && name.length > 3 + mutationSuffix.length) {
+    return 'MUTATION_HOOK_DEF';
+  }
   return null;
 }
 
@@ -185,11 +200,12 @@ function findHookDefinitions(sf: SourceFile): DataLayerUsage[] {
 
 function findQueryKeyDefinitions(sf: SourceFile): DataLayerUsage[] {
   const usages: DataLayerUsage[] = [];
+  const keyFactorySuffix = astConfig.dataLayer.queryKeyFactorySuffix;
 
   for (const varStmt of sf.getVariableStatements()) {
     for (const decl of varStmt.getDeclarationList().getDeclarations()) {
       const name = decl.getName();
-      if (!name.endsWith('Keys')) continue;
+      if (!name.endsWith(keyFactorySuffix)) continue;
 
       let init = decl.getInitializer();
       if (!init) continue;
@@ -251,8 +267,9 @@ function collectFetchApiUsages(node: Node, line: number, column: number, contain
     },
   ];
 
-  // Also emit API_ENDPOINT if URL matches /api/ pattern
-  if (url && url.includes('/api/')) {
+  // Also emit API_ENDPOINT if URL matches the API path marker
+  const apiPathMarker = astConfig.dataLayer.apiPathMarker;
+  if (url && url.includes(apiPathMarker)) {
     results.push({
       type: 'API_ENDPOINT',
       line,
@@ -297,7 +314,8 @@ function findCallSiteUsages(sf: SourceFile): DataLayerUsage[] {
     const containingFunction = getContainingFunctionName(node);
 
     // --- FETCH_API_CALL: fetchApi(...) or useFetchApi() ---
-    if (exprText === 'fetchApi' || exprText === 'useFetchApi') {
+    const fetchApiIdentifiers = astConfig.dataLayer.fetchApiIdentifiers;
+    if (fetchApiIdentifiers.has(exprText)) {
       if (exprText === 'fetchApi') {
         usages.push(...collectFetchApiUsages(node, line, column, containingFunction));
       }
@@ -305,7 +323,8 @@ function findCallSiteUsages(sf: SourceFile): DataLayerUsage[] {
     }
 
     // --- QUERY_INVALIDATION: queryClient.invalidateQueries(...) ---
-    if (Node.isPropertyAccessExpression(expr) && expr.getName() === 'invalidateQueries') {
+    const invalidateMethod = astConfig.dataLayer.invalidateMethod;
+    if (Node.isPropertyAccessExpression(expr) && expr.getName() === invalidateMethod) {
       const keyText = extractInvalidationKeyText(node);
       usages.push({
         type: 'QUERY_INVALIDATION',
@@ -373,6 +392,57 @@ export function analyzeDataLayerDirectory(dirPath: string): DataLayerAnalysis[] 
   results.sort((a, b) => b.usages.length - a.usages.length);
 
   return results;
+}
+
+// ---------------------------------------------------------------------------
+// Observation extraction
+// ---------------------------------------------------------------------------
+
+const USAGE_TYPE_TO_OBSERVATION_KIND: Record<DataLayerUsageType, DataLayerObservationKind> = {
+  QUERY_HOOK_DEF: 'QUERY_HOOK_DEFINITION',
+  MUTATION_HOOK_DEF: 'MUTATION_HOOK_DEFINITION',
+  QUERY_KEY_DEF: 'QUERY_KEY_FACTORY',
+  FETCH_API_CALL: 'FETCH_API_CALL',
+  API_ENDPOINT: 'API_ENDPOINT',
+  QUERY_INVALIDATION: 'QUERY_INVALIDATION',
+};
+
+/**
+ * Extract data layer observations from analysis results.
+ */
+export function extractDataLayerObservations(analysis: DataLayerAnalysis): ObservationResult<DataLayerObservation> {
+  const observations: DataLayerObservation[] = analysis.usages.map(usage => {
+    const evidence: DataLayerObservation['evidence'] = {
+      name: usage.name,
+      containingFunction: usage.containingFunction,
+    };
+
+    if (usage.details.queryKey) {
+      evidence.queryKey = [usage.details.queryKey];
+    }
+    if (usage.details.url) {
+      evidence.url = usage.details.url;
+    }
+    if (usage.details.schema) {
+      evidence.schema = usage.details.schema;
+    }
+    if (usage.details.keys) {
+      evidence.keys = usage.details.keys.split(', ');
+    }
+
+    return {
+      kind: USAGE_TYPE_TO_OBSERVATION_KIND[usage.type],
+      file: analysis.filePath,
+      line: usage.line,
+      column: usage.column,
+      evidence,
+    };
+  });
+
+  return {
+    filePath: analysis.filePath,
+    observations,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,8 @@ import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
 import { getFilesInDirectory } from './shared';
-import type { ComplexityAnalysis, FunctionComplexity } from './types';
+import { astConfig } from './ast-config';
+import type { ComplexityAnalysis, FunctionComplexity, ComplexityObservation, ObservationResult } from './types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -355,6 +356,40 @@ export function analyzeComplexityDirectory(dirPath: string): ComplexityAnalysis[
   results.sort((a, b) => b.fileTotalComplexity - a.fileTotalComplexity);
 
   return results;
+}
+
+// ---------------------------------------------------------------------------
+// Observation extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract complexity observations from analysis results.
+ * Complexity calculation is universal and does not require repo-specific config,
+ * but we reference astConfig.complexity to maintain the pattern (currently empty).
+ */
+export function extractComplexityObservations(analysis: ComplexityAnalysis): ObservationResult<ComplexityObservation> {
+  // Reference astConfig.complexity to establish the pattern
+  // (complexity calculation is universal, no repo-specific config needed)
+  void astConfig.complexity;
+
+  const observations: ComplexityObservation[] = analysis.functions.map(fn => ({
+    kind: 'FUNCTION_COMPLEXITY' as const,
+    file: analysis.filePath,
+    line: fn.line,
+    evidence: {
+      functionName: fn.name,
+      endLine: fn.endLine,
+      lineCount: fn.lineCount,
+      cyclomaticComplexity: fn.cyclomaticComplexity,
+      maxNestingDepth: fn.maxNestingDepth,
+      contributors: fn.contributors.map(c => ({ type: c.type, line: c.line })),
+    },
+  }));
+
+  return {
+    filePath: analysis.filePath,
+    observations,
+  };
 }
 
 // ---------------------------------------------------------------------------

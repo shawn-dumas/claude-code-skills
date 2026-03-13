@@ -9,32 +9,83 @@ argument-hint: <path/to/api/handler.ts>
 Audit the API handler at `$ARGUMENTS`. This is a read-only diagnostic -- do not modify
 any files. Produce a complete violation report.
 
-## Step 0: Run AST analysis tools
+## Step 0: Run AST analysis tools and interpreters
 
 ```bash
+# --- Observation-producing tools ---
+
+# Dependency graph (emits STATIC_IMPORT, DEAD_EXPORT_CANDIDATE observations)
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+
+# Complexity (emits FUNCTION_COMPLEXITY observations)
 npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
+
+# Type safety (emits AS_ANY_CAST, TRUST_BOUNDARY_CAST, NON_NULL_ASSERTION observations)
 npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+
+# Environment access (emits PROCESS_ENV_ACCESS, ENV_WRAPPER_ACCESS observations)
 npx tsx scripts/AST/ast-env-access.ts $ARGUMENTS --pretty
+
+# Side effects (emits CONSOLE_CALL, TOAST_CALL, TIMER_CALL observations)
 npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+
+# Data layer (emits FETCH_API_CALL, QUERY_HOOK_DEFINITION, API_ENDPOINT observations)
 npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
+
+# --- Interpreters ---
+
+# Dead code detection (emits DEAD_EXPORT, CIRCULAR_DEPENDENCY assessments)
+npx tsx scripts/AST/ast-interpret-dead-code.ts $ARGUMENTS --pretty
 ```
 
-Use the imports tool to trace handler -> schema -> server module ->
-consumer service hook chain. Use complexity for G4 scoring. Use type
-safety for trust boundary cast detection (G5). Use env-access for G2
-(ambient `process.env` reads vs validated `clientEnv`/`serverEnv`
-modules). Use side-effects for G6 (console, toast, timer, analytics
-calls mixed into the handler body). Use data-layer to cross-reference
-service hook consumers, query keys, and fetchApi endpoints (Step 5).
+### Using observations and assessments
+
+**Observations** are structural facts with no classification. Use them for:
+
+- Import graph tracing (handler -> schema -> server module -> consumer chain)
+- Complexity scoring (G4)
+- Trust boundary cast detection (G5) via `TRUST_BOUNDARY_CAST` observations
+- Env access patterns (G2) via `PROCESS_ENV_ACCESS` vs `ENV_WRAPPER_ACCESS` observations
+- Side effect detection (G6) via `CONSOLE_CALL`, `TOAST_CALL`, `TIMER_CALL` observations
+- Endpoint cross-reference (Step 5) via `FETCH_API_CALL`, `API_ENDPOINT` observations
+
+**Assessments** are interpretations over observations. `DEAD_EXPORT` assessments
+identify unused handler exports (rare but possible in API handlers).
+
+### Tool-to-principle mapping
+
+| Principle               | Tool             | Observations used                                                      |
+| ----------------------- | ---------------- | ---------------------------------------------------------------------- |
+| G4 Low Complexity       | ast-complexity   | `FUNCTION_COMPLEXITY` observations                                     |
+| G5 Parse Don't Validate | ast-type-safety  | `TRUST_BOUNDARY_CAST` observations with `trustBoundarySource` evidence |
+| G6 Pure Core            | ast-side-effects | `CONSOLE_CALL`, `TOAST_CALL`, `TIMER_CALL` observations                |
+| G2 Explicit I/O         | ast-env-access   | `PROCESS_ENV_ACCESS` (violation) vs `ENV_WRAPPER_ACCESS` (compliant)   |
+| Endpoint tracing        | ast-data-layer   | `FETCH_API_CALL` observations with `url` evidence                      |
+
+## Report Policy
 
 ### AST-confirmed tagging
 
-When a finding is confirmed by AST tool output (a measured complexity score, a
-trust boundary cast count, an import chain trace, etc.), tag it `[AST-confirmed]`
-in the report. In the scorecard evidence and violation list, prefix the description
-with the tag. AST-confirmed findings carry a +1 concern-level bump in the master
-audit's Findings Index because the measurement is objective.
+An observation or assessment qualifies for `[AST-confirmed]` tagging when ALL of:
+
+- Based on structural fact with no interpretive leap
+- For assessments: confidence is `high`, `isCandidate: false`, `requiresManualReview: false`
+
+Examples that qualify:
+
+- `FUNCTION_COMPLEXITY` observation -> `[AST-confirmed]`
+- `TRUST_BOUNDARY_CAST` observation with `trustBoundarySource: 'JSON.parse'` -> `[AST-confirmed]`
+- `PROCESS_ENV_ACCESS` observation -> `[AST-confirmed]`
+
+### Severity bumping
+
+`[AST-confirmed]` findings get +1 concern-level bump.
+
+### Trust boundary cast detection
+
+`TRUST_BOUNDARY_CAST` observations include `trustBoundarySource` evidence
+identifying the source (`JSON.parse`, `.json()`, `localStorage`, etc.).
+Use this to populate the G5 violations table.
 
 ## Step 1: Locate handler and schema
 

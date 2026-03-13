@@ -26,9 +26,20 @@ that should be props), use `refactor-react-component` instead.
 npx tsx scripts/AST/ast-jsx-analysis.ts $ARGUMENTS --pretty
 ```
 
-Use the output for Step 2 (violation inventory). The tool reports every
-violation type with line numbers, so you can proceed directly to Step 3
-(planning the extraction) without manual scanning.
+The tool emits JSX observations with structural evidence:
+
+- `JSX_TERNARY_CHAIN` with `depth` evidence (actual nesting depth)
+- `JSX_GUARD_CHAIN` with `conditionCount` evidence (number of && conditions)
+- `JSX_TRANSFORM_CHAIN` with `methods` and `chainLength` evidence
+- `JSX_IIFE` (IIFE in JSX detected)
+- `JSX_INLINE_HANDLER` with `statementCount` evidence
+- `JSX_INLINE_STYLE` with `hasComputedValues` evidence
+- `JSX_COMPLEX_CLASSNAME` with `ternaryCount` evidence
+- `JSX_RETURN_BLOCK` with `returnLineCount` evidence
+
+Use these observations for Step 2 (violation inventory). Each observation
+kind maps to a violation category, and the evidence fields provide the
+severity details (e.g., a depth of 3 is worse than depth of 2).
 
 ## Step 1: Read and understand
 
@@ -37,19 +48,25 @@ Read the target file. Identify the return statement boundaries (the opening
 
 ## Step 2: Inventory template violations
 
-Scan the return statement and classify every violation:
+The JSX observations from Step 0 provide the violation inventory directly.
+Map each observation kind to its extraction strategy:
 
-| Code | What to look for |
-|------|-----------------|
-| CHAINED_TERNARY | `a ? X : b ? Y : Z` -- multi-way branch |
-| COMPLEX_GUARD | 3+ conditions in `&&` chain |
-| INLINE_TRANSFORM | `.filter()`, `.map()`, `.reduce()` inside return |
-| IIFE_IN_JSX | `{(() => { ... })()}` |
-| MULTI_STMT_HANDLER | `onClick={() => { stmt1; stmt2; }}` |
-| INLINE_STYLE_OBJECT | `style={{ computed }}` with dynamic values (not @react-pdf) |
-| COMPLEX_CLASSNAME | className with 3+ conditions or nested ternary |
+| Observation Kind        | Evidence                 | What to look for                                            |
+| ----------------------- | ------------------------ | ----------------------------------------------------------- |
+| `JSX_TERNARY_CHAIN`     | `depth`                  | `a ? X : b ? Y : Z` -- multi-way branch (depth 2+)          |
+| `JSX_GUARD_CHAIN`       | `conditionCount`         | 3+ conditions in `&&` chain                                 |
+| `JSX_TRANSFORM_CHAIN`   | `methods`, `chainLength` | `.filter()`, `.map()`, `.reduce()` inside return            |
+| `JSX_IIFE`              | --                       | `{(() => { ... })()}`                                       |
+| `JSX_INLINE_HANDLER`    | `statementCount`         | `onClick={() => { stmt1; stmt2; }}` (2+ statements)         |
+| `JSX_INLINE_STYLE`      | `hasComputedValues`      | `style={{ computed }}` with dynamic values (not @react-pdf) |
+| `JSX_COMPLEX_CLASSNAME` | `ternaryCount`           | className with 2+ ternaries or nested ternary               |
 
-List each violation with its line number and a one-line description.
+The evidence fields tell you the severity. A `JSX_TERNARY_CHAIN` with
+`depth: 3` needs a lookup map; `depth: 2` might be flattened to named
+booleans. A `JSX_INLINE_HANDLER` with `statementCount: 5` needs extraction
+more urgently than one with `statementCount: 2`.
+
+List each observation with its line number, evidence, and planned extraction.
 
 ## Step 3: Plan the extraction
 
@@ -61,7 +78,9 @@ Extract a `Record` lookup map:
 
 ```tsx
 // Before (in return)
-{type === 'A' ? <IconA /> : type === 'B' ? <IconB /> : <IconC />}
+{
+  type === 'A' ? <IconA /> : type === 'B' ? <IconB /> : <IconC />;
+}
 
 // After (above return)
 const iconByType: Record<Type, ReactNode> = {
@@ -72,7 +91,9 @@ const iconByType: Record<Type, ReactNode> = {
 const typeIcon = iconByType[type] ?? <IconDefault />;
 
 // In return
-{typeIcon}
+{
+  typeIcon;
+}
 ```
 
 ### Chained ternaries on loading/data states
@@ -81,7 +102,9 @@ Extract named booleans:
 
 ```tsx
 // Before (in return)
-{loading ? <Spinner /> : !data ? <Empty /> : data.length === 0 ? <Placeholder /> : <Table />}
+{
+  loading ? <Spinner /> : !data ? <Empty /> : data.length === 0 ? <Placeholder /> : <Table />;
+}
 
 // After (above return)
 const showLoading = loading;
@@ -90,10 +113,18 @@ const showPlaceholder = !loading && data?.length === 0;
 const showTable = !loading && data && data.length > 0;
 
 // In return
-{showLoading && <Spinner />}
-{showEmpty && <Empty />}
-{showPlaceholder && <Placeholder />}
-{showTable && <Table rows={formattedRows} />}
+{
+  showLoading && <Spinner />;
+}
+{
+  showEmpty && <Empty />;
+}
+{
+  showPlaceholder && <Placeholder />;
+}
+{
+  showTable && <Table rows={formattedRows} />;
+}
 ```
 
 ### Inline transforms
@@ -102,16 +133,17 @@ Move to `useMemo` or a named `const`:
 
 ```tsx
 // Before (in return)
-{items.filter(i => i.active).map(i => <Row key={i.id} {...i} />)}
+{
+  items.filter(i => i.active).map(i => <Row key={i.id} {...i} />);
+}
 
 // After (above return)
-const activeItems = useMemo(
-  () => items.filter(i => i.active),
-  [items],
-);
+const activeItems = useMemo(() => items.filter(i => i.active), [items]);
 
 // In return
-{activeItems.map(item => <Row key={item.id} {...item} />)}
+{
+  activeItems.map(item => <Row key={item.id} {...item} />);
+}
 ```
 
 Note: a simple `.map()` with no preceding filter/sort/reduce and a short body
@@ -147,21 +179,23 @@ Extract to a named variable:
 
 ```tsx
 // Before (in return)
-{(() => {
-  const parts = description.split(/(\*\*.*?\*\*)/);
-  return parts.map((part, i) => part.startsWith('**') ? <strong key={i}>{part.slice(2, -2)}</strong> : part);
-})()}
+{
+  (() => {
+    const parts = description.split(/(\*\*.*?\*\*)/);
+    return parts.map((part, i) => (part.startsWith('**') ? <strong key={i}>{part.slice(2, -2)}</strong> : part));
+  })();
+}
 
 // After (above return)
 const formattedDescription = useMemo(() => {
   const parts = description.split(/(\*\*.*?\*\*)/);
-  return parts.map((part, i) =>
-    part.startsWith('**') ? <strong key={i}>{part.slice(2, -2)}</strong> : part
-  );
+  return parts.map((part, i) => (part.startsWith('**') ? <strong key={i}>{part.slice(2, -2)}</strong> : part));
 }, [description]);
 
 // In return
-{formattedDescription}
+{
+  formattedDescription;
+}
 ```
 
 ### Complex classNames

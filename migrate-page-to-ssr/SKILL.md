@@ -36,9 +36,17 @@ into `src/ui/page_blocks/`), run:
 npx tsx scripts/AST/ast-data-layer.ts <container-path> --pretty
 ```
 
-Use data-layer to systematically extract every service hook the
-container calls, their fetchApi endpoints, query keys, and API paths.
-This replaces manual file reading for Step 1's data dependency table.
+The tool emits data layer observations with structured evidence:
+
+- `QUERY_HOOK_DEFINITION` observations with `name` and `queryKey` evidence
+- `MUTATION_HOOK_DEFINITION` observations with `name` evidence
+- `FETCH_API_CALL` observations with `url` and `schema` evidence
+- `QUERY_KEY_FACTORY` observations with `keys` evidence
+- `API_ENDPOINT` observations with `url` evidence
+
+Use these observations to build the data dependency table in Step 1.
+The `queryKey`, `url`, and `schema` evidence fields map directly to
+the table columns.
 
 ## Step 1: Map the page's data dependencies
 

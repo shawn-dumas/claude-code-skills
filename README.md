@@ -871,6 +871,100 @@ and ad-hoc symbol/string queries. If you need structural code analysis
 and no AST tool exists for it, build one following the patterns in
 `scripts/AST/`.
 
+### Three-layer architecture
+
+The AST tools follow a three-layer architecture that separates detection
+from interpretation from reporting:
+
+| Layer             | What it does                                  | Output                                                         | Examples                                                          |
+| ----------------- | --------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------- |
+| **Observations**  | Extract line-anchored structural facts        | `Observation` objects with `kind`, `file`, `line`, `evidence`  | `HOOK_CALL`, `JSX_TERNARY_CHAIN`, `MOCK_DECLARATION`              |
+| **Assessments**   | Interpret observations against repo config    | `Assessment` objects with `confidence`, `rationale`, `basedOn` | `LIKELY_SERVICE_HOOK`, `DERIVED_STATE`, `MOCK_INTERNAL_VIOLATION` |
+| **Report Policy** | Present findings with severity and escalation | Skill-specific formatting, `[AST-confirmed]` tags              | Violation tables, migration checklists                            |
+
+**Layer 1: Observations.** Pure extracted structure. Line-anchored, objective,
+no classifications or judgments. Every observation has a `kind` (what was found),
+`file` and `line` (where), and `evidence` (structured details). Observations
+never say "this is a service hook" -- they say "this function call named
+`useTeamQuery` imports from `services/hooks/queries/team`."
+
+**Layer 2: Assessments.** Interpretations over observations plus repo config
+(`ast-config.ts`). Every assessment has `confidence` (high/medium/low),
+`rationale` (why this classification), `basedOn` (which observations), and
+`requiresManualReview` (whether automation should pause). Assessments answer
+"is this a violation?" and "how confident are we?"
+
+**Layer 3: Report Policy.** Owned by skills, not tools. Skills decide when to
+mark `[AST-confirmed]` (high confidence, based on direct observations), when
+to bump severity, when to force manual confirmation, and when to suppress
+weak candidates.
+
+### Tool inventory
+
+| Tool                  | Observations emitted                                                                                                | Interpreter                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `ast-imports`         | `STATIC_IMPORT`, `DYNAMIC_IMPORT`, `EXPORT_DECLARATION`, `CIRCULAR_DEPENDENCY`, `DEAD_EXPORT_CANDIDATE`             | `ast-interpret-dead-code`                                                 |
+| `ast-react-inventory` | `HOOK_CALL`, `EFFECT_LOCATION`, `EFFECT_*`, `COMPONENT_DECLARATION`, `PROP_FIELD`                                   | `ast-interpret-effects`, `ast-interpret-hooks`, `ast-interpret-ownership` |
+| `ast-jsx-analysis`    | `JSX_TERNARY_CHAIN`, `JSX_GUARD_CHAIN`, `JSX_TRANSFORM_CHAIN`, `JSX_IIFE`, `JSX_INLINE_HANDLER`, `JSX_RETURN_BLOCK` | `ast-interpret-template`                                                  |
+| `ast-test-analysis`   | `MOCK_DECLARATION`, `ASSERTION_CALL`, `RENDER_CALL`, `CLEANUP_CALL`, `FIXTURE_IMPORT`                               | `ast-interpret-test-quality`                                              |
+| `ast-complexity`      | `FUNCTION_COMPLEXITY`                                                                                               | (observation-only)                                                        |
+| `ast-data-layer`      | `QUERY_HOOK_DEFINITION`, `MUTATION_HOOK_DEFINITION`, `FETCH_API_CALL`, `QUERY_KEY_FACTORY`                          | (observation-only)                                                        |
+| `ast-side-effects`    | `CONSOLE_CALL`, `TOAST_CALL`, `TIMER_CALL`, `POSTHOG_CALL`, `WINDOW_MUTATION`                                       | (observation-only)                                                        |
+| `ast-storage-access`  | `DIRECT_STORAGE_CALL`, `TYPED_STORAGE_CALL`, `JSON_PARSE_CALL`, `COOKIE_CALL`                                       | (observation-only)                                                        |
+| `ast-env-access`      | `PROCESS_ENV_ACCESS`, `ENV_WRAPPER_ACCESS`, `ENV_WRAPPER_IMPORT`                                                    | (observation-only)                                                        |
+| `ast-feature-flags`   | `FLAG_HOOK_CALL`, `FLAG_READ`, `PAGE_GUARD`, `CONDITIONAL_RENDER`                                                   | (observation-only)                                                        |
+| `ast-type-safety`     | `AS_ANY_CAST`, `NON_NULL_ASSERTION`, `TS_DIRECTIVE`, `TRUST_BOUNDARY_CAST`                                          | (observation-only)                                                        |
+
+### The `astConfig` file
+
+`scripts/AST/ast-config.ts` is the single source of truth for all repo-specific
+conventions. It replaces hardcoded name lists scattered across tool files.
+Sections include:
+
+- `hooks`: ambient leaf hooks, known context hooks, path patterns for classification
+- `effects`: effect hook names, fetch/timer/storage function names
+- `testing`: boundary packages, fixture patterns, provider signals
+- `jsx`: transform methods, thresholds for violation detection
+- `ownership`: layout exceptions, container markers, router hooks
+
+Interpreters read from `astConfig` to make classifications. When repo conventions
+change, update `astConfig` once -- all tools and interpreters pick up the change.
+
+### Running AST tools
+
+```bash
+# Observation output (JSON by default)
+npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/dashboard/team/
+
+# Pretty-printed observation output
+npx tsx scripts/AST/ast-jsx-analysis.ts src/ui/components/8flow/Table/ --pretty
+
+# Run an interpreter on observations
+npx tsx scripts/AST/ast-interpret-effects.ts src/ui/page_blocks/dashboard/team/
+
+# Run the full audit interpreter chain
+npx tsx scripts/AST/ast-interpret-ownership.ts src/ui/page_blocks/dashboard/team/
+```
+
+### Using observations vs assessments in skills
+
+**Use observations when:**
+
+- Building an inventory (hook call sites, import edges, effect locations)
+- Counting structural features (line counts, method chains, dep array size)
+- Checking for presence/absence of a pattern (does this file import X?)
+
+**Use assessments when:**
+
+- Making pass/fail decisions (is this hook call a violation?)
+- Classifying code (is this component a container or a leaf?)
+- Determining migration priority (which effects need refactoring first?)
+
+Audit skills typically consume both: observations for the inventory tables,
+assessments for the violation reports. Refactor skills consume assessments
+to decide what to change. Build skills consume observations to understand
+the existing structure they need to fit into.
+
 ## Customization
 
 These skills encode conventions specific to a particular codebase (directory structure, hook naming, context patterns). To adapt them:

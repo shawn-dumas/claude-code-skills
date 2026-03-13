@@ -4,7 +4,8 @@ import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
 import { getFilesInDirectory, truncateText, getContainingFunctionName } from './shared';
-import type { SideEffectsAnalysis, SideEffectInstance, SideEffectType } from './types';
+import type { SideEffectsAnalysis, SideEffectInstance, SideEffectType, SideEffectObservation } from './types';
+import { astConfig } from './ast-config';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -21,44 +22,23 @@ function emptySummary(): Record<SideEffectType, number> {
 }
 
 // ---------------------------------------------------------------------------
-// Side effect patterns
-// ---------------------------------------------------------------------------
-
-const CONSOLE_METHODS = new Set(['log', 'debug', 'info', 'warn', 'error', 'trace', 'dir', 'table']);
-
-const TIMER_FUNCTIONS = new Set([
-  'setTimeout',
-  'setInterval',
-  'requestAnimationFrame',
-  'cancelAnimationFrame',
-  'clearTimeout',
-  'clearInterval',
-]);
-
-const POSTHOG_DIRECT_CALLS = new Set(['sendPosthogEvent']);
-
-const POSTHOG_METHOD_CALLS = new Set(['capture', 'identify', 'reset', 'register']);
-
-const WINDOW_MUTATION_CALLS = new Set(['pushState', 'replaceState', 'open']);
-
-// ---------------------------------------------------------------------------
-// Dispatch maps for classifyCallExpression
+// Dispatch maps for classifyCallExpression (built from astConfig)
 // ---------------------------------------------------------------------------
 
 /** Maps direct identifier text to side effect type. */
 const DIRECT_CALL_MAP = new Map<string, SideEffectType>([
   ['toast', 'TOAST_CALL'],
-  ...[...TIMER_FUNCTIONS].map((fn): [string, SideEffectType] => [fn, 'TIMER_CALL']),
-  ...[...POSTHOG_DIRECT_CALLS].map((fn): [string, SideEffectType] => [fn, 'POSTHOG_CALL']),
+  ...[...astConfig.sideEffects.timerFunctions].map((fn): [string, SideEffectType] => [fn, 'TIMER_CALL']),
+  ...[...astConfig.sideEffects.posthogDirectCalls].map((fn): [string, SideEffectType] => [fn, 'POSTHOG_CALL']),
 ]);
 
 /** Maps property-access object text to a function that classifies the method. */
 const PROPERTY_ACCESS_MAP = new Map<string, (method: string) => SideEffectType | null>([
-  ['console', method => (CONSOLE_METHODS.has(method) ? 'CONSOLE_CALL' : null)],
+  ['console', method => (astConfig.sideEffects.consoleMethods.has(method) ? 'CONSOLE_CALL' : null)],
   ['toast', () => 'TOAST_CALL'],
-  ['posthog', method => (POSTHOG_METHOD_CALLS.has(method) ? 'POSTHOG_CALL' : null)],
+  ['posthog', method => (astConfig.sideEffects.posthogMethodCalls.has(method) ? 'POSTHOG_CALL' : null)],
   ['window', method => (method === 'open' ? 'WINDOW_MUTATION' : null)],
-  ['history', method => (WINDOW_MUTATION_CALLS.has(method) ? 'WINDOW_MUTATION' : null)],
+  ['history', method => (astConfig.sideEffects.windowMutationCalls.has(method) ? 'WINDOW_MUTATION' : null)],
 ]);
 
 // ---------------------------------------------------------------------------
@@ -211,6 +191,162 @@ function findSideEffects(sf: SourceFile): SideEffectInstance[] {
 }
 
 // ---------------------------------------------------------------------------
+// Observation extraction
+// ---------------------------------------------------------------------------
+
+export function extractSideEffectObservations(sf: SourceFile): SideEffectObservation[] {
+  const observations: SideEffectObservation[] = [];
+  const relativePath = path.relative(PROJECT_ROOT, sf.getFilePath());
+
+  sf.forEachDescendant(node => {
+    const line = node.getStartLineNumber();
+    const column = sf.getLineAndColumnAtPos(node.getStart()).column;
+    const containingFunction = getContainingFunctionName(node);
+    const insideEffect = isInsideUseEffectCallback(node);
+
+    // Check call expressions
+    if (Node.isCallExpression(node)) {
+      const expr = node.getExpression();
+
+      // Direct identifier calls: toast(), setTimeout(), sendPosthogEvent(), etc.
+      if (Node.isIdentifier(expr)) {
+        const name = expr.getText();
+        const directType = DIRECT_CALL_MAP.get(name);
+        if (directType) {
+          observations.push({
+            kind: directType,
+            file: relativePath,
+            line,
+            column,
+            evidence: {
+              object: undefined,
+              method: name,
+              containingFunction,
+              isInsideUseEffect: insideEffect,
+            },
+          });
+          return;
+        }
+      }
+
+      // Property access calls: console.log(), posthog.capture(), window.open(), etc.
+      if (Node.isPropertyAccessExpression(expr)) {
+        const obj = expr.getExpression();
+        const method = expr.getName();
+        const objText = obj.getText();
+
+        // Standard object.method patterns
+        const classifier = PROPERTY_ACCESS_MAP.get(objText);
+        if (classifier) {
+          const type = classifier(method);
+          if (type) {
+            observations.push({
+              kind: type,
+              file: relativePath,
+              line,
+              column,
+              evidence: {
+                object: objText,
+                method,
+                containingFunction,
+                isInsideUseEffect: insideEffect,
+              },
+            });
+            return;
+          }
+        }
+
+        // Nested property access: posthog.people.set
+        if (
+          Node.isPropertyAccessExpression(obj) &&
+          obj.getExpression().getText() === 'posthog' &&
+          obj.getName() === 'people' &&
+          method === 'set'
+        ) {
+          observations.push({
+            kind: 'POSTHOG_CALL',
+            file: relativePath,
+            line,
+            column,
+            evidence: {
+              object: 'posthog.people',
+              method: 'set',
+              containingFunction,
+              isInsideUseEffect: insideEffect,
+            },
+          });
+          return;
+        }
+      }
+    }
+
+    // Check assignments (window.location, document.title, document.cookie)
+    if (Node.isBinaryExpression(node)) {
+      const operator = node.getOperatorToken().getText();
+      if (operator !== '=') return;
+
+      const left = node.getLeft();
+      const leftText = left.getText();
+
+      // window.location, window.location.href, window.location.pathname, etc.
+      if (leftText.startsWith('window.location')) {
+        observations.push({
+          kind: 'WINDOW_MUTATION',
+          file: relativePath,
+          line,
+          column,
+          evidence: {
+            object: 'window.location',
+            method: undefined,
+            containingFunction,
+            isInsideUseEffect: insideEffect,
+          },
+        });
+        return;
+      }
+
+      // document.title
+      if (leftText === 'document.title') {
+        observations.push({
+          kind: 'WINDOW_MUTATION',
+          file: relativePath,
+          line,
+          column,
+          evidence: {
+            object: 'document',
+            method: 'title',
+            containingFunction,
+            isInsideUseEffect: insideEffect,
+          },
+        });
+        return;
+      }
+
+      // document.cookie
+      if (leftText === 'document.cookie') {
+        observations.push({
+          kind: 'WINDOW_MUTATION',
+          file: relativePath,
+          line,
+          column,
+          evidence: {
+            object: 'document',
+            method: 'cookie',
+            containingFunction,
+            isInsideUseEffect: insideEffect,
+          },
+        });
+      }
+    }
+  });
+
+  // Sort by line number
+  observations.sort((a, b) => a.line - b.line || (a.column ?? 0) - (b.column ?? 0));
+
+  return observations;
+}
+
+// ---------------------------------------------------------------------------
 // Summary computation
 // ---------------------------------------------------------------------------
 
@@ -232,12 +368,14 @@ export function analyzeSideEffects(filePath: string): SideEffectsAnalysis {
   const relativePath = path.relative(PROJECT_ROOT, absolute);
 
   const sideEffects = findSideEffects(sf);
+  const observations = extractSideEffectObservations(sf);
   const summary = computeSummary(sideEffects);
 
   return {
     filePath: relativePath,
     sideEffects,
     summary,
+    observations,
   };
 }
 

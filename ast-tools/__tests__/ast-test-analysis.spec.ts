@@ -14,33 +14,34 @@ function analyzeFixture(name: string): TestAnalysis {
 }
 
 // ---------------------------------------------------------------------------
-// Mock classification
+// Mock extraction (observation-only, no classification)
 // ---------------------------------------------------------------------------
 
 describe('ast-test-analysis', () => {
-  describe('mock classification', () => {
-    it('classifies boundary mocks (next/router)', () => {
+  describe('mock extraction', () => {
+    it('extracts mocks without classification (observation-only)', () => {
       const result = analyzeFixture('test-unit-props.spec.tsx');
       const routerMock = result.mocks.find(m => m.target === 'next/router');
 
       expect(routerMock).toBeDefined();
-      expect(routerMock!.classification).toBe('BOUNDARY');
+      // Classification is now done by interpreters, not the tool
+      expect(routerMock).not.toHaveProperty('classification');
     });
 
-    it('classifies third-party mocks (echarts-for-react)', () => {
+    it('extracts third-party mocks', () => {
       const result = analyzeFixture('test-unit-props.spec.tsx');
       const echartsMock = result.mocks.find(m => m.target === 'echarts-for-react');
 
       expect(echartsMock).toBeDefined();
-      expect(echartsMock!.classification).toBe('THIRD_PARTY');
+      expect(echartsMock).not.toHaveProperty('classification');
     });
 
-    it('classifies own-hook mocks from relative path', () => {
+    it('extracts own-hook mocks from relative path', () => {
       const result = analyzeFixture('test-file.spec.ts');
       const hookMock = result.mocks.find(m => m.target.includes('useData'));
 
       expect(hookMock).toBeDefined();
-      expect(hookMock!.classification).toBe('OWN_HOOK');
+      expect(hookMock).not.toHaveProperty('classification');
     });
 
     it('records mock return shape for factory mocks', () => {
@@ -61,12 +62,12 @@ describe('ast-test-analysis', () => {
       }
     });
 
-    it('classifies own-hook mocks from service hook path', () => {
+    it('extracts own-hook mocks from service hook path', () => {
       const result = analyzeFixture('test-integration-providers.spec.tsx');
       const hookMock = result.mocks.find(m => m.target.includes('useData'));
 
       expect(hookMock).toBeDefined();
-      expect(hookMock!.classification).toBe('OWN_HOOK');
+      expect(hookMock).not.toHaveProperty('classification');
     });
   });
 
@@ -90,74 +91,52 @@ describe('ast-test-analysis', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Assertion classification
+  // Assertion extraction (observation-only, no classification)
   // ---------------------------------------------------------------------------
 
-  describe('assertion classification', () => {
-    it('classifies getByText as USER_VISIBLE', () => {
+  describe('assertion extraction', () => {
+    it('extracts assertions without classification (observation-only)', () => {
       const result = analyzeFixture('test-unit-props.spec.tsx');
-      const userVisible = result.assertions.filter(a => a.classification === 'USER_VISIBLE');
 
-      expect(userVisible.length).toBeGreaterThan(0);
-      const textAssertion = userVisible.find(a => a.text.includes('getByText'));
-      expect(textAssertion).toBeDefined();
+      expect(result.assertions.length).toBeGreaterThan(0);
+      // Classification is now done by interpreters
+      for (const assertion of result.assertions) {
+        expect(assertion).not.toHaveProperty('classification');
+      }
     });
 
-    it('classifies getByRole as USER_VISIBLE', () => {
+    it('extracts assertions with text containing testing library queries', () => {
       const result = analyzeFixture('test-unit-props.spec.tsx');
-      const userVisible = result.assertions.filter(a => a.classification === 'USER_VISIBLE');
 
-      const roleAssertion = userVisible.find(a => a.text.includes('getByRole'));
-      expect(roleAssertion).toBeDefined();
+      const queryAssertions = result.assertions.filter(
+        a => a.text.includes('getByText') || a.text.includes('getByRole'),
+      );
+      expect(queryAssertions.length).toBeGreaterThan(0);
     });
 
-    it('classifies toHaveBeenCalledWith on callback as CALLBACK_FIRED', () => {
+    it('extracts callback assertions', () => {
       const result = analyzeFixture('test-unit-props.spec.tsx');
-      const callbackFired = result.assertions.filter(a => a.classification === 'CALLBACK_FIRED');
 
-      expect(callbackFired.length).toBeGreaterThan(0);
-      expect(callbackFired[0].text).toContain('toHaveBeenCalledWith');
+      const callbackAssertions = result.assertions.filter(a => a.text.includes('toHaveBeenCalledWith'));
+      expect(callbackAssertions.length).toBeGreaterThan(0);
     });
 
-    it('classifies toMatchSnapshot as LARGE_SNAPSHOT', () => {
+    it('extracts snapshot assertions', () => {
       const result = analyzeFixture('test-snapshot.spec.tsx');
-      const snapshots = result.assertions.filter(a => a.classification === 'LARGE_SNAPSHOT');
 
-      expect(snapshots.length).toBeGreaterThan(0);
+      const snapshotAssertions = result.assertions.filter(a => a.text.includes('toMatchSnapshot'));
+      expect(snapshotAssertions.length).toBeGreaterThan(0);
     });
 
-    it('classifies result.current as HOOK_RETURN', () => {
+    it('extracts result.current assertions', () => {
       const result = analyzeFixture('test-snapshot.spec.tsx');
-      const hookReturns = result.assertions.filter(a => a.classification === 'HOOK_RETURN');
 
-      expect(hookReturns.length).toBeGreaterThan(0);
-      expect(hookReturns[0].text).toContain('result.current');
+      const hookReturnAssertions = result.assertions.filter(a => a.text.includes('result.current'));
+      expect(hookReturnAssertions.length).toBeGreaterThan(0);
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // Strategy detection
-  // ---------------------------------------------------------------------------
-
-  describe('strategy detection', () => {
-    it('detects unit-props for props-only render', () => {
-      const result = analyzeFixture('test-unit-props.spec.tsx');
-
-      expect(result.strategy).toBe('unit-props');
-    });
-
-    it('detects integration-providers for QueryClientProvider wrapped render', () => {
-      const result = analyzeFixture('test-integration-providers.spec.tsx');
-
-      expect(result.strategy).toBe('integration-providers');
-    });
-
-    it('detects unit-pure for direct function call tests', () => {
-      const result = analyzeFixture('test-unit-pure.spec.ts');
-
-      expect(result.strategy).toBe('unit-pure');
-    });
-  });
+  // Strategy detection was removed from the tool -- interpreters now handle this
 
   // ---------------------------------------------------------------------------
   // Cleanup analysis
@@ -250,10 +229,9 @@ describe('ast-test-analysis', () => {
 
       expect(results.length).toBeGreaterThanOrEqual(4);
 
-      // Each result should have the standard shape
+      // Each result should have the standard shape (no strategy - that's interpreter domain)
       for (const result of results) {
         expect(result.filePath).toBeDefined();
-        expect(result.strategy).toBeDefined();
         expect(result.mocks).toBeDefined();
         expect(result.assertions).toBeDefined();
         expect(result.cleanup).toBeDefined();
@@ -272,7 +250,6 @@ describe('ast-test-analysis', () => {
 
       expect(result.filePath).toContain('ProductivityBlock.spec.tsx');
       expect(result.subjectExists).toBe(true);
-      expect(result.strategy).toBeDefined();
       expect(result.mocks.length).toBeGreaterThanOrEqual(1);
       expect(result.assertions.length).toBeGreaterThanOrEqual(1);
       expect(result.describeCount).toBeGreaterThan(0);
@@ -286,8 +263,110 @@ describe('ast-test-analysis', () => {
 
       expect(result.filePath).toContain('mapDaysTableData.spec.ts');
       expect(result.subjectExists).toBe(true);
-      expect(result.strategy).toBe('unit-pure');
+      // Strategy classification moved to interpreter (ast-interpret-test-quality)
       expect(result.dataSourcing.usesFixtureSystem).toBe(true);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Observation extraction
+  // ---------------------------------------------------------------------------
+
+  describe('observation extraction', () => {
+    it('emits MOCK_DECLARATION observations', () => {
+      const result = analyzeFixture('test-file.spec.ts');
+      const mockObs = result.observations.filter(o => o.kind === 'MOCK_DECLARATION');
+
+      expect(mockObs.length).toBeGreaterThan(0);
+      expect(mockObs[0].evidence.target).toBeDefined();
+    });
+
+    it('emits ASSERTION_CALL observations with matcher name', () => {
+      const result = analyzeFixture('test-unit-props.spec.tsx');
+      const assertObs = result.observations.filter(o => o.kind === 'ASSERTION_CALL');
+
+      expect(assertObs.length).toBeGreaterThan(0);
+      const visibleMatcher = assertObs.find(o => o.evidence.matcherName === 'toBeVisible');
+      expect(visibleMatcher).toBeDefined();
+    });
+
+    it('emits RENDER_CALL observations', () => {
+      const result = analyzeFixture('test-unit-props.spec.tsx');
+      const renderObs = result.observations.filter(o => o.kind === 'RENDER_CALL');
+
+      expect(renderObs.length).toBeGreaterThan(0);
+      expect(renderObs[0].evidence.isRenderHook).toBe(false);
+    });
+
+    it('emits TEST_HELPER_IMPORT observations', () => {
+      const result = analyzeFixture('test-unit-props.spec.tsx');
+      const helperObs = result.observations.filter(o => o.kind === 'TEST_HELPER_IMPORT');
+
+      expect(helperObs.length).toBeGreaterThan(0);
+      const testingLibrary = helperObs.find(o => o.evidence.importSource?.includes('@testing-library'));
+      expect(testingLibrary).toBeDefined();
+    });
+
+    it('emits DESCRIBE_BLOCK and TEST_BLOCK observations', () => {
+      const result = analyzeFixture('test-unit-pure.spec.ts');
+      const describeObs = result.observations.filter(o => o.kind === 'DESCRIBE_BLOCK');
+      const testObs = result.observations.filter(o => o.kind === 'TEST_BLOCK');
+
+      expect(describeObs.length).toBe(2);
+      expect(testObs.length).toBe(4);
+    });
+
+    it('emits AFTER_EACH_BLOCK and CLEANUP_CALL observations', () => {
+      const result = analyzeFixture('test-cleanup.spec.ts');
+      const afterEachObs = result.observations.filter(o => o.kind === 'AFTER_EACH_BLOCK');
+      const cleanupObs = result.observations.filter(o => o.kind === 'CLEANUP_CALL');
+
+      expect(afterEachObs.length).toBe(1);
+      expect(cleanupObs.length).toBeGreaterThan(0);
+
+      const restoreMocks = cleanupObs.find(o => o.evidence.cleanupType === 'restoreAllMocks');
+      expect(restoreMocks).toBeDefined();
+    });
+
+    it('emits PROVIDER_WRAPPER observations', () => {
+      const result = analyzeFixture('test-integration-providers.spec.tsx');
+      const providerObs = result.observations.filter(o => o.kind === 'PROVIDER_WRAPPER');
+
+      expect(providerObs.length).toBeGreaterThan(0);
+      const queryProvider = providerObs.find(o => o.evidence.providerName === 'QueryClientProvider');
+      expect(queryProvider).toBeDefined();
+    });
+
+    it('emits FIXTURE_IMPORT observations', () => {
+      const result = analyzeFixture('test-data-sourcing.spec.ts');
+      const fixtureObs = result.observations.filter(o => o.kind === 'FIXTURE_IMPORT');
+
+      expect(fixtureObs.length).toBeGreaterThan(0);
+    });
+
+    it('emits isScreenQuery and isResultCurrent evidence on ASSERTION_CALL', () => {
+      const result = analyzeFixture('test-snapshot.spec.tsx');
+      const assertObs = result.observations.filter(o => o.kind === 'ASSERTION_CALL');
+
+      const resultCurrentAssertion = assertObs.find(o => o.evidence.isResultCurrent);
+      expect(resultCurrentAssertion).toBeDefined();
+    });
+
+    it('emits observations from negative fixture', () => {
+      const result = analyzeFixture('test-analysis-negative.spec.ts');
+
+      // Should have MOCK_DECLARATION for lodash (third-party)
+      const mockObs = result.observations.filter(o => o.kind === 'MOCK_DECLARATION');
+      const lodashMock = mockObs.find(o => o.evidence.target === 'lodash');
+      expect(lodashMock).toBeDefined();
+
+      // Should have AFTER_EACH_BLOCK but no standard CLEANUP_CALL
+      const afterEachObs = result.observations.filter(o => o.kind === 'AFTER_EACH_BLOCK');
+      expect(afterEachObs.length).toBe(1);
+
+      // Custom cleanup is not detected as CLEANUP_CALL
+      const cleanupObs = result.observations.filter(o => o.kind === 'CLEANUP_CALL');
+      expect(cleanupObs.length).toBe(0);
     });
   });
 });

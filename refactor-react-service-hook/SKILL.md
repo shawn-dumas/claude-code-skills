@@ -31,14 +31,34 @@ npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-hooks.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-effects.ts $ARGUMENTS --pretty
 ```
 
-Use the inventory for hook classification and useEffect detection.
-Use imports for cross-domain key detection (Step 2d) and consumer
-list. Use side-effects for Step 2a (toast, navigate, storage writes,
-analytics calls that violate single responsibility). Use data-layer
-for Steps 2b/2c/2d/2f/2h (factory indirection, mapper side effects,
-cross-domain query keys, API path sourcing, manual fetch patterns).
+Use hook assessments from `ast-interpret-hooks` to verify the hook is
+correctly classified as `LIKELY_SERVICE_HOOK`. If it is `UNKNOWN_HOOK`,
+determine whether it should be a service hook or utility hook.
+
+Use effect assessments from `ast-interpret-effects` for Step 2h:
+
+- `DERIVED_STATE` effects involving fetch calls indicate manual fetch
+  patterns that should be converted to useQuery
+
+Use import observations for cross-domain key detection (Step 2d) --
+`STATIC_IMPORT` from other domain's query key files are violations.
+
+Use side effect observations for Step 2a:
+
+- `TOAST_CALL` -- belongs in container onSuccess, not hook
+- `POSTHOG_CALL` -- analytics belongs in container
+- `WINDOW_MUTATION` (navigation) -- belongs in container
+
+Use data layer observations for Steps 2b/2c/2d/2f/2h:
+
+- `QUERY_HOOK_DEFINITION` / `MUTATION_HOOK_DEFINITION` -- verify structure
+- `QUERY_INVALIDATION` -- check for cross-domain keys
+- `FETCH_API_CALL` -- verify correct API path sourcing
+- `API_ENDPOINT` -- should be inline string, not imported from urlsRegistry
 
 ## Step 1: Build the dependency picture
 
@@ -127,6 +147,12 @@ The return type should be the minimum surface consumers actually need. If every
 consumer destructures the same 3 fields from a 15-field return, narrow the return.
 
 ### 2h. Manual fetch conversion
+
+Review effect assessments from `ast-interpret-effects`:
+
+- **`DERIVED_STATE`** with fetch/async calls indicate manual fetch patterns
+  that should be converted to useQuery
+- **`TIMER_RACE`** may indicate a fetch without proper cancellation
 
 If the hook (or container) uses `useEffect` + `fetch()` + `useState` for
 loading/error/data with a `let isCancelled = false` cleanup pattern, convert to

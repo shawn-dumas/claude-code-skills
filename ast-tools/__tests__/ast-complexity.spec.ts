@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeComplexity, analyzeComplexityDirectory } from '../ast-complexity';
+import { analyzeComplexity, analyzeComplexityDirectory, extractComplexityObservations } from '../ast-complexity';
 import type { ComplexityAnalysis, FunctionComplexity } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -187,6 +187,47 @@ describe('analyzeComplexityDirectory', () => {
     expect(results.length).toBeGreaterThan(0);
     for (const r of results) {
       expect(r.filePath).toBeDefined();
+    }
+  });
+});
+
+describe('extractComplexityObservations', () => {
+  it('extracts observations from analysis results', () => {
+    const analysis = analyzeFixture('complexity-samples.ts');
+    const result = extractComplexityObservations(analysis);
+
+    expect(result.filePath).toBe(analysis.filePath);
+    expect(result.observations.length).toBe(analysis.functions.length);
+  });
+
+  it('each observation has FUNCTION_COMPLEXITY kind', () => {
+    const analysis = analyzeFixture('complexity-samples.ts');
+    const result = extractComplexityObservations(analysis);
+
+    for (const obs of result.observations) {
+      expect(obs.kind).toBe('FUNCTION_COMPLEXITY');
+    }
+  });
+
+  it('observation evidence contains all complexity data', () => {
+    const analysis = analyzeFixture('complexity-samples.ts');
+    const result = extractComplexityObservations(analysis);
+
+    const firstObs = result.observations[0];
+    expect(firstObs.evidence.functionName).toBeDefined();
+    expect(firstObs.evidence.endLine).toBeGreaterThan(0);
+    expect(firstObs.evidence.lineCount).toBeGreaterThan(0);
+    expect(firstObs.evidence.cyclomaticComplexity).toBeGreaterThanOrEqual(1);
+    expect(firstObs.evidence.maxNestingDepth).toBeGreaterThanOrEqual(0);
+    expect(Array.isArray(firstObs.evidence.contributors)).toBe(true);
+  });
+
+  it('observation line matches function line', () => {
+    const analysis = analyzeFixture('complexity-samples.ts');
+    const result = extractComplexityObservations(analysis);
+
+    for (let i = 0; i < analysis.functions.length; i++) {
+      expect(result.observations[i].line).toBe(analysis.functions[i].line);
     }
   });
 });

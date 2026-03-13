@@ -16,20 +16,34 @@ appears (at least 2). If no files are listed, search the codebase for the patter
 ## Step 0: Run AST analysis tools
 
 ```bash
-# Find the pattern across source files
+# Find JSX pattern structure across source files
 for f in <source-files>; do
-  npx tsx scripts/AST/ast-jsx-analysis.ts "$f"
+  npx tsx scripts/AST/ast-jsx-analysis.ts "$f" --pretty
 done
 npx tsx scripts/AST/ast-imports.ts <source-files> --pretty
 ```
 
-Use JSX analysis fingerprints to confirm the pattern is structurally
-similar across files. Use imports to check for existing similar
-components.
+The JSX analysis emits observations with structural evidence:
+
+- `JSX_RETURN_BLOCK` observations with `returnLineCount`, `returnStartLine`,
+  `returnEndLine` evidence
+- `JSX_TRANSFORM_CHAIN` observations with `methods` and `chainLength` evidence
+- `JSX_TERNARY_CHAIN` observations with `depth` evidence
+- `JSX_GUARD_CHAIN` observations with `conditionCount` evidence
+
+Use these observations to confirm the pattern is structurally similar
+across files. Compare `JSX_RETURN_BLOCK` line counts and look for matching
+`JSX_TRANSFORM_CHAIN` methods evidence. The import observations show
+existing component imports to check for duplicates.
+
+For extraction candidates, the `ast-interpret-template` interpreter
+produces `EXTRACTION_CANDIDATE` assessments when the same structural
+pattern appears in 3+ files with similar JSX observation evidence.
 
 ## Step 1: Parse arguments
 
 Extract:
+
 - **ComponentName** (PascalCase)
 - **Pattern description** (what the repeated JSX does)
 - **Source files** (where the pattern currently lives)
@@ -37,6 +51,7 @@ Extract:
 ## Step 2: Read all source files
 
 For each source file, find every instance of the pattern. Record:
+
 - The exact JSX (copy it)
 - The line numbers
 - What varies between instances (the props the shared component needs)
@@ -127,6 +142,7 @@ Run `npx tsc --noEmit` on all changed files. Fix type errors. Run tests for
 every file that was modified. Run the new component's tests.
 
 Output a summary:
+
 - Component created at (path)
 - Props interface
 - Call sites replaced (file:line for each)

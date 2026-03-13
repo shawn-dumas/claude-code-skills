@@ -4,7 +4,8 @@ import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
 import { getFilesInDirectory, truncateText, getContainingFunctionName } from './shared';
-import type { StorageAccessAnalysis, StorageAccessInstance, StorageAccessType } from './types';
+import type { StorageAccessAnalysis, StorageAccessInstance, StorageAccessType, StorageObservation } from './types';
+import { astConfig } from './ast-config';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -27,6 +28,130 @@ const VIOLATION_TYPES: ReadonlySet<StorageAccessType> = new Set([
   'DIRECT_SESSION_STORAGE',
   'JSON_PARSE_UNVALIDATED',
 ]);
+
+// ---------------------------------------------------------------------------
+// Observation extraction
+// ---------------------------------------------------------------------------
+
+export function extractStorageObservations(sf: SourceFile): StorageObservation[] {
+  const observations: StorageObservation[] = [];
+  const relativePath = path.relative(PROJECT_ROOT, sf.getFilePath());
+
+  sf.forEachDescendant(node => {
+    const line = node.getStartLineNumber();
+    const column = sf.getLineAndColumnAtPos(node.getStart()).column;
+
+    // Direct storage method calls (localStorage.getItem, sessionStorage.setItem, etc.)
+    if (Node.isCallExpression(node)) {
+      const callee = node.getExpression();
+      if (Node.isPropertyAccessExpression(callee)) {
+        const objText = callee.getExpression().getText();
+        const methodName = callee.getName();
+
+        // Check for direct storage calls
+        const storageType = astConfig.storage.directStorageTypeMap[objText];
+        if (storageType && astConfig.storage.directStorageMethods.has(methodName)) {
+          observations.push({
+            kind: 'DIRECT_STORAGE_CALL',
+            file: relativePath,
+            line,
+            column,
+            evidence: {
+              storageType: objText as 'localStorage' | 'sessionStorage',
+              method: methodName,
+            },
+          });
+          return;
+        }
+
+        // Check for cookie method calls (Cookies.get, Cookies.set, etc.)
+        if (objText === 'Cookies' && astConfig.storage.cookieMethods.has(methodName)) {
+          observations.push({
+            kind: 'COOKIE_CALL',
+            file: relativePath,
+            line,
+            column,
+            evidence: {
+              method: methodName,
+            },
+          });
+          return;
+        }
+      }
+
+      // Check for typed storage helper calls (readStorage, writeStorage, removeStorage)
+      const calleeText = node.getExpression().getText();
+      const helperType = astConfig.storage.typedStorageHelpers[calleeText];
+      if (helperType) {
+        observations.push({
+          kind: 'TYPED_STORAGE_CALL',
+          file: relativePath,
+          line,
+          column,
+          evidence: {
+            helperName: calleeText,
+          },
+        });
+        return;
+      }
+
+      // Check for JSON.parse calls
+      if (calleeText === 'JSON.parse') {
+        const isGuarded = isJsonParseZodGuarded(node);
+        observations.push({
+          kind: isGuarded ? 'JSON_PARSE_ZOD_GUARDED' : 'JSON_PARSE_CALL',
+          file: relativePath,
+          line,
+          column,
+          evidence: {
+            isZodGuarded: isGuarded,
+          },
+        });
+        return;
+      }
+    }
+
+    // Storage property access (localStorage.length, document.cookie)
+    if (Node.isPropertyAccessExpression(node)) {
+      const objText = node.getExpression().getText();
+      const propName = node.getName();
+
+      // Check for non-method property access on localStorage/sessionStorage
+      const storageType = astConfig.storage.directStorageTypeMap[objText];
+      if (storageType && !astConfig.storage.directStorageMethods.has(propName)) {
+        observations.push({
+          kind: 'STORAGE_PROPERTY_ACCESS',
+          file: relativePath,
+          line,
+          column,
+          evidence: {
+            storageType: objText as 'localStorage' | 'sessionStorage',
+            method: propName,
+          },
+        });
+        return;
+      }
+
+      // Check for document.cookie access
+      if (objText === 'document' && propName === 'cookie') {
+        observations.push({
+          kind: 'COOKIE_CALL',
+          file: relativePath,
+          line,
+          column,
+          evidence: {
+            method: 'cookie',
+          },
+        });
+      }
+    }
+  });
+
+  // Sort by line number
+  observations.sort((a, b) => a.line - b.line || (a.column ?? 0) - (b.column ?? 0));
+
+  return observations;
+}
 
 // ---------------------------------------------------------------------------
 // JSON.parse Zod guard detection
@@ -61,12 +186,6 @@ function isJsonParseZodGuarded(node: Node): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Storage object method patterns
-// ---------------------------------------------------------------------------
-
-const STORAGE_METHODS = new Set(['getItem', 'setItem', 'removeItem', 'clear']);
-
-// ---------------------------------------------------------------------------
 // Per-category classifiers
 // ---------------------------------------------------------------------------
 
@@ -74,13 +193,6 @@ interface StorageNodeContext {
   line: number;
   column: number;
 }
-
-const DIRECT_STORAGE_TYPE_MAP: Record<string, StorageAccessType> = {
-  localStorage: 'DIRECT_LOCAL_STORAGE',
-  sessionStorage: 'DIRECT_SESSION_STORAGE',
-};
-
-const COOKIE_METHODS = new Set(['get', 'set', 'remove']);
 
 /** Classify direct localStorage/sessionStorage method calls and cookie access via property access. */
 function classifyStorageMethodCall(node: Node, ctx: StorageNodeContext): StorageAccessInstance | null {
@@ -92,8 +204,8 @@ function classifyStorageMethodCall(node: Node, ctx: StorageNodeContext): Storage
   const objText = callee.getExpression().getText();
   const methodName = callee.getName();
 
-  const directType = DIRECT_STORAGE_TYPE_MAP[objText];
-  if (directType && STORAGE_METHODS.has(methodName)) {
+  const directType = astConfig.storage.directStorageTypeMap[objText] as StorageAccessType | undefined;
+  if (directType && astConfig.storage.directStorageMethods.has(methodName)) {
     return {
       type: directType,
       line: ctx.line,
@@ -104,7 +216,7 @@ function classifyStorageMethodCall(node: Node, ctx: StorageNodeContext): Storage
     };
   }
 
-  if (objText === 'Cookies' && COOKIE_METHODS.has(methodName)) {
+  if (objText === 'Cookies' && astConfig.storage.cookieMethods.has(methodName)) {
     return {
       type: 'COOKIE_ACCESS',
       line: ctx.line,
@@ -124,13 +236,7 @@ function classifyTypedStorageCall(node: Node, ctx: StorageNodeContext): StorageA
 
   const calleeText = node.getExpression().getText();
 
-  const typeMap: Record<string, StorageAccessType> = {
-    readStorage: 'TYPED_STORAGE_READ',
-    writeStorage: 'TYPED_STORAGE_WRITE',
-    removeStorage: 'TYPED_STORAGE_REMOVE',
-  };
-
-  const type = typeMap[calleeText];
+  const type = astConfig.storage.typedStorageHelpers[calleeText] as StorageAccessType | undefined;
   if (!type) return null;
 
   return {
@@ -176,8 +282,8 @@ function classifyStoragePropertyAccess(node: Node, ctx: StorageNodeContext): Sto
   const objText = node.getExpression().getText();
   const propName = node.getName();
 
-  const directType = DIRECT_STORAGE_TYPE_MAP[objText];
-  if (directType && !STORAGE_METHODS.has(propName)) {
+  const directType = astConfig.storage.directStorageTypeMap[objText] as StorageAccessType | undefined;
+  if (directType && !astConfig.storage.directStorageMethods.has(propName)) {
     return {
       type: directType,
       line: ctx.line,
@@ -253,6 +359,7 @@ export function analyzeStorageAccess(filePath: string): StorageAccessAnalysis {
   const relativePath = path.relative(PROJECT_ROOT, absolute);
 
   const accesses = findAccesses(sf);
+  const observations = extractStorageObservations(sf);
   const summary = computeSummary(accesses);
 
   let violationCount = 0;
@@ -271,6 +378,7 @@ export function analyzeStorageAccess(filePath: string): StorageAccessAnalysis {
     summary,
     violationCount,
     compliantCount,
+    observations,
   };
 }
 

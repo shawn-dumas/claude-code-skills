@@ -14,12 +14,35 @@ philosophy adapted for non-React modules. Read the spec, score it, fix or replac
 ```bash
 npx tsx scripts/AST/ast-test-analysis.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-test-quality.ts $ARGUMENTS --pretty
 ```
 
-Use the test analysis to pre-score the spec before reading it manually.
-The tool classifies mocks (P2), assertions (P8), cleanup (P10), and
-strategy (P4). Use this to make the delete-vs-fix decision in Step 3
-before investing time in detailed reading.
+Use the test quality assessments to pre-score the spec before reading
+it manually. The interpreter classifies observations into assessments:
+
+**Mock assessments (P2/P3):**
+
+- `MOCK_BOUNDARY_COMPLIANT` -- mocks external boundaries only (OK)
+- `MOCK_INTERNAL_VIOLATION` -- mocks own functions/utilities (violation)
+
+**Assertion assessments (P8):**
+
+- `ASSERTION_USER_VISIBLE` -- asserts on return values (OK for modules)
+- `ASSERTION_IMPLEMENTATION` -- asserts on internal spy counts (violation)
+- `ASSERTION_SNAPSHOT` -- large snapshot assertion (flag for review)
+
+**Cleanup assessments (P10):**
+
+- `CLEANUP_COMPLETE` -- proper afterEach patterns (OK)
+- `CLEANUP_INCOMPLETE` -- missing cleanup (violation)
+
+**Strategy assessment (P4):**
+
+- `DETECTED_STRATEGY` with `subject.symbol` of `unit-pure` or `unit-render`
+
+**Delete gate (Step 3):**
+
+- `DELETE_CANDIDATE` assessment triggers delete-and-rebuild
 
 ## Step 1: Read the spec and its production file
 
@@ -41,35 +64,47 @@ Then read the production file completely. Record:
 
 Score the spec against each principle (OK or VIOLATION with count):
 
-| # | Principle | Score |
-|---|-----------|-------|
-| 1 | Public API Only | OK / N violations |
-| 2 | Boundary Mocking | OK / N violations |
-| 3 | System Isolation | OK / N violations |
-| 4 | Strict Strategies | OK / N violations |
-| 5 | Data Ownership | OK / N violations |
-| 6 | Type-Safe Mocks | OK / N violations |
-| 7 | Refactor Sync | OK / N violations |
-| 8 | Output Assertions | OK / N violations |
-| 9 | Determinism | OK / N violations |
-| 10 | Total Cleanup | OK / N violations |
+| #   | Principle         | Score             |
+| --- | ----------------- | ----------------- |
+| 1   | Public API Only   | OK / N violations |
+| 2   | Boundary Mocking  | OK / N violations |
+| 3   | System Isolation  | OK / N violations |
+| 4   | Strict Strategies | OK / N violations |
+| 5   | Data Ownership    | OK / N violations |
+| 6   | Type-Safe Mocks   | OK / N violations |
+| 7   | Refactor Sync     | OK / N violations |
+| 8   | Output Assertions | OK / N violations |
+| 9   | Determinism       | OK / N violations |
+| 10  | Total Cleanup     | OK / N violations |
 
 Total score = number of principles with zero violations (0-10).
 
 ## Step 3: Apply the delete threshold
 
-If ANY of these conditions are met, delete the spec and delegate to
+Check the assessments from `ast-interpret-test-quality`. If ANY of these
+conditions are met, delete the spec and delegate to
 `/build-module-test <production-file-path>`:
 
-| Condition | Threshold |
-|-----------|-----------|
-| Score <= 4/10 | 6+ principles violated |
-| >= 3 own-module mocks | `vi.mock` of non-boundary targets |
-| >= 2 stale references | Mocks/calls to deleted functions or changed signatures |
-| Strategy inversion | Pure module tested with extensive mocking |
-| Copy-paste duplicate | `describe` names a different module than what is imported |
+| Condition                     | Assessment Signal                                                         |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| `DELETE_CANDIDATE` assessment | `DELETE_CANDIDATE` with `isCandidate: true`                               |
+| >= 3 internal mock violations | Count `MOCK_INTERNAL_VIOLATION` assessments                               |
+| Strategy inversion            | `DETECTED_STRATEGY` is `integration-providers` but subject is pure module |
+| Orphaned test                 | `ORPHANED_TEST` assessment present                                        |
+
+**Scoring from assessments:**
+
+Count violations per principle from assessment kinds:
+
+- P2/P3: Count `MOCK_INTERNAL_VIOLATION` assessments (each = 1 violation)
+- P6: Count `AS_ANY_CAST` and `AS_UNKNOWN_AS_CAST` type safety observations
+- P8: Count `ASSERTION_IMPLEMENTATION` assessments
+- P10: Check for `CLEANUP_INCOMPLETE` assessment
+
+Score = 10 - (principles with violations). Delete threshold is score <= 4.
 
 If the threshold is met:
+
 1. Report what was scored, which condition triggered the delete
 2. Delete the spec file
 3. Run `/build-module-test <production-file-path>` (invoke the skill)
@@ -78,9 +113,10 @@ If the threshold is met:
 If the score is >= 7/10, proceed to Step 4 (targeted fixes).
 
 If the score is 5-6/10, apply the gray-zone tiebreaker:
+
 - Does the test have meaningful behavioral assertions? -> Fix
-- Is > 60% of the file mock setup? -> Delete and rebuild
-- Are there < 3 actual test cases? -> Delete and rebuild
+- Is > 60% of the file mock setup (count `MOCK_DECLARATION` observations)? -> Delete and rebuild
+- Are there < 3 actual test cases (count `TEST_BLOCK` observations)? -> Delete and rebuild
 
 ## Step 4: Fix violations (targeted, in-place)
 

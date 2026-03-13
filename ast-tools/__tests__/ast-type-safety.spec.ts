@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeTypeSafety, analyzeTypeSafetyDirectory } from '../ast-type-safety';
-import type { TypeSafetyAnalysis, TypeSafetyViolationType } from '../types';
+import { analyzeTypeSafety, analyzeTypeSafetyDirectory, extractTypeSafetyObservations } from '../ast-type-safety';
+import type {
+  TypeSafetyAnalysis,
+  TypeSafetyViolationType,
+  TypeSafetyObservation,
+  TypeSafetyObservationKind,
+} from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
 
@@ -15,6 +20,10 @@ function analyzeFixture(name: string): TypeSafetyAnalysis {
 
 function violationsOfType(analysis: TypeSafetyAnalysis, type: TypeSafetyViolationType) {
   return analysis.violations.filter(v => v.type === type);
+}
+
+function observationsOfKind(observations: TypeSafetyObservation[], kind: TypeSafetyObservationKind) {
+  return observations.filter(o => o.kind === kind);
 }
 
 describe('ast-type-safety', () => {
@@ -205,5 +214,157 @@ describe('analyzeTypeSafetyDirectory', () => {
     for (const r of results) {
       expect(r.filePath).toBeDefined();
     }
+  });
+});
+
+describe('extractTypeSafetyObservations', () => {
+  describe('observation kinds', () => {
+    it('extracts AS_ANY_CAST observations', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-violations.ts'));
+      const asAnyCasts = observationsOfKind(observations, 'AS_ANY_CAST');
+
+      expect(asAnyCasts.length).toBeGreaterThanOrEqual(1);
+      expect(asAnyCasts[0].evidence.castTarget).toBe('any');
+    });
+
+    it('extracts AS_UNKNOWN_AS_CAST observations', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-violations.ts'));
+      const doubleCasts = observationsOfKind(observations, 'AS_UNKNOWN_AS_CAST');
+
+      expect(doubleCasts.length).toBeGreaterThanOrEqual(1);
+      expect(doubleCasts[0].evidence.castTarget).toBeDefined();
+      expect(doubleCasts[0].evidence.castTarget).not.toBe('unknown');
+    });
+
+    it('extracts TRUST_BOUNDARY_CAST observations with source', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-violations.ts'));
+      const trustCasts = observationsOfKind(observations, 'TRUST_BOUNDARY_CAST');
+
+      expect(trustCasts.length).toBeGreaterThanOrEqual(1);
+      const jsonParseCast = trustCasts.find(o => o.evidence.trustBoundarySource === 'JSON.parse');
+      expect(jsonParseCast).toBeDefined();
+    });
+
+    it('extracts TS_DIRECTIVE and ESLINT_DISABLE observations', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-violations.ts'));
+      const tsDirectives = observationsOfKind(observations, 'TS_DIRECTIVE');
+      const eslintDisables = observationsOfKind(observations, 'ESLINT_DISABLE');
+
+      expect(tsDirectives.length).toBeGreaterThanOrEqual(1);
+      expect(eslintDisables.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('guard detection evidence', () => {
+    it('marks non-null assertion with .has() guard as hasGuard: true, guardType: has-check', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-negative.ts'));
+      const nonNullAssertions = observationsOfKind(observations, 'NON_NULL_ASSERTION');
+      const guarded = nonNullAssertions.find(o => o.evidence.hasGuard === true && o.evidence.guardType === 'has-check');
+
+      expect(guarded).toBeDefined();
+    });
+
+    it('marks unguarded non-null assertion as hasGuard: false', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-negative.ts'));
+      const nonNullAssertions = observationsOfKind(observations, 'NON_NULL_ASSERTION');
+      const unguarded = nonNullAssertions.find(o => o.evidence.hasGuard === false);
+
+      expect(unguarded).toBeDefined();
+    });
+
+    it('marks non-null assertion with null-check guard as hasGuard: true', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-negative.ts'));
+      const nonNullAssertions = observationsOfKind(observations, 'NON_NULL_ASSERTION');
+      const nullGuarded = nonNullAssertions.find(
+        o =>
+          o.evidence.hasGuard === true &&
+          (o.evidence.guardType === 'null-check' || o.evidence.guardType === 'if-check'),
+      );
+
+      expect(nullGuarded).toBeDefined();
+    });
+  });
+
+  describe('directive evidence', () => {
+    it('marks ts-expect-error with explanation as hasExplanation: true', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-negative.ts'));
+      const tsDirectives = observationsOfKind(observations, 'TS_DIRECTIVE');
+      const withExplanation = tsDirectives.find(o => o.evidence.hasExplanation === true);
+
+      expect(withExplanation).toBeDefined();
+    });
+
+    it('marks ts-expect-error without explanation as hasExplanation: false', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-negative.ts'));
+      const tsDirectives = observationsOfKind(observations, 'TS_DIRECTIVE');
+      const withoutExplanation = tsDirectives.find(o => o.evidence.hasExplanation === false);
+
+      expect(withoutExplanation).toBeDefined();
+    });
+
+    it('marks eslint-disable with explanation as hasExplanation: true', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-negative.ts'));
+      const eslintDisables = observationsOfKind(observations, 'ESLINT_DISABLE');
+      const withExplanation = eslintDisables.find(o => o.evidence.hasExplanation === true);
+
+      expect(withExplanation).toBeDefined();
+    });
+
+    it('marks eslint-disable without explanation as hasExplanation: false', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-negative.ts'));
+      const eslintDisables = observationsOfKind(observations, 'ESLINT_DISABLE');
+      const withoutExplanation = eslintDisables.find(o => o.evidence.hasExplanation === false);
+
+      expect(withoutExplanation).toBeDefined();
+    });
+  });
+
+  describe('complex type detection', () => {
+    it('marks any inside conditional type as isInsideComplexType: true', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-negative.ts'));
+      const anyAnnotations = observationsOfKind(observations, 'EXPLICIT_ANY_ANNOTATION');
+      const insideComplexType = anyAnnotations.find(o => o.evidence.isInsideComplexType === true);
+
+      expect(insideComplexType).toBeDefined();
+    });
+  });
+
+  describe('trust boundary sources', () => {
+    it('detects localStorage trust boundary source', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-negative.ts'));
+      const trustCasts = observationsOfKind(observations, 'TRUST_BOUNDARY_CAST');
+      const localStorageCast = trustCasts.find(o => o.evidence.trustBoundarySource === 'localStorage');
+
+      expect(localStorageCast).toBeDefined();
+    });
+
+    it('detects sessionStorage trust boundary source', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-negative.ts'));
+      const trustCasts = observationsOfKind(observations, 'TRUST_BOUNDARY_CAST');
+      const sessionStorageCast = trustCasts.find(o => o.evidence.trustBoundarySource === 'sessionStorage');
+
+      expect(sessionStorageCast).toBeDefined();
+    });
+  });
+
+  describe('backward compatibility', () => {
+    it('analyzeTypeSafety returns observations field', () => {
+      const result = analyzeFixture('type-safety-violations.ts');
+
+      expect(result.observations).toBeDefined();
+      expect(Array.isArray(result.observations)).toBe(true);
+      expect(result.observations.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('astConfig usage', () => {
+    it('uses config for trust boundary detection', () => {
+      const observations = extractTypeSafetyObservations(fixturePath('type-safety-violations.ts'));
+      const trustCasts = observationsOfKind(observations, 'TRUST_BOUNDARY_CAST');
+
+      // JSON.parse is in astConfig.typeSafety.trustBoundaryCalls
+      const jsonParseCast = trustCasts.find(o => o.evidence.trustBoundarySource === 'JSON.parse');
+      expect(jsonParseCast).toBeDefined();
+    });
   });
 });

@@ -22,14 +22,31 @@ npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-hooks.ts $ARGUMENTS --pretty
 ```
 
-Use the inventory to classify the hook (Step 2) and identify its hook
-calls. Use imports to find all consumers and check for cross-domain
-imports (Step 3d). Use side-effects for Step 3a (detecting toast,
-navigate, storage writes, and analytics calls that violate single
-responsibility). Use data-layer for Steps 3b-3d (factory indirection,
-mapper side effects in `select`, cross-domain query key imports).
+Use hook assessments from `ast-interpret-hooks` to classify the hook
+(Step 2):
+
+- `LIKELY_SERVICE_HOOK` -- redirect to `refactor-react-service-hook`
+- `LIKELY_CONTEXT_HOOK` -- context-wrapping hook, inline into containers
+- `LIKELY_AMBIENT_HOOK` -- DOM/browser utility hook, belongs in `shared/hooks/`
+- `LIKELY_STATE_HOOK` -- state utility hook, belongs in `shared/hooks/`
+- `UNKNOWN_HOOK` -- requires manual classification
+
+Use effect assessments from `ast-interpret-effects` for Step 3g:
+
+- `DERIVED_STATE` -- hook is syncing state that should be derived
+- `TIMER_RACE` -- potential cleanup issues
+- `DOM_EFFECT` -- expected in DOM/browser utility hooks
+- `EXTERNAL_SUBSCRIPTION` -- expected in subscription-based hooks
+
+Use import observations for consumer list and cross-domain imports
+(Step 3d). Use side effect observations for Step 3a (detecting toast,
+navigate, storage writes, and analytics calls). Use data layer
+observations for Steps 3b-3d (factory indirection, mapper side effects,
+cross-domain query key imports).
 
 ## Step 1: Build the dependency picture
 
@@ -40,22 +57,27 @@ and what depends on it.
 
 ## Step 2: Classify the hook
 
-Determine what kind of hook this is:
+Review the hook assessment from `ast-interpret-hooks`:
 
-- **Service hook** (data-fetching): calls useQuery/useMutation, talks to an API.
-  Should live in `services/hooks/`. Should be a direct useQuery/useMutation call
-  with no factory indirection. **If the hook is a service hook, stop here and use
-  `refactor-react-service-hook` instead -- it has more targeted rules for
-  factory indirection, mapper side effects, cross-domain keys, and return surface.**
-- **Context-wrapping hook**: internally calls useContext or another context consumer.
-  This is a hidden dependency -- it makes its consumers implicitly dependent on a
-  provider tree. Should be inlined into containers, not used in leaves.
-- **DOM/browser utility hook**: interacts with DOM APIs (ResizeObserver, click-outside,
-  scroll, keyboard events). Should live in `shared/hooks/`.
-- **State utility hook**: manages local state patterns (debounce, pagination, toggle).
+- **`LIKELY_SERVICE_HOOK`** -- calls useQuery/useMutation, talks to an API.
+  **Stop here and use `refactor-react-service-hook` instead -- it has more
+  targeted rules for factory indirection, mapper side effects, cross-domain
+  keys, and return surface.**
+- **`LIKELY_CONTEXT_HOOK`** -- internally calls useContext or another context
+  consumer. This is a hidden dependency -- it makes its consumers implicitly
+  dependent on a provider tree. Should be inlined into containers, not used
+  in leaves.
+- **`LIKELY_AMBIENT_HOOK`** -- DOM/browser utility hook or state utility hook.
   Should live in `shared/hooks/`.
-- **Composite hook**: does multiple things (fetches data AND shows toasts AND navigates).
-  Should be split.
+- **`LIKELY_STATE_HOOK`** -- React builtin wrapped with additional logic.
+  If it adds meaningful abstraction, should live in `shared/hooks/`.
+- **`UNKNOWN_HOOK`** -- requires manual classification. Determine if it is:
+  - **DOM/browser utility hook**: interacts with DOM APIs (ResizeObserver,
+    click-outside, scroll, keyboard events)
+  - **State utility hook**: manages local state patterns (debounce, pagination,
+    toggle)
+  - **Composite hook**: does multiple things (fetches data AND shows toasts AND
+    navigates) -- should be split
 
 ## Step 3: Audit against each principle
 
@@ -108,6 +130,20 @@ extracted into a shared utility:
 - Multiple hooks with the same click-outside/escape-key/resize pattern
 - Multiple hooks reading the same storage key independently
 - Multiple hooks with identical error handling or retry logic
+
+### 3g. useEffect assessment
+
+Review effect assessments from `ast-interpret-effects`:
+
+- **`DERIVED_STATE`** -- hook is syncing state that should be derived via
+  useMemo or returned directly from a query
+- **`EVENT_HANDLER_DISGUISED`** -- effect triggered by callback, should be
+  inline logic
+- **`TIMER_RACE`** -- potential cleanup issues, verify cleanup functions
+  clear all timers
+- **`DOM_EFFECT`** -- expected in DOM/browser utility hooks
+- **`EXTERNAL_SUBSCRIPTION`** -- expected in subscription-based hooks
+- **`NECESSARY`** -- no issues detected
 
 ## Step 4: Report
 

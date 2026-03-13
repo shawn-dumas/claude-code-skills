@@ -23,10 +23,33 @@ npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
 ```
 
-Use imports for G7 (dead exports, consumer count). Use complexity for
-G4 (hotspot identification). Use type safety for G8 (any/cast audit).
-Use side-effects for G6 (console, toast, timer, analytics calls that
-indicate impure code mixed with transformation logic).
+Use import observations for G7 (dead exports, consumer count):
+
+- `DEAD_EXPORT_CANDIDATE` -- export with 0 consumers
+- `CIRCULAR_DEPENDENCY` -- part of a circular import chain
+- `STATIC_IMPORT` / `EXPORT_DECLARATION` -- for consumer counting
+
+Use complexity observations (`FUNCTION_COMPLEXITY`) for G4 (hotspot
+identification). The `cyclomaticComplexity` and `maxNestingDepth` fields
+identify functions that need flattening.
+
+Use type safety observations for G8 (any/cast audit):
+
+- `AS_ANY_CAST` -- x as any
+- `AS_UNKNOWN_AS_CAST` -- x as unknown as T
+- `NON_NULL_ASSERTION` -- x!
+- `EXPLICIT_ANY_ANNOTATION` -- param: any
+- `CATCH_ERROR_ANY` -- catch(e: any)
+- `TS_DIRECTIVE` -- ts-expect-error, ts-ignore
+- `TRUST_BOUNDARY_CAST` -- JSON.parse(...) as T without Zod
+
+Use side effect observations for G6 (impure code mixed with transformation):
+
+- `CONSOLE_CALL` -- debug output in production code
+- `TOAST_CALL` -- UI feedback in utility code
+- `TIMER_CALL` -- async timing in sync-looking code
+- `POSTHOG_CALL` -- analytics in transformation logic
+- `WINDOW_MUTATION` -- DOM/browser state mutation
 
 ## Step 1: Build the dependency picture
 

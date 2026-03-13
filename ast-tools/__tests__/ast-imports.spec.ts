@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { buildDependencyGraph, isBarrelFile, traceBarrelChain } from '../ast-imports';
+import { buildDependencyGraph, isBarrelFile, traceBarrelChain, extractImportObservations } from '../ast-imports';
 import { PROJECT_ROOT } from '../project';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -307,6 +307,66 @@ describe('ast-imports', () => {
       // Output should be serializable to JSON
       const json = JSON.stringify(graph);
       expect(() => JSON.parse(json)).not.toThrow();
+    });
+  });
+
+  describe('extractImportObservations', () => {
+    it('extracts observations from a dependency graph', () => {
+      const graph = buildDependencyGraph(fixturePath('simple-component.tsx'), { searchDir: FIXTURES_DIR });
+      const result = extractImportObservations(graph);
+
+      expect(result.observations.length).toBeGreaterThan(0);
+      expect(result.filePath).toBeDefined();
+    });
+
+    it('creates STATIC_IMPORT observations for regular imports', () => {
+      const graph = buildDependencyGraph(fixturePath('simple-component.tsx'), { searchDir: FIXTURES_DIR });
+      const result = extractImportObservations(graph);
+
+      const staticImports = result.observations.filter(o => o.kind === 'STATIC_IMPORT');
+      expect(staticImports.length).toBeGreaterThan(0);
+
+      const firstImport = staticImports[0];
+      expect(firstImport.evidence.source).toBeDefined();
+      expect(firstImport.evidence.specifiers).toBeDefined();
+      expect(firstImport.line).toBeGreaterThan(0);
+    });
+
+    it('creates EXPORT_DECLARATION observations for exports', () => {
+      const graph = buildDependencyGraph(fixturePath('simple-component.tsx'), { searchDir: FIXTURES_DIR });
+      const result = extractImportObservations(graph);
+
+      const exports = result.observations.filter(o => o.kind === 'EXPORT_DECLARATION');
+      expect(exports.length).toBeGreaterThan(0);
+
+      const firstExport = exports[0];
+      expect(firstExport.evidence.exportName).toBeDefined();
+      expect(firstExport.evidence.exportKind).toBeDefined();
+    });
+
+    it('creates DEAD_EXPORT_CANDIDATE observations for dead exports', () => {
+      const graph = buildDependencyGraph(fixturePath('dead-export.ts'), { searchDir: FIXTURES_DIR });
+      const result = extractImportObservations(graph);
+
+      const deadExports = result.observations.filter(o => o.kind === 'DEAD_EXPORT_CANDIDATE');
+      expect(deadExports.length).toBeGreaterThan(0);
+
+      const firstDead = deadExports[0];
+      expect(firstDead.evidence.exportName).toBeDefined();
+      expect(firstDead.evidence.consumerCount).toBe(0);
+    });
+
+    it('creates CIRCULAR_DEPENDENCY observations for circular deps', () => {
+      const graph = buildDependencyGraph(FIXTURES_DIR, { searchDir: FIXTURES_DIR });
+      const result = extractImportObservations(graph);
+
+      const circularDeps = result.observations.filter(o => o.kind === 'CIRCULAR_DEPENDENCY');
+      // Should have at least one circular dependency from circular-a/circular-b
+      expect(circularDeps.length).toBeGreaterThan(0);
+
+      const firstCycle = circularDeps[0];
+      expect(firstCycle.evidence.cyclePath).toBeDefined();
+      expect(Array.isArray(firstCycle.evidence.cyclePath)).toBe(true);
     });
   });
 });

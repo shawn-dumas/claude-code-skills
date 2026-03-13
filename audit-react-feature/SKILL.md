@@ -9,61 +9,123 @@ argument-hint: <path/to/feature/directory>
 Audit the React feature area at `$ARGUMENTS`. This is a read-only diagnostic -- do not
 modify any files. Produce a complete migration report.
 
-## Step 0: Run AST analysis tools
+## Step 0: Run AST analysis tools and interpreters
 
-Before reading files manually, run these tools to get structured data.
-All tools accept glob patterns and multiple paths natively.
+Before reading files manually, run observation-producing tools AND their
+interpreters. All tools accept glob patterns and multiple paths natively.
 
 ```bash
-# Dependency graph for the feature directory
+# --- Observation-producing tools ---
+
+# Dependency graph (emits STATIC_IMPORT, CIRCULAR_DEPENDENCY, DEAD_EXPORT_CANDIDATE observations)
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
 
-# Component/hook/effect inventory (all .tsx files in directory)
+# Component/hook/effect inventory (emits HOOK_CALL, COMPONENT_DECLARATION, EFFECT_* observations)
 npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS/**/*.tsx --pretty
 
-# JSX template complexity
+# JSX template complexity (emits JSX_TERNARY_CHAIN, JSX_RETURN_BLOCK, etc. observations)
 npx tsx scripts/AST/ast-jsx-analysis.ts $ARGUMENTS/**/*.tsx --pretty
 
-# Type safety violations
+# Type safety (emits AS_ANY_CAST, NON_NULL_ASSERTION, TRUST_BOUNDARY_CAST observations)
 npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
 
-# Side effects (console, toast, timer, posthog)
+# Side effects (emits CONSOLE_CALL, TOAST_CALL, TIMER_CALL observations)
 npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
 
-# Storage access patterns
+# Storage access (emits DIRECT_STORAGE_CALL, TYPED_STORAGE_CALL observations)
 npx tsx scripts/AST/ast-storage-access.ts $ARGUMENTS --pretty
 
-# Service hooks, query keys, fetchApi endpoints
+# Service hooks, query keys, fetchApi endpoints (emits QUERY_HOOK_DEFINITION, FETCH_API_CALL observations)
 npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
 
-# Feature flag usage
+# Feature flag usage (emits FLAG_HOOK_CALL, PAGE_GUARD, CONDITIONAL_RENDER observations)
 npx tsx scripts/AST/ast-feature-flags.ts $ARGUMENTS --pretty
 
-# Environment variable access
+# Environment variable access (emits PROCESS_ENV_ACCESS, ENV_WRAPPER_ACCESS observations)
 npx tsx scripts/AST/ast-env-access.ts $ARGUMENTS --pretty
+
+# --- Interpreters (produce assessments over observations) ---
+
+# Hook classification (emits LIKELY_SERVICE_HOOK, LIKELY_CONTEXT_HOOK, LIKELY_AMBIENT_HOOK, UNKNOWN_HOOK assessments)
+npx tsx scripts/AST/ast-interpret-hooks.ts $ARGUMENTS/**/*.tsx --pretty
+
+# Effect classification (emits DERIVED_STATE, EVENT_HANDLER_DISGUISED, TIMER_RACE, DOM_EFFECT, NECESSARY assessments)
+npx tsx scripts/AST/ast-interpret-effects.ts $ARGUMENTS/**/*.tsx --pretty
+
+# Ownership classification (emits CONTAINER, DDAU_COMPONENT, LEAF_VIOLATION, LAYOUT_SHELL assessments)
+npx tsx scripts/AST/ast-interpret-ownership.ts $ARGUMENTS/**/*.tsx --pretty
+
+# Template assessment (emits EXTRACTION_CANDIDATE, COMPLEXITY_HOTSPOT assessments)
+npx tsx scripts/AST/ast-interpret-template.ts $ARGUMENTS/**/*.tsx --pretty
+
+# Dead code detection (emits DEAD_EXPORT, POSSIBLY_DEAD_EXPORT, CIRCULAR_DEPENDENCY assessments)
+npx tsx scripts/AST/ast-interpret-dead-code.ts $ARGUMENTS --pretty
 ```
 
-Use the JSON output from these tools to populate the file inventory,
-dependency graph, component classification, useEffect classification,
-hook call inventory, template complexity, and type violation sections
-of the report. Use side-effects for Step 3c (debug artifacts) and
-Step 6 (toast call sites). Use storage-access for Step 6 (storage
-key inventory, raw access detection, Zod schema compliance). Use
-data-layer for Step 2 (service hook imports), Step 5 (hook calls in
-leaves), and Step 6 (cross-domain query keys). Use feature-flags for
-Step 5 (flag hooks in non-container components). Use env-access for
-Step 3d (trust boundary compliance). You still need to read individual
-files for context when making classification judgments, but the tools
-provide the raw data.
+### Using observations and assessments
+
+**Observations** are structural facts with no classification (line X has
+a `useState` call, line Y has a ternary chain of depth 3). They populate
+inventory tables.
+
+**Assessments** are interpretations over observations with confidence
+levels and rationale. They populate the classification columns and the
+"Manual Review Required" section.
+
+Use observations for counts and inventories. Use assessments for
+classification decisions. When an assessment says `requiresManualReview:
+true`, include the item in the Manual Review section of the report.
+
+## Report Policy
 
 ### AST-confirmed tagging
 
-When a finding is confirmed by AST tool output (a measured complexity score, a
-detected dead export, a counted `as any` occurrence, a circular dependency in
-the import graph, etc.), tag it `[AST-confirmed]` in the report. In the
-migration checklist and any violation tables, prefix the description with the
-tag. AST-confirmed findings carry a +1 concern-level bump in the master audit's
-Findings Index because the measurement is objective.
+An assessment qualifies for `[AST-confirmed]` tagging when ALL of:
+
+- Based on observations only (no interpretive leap), OR is an
+  assessment whose sole input is a structural count or graph fact
+- Confidence is `high`
+- `isCandidate: false`
+- `requiresManualReview: false`
+
+Examples that qualify:
+
+- `DIRECT_STORAGE_CALL` observation -> `[AST-confirmed]` (structural fact)
+- `DEAD_EXPORT` assessment with high confidence -> `[AST-confirmed]`
+  (zero consumer count from import graph, no classification heuristic)
+- `CIRCULAR_DEPENDENCY` assessment -> `[AST-confirmed]` (graph fact)
+- Type safety observations (`AS_ANY_CAST`, `NON_NULL_ASSERTION`) -> `[AST-confirmed]`
+
+Examples that do NOT qualify, even at high confidence:
+
+- `LIKELY_SERVICE_HOOK` -- interpreter output; classifying a hook as
+  "service" applies heuristic rules over import paths, not a structural
+  fact. High confidence does not remove the interpretive leap.
+- `LEAF_VIOLATION` -- always `isCandidate: true, requiresManualReview: true`
+- `EXTRACTION_CANDIDATE` -- depends on threshold interpretation
+- Any assessment where `isCandidate: true` or `requiresManualReview: true`
+
+**Rule:** when in doubt, do not tag `[AST-confirmed]`. The tag exists to
+bump severity of findings the tool can prove structurally. Interpreter
+classifications are evidence, not proof.
+
+### Severity bumping
+
+`[AST-confirmed]` findings get +1 concern-level bump:
+
+- Bug/Low -> Bug/Medium
+- Architecture/Medium -> Architecture/High
+
+### Manual review section
+
+All assessments with `requiresManualReview: true` go into a separate
+"Manual Review Required" section of the report. These are candidates
+that need human judgment:
+
+- `LEAF_VIOLATION` candidates (ownership interpreter)
+- `UNKNOWN_HOOK` assessments (hook interpreter)
+- `DERIVED_STATE` candidates with `isCandidate: true` (effect interpreter)
+- `DELETE_CANDIDATE` test files (test quality interpreter)
 
 ## Step 1: Inventory all files
 
@@ -71,67 +133,79 @@ Glob for all .ts/.tsx files in the target directory and its subdirectories. For 
 file, record:
 
 - File path
-- What it exports (components, hooks, types, utilities)
-- What it imports (other local files, libraries, context hooks, service hooks)
+- What it exports (from `EXPORT_DECLARATION` observations in ast-imports output)
+- What it imports (from `STATIC_IMPORT` observations in ast-imports output)
 
 ## Step 2: Map the dependency graph
 
-For each file, trace its imports to build a directed dependency graph. Identify:
+Use observations from ast-imports to build the dependency graph. Identify:
 
-- Which files import context consumer hooks (and which hooks)
-- Which files import service hooks or call useQuery/useMutation directly
+- Which files import context hooks (from `HOOK_IMPORT` observations where
+  `importSource` matches `providers/context/`)
+- Which files import service hooks (from `HOOK_IMPORT` observations where
+  `importSource` matches `services/hooks/`)
 - Which files import from other feature domains (cross-domain coupling)
-- Which files call useRouter/usePathname
-- Which files read/write localStorage/sessionStorage
-- Which files call toast functions
-- Circular dependencies between files
+- Which files call useRouter/usePathname (from `HOOK_CALL` observations)
+- Which files access storage (from `DIRECT_STORAGE_CALL` / `TYPED_STORAGE_CALL` observations)
+- Which files call toast functions (from `TOAST_CALL` observations)
+- Circular dependencies (from `CIRCULAR_DEPENDENCY` observations/assessments)
 
 ## Step 3: Classify every component
 
-For each component in the feature, classify it:
+Use assessments from `ast-interpret-ownership` for component classification:
 
-| Classification      | Criteria                                                                                                                                                                                                                                                                                                     |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **DDAU**            | Receives all data via props, fires all actions via callbacks. No context hooks, no service hooks, no router hooks, no storage access.                                                                                                                                                                        |
-| **Self-contained**  | Fetches its own data, calls context hooks, or reaches into global state.                                                                                                                                                                                                                                     |
-| **Container**       | Orchestrates data-fetching and hook calls for a route or section.                                                                                                                                                                                                                                            |
-| **Inner container** | Sits below the route container. Owns section-level data orchestration (conditional fetching based on drill-down state or user selection). Receives context/navigation from the outer container as props. Calls service hooks for data that depends on local selection state. Has its own container above it. |
-| **Provider**        | Holds shared state via React context.                                                                                                                                                                                                                                                                        |
-| **Infrastructure**  | Layout, auth guard, error boundary, or similar app-level concern.                                                                                                                                                                                                                                            |
+| Assessment Kind  | Meaning                                                          | Report as      |
+| ---------------- | ---------------------------------------------------------------- | -------------- |
+| `CONTAINER`      | Orchestrates data-fetching and hook calls for a route or section | Container      |
+| `DDAU_COMPONENT` | Receives all data via props, fires all actions via callbacks     | DDAU           |
+| `LAYOUT_SHELL`   | Layout, auth guard, error boundary, or similar app-level concern | Infrastructure |
+| `LEAF_VIOLATION` | Non-container with forbidden hook calls (needs manual review)    | Self-contained |
+| `AMBIGUOUS`      | Cannot determine classification automatically                    | Manual review  |
+
+**Inner containers:** If a component is assessed as `CONTAINER` but the
+rationale mentions "receives context/navigation from parent" or "calls
+service hooks for data that depends on local selection state," classify
+as Inner container.
+
+**Providers:** Not detected by ownership interpreter. Look for
+`ComponentObservation` where the return contains `Provider` or
+`createContext` usage.
 
 ## Step 3b: Dead code detection
 
-Before classifying violations, check whether each file/component/hook has any
-consumers. For each export:
+Use assessments from `ast-interpret-dead-code` to identify dead code:
 
-- Grep for its name across the codebase (outside its own file)
-- Check barrel exports (index.ts) to see if it is re-exported
-- Check if the barrel itself is imported anywhere
+| Assessment Kind        | Meaning                                    | Action           |
+| ---------------------- | ------------------------------------------ | ---------------- |
+| `DEAD_EXPORT`          | Export with 0 consumers, high confidence   | Delete           |
+| `POSSIBLY_DEAD_EXPORT` | 0 static consumers but may be dynamic      | Manual review    |
+| `DEAD_BARREL_REEXPORT` | Barrel re-exports something nobody imports | Delete re-export |
+| `CIRCULAR_DEPENDENCY`  | Part of a circular import chain            | Refactor         |
 
-If zero consumers exist, classify as **DEAD_CODE** instead of auditing for
-violations. Dead code should be deleted, not refactored. This saves significant
-effort -- a surprising fraction of "violations" turn out to be unreachable code.
+If a component/hook has a `DEAD_EXPORT` assessment, classify as **DEAD_CODE**
+instead of auditing for violations. Dead code should be deleted, not refactored.
+This saves significant effort -- a surprising fraction of "violations" turn out
+to be unreachable code.
 
-**Orphaned test files.** For each `.spec.ts` / `.spec.tsx` / `.test.ts` /
-`.test.tsx` file in the feature, check whether the source file it imports still
-exists. If the source was deleted (by this refactor or a prior one), the test
-file is orphaned and should be deleted. Orphaned tests cause false test failures
-and mask the true test count.
+**Orphaned test files.** Use `ORPHANED_TEST` assessments from
+`ast-interpret-test-quality` (if test files are in scope). These indicate test
+files whose subject no longer exists. Orphaned tests should be deleted.
 
-**Co-located container/leaf detection.** Check whether any single file exports
-both a container component (calls multiple service hooks, passes data down to a
-child) and a leaf/content component (receives everything via props). If a file
-contains both roles, flag it as a candidate for file splitting: the container
-should move to `containers/` and the leaf should be exported from the original
-file. Common pattern: `Foo` (container) wrapping `FooContent` (leaf) in the
-same file.
+**Co-located container/leaf detection.** If ast-interpret-ownership emits
+both a `CONTAINER` assessment and a `DDAU_COMPONENT` assessment for the same
+file, flag it as a candidate for file splitting: the container should move to
+`containers/` and the leaf should be exported from the original file. Common
+pattern: `Foo` (container) wrapping `FooContent` (leaf) in the same file.
 
 ## Step 3c: Debug artifact detection
 
-Scan for development leftovers that should be cleaned up:
+Use observations from ast-side-effects to detect development leftovers:
 
-- `console.log` / `console.debug` / `console.info` statements (not `console.error`
-  or `console.warn`, which may be intentional)
+- `CONSOLE_CALL` observations where `evidence.method` is `log`, `debug`, or
+  `info` (not `error` or `warn`, which may be intentional)
+
+For these items, manually scan:
+
 - Commented-out code blocks longer than 3 lines
 - `// TODO` or `// HACK` or `// FIXME` markers
 - Disabled ESLint rules (`eslint-disable`) without an explanatory comment
@@ -140,49 +214,65 @@ Record these in the report under a "Debug artifacts" section.
 
 ## Step 3d: Type audit
 
-For each file in the feature:
+Use observations from ast-type-safety for type violations. Map observation kinds
+to report categories:
 
-- Flag any `type` or `interface` declaration that duplicates a definition in
-  `src/shared/types/`. List the duplicate and the canonical source.
-- Flag any bare `string` or `number` field that should be a branded type (IDs,
-  timestamps, durations, emails, URLs, percentages). List the field, file, and
-  which branded type it should use.
-- Flag any `enum` that should be an `as const` object.
-- Flag any inline object type annotation in a function signature that appears
-  in 2+ files (candidate for extraction to `src/shared/types/`).
-- Flag any `QueryOptions` interface defined locally instead of imported from
-  `src/shared/types/api.ts`.
-- Flag any explicit `any` type (`: any`, `as any`, `Record<string, any>`). Count
-  occurrences per file.
-- Flag any non-null assertion (`!`) that is not immediately preceded by a Map
-  `has()` check or equivalent guard.
-- Flag any `as unknown as X` double cast in production code (test files are lower
-  priority).
-- Flag any type guard function that is unsound (claims `value is T` but only
-  checks a subset of `T`'s required properties).
-- Flag any trust boundary (`JSON.parse`, `fetch` response, localStorage read,
-  Supabase query) that uses `as T` without runtime validation.
-- Flag any `catch (error: any)` that should be `catch (error: unknown)`.
-- Flag any `@ts-expect-error` without an explanatory comment.
+| Observation Kind          | Report Category                     | `[AST-confirmed]`?  |
+| ------------------------- | ----------------------------------- | ------------------- |
+| `AS_ANY_CAST`             | Explicit any                        | Yes                 |
+| `AS_UNKNOWN_AS_CAST`      | Double casts (as unknown as X)      | Yes                 |
+| `NON_NULL_ASSERTION`      | Non-null assertions                 | Yes (if no guard)   |
+| `EXPLICIT_ANY_ANNOTATION` | Explicit any                        | Yes                 |
+| `CATCH_ERROR_ANY`         | catch (error: any)                  | Yes                 |
+| `TS_DIRECTIVE`            | @ts-expect-error without comment    | Yes (if no comment) |
+| `TRUST_BOUNDARY_CAST`     | Trust boundaries without validation | Yes                 |
 
-Record these in the report under a "Type violations" section.
+For observations with `evidence.hasGuard: true`, do NOT flag as violations.
+The guard makes the non-null assertion safe.
+
+For `TS_DIRECTIVE` observations, check `evidence.hasExplanation`. If true, do
+not flag.
+
+These items require manual scanning (not covered by ast-type-safety):
+
+- Duplicate type/interface definitions (vs `src/shared/types/`)
+- Bare primitives that should be branded types
+- Enums that should be `as const` objects
+- Inline type annotations appearing in 2+ files
+- Unsound type guard functions
+
+Record all findings in the report under a "Type violations" section.
 
 ## Step 4: Classify every useEffect
 
-For each useEffect in the feature, classify it:
+The interpreter `ast-interpret-effects` (run in Step 0) emits assessments for each
+useEffect. Use these assessments directly:
 
-| Code                    | Meaning                                                                 | Action                                                               |
-| ----------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| DERIVED_STATE           | Value computable from props/state/query data                            | Replace with useMemo                                                 |
-| SYNC_PROPS              | Effect mirrors prop into local state                                    | Controlled component or useMemo                                      |
-| SYNC_CONTEXT            | Copies context/query data into local state                              | Derive at point of use                                               |
-| EVENT_HANDLER_DISGUISED | Reacts to state change from user action                                 | Move to event handler                                                |
-| MAPPER_SIDE_EFFECT      | setState inside TanStack Query select                                   | Read from .data directly                                             |
-| DOM_EFFECT              | DOM interaction (resize, click-outside, etc.)                           | Extract to shared hook                                               |
-| ANIMATION               | Visual animation                                                        | Keep or extract                                                      |
-| EFFECT_BRIDGE           | Child useEffect watches props, writes back to parent state via callback | Hoist write to container event handler or mount effect               |
-| TIMER_RACE              | setTimeout/setInterval inside useEffect with state updates              | Move to event handler or replace with CSS transition; verify cleanup |
-| NECESSARY               | Legitimately necessary                                                  | Keep                                                                 |
+| Assessment Kind           | What it means                                       | Action                                                          |
+| ------------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
+| `DERIVED_STATE`           | Effect mirrors fetched/prop/context data into state | Flag as violation. Should use useQuery or useMemo.              |
+| `EVENT_HANDLER_DISGUISED` | Effect wraps what should be an event handler        | Flag as violation. Move to onClick/onSubmit handler.            |
+| `TIMER_RACE`              | Timer + setState without cleanup                    | Flag as bug candidate if no cleanup. Review if cleanup present. |
+| `DOM_EFFECT`              | Ref or DOM API access                               | Likely legitimate. Verify cleanup present.                      |
+| `EXTERNAL_SUBSCRIPTION`   | Cleanup-based subscription                          | Likely legitimate. Verify cleanup completeness.                 |
+| `NECESSARY`               | No suspicious patterns                              | Low priority. Skip unless reviewing for deletion.               |
+
+**Report policy for useEffect assessments:**
+
+- `confidence: high` + `isCandidate: false` -> report as `[AST-confirmed]` finding
+- `confidence: high` + `isCandidate: true` -> report as finding, flag for manual review
+- `confidence: medium` -> report as finding, no `[AST-confirmed]`
+- `confidence: low` -> report only if `isCandidate: true`
+- `requiresManualReview: true` -> always include in Manual Review Required section
+
+Include the interpreter's `rationale` in the report. Do not reclassify effects based
+on your own reading -- use the assessment as-is and note any disagreement in the
+review section.
+
+**Observations that inform effect assessments:** The underlying observations
+(`EFFECT_STATE_SETTER_CALL`, `EFFECT_PROP_READ`, `EFFECT_TIMER_CALL`, etc.) appear
+in `effectObservations` from ast-react-inventory. These feed the interpreter. You
+can reference them in the useEffect inventory table for additional context.
 
 ## Step 4b: Detect ghost state
 
@@ -235,30 +325,31 @@ calls setState -- the same unmount race applies.
 
 ## Step 4d: Audit JSX template complexity
 
-For each component's return statement, scan for logic that should live above the
-return in named intermediate variables. The return should be a flat declaration of
-layout, not a program that computes what to render.
+Use observations from ast-jsx-analysis and assessments from ast-interpret-template.
 
-**Chained ternaries:** Flag any ternary chain (`a ? X : b ? Y : Z`) in JSX.
-Single binary ternaries and simple `&&` guards are fine. Chained ternaries are
-switch statements -- they should be lookup maps or sub-components.
+**Observations** (from ast-jsx-analysis) map to template issues:
 
-**Multi-condition guards:** Flag `&&` chains with 3+ conditions in JSX
-(e.g., `{a && b && c && <Component />}`). Extract to a named boolean above the
-return.
+| Observation Kind      | What it detects                             | `[AST-confirmed]`? |
+| --------------------- | ------------------------------------------- | ------------------ |
+| `JSX_TERNARY_CHAIN`   | Multi-way branch in JSX (depth in evidence) | Yes                |
+| `JSX_GUARD_CHAIN`     | 3+ conditions in `&&` chain                 | Yes                |
+| `JSX_TRANSFORM_CHAIN` | Data transformation in return               | Yes                |
+| `JSX_IIFE`            | Immediately-invoked function in return      | Yes                |
+| `JSX_INLINE_HANDLER`  | Multi-statement inline handler              | Yes (if 2+ stmts)  |
+| `JSX_RETURN_BLOCK`    | Return statement metadata (line count)      | Yes (if > 100)     |
 
-**Inline data transformation:** Flag `.filter()`, `.map()`, `.reduce()`, and
-chained combinations of these inside the return statement. These belong in
-`useMemo` or named variables above the return.
+**Assessments** (from ast-interpret-template) aggregate observations:
 
-**IIFEs in JSX:** Flag `{(() => { ... })()}` inside a return. Extract to a named
-variable or sub-component.
+| Assessment Kind        | What it means                                 | Action                         |
+| ---------------------- | --------------------------------------------- | ------------------------------ |
+| `EXTRACTION_CANDIDATE` | Pattern should become a shared component      | Flag for component extraction  |
+| `COMPLEXITY_HOTSPOT`   | Return block is too complex, needs flattening | Flag for /flatten-jsx-template |
 
-**Multi-statement inline handlers:** Flag `onClick={() => { stmt1; stmt2; ... }}`
-with 2+ statements. These should be named functions above the return.
+Report assessments directly. Include the `rationale` field which explains why
+the assessment was made.
 
-**Repeated rendering patterns:** Flag identical or near-identical JSX patterns
-appearing 3+ times across files in the feature. Examples:
+**Repeated rendering patterns:** Not detected automatically. Manually scan for
+identical or near-identical JSX patterns appearing 3+ times across files:
 
 - Percentage-width bars (`style={{ width: \`${pct}%\` }}`)
 - Loading/empty/error cascading ternaries
@@ -268,49 +359,42 @@ appearing 3+ times across files in the feature. Examples:
 For each repeated pattern, note: the pattern, the files where it appears, and
 what shared component would replace it.
 
-**Return statement length:** If a component's return statement exceeds 100 lines,
-flag it. This is a strong signal that decision logic is embedded in markup.
-
-Record these in the report under a "Template complexity" section.
-
-Classify each finding:
-
-| Code               | Meaning                                | Action                          |
-| ------------------ | -------------------------------------- | ------------------------------- |
-| CHAINED_TERNARY    | Multi-way branch in JSX                | Lookup map or sub-component     |
-| COMPLEX_GUARD      | 3+ conditions in `&&` chain            | Named boolean above return      |
-| INLINE_TRANSFORM   | Data transformation in return          | useMemo or named variable       |
-| IIFE_IN_JSX        | Immediately-invoked function in return | Named variable or sub-component |
-| MULTI_STMT_HANDLER | 2+ statements in inline handler        | Named function above return     |
-| REPEATED_PATTERN   | Same JSX pattern in 3+ files           | Shared presentational component |
-| LONG_RETURN        | Return statement > 100 lines           | Decompose into sub-components   |
+Record all findings in the report under a "Template complexity" section.
 
 ## Step 5: Classify every hook call in leaves
 
-For each context hook, router hook, auth hook, or feature flag hook called in a
-non-container component, record:
+Use assessments from ast-interpret-hooks to classify hook calls. For each
+component that is NOT a container (check ownership assessments from Step 3):
 
-- The component and line number
-- The hook being called
-- Which fields/values are destructured from it
+| Assessment Kind       | What it means                          | Action                              |
+| --------------------- | -------------------------------------- | ----------------------------------- |
+| `LIKELY_SERVICE_HOOK` | Service hook in non-container          | DDAU violation, absorb in container |
+| `LIKELY_CONTEXT_HOOK` | Context hook in non-container          | DDAU violation, absorb in container |
+| `LIKELY_AMBIENT_HOOK` | Ambient hook (allowed in leaves)       | Do NOT flag                         |
+| `LIKELY_STATE_HOOK`   | React builtin (useState, useRef, etc.) | Do NOT flag                         |
+| `UNKNOWN_HOOK`        | Cannot classify automatically          | Manual review                       |
+
+For each flagged hook call, record:
+
+- The component and line number (from assessment's `subject`)
+- The hook being called (from assessment's `subject.symbol`)
+- Which fields/values are destructured (from underlying `HOOK_CALL` observation)
 - Which container should absorb this call
 - What props the component should receive instead
 
-**MAY-remain hooks (do NOT flag):** useBreakpoints, useWindowSize,
-useDropdownScrollHandler, useClickAway, useScrollCallback, usePagination,
-useSorting, useTheme, useTranslation, and any `useXxxScope()` hook exported by a
-scoped context (`XxxScopeProvider`). These are either cross-cutting DOM/browser
-concerns, ambient UI environment hooks, or narrow scoped contexts that meet the
-escape-hatch criteria (stable, narrow, local, no orchestration).
+**MAY-remain hooks:** The `LIKELY_AMBIENT_HOOK` assessment covers hooks in the
+ambient leaf hooks list: useBreakpoints, useWindowSize, useDropdownScrollHandler,
+useClickAway, useScrollCallback, usePagination, useSorting, useTheme, useTranslation,
+and any `useXxxScope()` hook exported by a scoped context. Do NOT flag these.
 
 ## Step 6: Check storage, toast, cross-domain coupling, and URL state
 
 ### URL state
 
-- List every component that reads URL params (useRouter/router.query,
-  useSearchParams, useQueryState, useQueryStates)
-- Flag any leaf component (non-container) that reads URL params directly --
-  this is a state-store access violation, same as calling useContext
+- Use `HOOK_CALL` observations where `hookName` is `useRouter`, `useSearchParams`,
+  `useQueryState`, or `useQueryStates` to find URL param readers
+- Flag any component assessed as `DDAU_COMPONENT` (not container) that has such
+  hooks -- this is a state-store access violation
 - List every piece of state currently in context or localStorage that is
   URL-worthy (affects what the user sees on reload: filters, sort, tab,
   date range, pagination, selected team/user)
@@ -319,28 +403,50 @@ escape-hatch criteria (stable, narrow, local, no orchestration).
 
 ### Storage
 
-- List every storage key accessed in this feature
-- For each key: who reads it, who writes it, is there a single owner?
+Use observations from ast-storage-access:
+
+| Observation Kind         | What it means                          | `[AST-confirmed]` violation? |
+| ------------------------ | -------------------------------------- | ---------------------------- |
+| `DIRECT_STORAGE_CALL`    | Raw localStorage/sessionStorage access | Yes -- must use typedStorage |
+| `TYPED_STORAGE_CALL`     | Compliant typedStorage usage           | No                           |
+| `JSON_PARSE_CALL`        | JSON.parse without Zod guard           | Yes                          |
+| `JSON_PARSE_ZOD_GUARDED` | JSON.parse with Zod validation         | No                           |
+
+For each storage access:
+
+- Identify who reads/writes each key
 - Flag any key with multiple independent writers
-- Flag any leaf component that directly accesses storage
+- Flag any component assessed as `DDAU_COMPONENT` that has storage observations
 - Flag any key that stores URL-worthy state (should move to URL params)
-- Flag any raw `localStorage.*` or `sessionStorage.*` call -- all storage
-  access must go through `readStorage`/`writeStorage`/`removeStorage` from
-  `@/shared/utils/typedStorage`
-- Flag any storage read without a Zod schema
 
 ### Toasts
 
+Use `TOAST_CALL` observations from ast-side-effects:
+
 - List every toast call site in this feature
-- Flag any toast call inside a service hook or utility function
+- Check `evidence.containingFunction` -- flag if in a service hook or utility
 - Note which container onSuccess/onError callback should own each toast
 
 ### Cross-domain query keys
 
+Use `QUERY_INVALIDATION` observations from ast-data-layer:
+
 - List every import of query keys from outside this feature's domain
+  (from `STATIC_IMPORT` observations targeting another domain's keys file)
 - For each: what mutation triggers it, and which container should own it instead
 
 ## Step 6b: Test coverage assessment
+
+For test files in scope, use assessments from `ast-interpret-test-quality`:
+
+| Assessment Kind           | What it means                                     |
+| ------------------------- | ------------------------------------------------- |
+| `ORPHANED_TEST`           | Subject file no longer exists -- delete test      |
+| `DELETE_CANDIDATE`        | High internal-mock count, low quality -- review   |
+| `MOCK_INTERNAL_VIOLATION` | Mocks own hook/component/utility                  |
+| `MOCK_BOUNDARY_COMPLIANT` | Mock targets only external boundaries             |
+| `CLEANUP_INCOMPLETE`      | Missing afterEach/restore patterns                |
+| `DATA_SOURCING_VIOLATION` | Shared mutable constants or `as any` in test data |
 
 For each production file (non-test, non-type) in the feature:
 
@@ -362,122 +468,116 @@ For each production file (non-test, non-type) in the feature:
 Record in the file inventory table. Flag UNTESTED files in the migration checklist
 with a warning: "No test coverage -- write tests before refactoring."
 
-For UNTESTED files, estimate refactor risk:
+For UNTESTED files, estimate refactor risk using complexity observations:
 
-- HIGH: container or hook with complexity >5 and zero coverage
+- HIGH: container or hook with `FUNCTION_COMPLEXITY` observation showing
+  cyclomaticComplexity > 5 and zero coverage
 - MEDIUM: component with multiple interactive behaviors and zero coverage
 - LOW: simple presentational component or type file
 
 ## Step 7: Identify the DDAU boundary
 
-Determine where containers should exist:
+Use ownership assessments to determine container boundaries:
 
+- Components with `CONTAINER` assessment are the orchestration boundaries
 - One container per orchestration boundary (typically per route, but also per
   non-route entry point like a modal or embedded panel)
-- Check if any component is rendered at a layout level (its container is the layout,
-  not a route container)
-- Check for deeply nested data-fetching (components 2-3 levels deep calling hooks)
+- `LAYOUT_SHELL` assessments indicate components rendered at layout level
+- `LEAF_VIOLATION` assessments indicate components 2-3 levels deep calling hooks
+  (deeply nested data-fetching)
 
 ## Step 8: Produce the migration report
 
-Output a structured report:
+Output a structured report. Use assessment kinds in tables where appropriate:
 
 ```
 ## Feature Audit: <FeatureName>
 
 ### File inventory
-| File | Type | Classification | Test coverage |
-|------|------|----------------|---------------|
-| ...  | ...  | DDAU / Self-contained / Container / Provider | TESTED / INDIRECTLY_TESTED / UNTESTED |
+| File | Type | Ownership Assessment | Test coverage |
+|------|------|----------------------|---------------|
+| ...  | ...  | CONTAINER / DDAU_COMPONENT / LEAF_VIOLATION / LAYOUT_SHELL | TESTED / INDIRECTLY_TESTED / UNTESTED |
 
-### Scorecard
-| Classification | Count | % |
-|----------------|-------|---|
-| DDAU           | ...   |   |
-| Self-contained | ...   |   |
-| Container      | ...   |   |
-| Provider       | ...   |   |
+### Scorecard (by ownership assessment)
+| Assessment Kind  | Count | % |
+|------------------|-------|---|
+| DDAU_COMPONENT   | ...   |   |
+| CONTAINER        | ...   |   |
+| LAYOUT_SHELL     | ...   |   |
+| LEAF_VIOLATION   | ...   |   |
+| AMBIGUOUS        | ...   |   |
 
-### useEffect inventory
-| File:Line | Classification | Action |
-|-----------|----------------|--------|
-| ...       | DERIVED_STATE  | useMemo |
+### useEffect inventory (from ast-interpret-effects)
+| File:Line | Assessment Kind | Confidence | Action |
+|-----------|-----------------|------------|--------|
+| ...       | DERIVED_STATE   | high       | useMemo |
+| ...       | TIMER_RACE      | medium     | review cleanup |
 
 ### useEffect summary
-| Outcome | Count |
-|---------|-------|
-| Eliminate (effectiveX useMemo) | ... |
-| Eliminate (event handler) | ... |
-| Eliminate (effect bridge -> container) | ... |
-| Eliminate (manual fetch -> TanStack Query) | ... |
-| Eliminate (lazy useState init) | ... |
-| Review (timer race condition) | ... |
-| Extract to shared hook | ... |
-| Keep | ... |
+| Assessment Kind           | Count | Typical Action |
+|---------------------------|-------|----------------|
+| DERIVED_STATE             | ...   | useMemo or delete |
+| EVENT_HANDLER_DISGUISED   | ...   | move to handler |
+| TIMER_RACE                | ...   | review cleanup |
+| DOM_EFFECT                | ...   | keep (verify cleanup) |
+| EXTERNAL_SUBSCRIPTION     | ...   | keep (verify cleanup) |
+| NECESSARY                 | ...   | keep |
 
-### Dead code
-| File | Export | Reason |
-|------|--------|--------|
-| ...  | ...    | zero consumers / not exported from barrel |
+### Dead code (from ast-interpret-dead-code)
+| File | Export | Assessment Kind | Confidence |
+|------|--------|-----------------|------------|
+| ...  | ...    | DEAD_EXPORT / POSSIBLY_DEAD_EXPORT | high / medium |
 
 ### Ghost state
 | File | Boolean state | Paired selection | Guarded in JSX? |
 |------|--------------|-----------------|----------------|
 | ...  | isCollapsed  | selectedUser    | yes / NO       |
 
-### Timer race conditions
-| File:Line | Timer type | Calls setState? | Has cleanup? | Suggested fix |
-|-----------|-----------|-----------------|-------------|---------------|
-| ...       | setTimeout | yes / no        | yes / no    | event handler / CSS transition / remove |
+### Timer race conditions (from TIMER_RACE assessments)
+| File:Line | Has cleanup? | Confidence | Rationale |
+|-----------|-------------|------------|-----------|
+| ...       | yes / no    | high       | ...       |
 
-### Debug artifacts
-| File:Line | Type | Content |
-|-----------|------|---------|
-| ...       | console.log | ... |
-| ...       | commented-out block | ... |
+### Debug artifacts (from CONSOLE_CALL observations)
+| File:Line | Observation Kind | Evidence |
+|-----------|-----------------|----------|
+| ...       | CONSOLE_CALL    | method: log |
+| ...       | (manual)        | commented-out block |
 
-### Type violations
-| File:Line | Violation | Canonical type | Action |
-|-----------|-----------|---------------|--------|
-| ...       | bare string for userId | UserId from brand.ts | Replace with branded type |
-| ...       | duplicate ErrorResponse | ErrorResponse from api.ts | Import from src/shared/types/api |
-| ...       | enum ClassificationCategories | as const object | Convert |
-| ...       | explicit any (16x) | typed interface | Define DailyMetric interface |
-| ...       | non-null assertion without guard | optional chaining | Replace with ?. |
-| ...       | unsound type guard isUser | Zod schema or full check | Validate all required keys |
-| ...       | JSON.parse as T without validation | Zod safeParse | Add runtime validation |
-| ...       | catch (error: any) | catch (error: unknown) | Narrow with instanceof |
+### Type violations (from ast-type-safety observations)
+| File:Line | Observation Kind | Evidence | [AST-confirmed]? |
+|-----------|-----------------|----------|------------------|
+| ...       | AS_ANY_CAST     | text: "x as any" | Yes |
+| ...       | NON_NULL_ASSERTION | hasGuard: false | Yes |
+| ...       | TRUST_BOUNDARY_CAST | source: JSON.parse | Yes |
 
 ### Type violations summary
-| Category | Count |
-|----------|-------|
-| Duplicate type definitions | ... |
-| Bare primitives (should be branded) | ... |
-| Enums (should be as const) | ... |
-| Explicit any | ... |
-| Non-null assertions without guard | ... |
-| Unsound type guards | ... |
-| Trust boundaries without validation | ... |
-| catch (error: any) | ... |
-| Double casts (as unknown as X) | ... |
-| @ts-expect-error without comment | ... |
+| Observation Kind | Count |
+|------------------|-------|
+| AS_ANY_CAST | ... |
+| AS_UNKNOWN_AS_CAST | ... |
+| NON_NULL_ASSERTION (unguarded) | ... |
+| EXPLICIT_ANY_ANNOTATION | ... |
+| CATCH_ERROR_ANY | ... |
+| TS_DIRECTIVE (no comment) | ... |
+| TRUST_BOUNDARY_CAST | ... |
 
-### Template complexity
-| File:Line | Classification | Description | Action |
-|-----------|----------------|-------------|--------|
-| ...       | CHAINED_TERNARY | 3-way switch on opportunityType | Lookup map |
-| ...       | INLINE_TRANSFORM | .filter().map() chain in return | useMemo above return |
-| ...       | LONG_RETURN | ~970 lines | Decompose into sub-components |
+### Template complexity (from ast-jsx-analysis + ast-interpret-template)
+| File:Line | Observation/Assessment | Evidence/Rationale |
+|-----------|------------------------|-------------------|
+| ...       | JSX_TERNARY_CHAIN      | depth: 3 |
+| ...       | EXTRACTION_CANDIDATE   | (rationale from assessment) |
+| ...       | COMPLEXITY_HOTSPOT     | (rationale from assessment) |
 
 ### Template complexity summary
-| Classification | Count |
-|----------------|-------|
-| Chained ternary | ... |
-| Complex guard (3+ conditions) | ... |
-| Inline data transformation | ... |
-| IIFE in JSX | ... |
-| Multi-statement inline handler | ... |
-| Long return (> 100 lines) | ... |
+| Observation Kind | Count |
+|------------------|-------|
+| JSX_TERNARY_CHAIN (depth >= 2) | ... |
+| JSX_GUARD_CHAIN | ... |
+| JSX_TRANSFORM_CHAIN | ... |
+| JSX_IIFE | ... |
+| JSX_INLINE_HANDLER (2+ stmts) | ... |
+| JSX_RETURN_BLOCK (> 100 lines) | ... |
 
 ### Repeated rendering patterns (candidates for shared components)
 | Pattern | Files | Suggested component |
@@ -486,28 +586,30 @@ Output a structured report:
 | Loading/empty/error cascade | NodeDetailsPanel, RelaySystemAggregate, ... | `<AsyncContent>` |
 | ... | ... | ... |
 
-### Hook calls in leaves (must be absorbed by containers)
-| Component | Hook | Fields used | Target container | Becomes props |
-|-----------|------|-------------|-----------------|---------------|
-| ...       | ...  | ...         | ...             | ...           |
+### Hook calls in leaves (from ast-interpret-hooks assessments)
+| Component | Hook | Assessment Kind | Fields used | Target container | Becomes props |
+|-----------|------|-----------------|-------------|-----------------|---------------|
+| ...       | ...  | LIKELY_SERVICE_HOOK | data, isLoading | ... | ... |
+| ...       | ...  | LIKELY_CONTEXT_HOOK | user | ... | user |
 
-### Storage access
-| Key | Readers | Writers | Risk | Owner after refactor |
-|-----|---------|---------|------|---------------------|
-| ... | ...     | ...     | ...  | ...                 |
+### Storage access (from ast-storage-access observations)
+| File:Line | Observation Kind | Evidence | [AST-confirmed] violation? |
+|-----------|-----------------|----------|---------------------------|
+| ...       | DIRECT_STORAGE_CALL | storageType: localStorage | Yes |
+| ...       | TYPED_STORAGE_CALL | helperName: readStorage | No |
 
-### Toast call sites
-| File:Line | Function | Should move to |
-|-----------|----------|---------------|
-| ...       | ...      | ...           |
+### Toast call sites (from TOAST_CALL observations)
+| File:Line | Containing Function | Should move to |
+|-----------|---------------------|---------------|
+| ...       | useUpdateUser       | container onSuccess |
 
 ### Cross-domain coupling
 | File | Imports keys from | Reason | Should move to |
 |------|-------------------|--------|---------------|
 | ...  | ...               | ...    | ...           |
 
-### Dependency graph issues
-- Circular dependencies: <list or "none">
+### Dependency graph issues (from ast-imports + ast-interpret-dead-code)
+- Circular dependencies: <list CIRCULAR_DEPENDENCY assessments or "none">
 - Deepest fetch depth: <N levels>
 
 ### Test coverage summary
@@ -517,23 +619,40 @@ Output a structured report:
 | INDIRECTLY_TESTED | <N> | ... |
 | UNTESTED | <N> | ... |
 
+### Manual Review Required
+
+Items where assessments have `requiresManualReview: true`:
+
+| Source | File:Line | Assessment/Observation | Rationale |
+|--------|-----------|------------------------|-----------|
+| ownership | ... | LEAF_VIOLATION | (from assessment.rationale) |
+| hooks | ... | UNKNOWN_HOOK | could not classify |
+| effects | ... | DERIVED_STATE (candidate) | (from assessment.rationale) |
+| test | ... | DELETE_CANDIDATE | high internal mock count |
+
 ### Migration checklist (in order)
 
 For each item, if the target file is UNTESTED, prepend: **[UNTESTED -- write tests first]**
 
-1. [ ] Extract standalone hooks for <domain> (Phase 0)
+1. [ ] Delete dead code (DEAD_EXPORT assessments with high confidence)
        Files: <list>
-2. [ ] Create <ContainerName> container (Phase 1)
-       Absorbs: <list of hook calls>
-3. [ ] Convert <ComponentName> to DDAU (Phase 2)
-       Remove: <hooks>
+2. [ ] Extract standalone hooks for <domain> (Phase 0)
+       Files: <list>
+3. [ ] Create <ContainerName> container (Phase 1)
+       Absorbs: <list of LIKELY_SERVICE_HOOK / LIKELY_CONTEXT_HOOK assessments>
+4. [ ] Convert <ComponentName> to DDAU (Phase 2)
+       Remove: <hooks with LEAF_VIOLATION assessment>
        Add props: <list>
-4. [ ] ...
+5. [ ] Flatten JSX templates (COMPLEXITY_HOTSPOT assessments)
+       Files: <list>
+6. [ ] Extract shared components (EXTRACTION_CANDIDATE assessments)
+       Patterns: <list>
+7. [ ] ...
 
 ### Estimated scope
-- Components to convert: <N>
-- useEffects to eliminate: <N>
-- Hook call sites to absorb: <N>
-- Providers to simplify/delete: <N>
+- Components to convert (LEAF_VIOLATION count): <N>
+- useEffects to eliminate (DERIVED_STATE + EVENT_HANDLER_DISGUISED count): <N>
+- Hook call sites to absorb (LIKELY_SERVICE_HOOK + LIKELY_CONTEXT_HOOK in non-containers): <N>
+- Templates to flatten (COMPLEXITY_HOTSPOT count): <N>
 - Production files with no test coverage: <N>
 ```

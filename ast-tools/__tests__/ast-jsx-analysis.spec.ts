@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeJsxComplexity } from '../ast-jsx-analysis';
-import type { JsxAnalysis, JsxViolationType } from '../types';
+import { analyzeJsxComplexity, extractJsxObservations } from '../ast-jsx-analysis';
+import type { JsxAnalysis, JsxViolationType, JsxObservation, JsxObservationKind } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
 
@@ -233,6 +233,243 @@ describe('ast-jsx-analysis', () => {
           expect(v.parentComponent).toBe(comp.name);
         }
       }
+    });
+  });
+
+  describe('observations', () => {
+    function observationKinds(observations: JsxObservation[]): JsxObservationKind[] {
+      return observations.map(o => o.kind);
+    }
+
+    it('includes observations array in analysis output', () => {
+      const result = analyzeFixture('component-with-jsx-complexity.tsx');
+
+      expect(result.observations).toBeDefined();
+      expect(result.observations.length).toBeGreaterThan(0);
+    });
+
+    it('emits JSX_RETURN_BLOCK observations for each component', () => {
+      const result = analyzeFixture('component-with-jsx-complexity.tsx');
+      const returnBlocks = result.observations.filter(o => o.kind === 'JSX_RETURN_BLOCK');
+
+      expect(returnBlocks).toHaveLength(1);
+      expect(returnBlocks[0].evidence.componentName).toBe('ComplexList');
+      expect(returnBlocks[0].evidence.returnStartLine).toBeGreaterThan(0);
+      expect(returnBlocks[0].evidence.returnEndLine).toBeGreaterThan(0);
+      expect(returnBlocks[0].evidence.returnLineCount).toBeGreaterThan(0);
+    });
+
+    it('emits observations for all JSX pattern kinds in complex fixture', () => {
+      const result = analyzeFixture('component-with-jsx-complexity.tsx');
+      const kinds = observationKinds(result.observations);
+
+      expect(kinds).toContain('JSX_RETURN_BLOCK');
+      expect(kinds).toContain('JSX_TERNARY_CHAIN');
+      expect(kinds).toContain('JSX_GUARD_CHAIN');
+      expect(kinds).toContain('JSX_TRANSFORM_CHAIN');
+      expect(kinds).toContain('JSX_IIFE');
+      expect(kinds).toContain('JSX_INLINE_HANDLER');
+      expect(kinds).toContain('JSX_INLINE_STYLE');
+      expect(kinds).toContain('JSX_COMPLEX_CLASSNAME');
+    });
+
+    it('includes correct evidence for ternary chain observations', () => {
+      const result = analyzeFixture('component-with-jsx-complexity.tsx');
+      const ternaries = result.observations.filter(o => o.kind === 'JSX_TERNARY_CHAIN');
+
+      expect(ternaries.length).toBeGreaterThanOrEqual(1);
+      expect(ternaries[0].evidence.depth).toBe(3);
+      expect(ternaries[0].evidence.componentName).toBe('ComplexList');
+    });
+
+    it('includes correct evidence for transform chain observations', () => {
+      const result = analyzeFixture('component-with-jsx-complexity.tsx');
+      const transforms = result.observations.filter(o => o.kind === 'JSX_TRANSFORM_CHAIN');
+
+      expect(transforms.length).toBeGreaterThanOrEqual(1);
+      expect(transforms[0].evidence.methods).toContain('filter');
+      expect(transforms[0].evidence.methods).toContain('map');
+      expect(transforms[0].evidence.chainLength).toBe(2);
+    });
+
+    it('includes correct evidence for guard chain observations', () => {
+      const result = analyzeFixture('component-with-jsx-complexity.tsx');
+      const guards = result.observations.filter(o => o.kind === 'JSX_GUARD_CHAIN');
+
+      // Should have observations for 1-cond, 2-cond, and 3-cond guards
+      expect(guards.length).toBeGreaterThanOrEqual(3);
+      const condCounts = guards.map(g => g.evidence.conditionCount);
+      expect(condCounts).toContain(1);
+      expect(condCounts).toContain(2);
+      expect(condCounts).toContain(3);
+    });
+
+    it('includes correct evidence for inline handler observations', () => {
+      const result = analyzeFixture('component-with-jsx-complexity.tsx');
+      const handlers = result.observations.filter(o => o.kind === 'JSX_INLINE_HANDLER');
+
+      expect(handlers.length).toBeGreaterThanOrEqual(2);
+      // Find multi-statement handler
+      const multi = handlers.find(h => (h.evidence.statementCount ?? 0) >= 2);
+      expect(multi).toBeDefined();
+      expect(multi!.evidence.handlerName).toBe('onClick');
+      // Find single-statement handler
+      const single = handlers.find(h => h.evidence.statementCount === 1);
+      expect(single).toBeDefined();
+    });
+
+    it('includes correct evidence for inline style observations', () => {
+      const result = analyzeFixture('component-with-jsx-complexity.tsx');
+      const styles = result.observations.filter(o => o.kind === 'JSX_INLINE_STYLE');
+
+      expect(styles.length).toBeGreaterThanOrEqual(1);
+      expect(styles[0].evidence.hasComputedValues).toBe(true);
+    });
+
+    it('includes correct evidence for complex className observations', () => {
+      const result = analyzeFixture('component-with-jsx-complexity.tsx');
+      const classNames = result.observations.filter(o => o.kind === 'JSX_COMPLEX_CLASSNAME');
+
+      expect(classNames.length).toBeGreaterThanOrEqual(1);
+      expect(classNames[0].evidence.ternaryCount).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe('negative fixtures (sub-threshold patterns)', () => {
+    it('emits observations for sub-threshold patterns but not violations', () => {
+      const result = analyzeFixture('jsx-negative.tsx');
+      const allViolations = result.components.flatMap(c => c.violations);
+
+      // Should have zero violations (all patterns are below threshold)
+      expect(allViolations).toHaveLength(0);
+
+      // But should have observations
+      expect(result.observations.length).toBeGreaterThan(0);
+    });
+
+    it('emits JSX_TERNARY_CHAIN with depth 1 but no violation', () => {
+      const result = analyzeFixture('jsx-negative.tsx');
+      const obs = result.observations.filter(
+        o => o.kind === 'JSX_TERNARY_CHAIN' && o.evidence.componentName === 'SimpleTernary',
+      );
+
+      expect(obs).toHaveLength(1);
+      expect(obs[0].evidence.depth).toBe(1);
+
+      // No CHAINED_TERNARY violation
+      const violations = result.components
+        .find(c => c.name === 'SimpleTernary')
+        ?.violations.filter(v => v.type === 'CHAINED_TERNARY');
+      expect(violations).toHaveLength(0);
+    });
+
+    it('emits JSX_COMPLEX_CLASSNAME with ternaryCount 1 but no violation', () => {
+      const result = analyzeFixture('jsx-negative.tsx');
+      const obs = result.observations.filter(
+        o => o.kind === 'JSX_COMPLEX_CLASSNAME' && o.evidence.componentName === 'SimpleClassName',
+      );
+
+      expect(obs).toHaveLength(1);
+      expect(obs[0].evidence.ternaryCount).toBe(1);
+
+      // No COMPLEX_CLASSNAME violation
+      const violations = result.components
+        .find(c => c.name === 'SimpleClassName')
+        ?.violations.filter(v => v.type === 'COMPLEX_CLASSNAME');
+      expect(violations).toHaveLength(0);
+    });
+
+    it('emits JSX_INLINE_HANDLER with statementCount 1 but no violation', () => {
+      const result = analyzeFixture('jsx-negative.tsx');
+      const obs = result.observations.filter(
+        o => o.kind === 'JSX_INLINE_HANDLER' && o.evidence.componentName === 'OneLineHandler',
+      );
+
+      expect(obs).toHaveLength(1);
+      expect(obs[0].evidence.statementCount).toBe(1);
+
+      // No MULTI_STMT_HANDLER violation
+      const violations = result.components
+        .find(c => c.name === 'OneLineHandler')
+        ?.violations.filter(v => v.type === 'MULTI_STMT_HANDLER');
+      expect(violations).toHaveLength(0);
+    });
+
+    it('emits JSX_TRANSFORM_CHAIN with chainLength 1 but no violation', () => {
+      const result = analyzeFixture('jsx-negative.tsx');
+      const obs = result.observations.filter(
+        o => o.kind === 'JSX_TRANSFORM_CHAIN' && o.evidence.componentName === 'SingleMap',
+      );
+
+      expect(obs).toHaveLength(1);
+      expect(obs[0].evidence.chainLength).toBe(1);
+
+      // No INLINE_TRANSFORM violation
+      const violations = result.components
+        .find(c => c.name === 'SingleMap')
+        ?.violations.filter(v => v.type === 'INLINE_TRANSFORM');
+      expect(violations).toHaveLength(0);
+    });
+
+    it('emits JSX_INLINE_STYLE with hasComputedValues false but no violation', () => {
+      const result = analyzeFixture('jsx-negative.tsx');
+      const obs = result.observations.filter(
+        o => o.kind === 'JSX_INLINE_STYLE' && o.evidence.componentName === 'StaticStyle',
+      );
+
+      expect(obs).toHaveLength(1);
+      expect(obs[0].evidence.hasComputedValues).toBe(false);
+
+      // No INLINE_STYLE_OBJECT violation
+      const violations = result.components
+        .find(c => c.name === 'StaticStyle')
+        ?.violations.filter(v => v.type === 'INLINE_STYLE_OBJECT');
+      expect(violations).toHaveLength(0);
+    });
+
+    it('does NOT emit ternary observation for non-JSX context', () => {
+      const result = analyzeFixture('jsx-negative.tsx');
+      const obs = result.observations.filter(
+        o => o.kind === 'JSX_TERNARY_CHAIN' && o.evidence.componentName === 'NonJsxTernary',
+      );
+
+      // The ternary is in a const declaration, not inside the return
+      expect(obs).toHaveLength(0);
+    });
+
+    it('emits JSX_GUARD_CHAIN with conditionCount 2 but no violation', () => {
+      const result = analyzeFixture('jsx-negative.tsx');
+      const obs = result.observations.filter(
+        o => o.kind === 'JSX_GUARD_CHAIN' && o.evidence.componentName === 'TwoConditionGuard',
+      );
+
+      expect(obs).toHaveLength(1);
+      expect(obs[0].evidence.conditionCount).toBe(2);
+
+      // No COMPLEX_GUARD violation
+      const violations = result.components
+        .find(c => c.name === 'TwoConditionGuard')
+        ?.violations.filter(v => v.type === 'COMPLEX_GUARD');
+      expect(violations).toHaveLength(0);
+    });
+  });
+
+  describe('extractJsxObservations', () => {
+    it('returns observations without including them in analysis output', () => {
+      const observations = extractJsxObservations(fixturePath('component-with-jsx-complexity.tsx'));
+
+      expect(observations.length).toBeGreaterThan(0);
+      expect(observations.some(o => o.kind === 'JSX_RETURN_BLOCK')).toBe(true);
+      expect(observations.some(o => o.kind === 'JSX_TERNARY_CHAIN')).toBe(true);
+    });
+
+    it('includes sub-threshold patterns in observations', () => {
+      const observations = extractJsxObservations(fixturePath('jsx-negative.tsx'));
+
+      // Should have observations for all the below-threshold patterns
+      expect(observations.some(o => o.kind === 'JSX_TERNARY_CHAIN' && o.evidence.depth === 1)).toBe(true);
+      expect(observations.some(o => o.kind === 'JSX_TRANSFORM_CHAIN' && o.evidence.chainLength === 1)).toBe(true);
+      expect(observations.some(o => o.kind === 'JSX_GUARD_CHAIN' && o.evidence.conditionCount === 2)).toBe(true);
     });
   });
 });

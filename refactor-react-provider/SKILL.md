@@ -23,16 +23,36 @@ npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-storage-access.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-hooks.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-effects.ts $ARGUMENTS --pretty
 ```
 
-Use the inventory for data-fetching detection (Step 2a), useEffect
-audit (Step 2e), and context interface analysis. Use imports to find
-all consumers and measure context breadth (Step 2c). Use side-effects
-for Step 2b (mapper side effects) and Step 2e (data-fetching side
-effects, toast calls, logout watchers). Use storage-access for Step 2f
-(storage coupling -- raw vs typedStorage, key ownership, cleanup
-registration). Use data-layer for Step 2a (useQuery/useMutation/factory
-hooks embedded in the provider that must be extracted).
+Use hook assessments from `ast-interpret-hooks` for data-fetching detection
+(Step 2a):
+
+- `LIKELY_SERVICE_HOOK` in a provider indicates embedded data-fetching
+  that should be extracted to standalone service hooks
+
+Use effect assessments from `ast-interpret-effects` for Step 2e:
+
+- `DERIVED_STATE` effects indicate data fetching/syncing that does not
+  belong in providers
+- `TIMER_RACE` effects indicate cleanup registration gaps
+
+Use import observations to find all consumers and measure context breadth
+(Step 2c). Count `STATIC_IMPORT` observations that import the context hook.
+
+Use side effect observations (`TOAST_CALL`, `POSTHOG_CALL`) for Step 2b
+(mapper side effects) and Step 2e (logout watchers).
+
+Use storage observations (`DIRECT_STORAGE_CALL`, `TYPED_STORAGE_CALL`)
+for Step 2f (storage coupling -- raw vs typedStorage, key ownership,
+cleanup registration).
+
+Use data layer observations (`QUERY_HOOK_DEFINITION`,
+`MUTATION_HOOK_DEFINITION`, `FETCH_API_CALL`) for Step 2a
+(useQuery/useMutation hooks embedded in the provider that must be
+extracted).
 
 ## Step 1: Build the dependency picture
 
@@ -120,10 +140,19 @@ Decision tree after stripping queries and derived state:
 
 ### 2e. useEffect discipline
 
-Flag every useEffect in the provider and classify it:
+Review effect assessments from `ast-interpret-effects`:
 
-- Derived state sync (useEffect + setState where useMemo works) -- **wrong**
-- Data-fetching side effects (sync query data into provider state) -- **wrong**
+- **`DERIVED_STATE`** -- providers should not have these (data fetching
+  belongs in service hooks, not providers)
+- **`TIMER_RACE`** -- indicates cleanup registration gaps
+- **`EVENT_HANDLER_DISGUISED`** -- effect triggered by callback prop,
+  should be inline logic
+- **`DOM_EFFECT`** -- unusual in providers, review carefully
+- **`EXTERNAL_SUBSCRIPTION`** -- acceptable for external system subscriptions
+- **`NECESSARY`** -- no issues detected
+
+Additional provider-specific effect violations:
+
 - Logout/reset watchers (useEffect on auth state to clear provider state) -- **wrong,
   use cleanup registry instead**
 - External system subscriptions -- **ok**

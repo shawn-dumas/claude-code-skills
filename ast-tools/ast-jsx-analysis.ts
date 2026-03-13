@@ -3,7 +3,8 @@ import path from 'path';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
 import { containsJsx, detectComponents, getBody, truncateText } from './shared';
-import type { JsxAnalysis, JsxViolation } from './types';
+import { astConfig } from './ast-config';
+import type { JsxAnalysis, JsxViolation, JsxObservation, JsxObservationKind, JsxObservationEvidence } from './types';
 
 // ---------------------------------------------------------------------------
 // Return statement detection
@@ -13,6 +14,22 @@ interface ReturnInfo {
   node: Node;
   startLine: number;
   endLine: number;
+}
+
+/**
+ * Check if a node is or contains JSX. This extends containsJsx to also check
+ * if the node itself is a JSX element (not just its descendants).
+ */
+function isOrContainsJsx(node: Node): boolean {
+  if (
+    Node.isJsxElement(node) ||
+    Node.isJsxSelfClosingElement(node) ||
+    Node.isJsxFragment(node) ||
+    Node.isParenthesizedExpression(node)
+  ) {
+    return true;
+  }
+  return containsJsx(node);
 }
 
 function findReturnStatements(funcNode: Node): ReturnInfo[] {
@@ -39,7 +56,7 @@ function findReturnStatements(funcNode: Node): ReturnInfo[] {
   for (const stmt of body.getStatements()) {
     if (Node.isReturnStatement(stmt)) {
       const expr = stmt.getExpression();
-      if (expr && containsJsx(expr)) {
+      if (expr && isOrContainsJsx(expr)) {
         returns.push({
           node: stmt,
           startLine: stmt.getStartLineNumber(),
@@ -113,16 +130,14 @@ function getEnclosingJsxAttributeName(node: Node): string | null {
   return null;
 }
 
-const ARRAY_TRANSFORM_METHODS = ['filter', 'map', 'reduce', 'sort', 'flatMap', 'find'] as const;
-
-function isArrayTransformChain(node: Node): { chained: boolean; methods: string[] } | null {
+function isArrayTransformChain(node: Node): { methods: string[]; chainLength: number } | null {
   if (!Node.isCallExpression(node)) return null;
 
   const expr = node.getExpression();
   if (!Node.isPropertyAccessExpression(expr)) return null;
 
   const methodName = expr.getName();
-  if (!(ARRAY_TRANSFORM_METHODS as readonly string[]).includes(methodName)) return null;
+  if (!astConfig.jsx.arrayTransformMethods.has(methodName)) return null;
 
   const methods = [methodName];
   let obj = expr.getExpression();
@@ -132,14 +147,13 @@ function isArrayTransformChain(node: Node): { chained: boolean; methods: string[
     const innerExpr = obj.getExpression();
     if (!Node.isPropertyAccessExpression(innerExpr)) break;
     const innerMethod = innerExpr.getName();
-    if ((ARRAY_TRANSFORM_METHODS as readonly string[]).includes(innerMethod)) {
+    if (astConfig.jsx.arrayTransformMethods.has(innerMethod)) {
       methods.unshift(innerMethod);
     }
     obj = innerExpr.getExpression();
   }
 
-  if (methods.length < 2) return null;
-  return { chained: true, methods };
+  return { methods, chainLength: methods.length };
 }
 
 function isIIFE(node: Node): boolean {
@@ -192,40 +206,55 @@ function hasComputedValue(node: Node): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Per-category classifiers
+// Observation helpers
 // ---------------------------------------------------------------------------
 
 interface NodeContext {
-  sf: { getLineAndColumnAtPos(pos: number): { column: number } };
+  filePath: string;
   line: number;
   column: number;
   componentName: string;
 }
 
-function classifyChainedTernary(node: Node, ctx: NodeContext): JsxViolation | null {
+function makeObservation(
+  kind: JsxObservationKind,
+  ctx: NodeContext,
+  evidence: Omit<JsxObservationEvidence, 'componentName'>,
+): JsxObservation {
+  return {
+    kind,
+    file: ctx.filePath,
+    line: ctx.line,
+    column: ctx.column,
+    evidence: { componentName: ctx.componentName, ...evidence },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Per-category observation extractors (emit ALL patterns)
+// ---------------------------------------------------------------------------
+
+function extractTernaryChain(node: Node, ctx: NodeContext): JsxObservation | null {
   if (!Node.isConditionalExpression(node)) return null;
 
   const depth = countTernaryDepth(node);
-  if (depth < 2) return null;
 
   // Only report the outermost chained ternary, not the inner ones
   const parent = node.getParent();
   if (parent && Node.isConditionalExpression(parent)) return null;
 
+  // Skip className ternaries (handled separately)
   const attrName = getEnclosingJsxAttributeName(node);
-  if (attrName === 'className') return null; // handled by classifyComplexClassName
+  if (attrName === 'className') return null;
 
   const condition = node.getCondition();
-  return {
-    type: 'CHAINED_TERNARY',
-    line: ctx.line,
-    column: ctx.column,
-    description: `Chained ternary (depth ${depth}): ${truncateText(condition.getText(), 60)}`,
-    parentComponent: ctx.componentName,
-  };
+  return makeObservation('JSX_TERNARY_CHAIN', ctx, {
+    depth,
+    description: truncateText(condition.getText(), 60),
+  });
 }
 
-function classifyComplexGuard(node: Node, ctx: NodeContext): JsxViolation | null {
+function extractGuardChain(node: Node, ctx: NodeContext): JsxObservation | null {
   if (!isAndExpression(node)) return null;
 
   // Only report the outermost && chain
@@ -238,18 +267,14 @@ function classifyComplexGuard(node: Node, ctx: NodeContext): JsxViolation | null
   const operandCount = countAndChainDepth(node);
   // The last operand in a JSX guard is the rendered element, not a condition
   const conditionCount = operandCount - 1;
-  if (conditionCount < 3) return null;
 
-  return {
-    type: 'COMPLEX_GUARD',
-    line: ctx.line,
-    column: ctx.column,
-    description: `Guard chain with ${conditionCount} conditions: ${truncateText(node.getText(), 80)}`,
-    parentComponent: ctx.componentName,
-  };
+  return makeObservation('JSX_GUARD_CHAIN', ctx, {
+    conditionCount,
+    description: truncateText(node.getText(), 80),
+  });
 }
 
-function classifyInlineTransform(node: Node, ctx: NodeContext): JsxViolation | null {
+function extractTransformChain(node: Node, ctx: NodeContext): JsxObservation | null {
   if (!Node.isCallExpression(node)) return null;
 
   const chain = isArrayTransformChain(node);
@@ -259,29 +284,26 @@ function classifyInlineTransform(node: Node, ctx: NodeContext): JsxViolation | n
   const parent = node.getParent();
   if (parent && Node.isCallExpression(parent) && isArrayTransformChain(parent)) return null;
 
-  return {
-    type: 'INLINE_TRANSFORM',
-    line: ctx.line,
-    column: ctx.column,
-    description: `Chained array transform: .${chain.methods.join('.')}()`,
-    parentComponent: ctx.componentName,
-  };
+  return makeObservation('JSX_TRANSFORM_CHAIN', ctx, {
+    methods: chain.methods,
+    chainLength: chain.chainLength,
+  });
 }
 
-function classifyIife(node: Node, ctx: NodeContext): JsxViolation | null {
+function extractIife(node: Node, ctx: NodeContext): JsxObservation | null {
   if (!isIIFE(node)) return null;
 
   const bodyLines = getIIFEBodyLineCount(node);
-  return {
-    type: 'IIFE_IN_JSX',
-    line: ctx.line,
-    column: ctx.column,
-    description: `IIFE in JSX (${bodyLines} lines)`,
-    parentComponent: ctx.componentName,
-  };
+  return makeObservation('JSX_IIFE', ctx, {
+    description: `IIFE (${bodyLines} lines)`,
+  });
 }
 
-function classifyMultiStmtHandler(node: Node, ctx: NodeContext): JsxViolation | null {
+function extractInlineHandler(
+  node: Node,
+  ctx: NodeContext,
+  sf: { getLineAndColumnAtPos(pos: number): { column: number } },
+): JsxObservation | null {
   if (!Node.isJsxAttribute(node)) return null;
 
   const attrName = node.getNameNode().getText();
@@ -294,18 +316,26 @@ function classifyMultiStmtHandler(node: Node, ctx: NodeContext): JsxViolation | 
   if (!expr || (!Node.isArrowFunction(expr) && !Node.isFunctionExpression(expr))) return null;
 
   const stmtCount = getStatementCount(expr);
-  if (stmtCount < 2) return null;
 
-  return {
-    type: 'MULTI_STMT_HANDLER',
-    line: expr.getStartLineNumber(),
-    column: ctx.sf.getLineAndColumnAtPos(expr.getStart()).column,
-    description: `Multi-statement ${attrName} handler (${stmtCount} statements)`,
-    parentComponent: ctx.componentName,
-  };
+  return makeObservation(
+    'JSX_INLINE_HANDLER',
+    {
+      ...ctx,
+      line: expr.getStartLineNumber(),
+      column: sf.getLineAndColumnAtPos(expr.getStart()).column,
+    },
+    {
+      handlerName: attrName,
+      statementCount: stmtCount,
+    },
+  );
 }
 
-function classifyInlineStyle(node: Node, ctx: NodeContext): JsxViolation | null {
+function extractInlineStyle(
+  node: Node,
+  ctx: NodeContext,
+  sf: { getLineAndColumnAtPos(pos: number): { column: number } },
+): JsxObservation | null {
   if (!Node.isJsxAttribute(node)) return null;
 
   const attrName = node.getNameNode().getText();
@@ -317,18 +347,26 @@ function classifyInlineStyle(node: Node, ctx: NodeContext): JsxViolation | null 
   const expr = initializer.getExpression();
   if (!expr || !Node.isObjectLiteralExpression(expr)) return null;
 
-  if (!hasComputedValue(expr)) return null;
+  const hasComputed = hasComputedValue(expr);
 
-  return {
-    type: 'INLINE_STYLE_OBJECT',
-    line: expr.getStartLineNumber(),
-    column: ctx.sf.getLineAndColumnAtPos(expr.getStart()).column,
-    description: `Inline style with computed values`,
-    parentComponent: ctx.componentName,
-  };
+  return makeObservation(
+    'JSX_INLINE_STYLE',
+    {
+      ...ctx,
+      line: expr.getStartLineNumber(),
+      column: sf.getLineAndColumnAtPos(expr.getStart()).column,
+    },
+    {
+      hasComputedValues: hasComputed,
+    },
+  );
 }
 
-function classifyComplexClassName(node: Node, ctx: NodeContext): JsxViolation | null {
+function extractComplexClassName(
+  node: Node,
+  ctx: NodeContext,
+  sf: { getLineAndColumnAtPos(pos: number): { column: number } },
+): JsxObservation | null {
   if (!Node.isJsxAttribute(node)) return null;
 
   const attrName = node.getNameNode().getText();
@@ -340,9 +378,7 @@ function classifyComplexClassName(node: Node, ctx: NodeContext): JsxViolation | 
   const expr = initializer.getExpression();
   if (!expr) return null;
 
-  // Count total ternary instances (not nesting depth) for
-  // consistent measurement regardless of whether ternaries are
-  // nested or siblings.
+  // Count total ternary instances (not nesting depth)
   let ternaryCount = 0;
   if (Node.isConditionalExpression(expr)) ternaryCount++;
   expr.forEachDescendant(child => {
@@ -351,43 +387,157 @@ function classifyComplexClassName(node: Node, ctx: NodeContext): JsxViolation | 
     }
   });
 
-  if (ternaryCount < 2) return null;
+  // Only emit observation if there's at least one ternary
+  if (ternaryCount === 0) return null;
 
-  return {
-    type: 'COMPLEX_CLASSNAME',
-    line: expr.getStartLineNumber(),
-    column: ctx.sf.getLineAndColumnAtPos(expr.getStart()).column,
-    description: `Complex className with ${ternaryCount} ternaries`,
-    parentComponent: ctx.componentName,
-  };
+  return makeObservation(
+    'JSX_COMPLEX_CLASSNAME',
+    {
+      ...ctx,
+      line: expr.getStartLineNumber(),
+      column: sf.getLineAndColumnAtPos(expr.getStart()).column,
+    },
+    {
+      ternaryCount,
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------
-// Main violation walker
+// Observation extraction from return statements
 // ---------------------------------------------------------------------------
 
-function findViolationsInReturn(returnNode: Node, componentName: string): JsxViolation[] {
-  const violations: JsxViolation[] = [];
+function extractObservationsInReturn(returnNode: Node, componentName: string, filePath: string): JsxObservation[] {
+  const observations: JsxObservation[] = [];
 
   returnNode.forEachDescendant(node => {
     const sf = node.getSourceFile();
     const line = node.getStartLineNumber();
     const column = sf.getLineAndColumnAtPos(node.getStart()).column;
-    const ctx: NodeContext = { sf, line, column, componentName };
+    const ctx: NodeContext = { filePath, line, column, componentName };
 
-    const result =
-      classifyChainedTernary(node, ctx) ??
-      classifyComplexGuard(node, ctx) ??
-      classifyInlineTransform(node, ctx) ??
-      classifyIife(node, ctx) ??
-      classifyMultiStmtHandler(node, ctx) ??
-      classifyInlineStyle(node, ctx) ??
-      classifyComplexClassName(node, ctx);
+    const ternary = extractTernaryChain(node, ctx);
+    if (ternary) observations.push(ternary);
 
-    if (result) {
-      violations.push(result);
-    }
+    const guard = extractGuardChain(node, ctx);
+    if (guard) observations.push(guard);
+
+    const transform = extractTransformChain(node, ctx);
+    if (transform) observations.push(transform);
+
+    const iife = extractIife(node, ctx);
+    if (iife) observations.push(iife);
+
+    const handler = extractInlineHandler(node, ctx, sf);
+    if (handler) observations.push(handler);
+
+    const style = extractInlineStyle(node, ctx, sf);
+    if (style) observations.push(style);
+
+    const className = extractComplexClassName(node, ctx, sf);
+    if (className) observations.push(className);
   });
+
+  return observations;
+}
+
+// ---------------------------------------------------------------------------
+// Derive legacy violations from observations (apply thresholds)
+// ---------------------------------------------------------------------------
+
+function deriveViolationsFromObservations(observations: JsxObservation[]): JsxViolation[] {
+  const violations: JsxViolation[] = [];
+
+  for (const obs of observations) {
+    const { kind, line, column, evidence } = obs;
+    const parentComponent = evidence.componentName;
+
+    switch (kind) {
+      case 'JSX_TERNARY_CHAIN':
+        if ((evidence.depth ?? 0) >= astConfig.jsx.thresholds.chainedTernaryDepth) {
+          violations.push({
+            type: 'CHAINED_TERNARY',
+            line,
+            column: column ?? 0,
+            description: `Chained ternary (depth ${evidence.depth}): ${evidence.description ?? ''}`,
+            parentComponent,
+          });
+        }
+        break;
+
+      case 'JSX_GUARD_CHAIN':
+        if ((evidence.conditionCount ?? 0) >= astConfig.jsx.thresholds.complexGuardConditions) {
+          violations.push({
+            type: 'COMPLEX_GUARD',
+            line,
+            column: column ?? 0,
+            description: `Guard chain with ${evidence.conditionCount} conditions: ${evidence.description ?? ''}`,
+            parentComponent,
+          });
+        }
+        break;
+
+      case 'JSX_TRANSFORM_CHAIN':
+        if ((evidence.chainLength ?? 0) >= astConfig.jsx.thresholds.inlineTransformChain) {
+          violations.push({
+            type: 'INLINE_TRANSFORM',
+            line,
+            column: column ?? 0,
+            description: `Chained array transform: .${(evidence.methods ?? []).join('.')}()`,
+            parentComponent,
+          });
+        }
+        break;
+
+      case 'JSX_IIFE':
+        // IIFEs are always violations (no threshold)
+        violations.push({
+          type: 'IIFE_IN_JSX',
+          line,
+          column: column ?? 0,
+          description: evidence.description ?? 'IIFE in JSX',
+          parentComponent,
+        });
+        break;
+
+      case 'JSX_INLINE_HANDLER':
+        if ((evidence.statementCount ?? 0) >= astConfig.jsx.thresholds.multiStmtHandler) {
+          violations.push({
+            type: 'MULTI_STMT_HANDLER',
+            line,
+            column: column ?? 0,
+            description: `Multi-statement ${evidence.handlerName} handler (${evidence.statementCount} statements)`,
+            parentComponent,
+          });
+        }
+        break;
+
+      case 'JSX_INLINE_STYLE':
+        // Only a violation if has computed values
+        if (evidence.hasComputedValues) {
+          violations.push({
+            type: 'INLINE_STYLE_OBJECT',
+            line,
+            column: column ?? 0,
+            description: 'Inline style with computed values',
+            parentComponent,
+          });
+        }
+        break;
+
+      case 'JSX_COMPLEX_CLASSNAME':
+        if ((evidence.ternaryCount ?? 0) >= astConfig.jsx.thresholds.complexClassNameTernaries) {
+          violations.push({
+            type: 'COMPLEX_CLASSNAME',
+            line,
+            column: column ?? 0,
+            description: `Complex className with ${evidence.ternaryCount} ternaries`,
+            parentComponent,
+          });
+        }
+        break;
+    }
+  }
 
   return violations;
 }
@@ -396,12 +546,59 @@ function findViolationsInReturn(returnNode: Node, componentName: string): JsxVio
 // Public API
 // ---------------------------------------------------------------------------
 
+/**
+ * Extract all JSX observations from a file without applying violation thresholds.
+ * This function emits observations for ALL JSX patterns, including those below
+ * the violation threshold. Used by the interpreter layer.
+ */
+export function extractJsxObservations(filePath: string): JsxObservation[] {
+  const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(PROJECT_ROOT, filePath);
+  const sf = getSourceFile(absolute);
+  const relativePath = path.relative(PROJECT_ROOT, absolute);
+
+  const detectedComponents = detectComponents(sf);
+  const observations: JsxObservation[] = [];
+
+  for (const comp of detectedComponents) {
+    const returns = findReturnStatements(comp.funcNode);
+
+    // Add JSX_RETURN_BLOCK observations for each component's return
+    const primaryReturn = returns.length > 0 ? returns[returns.length - 1] : null;
+    if (primaryReturn) {
+      observations.push(
+        makeObservation(
+          'JSX_RETURN_BLOCK',
+          {
+            filePath: relativePath,
+            line: primaryReturn.startLine,
+            column: 0,
+            componentName: comp.name,
+          },
+          {
+            returnStartLine: primaryReturn.startLine,
+            returnEndLine: primaryReturn.endLine,
+            returnLineCount: primaryReturn.endLine - primaryReturn.startLine + 1,
+          },
+        ),
+      );
+    }
+
+    // Collect JSX pattern observations from all return statements
+    for (const ret of returns) {
+      observations.push(...extractObservationsInReturn(ret.node, comp.name, relativePath));
+    }
+  }
+
+  return observations;
+}
+
 export function analyzeJsxComplexity(filePath: string): JsxAnalysis {
   const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(PROJECT_ROOT, filePath);
   const sf = getSourceFile(absolute);
   const relativePath = path.relative(PROJECT_ROOT, absolute);
 
   const detectedComponents = detectComponents(sf);
+  const allObservations: JsxObservation[] = [];
 
   const components = detectedComponents.map(comp => {
     const returns = findReturnStatements(comp.funcNode);
@@ -412,11 +609,36 @@ export function analyzeJsxComplexity(filePath: string): JsxAnalysis {
     const returnEndLine = primaryReturn?.endLine ?? 0;
     const returnLineCount = primaryReturn ? returnEndLine - returnStartLine + 1 : 0;
 
-    // Collect violations from all JSX-containing return statements
-    const violations: JsxViolation[] = [];
-    for (const ret of returns) {
-      violations.push(...findViolationsInReturn(ret.node, comp.name));
+    // Add JSX_RETURN_BLOCK observation
+    if (primaryReturn) {
+      allObservations.push(
+        makeObservation(
+          'JSX_RETURN_BLOCK',
+          {
+            filePath: relativePath,
+            line: primaryReturn.startLine,
+            column: 0,
+            componentName: comp.name,
+          },
+          {
+            returnStartLine: primaryReturn.startLine,
+            returnEndLine: primaryReturn.endLine,
+            returnLineCount: primaryReturn.endLine - primaryReturn.startLine + 1,
+          },
+        ),
+      );
     }
+
+    // Collect observations from all JSX-containing return statements
+    const componentObservations: JsxObservation[] = [];
+    for (const ret of returns) {
+      const obs = extractObservationsInReturn(ret.node, comp.name, relativePath);
+      componentObservations.push(...obs);
+      allObservations.push(...obs);
+    }
+
+    // Derive violations from observations
+    const violations = deriveViolationsFromObservations(componentObservations);
 
     return {
       name: comp.name,
@@ -430,6 +652,7 @@ export function analyzeJsxComplexity(filePath: string): JsxAnalysis {
   return {
     filePath: relativePath,
     components,
+    observations: allObservations,
   };
 }
 

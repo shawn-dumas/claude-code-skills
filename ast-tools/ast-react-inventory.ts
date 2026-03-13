@@ -12,8 +12,17 @@ import path from 'path';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
 import { getBody, detectComponents } from './shared';
-import type { ReactInventory, ComponentInfo, HookCall, UseEffectInfo, PropField } from './types';
-import { MAY_REMAIN_HOOKS, KNOWN_CONTEXT_HOOKS, REACT_BUILTIN_HOOKS } from './types';
+import type {
+  ReactInventory,
+  ComponentInfo,
+  HookCall,
+  UseEffectInfo,
+  PropField,
+  EffectObservation,
+  HookObservation,
+  ComponentObservation,
+} from './types';
+import { astConfig } from './ast-config';
 
 // ---------------------------------------------------------------------------
 // Import resolution (lightweight, file-scoped)
@@ -51,66 +60,6 @@ function resolveImportsForFile(sf: SourceFile): ResolvedImport[] {
   }
 
   return results;
-}
-
-// ---------------------------------------------------------------------------
-// Hook classification
-// ---------------------------------------------------------------------------
-
-type HookClassification = HookCall['classification'];
-
-const TANSTACK_QUERY_HOOKS = new Set(['useQuery', 'useMutation', 'useInfiniteQuery']);
-
-function classifyByNameList(hookName: string): HookClassification | null {
-  if ((MAY_REMAIN_HOOKS as readonly string[]).includes(hookName)) return 'may-remain';
-  if (hookName.startsWith('use') && hookName.endsWith('Scope') && hookName.length > 8) return 'may-remain';
-  if ((REACT_BUILTIN_HOOKS as readonly string[]).includes(hookName)) return 'state-utility';
-  return null;
-}
-
-function classifyByImportPath(hookName: string, resolvedImports: ResolvedImport[]): HookClassification | null {
-  const imp = resolvedImports.find(i => i.specifier === hookName);
-  if (!imp) return null;
-
-  const src = imp.sourcePath ?? imp.rawSource;
-  if (src.includes('services/hooks') || src.includes('@tanstack/react-query')) return 'service';
-  if (src.includes('providers/') || src.includes('context/')) return 'context';
-  if (src.includes('shared/hooks')) return 'dom-utility';
-  if (TANSTACK_QUERY_HOOKS.has(hookName)) return 'service';
-
-  return null;
-}
-
-function classifyByLocalBody(hookName: string, localHookBodies: Map<string, Node>): HookClassification | null {
-  const localBody = localHookBodies.get(hookName);
-  if (!localBody) return null;
-
-  const bodyText = localBody.getText();
-  if (bodyText.includes('useContext')) return 'context';
-  if (bodyText.includes('useQuery') || bodyText.includes('useMutation') || bodyText.includes('useInfiniteQuery')) {
-    return 'service';
-  }
-  return null;
-}
-
-function classifyByHeuristic(hookName: string): HookClassification {
-  if ((KNOWN_CONTEXT_HOOKS as readonly string[]).includes(hookName)) return 'context';
-  if (TANSTACK_QUERY_HOOKS.has(hookName)) return 'service';
-  if (hookName === 'useContext') return 'context';
-  return 'unknown';
-}
-
-function classifyHook(
-  hookName: string,
-  resolvedImports: ResolvedImport[],
-  localHookBodies: Map<string, Node>,
-): HookClassification {
-  return (
-    classifyByNameList(hookName) ??
-    classifyByImportPath(hookName, resolvedImports) ??
-    classifyByLocalBody(hookName, localHookBodies) ??
-    classifyByHeuristic(hookName)
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -152,31 +101,20 @@ function getDestructuredNames(decl: VariableDeclaration | null): string[] {
   return [];
 }
 
-function extractHookCalls(
-  funcNode: Node,
-  parentName: string,
-  resolvedImports: ResolvedImport[],
-  localHookBodies: Map<string, Node>,
-): HookCall[] {
+function extractHookCalls(funcNode: Node, parentName: string): HookCall[] {
   const hooks: HookCall[] = [];
   const body = getBody(funcNode);
   if (!body) return hooks;
 
   // Only look at direct statements in the function body, not nested functions
   for (const stmt of body.getStatements()) {
-    visitStatementForHooks(stmt, parentName, resolvedImports, localHookBodies, hooks);
+    visitStatementForHooks(stmt, parentName, hooks);
   }
 
   return hooks;
 }
 
-function visitStatementForHooks(
-  node: Node,
-  parentName: string,
-  resolvedImports: ResolvedImport[],
-  localHookBodies: Map<string, Node>,
-  hooks: HookCall[],
-): void {
+function visitStatementForHooks(node: Node, parentName: string, hooks: HookCall[]): void {
   // Variable declaration: const [x, y] = useHook()
   if (Node.isVariableStatement(node)) {
     for (const decl of node.getDeclarationList().getDeclarations()) {
@@ -190,7 +128,6 @@ function visitStatementForHooks(
             column: init.getSourceFile().getLineAndColumnAtPos(init.getStart()).column,
             parentFunction: parentName,
             destructuredNames: getDestructuredNames(decl),
-            classification: classifyHook(callName, resolvedImports, localHookBodies),
           });
         }
       }
@@ -210,7 +147,102 @@ function visitStatementForHooks(
           column: expr.getSourceFile().getLineAndColumnAtPos(expr.getStart()).column,
           parentFunction: parentName,
           destructuredNames: [],
-          classification: classifyHook(callName, resolvedImports, localHookBodies),
+        });
+      }
+    }
+    return;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hook observations (semantic layering approach)
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract structural observations for hook calls. These are pure facts:
+ * - hookName
+ * - importSource (resolved path)
+ * - isReactBuiltin
+ * - destructuredNames
+ *
+ * NO classification is emitted -- that is the interpreter's job.
+ */
+function extractHookObservations(
+  funcNode: Node,
+  parentName: string,
+  filePath: string,
+  resolvedImports: ResolvedImport[],
+): HookObservation[] {
+  const observations: HookObservation[] = [];
+  const body = getBody(funcNode);
+  if (!body) return observations;
+
+  for (const stmt of body.getStatements()) {
+    extractHookObservationsFromStatement(stmt, parentName, filePath, resolvedImports, observations);
+  }
+
+  return observations;
+}
+
+function extractHookObservationsFromStatement(
+  node: Node,
+  parentName: string,
+  filePath: string,
+  resolvedImports: ResolvedImport[],
+  observations: HookObservation[],
+): void {
+  // Variable declaration: const [x, y] = useHook()
+  if (Node.isVariableStatement(node)) {
+    for (const decl of node.getDeclarationList().getDeclarations()) {
+      const init = decl.getInitializer();
+      if (init && Node.isCallExpression(init)) {
+        const callName = init.getExpression().getText();
+        if (isHookCall(callName)) {
+          const imp = resolvedImports.find(i => i.specifier === callName);
+          const importSource = imp ? (imp.sourcePath ?? imp.rawSource) : undefined;
+          const isReactBuiltin = astConfig.react.builtinHooks.has(callName);
+
+          observations.push({
+            kind: 'HOOK_CALL',
+            file: filePath,
+            line: init.getStartLineNumber(),
+            column: init.getSourceFile().getLineAndColumnAtPos(init.getStart()).column,
+            evidence: {
+              hookName: callName,
+              importSource,
+              destructuredNames: getDestructuredNames(decl),
+              parentFunction: parentName,
+              isReactBuiltin,
+            },
+          });
+        }
+      }
+    }
+    return;
+  }
+
+  // Expression statement: useHook() (no assignment)
+  if (Node.isExpressionStatement(node)) {
+    const expr = node.getExpression();
+    if (Node.isCallExpression(expr)) {
+      const callName = expr.getExpression().getText();
+      if (isHookCall(callName)) {
+        const imp = resolvedImports.find(i => i.specifier === callName);
+        const importSource = imp ? (imp.sourcePath ?? imp.rawSource) : undefined;
+        const isReactBuiltin = astConfig.react.builtinHooks.has(callName);
+
+        observations.push({
+          kind: 'HOOK_CALL',
+          file: filePath,
+          line: expr.getStartLineNumber(),
+          column: expr.getSourceFile().getLineAndColumnAtPos(expr.getStart()).column,
+          evidence: {
+            hookName: callName,
+            importSource,
+            destructuredNames: [],
+            parentFunction: parentName,
+            isReactBuiltin,
+          },
         });
       }
     }
@@ -372,6 +404,372 @@ function analyzeEffectBody(callback: Node, knownSetters: Set<string>): UseEffect
   result.stateSetters = stateSetters;
   result.callsSetState = stateSetters.length > 0;
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Effect observations (new semantic layering approach)
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract structural observations from a useEffect/useLayoutEffect call.
+ * These are pure facts with no classifications -- the interpreter layer
+ * adds judgments later.
+ */
+function extractEffectObservations(
+  expr: Node & { getArguments(): Node[]; getExpression(): Node },
+  parentName: string,
+  filePath: string,
+  knownSetters: Set<string>,
+  propNames: Set<string>,
+  contextBindings: Map<string, string>,
+): EffectObservation[] {
+  const observations: EffectObservation[] = [];
+  const effectLine = expr.getStartLineNumber();
+  const hookName = expr.getExpression().getText();
+  const args = expr.getArguments();
+  if (args.length === 0) return observations;
+
+  const callback = args[0];
+  const depArg = args.length > 1 ? args[1] : null;
+
+  // EFFECT_LOCATION: one per effect
+  const depArray = depArg && Node.isArrayLiteralExpression(depArg) ? depArg.getElements().map(el => el.getText()) : [];
+  observations.push({
+    kind: 'EFFECT_LOCATION',
+    file: filePath,
+    line: effectLine,
+    evidence: {
+      effectLine,
+      parentFunction: parentName,
+      depArray,
+      identifier: hookName,
+    },
+  });
+
+  // EFFECT_DEP_ENTRY: one per dependency
+  if (depArg && Node.isArrayLiteralExpression(depArg)) {
+    for (const el of depArg.getElements()) {
+      observations.push({
+        kind: 'EFFECT_DEP_ENTRY',
+        file: filePath,
+        line: depArg.getStartLineNumber(),
+        evidence: {
+          effectLine,
+          identifier: el.getText(),
+        },
+      });
+    }
+  }
+
+  // EFFECT_CLEANUP_PRESENT
+  if (analyzeCleanup(callback)) {
+    observations.push({
+      kind: 'EFFECT_CLEANUP_PRESENT',
+      file: filePath,
+      line: effectLine,
+      evidence: { effectLine },
+    });
+  }
+
+  // Walk the callback body for observations
+  callback.forEachDescendant(node => {
+    const line = node.getStartLineNumber();
+
+    if (Node.isCallExpression(node)) {
+      const callee = node.getExpression();
+
+      // Direct function calls
+      if (Node.isIdentifier(callee)) {
+        const name = callee.getText();
+
+        // EFFECT_STATE_SETTER_CALL
+        if (knownSetters.has(name)) {
+          observations.push({
+            kind: 'EFFECT_STATE_SETTER_CALL',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: name },
+          });
+        }
+
+        // dispatch also counts as state setter
+        if (astConfig.effects.dispatchIdentifiers.has(name)) {
+          observations.push({
+            kind: 'EFFECT_STATE_SETTER_CALL',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: name },
+          });
+        }
+
+        // EFFECT_FETCH_CALL
+        if (astConfig.effects.fetchFunctions.has(name)) {
+          observations.push({
+            kind: 'EFFECT_FETCH_CALL',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: name },
+          });
+        }
+
+        // EFFECT_TIMER_CALL
+        if (astConfig.effects.timerFunctions.has(name)) {
+          observations.push({
+            kind: 'EFFECT_TIMER_CALL',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: name },
+          });
+        }
+
+        // EFFECT_NAVIGATION_CALL (direct function calls like navigate())
+        if (astConfig.effects.navigateFunctions.has(name)) {
+          observations.push({
+            kind: 'EFFECT_NAVIGATION_CALL',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: name },
+          });
+        }
+      }
+
+      // Property access calls: obj.method()
+      if (Node.isPropertyAccessExpression(callee)) {
+        const obj = callee.getExpression().getText();
+        const method = callee.getName();
+
+        // EFFECT_NAVIGATION_CALL (router.push(), router.replace())
+        if (astConfig.effects.routerObjectNames.includes(obj) && astConfig.effects.routerNavMethods.has(method)) {
+          observations.push({
+            kind: 'EFFECT_NAVIGATION_CALL',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: obj, method, targetObject: obj },
+          });
+        }
+
+        // EFFECT_STORAGE_CALL (localStorage.getItem(), etc.)
+        if (astConfig.effects.storageObjects.has(obj)) {
+          observations.push({
+            kind: 'EFFECT_STORAGE_CALL',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: obj, method, targetObject: obj },
+          });
+        }
+
+        // EFFECT_TOAST_CALL (toast.success(), etc.)
+        if (astConfig.effects.toastObjectNames.includes(obj)) {
+          observations.push({
+            kind: 'EFFECT_TOAST_CALL',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: obj, method, targetObject: obj },
+          });
+        }
+
+        // EFFECT_FETCH_CALL (axios.get(), axios.post(), etc.)
+        if (astConfig.effects.axiosIdentifiers.includes(obj)) {
+          observations.push({
+            kind: 'EFFECT_FETCH_CALL',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: obj, method, targetObject: obj },
+          });
+        }
+
+        // EFFECT_REF_TOUCH (.current access)
+        if (method === 'current') {
+          observations.push({
+            kind: 'EFFECT_REF_TOUCH',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: obj },
+          });
+        }
+
+        // EFFECT_DOM_API (document.*, window.addEventListener, etc.)
+        if (obj === 'document' || obj === 'window') {
+          observations.push({
+            kind: 'EFFECT_DOM_API',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: obj, method, targetObject: obj },
+          });
+        }
+      }
+    }
+
+    // EFFECT_ASYNC_CALL: async callback or .then() chain
+    if (Node.isArrowFunction(node) || Node.isFunctionExpression(node)) {
+      if (node.isAsync()) {
+        observations.push({
+          kind: 'EFFECT_ASYNC_CALL',
+          file: filePath,
+          line,
+          evidence: { effectLine },
+        });
+      }
+    }
+
+    if (Node.isCallExpression(node)) {
+      const callee = node.getExpression();
+      if (Node.isPropertyAccessExpression(callee) && callee.getName() === 'then') {
+        observations.push({
+          kind: 'EFFECT_ASYNC_CALL',
+          file: filePath,
+          line,
+          evidence: { effectLine },
+        });
+      }
+    }
+
+    // EFFECT_PROP_READ: identifier that matches a prop name
+    if (Node.isIdentifier(node)) {
+      const name = node.getText();
+
+      if (propNames.has(name)) {
+        // Check that this is a read, not a declaration
+        const parent = node.getParent();
+        if (!Node.isVariableDeclaration(parent) && !Node.isBindingElement(parent)) {
+          observations.push({
+            kind: 'EFFECT_PROP_READ',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: name },
+          });
+        }
+      }
+
+      // EFFECT_CONTEXT_READ: identifier from context hook destructuring
+      const sourceHook = contextBindings.get(name);
+      if (sourceHook) {
+        const parent = node.getParent();
+        if (!Node.isVariableDeclaration(parent) && !Node.isBindingElement(parent)) {
+          observations.push({
+            kind: 'EFFECT_CONTEXT_READ',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: name, targetObject: sourceHook },
+          });
+        }
+      }
+
+      // EFFECT_STORAGE_CALL (bare identifier references like readStorage, writeStorage)
+      if (astConfig.effects.storageIdentifiers.has(name)) {
+        // Only count if it's being called, not just referenced
+        const parent = node.getParent();
+        if (Node.isCallExpression(parent) && parent.getExpression() === node) {
+          observations.push({
+            kind: 'EFFECT_STORAGE_CALL',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: name },
+          });
+        }
+      }
+    }
+
+    // EFFECT_REF_TOUCH: .current property access (not just method calls)
+    if (Node.isPropertyAccessExpression(node)) {
+      if (node.getName() === 'current') {
+        const obj = node.getExpression().getText();
+        // Avoid duplicating with the call expression case
+        const parent = node.getParent();
+        if (!Node.isCallExpression(parent)) {
+          observations.push({
+            kind: 'EFFECT_REF_TOUCH',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: obj },
+          });
+        }
+      }
+    }
+  });
+
+  return observations;
+}
+
+/**
+ * Collect prop names from component's first parameter.
+ */
+function collectPropNames(funcNode: Node): Set<string> {
+  const propNames = new Set<string>();
+  const firstParam = getFirstParam(funcNode);
+  if (!firstParam) return propNames;
+
+  const nameNode = firstParam.getNameNode();
+  if (Node.isObjectBindingPattern(nameNode)) {
+    for (const el of nameNode.getElements()) {
+      if (Node.isBindingElement(el)) {
+        propNames.add(el.getName());
+      }
+    }
+  }
+
+  return propNames;
+}
+
+/**
+ * Collect bindings from context hooks for EFFECT_CONTEXT_READ detection.
+ * Returns a map from identifier name to the source hook name.
+ */
+function collectContextBindings(funcNode: Node): Map<string, string> {
+  const bindings = new Map<string, string>();
+  const body = getBody(funcNode);
+  if (!body) return bindings;
+
+  for (const stmt of body.getStatements()) {
+    if (!Node.isVariableStatement(stmt)) continue;
+    for (const decl of stmt.getDeclarationList().getDeclarations()) {
+      const init = decl.getInitializer();
+      if (!init || !Node.isCallExpression(init)) continue;
+
+      const hookName = init.getExpression().getText();
+      // Check if it's a known context hook
+      if (!astConfig.hooks.knownContextHooks.has(hookName) && hookName !== 'useContext') continue;
+
+      const nameNode = decl.getNameNode();
+      if (Node.isObjectBindingPattern(nameNode)) {
+        for (const el of nameNode.getElements()) {
+          if (Node.isBindingElement(el)) {
+            bindings.set(el.getName(), hookName);
+          }
+        }
+      } else if (Node.isIdentifier(nameNode)) {
+        bindings.set(nameNode.getText(), hookName);
+      }
+    }
+  }
+
+  return bindings;
+}
+
+/**
+ * Extract effect observations from all useEffect/useLayoutEffect calls in a component.
+ */
+function extractAllEffectObservations(funcNode: Node, parentName: string, filePath: string): EffectObservation[] {
+  const body = getBody(funcNode);
+  if (!body) return [];
+
+  const stateSetters = collectStateSetters(body);
+  const propNames = collectPropNames(funcNode);
+  const contextBindings = collectContextBindings(funcNode);
+  const observations: EffectObservation[] = [];
+
+  for (const stmt of body.getStatements()) {
+    if (!Node.isExpressionStatement(stmt)) continue;
+    const expr = stmt.getExpression();
+    if (!Node.isCallExpression(expr)) continue;
+    if (!astConfig.effects.effectHookNames.has(expr.getExpression().getText())) continue;
+
+    observations.push(
+      ...extractEffectObservations(expr, parentName, filePath, stateSetters, propNames, contextBindings),
+    );
+  }
+
+  return observations;
 }
 
 // ---------------------------------------------------------------------------
@@ -563,6 +961,53 @@ function isFunctionType(typeText: string, name: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Component observations (semantic layering approach)
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract structural observations for components and props.
+ * - COMPONENT_DECLARATION: one per component
+ * - PROP_FIELD: one per prop
+ */
+function extractComponentObservations(
+  comp: { name: string; kind: 'function' | 'arrow' | 'memo' | 'forwardRef'; line: number },
+  props: PropField[],
+  filePath: string,
+): ComponentObservation[] {
+  const observations: ComponentObservation[] = [];
+
+  // COMPONENT_DECLARATION observation
+  observations.push({
+    kind: 'COMPONENT_DECLARATION',
+    file: filePath,
+    line: comp.line,
+    evidence: {
+      componentName: comp.name,
+      kind: comp.kind,
+    },
+  });
+
+  // PROP_FIELD observations
+  for (const prop of props) {
+    observations.push({
+      kind: 'PROP_FIELD',
+      file: filePath,
+      line: comp.line, // Props are associated with component line
+      evidence: {
+        componentName: comp.name,
+        propName: prop.name,
+        propType: prop.type,
+        isOptional: prop.optional,
+        hasDefault: prop.hasDefault,
+        isCallback: prop.isCallback,
+      },
+    });
+  }
+
+  return observations;
+}
+
+// ---------------------------------------------------------------------------
 // Return statement detection
 // ---------------------------------------------------------------------------
 
@@ -627,34 +1072,6 @@ function detectHookDefinitions(sf: SourceFile): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Local hook body map (for classification of hooks defined in same file)
-// ---------------------------------------------------------------------------
-
-function buildLocalHookBodies(sf: SourceFile): Map<string, Node> {
-  const map = new Map<string, Node>();
-
-  for (const func of sf.getFunctions()) {
-    const name = func.getName();
-    if (name && isHookCall(name)) {
-      map.set(name, func);
-    }
-  }
-
-  for (const varStmt of sf.getVariableStatements()) {
-    for (const decl of varStmt.getDeclarationList().getDeclarations()) {
-      const name = decl.getName();
-      if (!isHookCall(name)) continue;
-      const init = decl.getInitializer();
-      if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
-        map.set(name, init);
-      }
-    }
-  }
-
-  return map;
-}
-
-// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -664,15 +1081,31 @@ export function analyzeReactFile(filePath: string): ReactInventory {
   const relativePath = path.relative(PROJECT_ROOT, absolute);
 
   const resolvedImports = resolveImportsForFile(sf);
-  const localHookBodies = buildLocalHookBodies(sf);
   const detectedComponents = detectComponents(sf);
   const hookDefinitions = detectHookDefinitions(sf);
 
+  // Collect file-level observations
+  const allHookObservations: HookObservation[] = [];
+  const allComponentObservations: ComponentObservation[] = [];
+
   const components: ComponentInfo[] = detectedComponents.map(comp => {
-    const hookCalls = extractHookCalls(comp.funcNode, comp.name, resolvedImports, localHookBodies);
+    const hookCalls = extractHookCalls(comp.funcNode, comp.name);
     const useEffects = extractUseEffects(comp.funcNode, comp.name, sf);
+    const effectObservations = extractAllEffectObservations(comp.funcNode, comp.name, relativePath);
     const props = extractProps(comp.funcNode, sf, comp.wrapperCall);
     const returnLines = findReturnStatementLines(comp.funcNode);
+
+    // Extract hook observations for this component
+    const hookObs = extractHookObservations(comp.funcNode, comp.name, relativePath, resolvedImports);
+    allHookObservations.push(...hookObs);
+
+    // Extract component observations (COMPONENT_DECLARATION + PROP_FIELD)
+    const compObs = extractComponentObservations(
+      { name: comp.name, kind: comp.kind, line: comp.line },
+      props,
+      relativePath,
+    );
+    allComponentObservations.push(...compObs);
 
     return {
       name: comp.name,
@@ -681,6 +1114,7 @@ export function analyzeReactFile(filePath: string): ReactInventory {
       props,
       hookCalls,
       useEffects,
+      effectObservations,
       returnStatementLine: returnLines.start,
       returnStatementEndLine: returnLines.end,
     };
@@ -690,6 +1124,8 @@ export function analyzeReactFile(filePath: string): ReactInventory {
     filePath: relativePath,
     components,
     hookDefinitions,
+    hookObservations: allHookObservations,
+    componentObservations: allComponentObservations,
   };
 }
 

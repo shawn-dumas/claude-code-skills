@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeSideEffects, analyzeSideEffectsDirectory } from '../ast-side-effects';
+import { analyzeSideEffects, analyzeSideEffectsDirectory, extractSideEffectObservations } from '../ast-side-effects';
+import { getSourceFile } from '../project';
 import type { SideEffectsAnalysis, SideEffectType } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -225,5 +226,91 @@ describe('analyzeSideEffectsDirectory', () => {
     for (const r of results) {
       expect(r.filePath).toBeDefined();
     }
+  });
+});
+
+describe('observations', () => {
+  it('emits observations alongside legacy output', () => {
+    const result = analyzeFixture('side-effects-samples.ts');
+    expect(result.observations).toBeDefined();
+    expect(Array.isArray(result.observations)).toBe(true);
+    expect(result.observations.length).toBeGreaterThan(0);
+  });
+
+  it('observation count matches legacy sideEffects count', () => {
+    const result = analyzeFixture('side-effects-samples.ts');
+    expect(result.observations.length).toBe(result.sideEffects.length);
+  });
+
+  it('observations have kind matching SideEffectType', () => {
+    const result = analyzeFixture('side-effects-samples.ts');
+    const validKinds: SideEffectType[] = [
+      'CONSOLE_CALL',
+      'TOAST_CALL',
+      'TIMER_CALL',
+      'POSTHOG_CALL',
+      'WINDOW_MUTATION',
+    ];
+    for (const obs of result.observations) {
+      expect(validKinds).toContain(obs.kind);
+    }
+  });
+
+  it('observations include evidence with isInsideUseEffect', () => {
+    const result = analyzeFixture('side-effects-samples.ts');
+    const withUseEffect = result.observations.filter(o => o.evidence.isInsideUseEffect === true);
+    expect(withUseEffect.length).toBeGreaterThan(0);
+  });
+
+  it('observations include containingFunction in evidence', () => {
+    const result = analyzeFixture('side-effects-samples.ts');
+    for (const obs of result.observations) {
+      expect(obs.evidence.containingFunction).toBeDefined();
+    }
+  });
+
+  it('extractSideEffectObservations can be called directly', () => {
+    const sf = getSourceFile(fixturePath('side-effects-samples.ts'));
+    const observations = extractSideEffectObservations(sf);
+    expect(observations.length).toBeGreaterThan(0);
+  });
+});
+
+describe('negative fixture', () => {
+  it('detects shadowed console calls on property access pattern', () => {
+    const result = analyzeFixture('side-effects-negative.ts');
+    const consoles = effectsOfType(result, 'CONSOLE_CALL');
+    // Should detect shadowed console.log call
+    expect(consoles.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('detects local toast function calls', () => {
+    const result = analyzeFixture('side-effects-negative.ts');
+    const toasts = effectsOfType(result, 'TOAST_CALL');
+    // Local toast() function is detected (observation reports, interpreter decides)
+    expect(toasts.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('detects setTimeout in test helper', () => {
+    const result = analyzeFixture('side-effects-negative.ts');
+    const timers = effectsOfType(result, 'TIMER_CALL');
+    const testHelperTimer = timers.find(t => t.containingFunction === 'testHelper');
+    expect(testHelperTimer).toBeDefined();
+  });
+
+  it('does NOT detect window.location.href read as WINDOW_MUTATION', () => {
+    const result = analyzeFixture('side-effects-negative.ts');
+    const mutations = effectsOfType(result, 'WINDOW_MUTATION');
+    // Reads should NOT be detected, only assignments
+    const urlRead = mutations.find(m => m.text.includes('url =') || m.text.includes('pathname ='));
+    expect(urlRead).toBeUndefined();
+  });
+
+  it('does NOT detect console object property access (not a call)', () => {
+    const result = analyzeFixture('side-effects-negative.ts');
+    const consoles = effectsOfType(result, 'CONSOLE_CALL');
+    // Should NOT detect: const logMethod = console.log
+    const propAccess = consoles.find(c => c.text.includes('logMethod'));
+    expect(propAccess).toBeUndefined();
   });
 });

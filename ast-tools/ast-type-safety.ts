@@ -4,7 +4,15 @@ import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
 import { getFilesInDirectory, truncateText } from './shared';
-import type { TypeSafetyAnalysis, TypeSafetyViolation, TypeSafetyViolationType } from './types';
+import { astConfig } from './ast-config';
+import type {
+  TypeSafetyAnalysis,
+  TypeSafetyViolation,
+  TypeSafetyViolationType,
+  TypeSafetyObservation,
+  TypeSafetyObservationKind,
+  TypeSafetyObservationEvidence,
+} from './types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -48,22 +56,15 @@ function isInsideComplexTypeDefinition(node: Node): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Trust boundary detection
+// Trust boundary detection (uses astConfig.typeSafety.*)
 // ---------------------------------------------------------------------------
-
-const TRUST_BOUNDARY_CALLS = ['JSON.parse', 'readStorage'] as const;
-const TRUST_BOUNDARY_METHOD_CALLS = ['.json'] as const;
-const TRUST_BOUNDARY_PROPERTY_ACCESS = ['localStorage.getItem', 'sessionStorage.getItem', 'process.env'] as const;
-
-const TRUST_BOUNDARY_CALL_SET = new Set<string>(TRUST_BOUNDARY_CALLS);
-const TRUST_BOUNDARY_METHOD_SET = new Set(TRUST_BOUNDARY_METHOD_CALLS.map(p => p.substring(1)));
 
 function matchesPropertyAccessPattern(
   propAccess: Node & { getText(): string; getExpression(): Node; getName(): string },
 ): boolean {
   const fullText = propAccess.getText();
   const objText = propAccess.getExpression().getText();
-  for (const pattern of TRUST_BOUNDARY_PROPERTY_ACCESS) {
+  for (const pattern of astConfig.typeSafety.trustBoundaryPropertyAccess) {
     const lastSegment = pattern.split('.').pop();
     if ((fullText === pattern || fullText.endsWith(`.${lastSegment}`)) && pattern.startsWith(objText)) {
       return true;
@@ -78,14 +79,15 @@ function isTrustBoundaryCall(node: Node): boolean {
   const calleeExpr = node.getExpression();
 
   // Direct call: JSON.parse(...), readStorage(...)
-  if (TRUST_BOUNDARY_CALL_SET.has(calleeExpr.getText())) return true;
+  if (astConfig.typeSafety.trustBoundaryCalls.has(calleeExpr.getText())) return true;
 
   if (!Node.isPropertyAccessExpression(calleeExpr)) return false;
   const propAccess = calleeExpr.asKind(SyntaxKind.PropertyAccessExpression);
   if (!propAccess) return false;
 
   // Method call: response.json()
-  if (TRUST_BOUNDARY_METHOD_SET.has(propAccess.getName())) return true;
+  const methodName = `.${propAccess.getName()}`;
+  if (astConfig.typeSafety.trustBoundaryMethodCalls.has(methodName)) return true;
 
   // localStorage.getItem(...), sessionStorage.getItem(...)
   return matchesPropertyAccessPattern(propAccess);
@@ -136,16 +138,17 @@ function matchesNullGuard(condText: string, exprText: string): boolean {
   );
 }
 
+type AncestorGuardResult =
+  | { guarded: true; guardType: 'has-check' | 'null-check' | 'if-check' }
+  | { guarded: false; block: Node | undefined };
+
 /**
  * Walk up from the node to find the nearest containing block and check whether
  * any ancestor if-statement condition guards the expression.
- * Returns `{ guarded: true }` if an ancestor guard is found, or `{ block }` for
+ * Returns `{ guarded: true, guardType }` if an ancestor guard is found, or `{ block }` for
  * the containing block (to check preceding statements).
  */
-function findContainingBlockAndAncestorGuard(
-  node: Node,
-  exprText: string,
-): { guarded: true } | { guarded: false; block: Node | undefined } {
+function findContainingBlockAndAncestorGuard(node: Node, exprText: string): AncestorGuardResult {
   let current: Node | undefined = node.getParent();
   let containingBlock: Node | undefined;
   while (current) {
@@ -153,8 +156,11 @@ function findContainingBlockAndAncestorGuard(
       const blockParent = current.getParent();
       if (blockParent && Node.isIfStatement(blockParent)) {
         const condText = blockParent.getExpression().getText();
-        if (matchesHasGuard(condText, exprText) || matchesNullGuard(condText, exprText)) {
-          return { guarded: true };
+        if (matchesHasGuard(condText, exprText)) {
+          return { guarded: true, guardType: 'has-check' };
+        }
+        if (matchesNullGuard(condText, exprText)) {
+          return { guarded: true, guardType: 'null-check' };
         }
       }
       if (!containingBlock) {
@@ -193,7 +199,7 @@ function isStatementGuard(stmt: Node, exprText: string): boolean {
 }
 
 /**
- * Check whether a preceding statement (within 3 statements) guards the
+ * Check whether a preceding statement (within configurable statements) guards the
  * non-null expression via a .has() call or null-check if-statement.
  */
 function hasPrecedingGuard(node: Node, exprText: string, block: Node): boolean {
@@ -203,7 +209,7 @@ function hasPrecedingGuard(node: Node, exprText: string, block: Node): boolean {
   const nodeStmtIndex = findContainingStatementIndex(statements, node);
   if (nodeStmtIndex <= 0) return false;
 
-  const lookback = Math.max(0, nodeStmtIndex - 3);
+  const lookback = Math.max(0, nodeStmtIndex - astConfig.typeSafety.guardLookbackDistance);
   for (let i = lookback; i < nodeStmtIndex; i++) {
     if (isStatementGuard(statements[i], exprText)) return true;
   }
@@ -442,6 +448,273 @@ function computeSummary(violations: TypeSafetyViolation[]): Record<TypeSafetyVio
 }
 
 // ---------------------------------------------------------------------------
+// Observation extraction
+// ---------------------------------------------------------------------------
+
+type GuardInfo = { hasGuard: boolean; guardType?: 'if-check' | 'has-check' | 'null-check' };
+
+function detectGuardType(node: Node, exprText: string): GuardInfo {
+  const result = findContainingBlockAndAncestorGuard(node, exprText);
+
+  if (result.guarded) {
+    // Ancestor guard found via if-statement -- use the specific guard type
+    return { hasGuard: true, guardType: result.guardType };
+  }
+
+  if (!result.block || !Node.isBlock(result.block)) {
+    return { hasGuard: false };
+  }
+
+  const statements = result.block.getStatements();
+  const nodeStmtIndex = findContainingStatementIndex(statements, node);
+  if (nodeStmtIndex <= 0) {
+    return { hasGuard: false };
+  }
+
+  const lookback = Math.max(0, nodeStmtIndex - astConfig.typeSafety.guardLookbackDistance);
+  for (let i = lookback; i < nodeStmtIndex; i++) {
+    const stmt = statements[i];
+    if (matchesHasGuard(stmt.getText(), exprText)) {
+      return { hasGuard: true, guardType: 'has-check' };
+    }
+    if (Node.isIfStatement(stmt)) {
+      const condText = stmt.asKind(SyntaxKind.IfStatement)?.getExpression().getText() ?? '';
+      if (matchesNullGuard(condText, exprText)) {
+        return { hasGuard: true, guardType: 'null-check' };
+      }
+    }
+  }
+
+  return { hasGuard: false };
+}
+
+function getTrustBoundarySource(
+  node: Node,
+): 'JSON.parse' | '.json()' | 'localStorage' | 'sessionStorage' | 'process.env' | undefined {
+  if (!Node.isCallExpression(node) && !Node.isPropertyAccessExpression(node) && !Node.isAwaitExpression(node)) {
+    return undefined;
+  }
+
+  if (Node.isAwaitExpression(node)) {
+    return getTrustBoundarySource(node.getExpression());
+  }
+
+  if (Node.isPropertyAccessExpression(node)) {
+    const text = node.getText();
+    if (text.startsWith('process.env.')) return 'process.env';
+    return undefined;
+  }
+
+  if (Node.isCallExpression(node)) {
+    const calleeExpr = node.getExpression();
+    const calleeText = calleeExpr.getText();
+
+    if (calleeText === 'JSON.parse') return 'JSON.parse';
+
+    if (Node.isPropertyAccessExpression(calleeExpr)) {
+      const propAccess = calleeExpr.asKind(SyntaxKind.PropertyAccessExpression);
+      if (propAccess) {
+        const methodName = propAccess.getName();
+        if (methodName === 'json') return '.json()';
+        if (methodName === 'getItem') {
+          const objText = propAccess.getExpression().getText();
+          if (objText === 'localStorage') return 'localStorage';
+          if (objText === 'sessionStorage') return 'sessionStorage';
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function createObservation(
+  kind: TypeSafetyObservationKind,
+  file: string,
+  line: number,
+  column: number,
+  evidence: TypeSafetyObservationEvidence,
+): TypeSafetyObservation {
+  return { kind, file, line, column, evidence };
+}
+
+function extractObservationFromNode(node: Node, sf: SourceFile, relativePath: string): TypeSafetyObservation | null {
+  const line = node.getStartLineNumber();
+  const column = sf.getLineAndColumnAtPos(node.getStart()).column;
+
+  // AS_ANY_CAST / AS_UNKNOWN_AS_CAST / TRUST_BOUNDARY_CAST
+  if (Node.isAsExpression(node)) {
+    const typeNode = node.getTypeNode();
+    if (!typeNode) return null;
+
+    const typeText = typeNode.getText();
+    if (typeText === 'const') return null; // as const is not a violation
+
+    const isInsideComplexType = isInsideComplexTypeDefinition(node);
+
+    if (typeText === 'any') {
+      return createObservation('AS_ANY_CAST', relativePath, line, column, {
+        text: truncateText(node.getText(), 80),
+        castTarget: 'any',
+        sourceExpression: truncateText(node.getExpression().getText(), 60),
+        isInsideComplexType,
+      });
+    }
+
+    // AS_UNKNOWN_AS (double cast)
+    const innerExpr = node.getExpression();
+    if (Node.isAsExpression(innerExpr)) {
+      const innerType = innerExpr.getTypeNode()?.getText();
+      if (innerType === 'unknown') {
+        return createObservation('AS_UNKNOWN_AS_CAST', relativePath, line, column, {
+          text: truncateText(node.getText(), 80),
+          castTarget: typeText,
+          sourceExpression: truncateText(innerExpr.getExpression().getText(), 60),
+          isInsideComplexType,
+        });
+      }
+    }
+
+    // TRUST_BOUNDARY_CAST
+    if (typeText !== 'unknown') {
+      const castExpr = node.getExpression();
+      if (isTrustBoundaryExpression(castExpr)) {
+        const source = getTrustBoundarySource(castExpr);
+        return createObservation('TRUST_BOUNDARY_CAST', relativePath, line, column, {
+          text: truncateText(node.getText(), 80),
+          castTarget: typeText,
+          sourceExpression: truncateText(castExpr.getText(), 60),
+          trustBoundarySource: source,
+          isInsideComplexType,
+        });
+      }
+    }
+
+    return null;
+  }
+
+  // NON_NULL_ASSERTION
+  if (Node.isNonNullExpression(node)) {
+    const exprText = node.getExpression().getText();
+    const guardInfo = detectGuardType(node, exprText);
+    return createObservation('NON_NULL_ASSERTION', relativePath, line, column, {
+      text: truncateText(node.getText(), 80),
+      sourceExpression: truncateText(exprText, 60),
+      hasGuard: guardInfo.hasGuard,
+      guardType: guardInfo.guardType,
+    });
+  }
+
+  // EXPLICIT_ANY_ANNOTATION
+  if (node.getKind() === SyntaxKind.AnyKeyword) {
+    if (isInsideComplexTypeDefinition(node)) {
+      return createObservation('EXPLICIT_ANY_ANNOTATION', relativePath, line, column, {
+        text: truncateText(node.getParent()?.getText() ?? 'any', 80),
+        isInsideComplexType: true,
+      });
+    }
+
+    const parent = node.getParent();
+    // Skip if this is the type node of an AsExpression (handled by AS_ANY_CAST)
+    if (parent && Node.isAsExpression(parent) && parent.getTypeNode() === node) return null;
+    // Skip if inside a catch clause (handled by CATCH_ERROR_ANY)
+    if (isCatchClauseDescendant(node)) return null;
+
+    return createObservation('EXPLICIT_ANY_ANNOTATION', relativePath, line, column, {
+      text: truncateText(parent?.getText() ?? 'any', 80),
+      isInsideComplexType: false,
+    });
+  }
+
+  // CATCH_ERROR_ANY
+  if (Node.isCatchClause(node)) {
+    const variableDecl = node.getVariableDeclaration();
+    if (!variableDecl) return null;
+
+    const typeNode = variableDecl.getTypeNode();
+    if (!typeNode || typeNode.getText() !== 'any') return null;
+
+    return createObservation('CATCH_ERROR_ANY', relativePath, line, column, {
+      text: truncateText(node.getText().split('{')[0].trim(), 80),
+    });
+  }
+
+  return null;
+}
+
+function extractDirectiveObservations(sf: SourceFile, relativePath: string): TypeSafetyObservation[] {
+  const observations: TypeSafetyObservation[] = [];
+  const fullText = sf.getFullText();
+  const lines = fullText.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineNumber = i + 1;
+
+    // Match @ts-expect-error, @ts-ignore
+    const tsDirectiveMatch = line.match(/\/\/\s*(@ts-expect-error|@ts-ignore)(.*)/);
+    if (tsDirectiveMatch) {
+      const directive = tsDirectiveMatch[1];
+      const afterDirective = tsDirectiveMatch[2].trim();
+      const hasExplanation = afterDirective.length > 0 && afterDirective !== '';
+
+      observations.push(
+        createObservation('TS_DIRECTIVE', relativePath, lineNumber, line.indexOf('@ts-') + 1, {
+          text: truncateText(line.trim(), 80),
+          directiveText: directive,
+          hasExplanation,
+        }),
+      );
+      continue;
+    }
+
+    // Match eslint-disable-next-line or eslint-disable
+    const eslintMatch = line.match(/\/\/\s*(eslint-disable(?:-next-line)?)\s*([\w@\/-]*)(.*)/);
+    if (eslintMatch) {
+      const afterRuleName = eslintMatch[3].trim();
+      const hasExplanation = afterRuleName.startsWith('--');
+
+      observations.push(
+        createObservation('ESLINT_DISABLE', relativePath, lineNumber, line.indexOf('eslint-disable') + 1, {
+          text: truncateText(line.trim(), 80),
+          directiveText: eslintMatch[1],
+          hasExplanation,
+        }),
+      );
+    }
+  }
+
+  return observations;
+}
+
+/**
+ * Extract all type safety observations from a source file.
+ * Observations are objective structural facts with evidence.
+ */
+export function extractTypeSafetyObservations(filePath: string): TypeSafetyObservation[] {
+  const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(PROJECT_ROOT, filePath);
+  const sf = getSourceFile(absolute);
+  const relativePath = path.relative(PROJECT_ROOT, absolute);
+
+  const observations: TypeSafetyObservation[] = [];
+
+  sf.forEachDescendant(node => {
+    const observation = extractObservationFromNode(node, sf, relativePath);
+    if (observation) {
+      observations.push(observation);
+    }
+  });
+
+  // Add directive observations
+  observations.push(...extractDirectiveObservations(sf, relativePath));
+
+  // Sort by line number
+  observations.sort((a, b) => a.line - b.line || (a.column ?? 0) - (b.column ?? 0));
+
+  return observations;
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -452,11 +725,13 @@ export function analyzeTypeSafety(filePath: string): TypeSafetyAnalysis {
 
   const violations = findViolations(sf);
   const summary = computeSummary(violations);
+  const observations = extractTypeSafetyObservations(filePath);
 
   return {
     filePath: relativePath,
     violations,
     summary,
+    observations,
   };
 }
 

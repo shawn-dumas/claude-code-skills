@@ -4,90 +4,21 @@ import fs from 'fs';
 import { getProject, getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
 import { truncateText } from './shared';
-import type { TestAnalysis, TestStrategy, MockClassification, MockInfo, AssertionInfo } from './types';
+import { astConfig } from './ast-config';
+import type {
+  TestAnalysis,
+  MockInfo,
+  AssertionInfo,
+  TestObservation,
+  TestObservationKind,
+  TestObservationEvidence,
+} from './types';
 
 // ---------------------------------------------------------------------------
-// Constants
+// Constants (from astConfig)
 // ---------------------------------------------------------------------------
-
-const BOUNDARY_PACKAGES = new Set([
-  'next/router',
-  'next/navigation',
-  'posthog-js',
-  'firebase',
-  'firebase/auth',
-  'firebase/app',
-  'firebase/database',
-  'firebase/firestore',
-  'firebase/functions',
-  'firebase/storage',
-  'firebase-admin',
-  'firebase-admin/auth',
-  'fs',
-  'crypto',
-  'process',
-]);
-
-const BOUNDARY_GLOBALS = new Set([
-  'window',
-  'document',
-  'console',
-  'navigator',
-  'location',
-  'localStorage',
-  'sessionStorage',
-]);
-
-const BOUNDARY_FUNCTION_NAMES = new Set(['fetch', 'fetchApi', 'useFetchApi', 'localStorage', 'sessionStorage']);
 
 const TEST_FILE_EXTENSIONS = ['.spec.ts', '.spec.tsx', '.test.ts', '.test.tsx'];
-
-const TESTING_LIBRARY_QUERIES = new Set([
-  'getByText',
-  'getByRole',
-  'getByLabelText',
-  'getByPlaceholderText',
-  'getByDisplayValue',
-  'getByAltText',
-  'getByTitle',
-  'getByTestId',
-  'queryByText',
-  'queryByRole',
-  'queryByLabelText',
-  'queryByPlaceholderText',
-  'queryByDisplayValue',
-  'queryByAltText',
-  'queryByTitle',
-  'queryByTestId',
-  'findByText',
-  'findByRole',
-  'findByLabelText',
-  'findByPlaceholderText',
-  'findByDisplayValue',
-  'findByAltText',
-  'findByTitle',
-  'findByTestId',
-  'getAllByText',
-  'getAllByRole',
-  'getAllByLabelText',
-  'getAllByTestId',
-  'queryAllByText',
-  'queryAllByRole',
-  'queryAllByTestId',
-  'findAllByText',
-  'findAllByRole',
-  'findAllByTestId',
-]);
-
-const USER_VISIBLE_MATCHERS = new Set([
-  'toBeVisible',
-  'toBeInTheDocument',
-  'toHaveTextContent',
-  'toBeDisabled',
-  'toBeEnabled',
-  'toHaveAccessibleName',
-  'toHaveAccessibleDescription',
-]);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -98,13 +29,7 @@ function isTestFile(filePath: string): boolean {
 }
 
 function isTestHelperPath(source: string): boolean {
-  return (
-    source.includes('__tests__/helpers') ||
-    source.includes('test-utils') ||
-    source.includes('test-helpers') ||
-    source.includes('vitest') ||
-    source.includes('@testing-library')
-  );
+  return astConfig.testing.testHelperPathPatterns.some(pattern => source.includes(pattern));
 }
 
 // ---------------------------------------------------------------------------
@@ -230,80 +155,8 @@ function detectSubject(sf: SourceFile, filePath: string): SubjectResult {
 }
 
 // ---------------------------------------------------------------------------
-// Mock classification
+// Mock extraction (observation-only, no classification)
 // ---------------------------------------------------------------------------
-
-function classifyUnresolvedTarget(target: string): MockClassification {
-  if (target.includes('firebase') || target.includes('supabase')) return 'BOUNDARY';
-  if (target.startsWith('.') || target.startsWith('@/')) return classifyByPath(target);
-  return 'THIRD_PARTY';
-}
-
-function classifyResolvedFile(resolved: string, relativePath: string, subjectDomainDir: string): MockClassification {
-  const resolvedSf = getSourceFile(resolved);
-  const exportedNames = getExportedFunctionNames(resolvedSf);
-
-  const hasHooks = exportedNames.some(
-    name => name.startsWith('use') && name.length > 3 && name[3] === name[3].toUpperCase(),
-  );
-  if (hasHooks) {
-    if (subjectDomainDir && isDifferentDomain(relativePath, subjectDomainDir)) {
-      return 'DOMAIN_BOUNDARY';
-    }
-    return 'OWN_HOOK';
-  }
-
-  const hasComponents = exportedNames.some(name => name.length > 0 && name[0] >= 'A' && name[0] <= 'Z');
-  if (hasComponents && resolved.endsWith('.tsx')) return 'OWN_COMPONENT';
-
-  return 'OWN_UTILITY';
-}
-
-function classifyMockTarget(target: string, filePath: string, subjectDomainDir: string): MockClassification {
-  if (BOUNDARY_PACKAGES.has(target)) return 'BOUNDARY';
-  if (BOUNDARY_FUNCTION_NAMES.has(target)) return 'BOUNDARY';
-  if (isPackageImport(target)) return 'THIRD_PARTY';
-
-  const resolved = resolveModulePath(target, filePath);
-  if (!resolved) return classifyUnresolvedTarget(target);
-
-  const relativePath = path.relative(PROJECT_ROOT, resolved);
-  if (isBoundaryByPath(relativePath)) return 'BOUNDARY';
-
-  try {
-    return classifyResolvedFile(resolved, relativePath, subjectDomainDir);
-  } catch (error) {
-    console.error(
-      `[ast-test-analysis] classifyMockTarget: could not resolve ${target}: ${error instanceof Error ? error.message : error}`,
-    );
-    return classifyByPath(target);
-  }
-}
-
-function classifyByPath(target: string): MockClassification {
-  if (target.includes('/hooks/') || target.includes('use')) return 'OWN_HOOK';
-  if (
-    target.split('/').some(seg => seg.length > 0 && seg[0] >= 'A' && seg[0] <= 'Z') &&
-    (target.endsWith('.tsx') || !target.includes('.'))
-  )
-    return 'OWN_COMPONENT';
-  return 'OWN_UTILITY';
-}
-
-function isBoundaryByPath(relativePath: string): boolean {
-  return (
-    relativePath.includes('fetchApi') ||
-    relativePath.includes('useFetchApi') ||
-    relativePath.includes('firebase') ||
-    relativePath.includes('typedStorage') ||
-    relativePath.includes('posthog')
-  );
-}
-
-function isDifferentDomain(targetPath: string, subjectDomainDir: string): boolean {
-  if (!subjectDomainDir) return false;
-  return !targetPath.startsWith(subjectDomainDir);
-}
 
 function getExportedFunctionNames(sf: SourceFile): string[] {
   const names: string[] = [];
@@ -312,24 +165,6 @@ function getExportedFunctionNames(sf: SourceFile): string[] {
     names.push(name);
   }
   return names;
-}
-
-function getDomainDir(filePath: string): string {
-  // Extract the domain directory from the file path
-  // e.g., src/ui/page_blocks/dashboard/team/... -> src/ui/page_blocks/dashboard/team
-  const parts = filePath.split('/');
-  const dashboardIdx = parts.indexOf('dashboard');
-  if (dashboardIdx !== -1 && dashboardIdx + 1 < parts.length) {
-    return parts.slice(0, dashboardIdx + 2).join('/');
-  }
-
-  const hooksIdx = parts.indexOf('hooks');
-  if (hooksIdx !== -1 && hooksIdx + 1 < parts.length) {
-    return parts.slice(0, hooksIdx + 2).join('/');
-  }
-
-  // Fallback: use the directory containing the file
-  return path.dirname(filePath);
 }
 
 function extractMockReturnShape(node: Node): string {
@@ -347,7 +182,7 @@ function extractMockReturnShape(node: Node): string {
   return 'unknown';
 }
 
-function collectViMock(node: CallExpression, filePath: string, subjectDomainDir: string): MockInfo | null {
+function collectViMock(node: CallExpression, filePath: string): MockInfo | null {
   const args = node.getArguments();
   if (args.length === 0) return null;
 
@@ -355,53 +190,28 @@ function collectViMock(node: CallExpression, filePath: string, subjectDomainDir:
   if (!Node.isStringLiteral(firstArg)) return null;
 
   const target = firstArg.getLiteralValue();
-  const classification = classifyMockTarget(target, filePath, subjectDomainDir);
   const resolved = resolveModulePath(target, filePath);
   const resolvedPath = resolved ? path.relative(PROJECT_ROOT, resolved) : target;
   const returnShape = extractMockReturnShape(node);
 
-  return { target, resolvedPath, classification, line: node.getStartLineNumber(), returnShape };
+  return { target, resolvedPath, line: node.getStartLineNumber(), returnShape };
 }
 
-function classifySpyTarget(
-  sf: SourceFile,
-  spyTarget: string,
-  filePath: string,
-  subjectDomainDir: string,
-): MockClassification {
-  if (BOUNDARY_GLOBALS.has(spyTarget)) return 'BOUNDARY';
-
-  for (const imp of sf.getImportDeclarations()) {
-    const ns = imp.getNamespaceImport();
-    if (ns && ns.getText() === spyTarget) {
-      return classifyMockTarget(imp.getModuleSpecifierValue(), filePath, subjectDomainDir);
-    }
-  }
-  return 'OWN_UTILITY';
-}
-
-function collectViSpyOn(
-  node: CallExpression,
-  sf: SourceFile,
-  filePath: string,
-  subjectDomainDir: string,
-): MockInfo | null {
+function collectViSpyOn(node: CallExpression): MockInfo | null {
   const args = node.getArguments();
   if (args.length < 2) return null;
 
   const spyTarget = args[0].getText();
-  const classification = classifySpyTarget(sf, spyTarget, filePath, subjectDomainDir);
 
   return {
     target: `${spyTarget}.${Node.isStringLiteral(args[1]) ? args[1].getLiteralValue() : args[1].getText()}`,
     resolvedPath: spyTarget,
-    classification,
     line: node.getStartLineNumber(),
     returnShape: 'spy',
   };
 }
 
-function extractMocks(sf: SourceFile, filePath: string, subjectDomainDir: string): MockInfo[] {
+function extractMocks(sf: SourceFile, filePath: string): MockInfo[] {
   const mocks: MockInfo[] = [];
 
   sf.forEachDescendant(node => {
@@ -415,10 +225,10 @@ function extractMocks(sf: SourceFile, filePath: string, subjectDomainDir: string
     const methodName = expr.getName();
 
     if (methodName === 'mock') {
-      const mock = collectViMock(node, filePath, subjectDomainDir);
+      const mock = collectViMock(node, filePath);
       if (mock) mocks.push(mock);
     } else if (methodName === 'spyOn') {
-      const mock = collectViSpyOn(node, sf, filePath, subjectDomainDir);
+      const mock = collectViSpyOn(node);
       if (mock) mocks.push(mock);
     }
   });
@@ -427,7 +237,7 @@ function extractMocks(sf: SourceFile, filePath: string, subjectDomainDir: string
 }
 
 // ---------------------------------------------------------------------------
-// Assertion classification
+// Assertion extraction (observation-only, no classification)
 // ---------------------------------------------------------------------------
 
 /**
@@ -468,82 +278,7 @@ function findExpectInChain(node: Node): CallExpression | null {
   return null;
 }
 
-function containsTestingLibraryQuery(text: string): boolean {
-  for (const query of TESTING_LIBRARY_QUERIES) {
-    if (text.includes(query)) return true;
-  }
-  return false;
-}
-
-function getMatcherName(node: CallExpression): string | null {
-  const expr = node.getExpression();
-  if (Node.isPropertyAccessExpression(expr)) {
-    return expr.getName();
-  }
-  return null;
-}
-
-const SNAPSHOT_MATCHERS = new Set(['toMatchSnapshot', 'toMatchInlineSnapshot']);
-
-const CALLED_MATCHERS = new Set(['toHaveBeenCalled', 'toHaveBeenCalledWith', 'toHaveBeenCalledTimes']);
-
-function classifyByExpectArg(
-  expectArgText: string,
-  matcherName: string | null,
-): AssertionInfo['classification'] | null {
-  if (expectArgText.includes('result.current')) return 'HOOK_RETURN';
-  if (containsTestingLibraryQuery(expectArgText)) return 'USER_VISIBLE';
-  if (matcherName && USER_VISIBLE_MATCHERS.has(matcherName)) return 'USER_VISIBLE';
-  if (expectArgText.includes('screen.')) return 'USER_VISIBLE';
-  return null;
-}
-
-function isAriaAttributeAssertion(outerCall: CallExpression, matcherName: string | null): boolean {
-  if (matcherName !== 'toHaveAttribute') return false;
-  const matcherArgs = [...outerCall.getArguments()];
-  return matcherArgs.length > 0 && matcherArgs[0].getText().includes('aria-');
-}
-
-function classifyCalledMatcher(expectArgText: string, propCallbackNames: Set<string>): AssertionInfo['classification'] {
-  if (propCallbackNames.has(expectArgText) || expectArgText.startsWith('props.') || expectArgText.startsWith('on')) {
-    return 'CALLBACK_FIRED';
-  }
-  return 'IMPLEMENTATION_DETAIL';
-}
-
-function classifyExpectChain(
-  outerCall: CallExpression,
-  expectCall: CallExpression,
-  propCallbackNames: Set<string>,
-): AssertionInfo | null {
-  const line = outerCall.getStartLineNumber();
-  const text = truncateText(outerCall.getText(), 120);
-  const matcherName = getMatcherName(outerCall);
-
-  if (matcherName && SNAPSHOT_MATCHERS.has(matcherName)) {
-    return { line, classification: 'LARGE_SNAPSHOT', text };
-  }
-
-  const expectArgs = expectCall.getArguments();
-  if (expectArgs.length === 0) return null;
-
-  const expectArgText = expectArgs[0].getText();
-
-  const argClassification = classifyByExpectArg(expectArgText, matcherName);
-  if (argClassification) return { line, classification: argClassification, text };
-
-  if (isAriaAttributeAssertion(outerCall, matcherName)) {
-    return { line, classification: 'USER_VISIBLE', text };
-  }
-
-  if (matcherName && CALLED_MATCHERS.has(matcherName)) {
-    return { line, classification: classifyCalledMatcher(expectArgText, propCallbackNames), text };
-  }
-
-  return null;
-}
-
-function extractAssertions(sf: SourceFile, propCallbackNames: Set<string>): AssertionInfo[] {
+function extractAssertions(sf: SourceFile): AssertionInfo[] {
   const assertions: AssertionInfo[] = [];
   const seen = new Set<number>();
 
@@ -568,156 +303,11 @@ function extractAssertions(sf: SourceFile, propCallbackNames: Set<string>): Asse
     if (seen.has(line)) return;
     seen.add(line);
 
-    const result = classifyExpectChain(node, expectCall, propCallbackNames);
-    if (result) {
-      assertions.push(result);
-    }
+    const text = truncateText(node.getText(), 120);
+    assertions.push({ line, text });
   });
 
   return assertions;
-}
-
-// ---------------------------------------------------------------------------
-// Prop callback detection
-// ---------------------------------------------------------------------------
-
-function detectPropCallbackNames(sf: SourceFile): Set<string> {
-  const names = new Set<string>();
-
-  sf.forEachDescendant(node => {
-    if (!Node.isCallExpression(node)) return;
-    const expr = node.getExpression();
-    if (!Node.isIdentifier(expr)) return;
-    if (expr.getText() !== 'render') return;
-
-    // Look at JSX props in the render() call
-    const args = node.getArguments();
-    for (const arg of args) {
-      arg.forEachDescendant(child => {
-        if (Node.isJsxAttribute(child)) {
-          const nameNode = child.getNameNode();
-          const name = nameNode.getText();
-          if (name.startsWith('on') && name.length > 2) {
-            const init = child.getInitializer();
-            if (init) {
-              const initText = Node.isJsxExpression(init) ? (init.getExpression()?.getText() ?? '') : init.getText();
-              names.add(initText);
-              names.add(name);
-            }
-          }
-        }
-      });
-    }
-  });
-
-  return names;
-}
-
-// ---------------------------------------------------------------------------
-// Strategy detection
-// ---------------------------------------------------------------------------
-
-const PLAYWRIGHT_SOURCES = new Set(['@playwright/test']);
-
-function hasPlaywrightImport(sf: SourceFile): boolean {
-  return sf.getImportDeclarations().some(d => {
-    const source = d.getModuleSpecifierValue();
-    return PLAYWRIGHT_SOURCES.has(source) || source.endsWith('/fixture') || source.endsWith('../fixture');
-  });
-}
-
-interface StrategySignals {
-  hasRender: boolean;
-  hasRenderHook: boolean;
-  hasMsw: boolean;
-  hasProviderWrapper: boolean;
-}
-
-function collectStrategySignals(fullText: string): StrategySignals {
-  return {
-    hasRender: fullText.includes('render(') || fullText.includes('render(<'),
-    hasRenderHook: fullText.includes('renderHook(') || fullText.includes('renderHook<'),
-    hasMsw: fullText.includes('server.use(') || fullText.includes('fetchMock'),
-    hasProviderWrapper:
-      fullText.includes('QueryClientProvider') ||
-      fullText.includes('QueryClient(') ||
-      fullText.includes('AuthProvider') ||
-      fullText.includes('wrapper:') ||
-      fullText.includes('renderWith'),
-  };
-}
-
-function detectStrategy(sf: SourceFile): TestStrategy {
-  const fullText = sf.getFullText();
-
-  if (hasPlaywrightImport(sf)) return 'playwright';
-
-  const signals = collectStrategySignals(fullText);
-  if (signals.hasMsw) return 'integration-msw';
-
-  if (signals.hasRender || signals.hasRenderHook) {
-    if (signals.hasProviderWrapper) return 'integration-providers';
-    if (hasPureFunctionCalls(sf) && signals.hasRender) return 'mixed';
-    return 'unit-props';
-  }
-
-  return 'unit-pure';
-}
-
-// Names that are NOT pure function calls under test
-const NON_PURE_NAMES = new Set([
-  'render',
-  'renderHook',
-  'expect',
-  'describe',
-  'it',
-  'test',
-  'beforeEach',
-  'afterEach',
-  'beforeAll',
-  'afterAll',
-  'vi',
-  'jest',
-  'screen',
-  'within',
-  'waitFor',
-  'act',
-  'cleanup',
-  'fireEvent',
-  'userEvent',
-]);
-
-function isInsideTestBlock(node: Node): boolean {
-  let ancestor = node.getParent();
-  while (ancestor) {
-    if (Node.isCallExpression(ancestor)) {
-      const ancestorExpr = ancestor.getExpression();
-      if (Node.isIdentifier(ancestorExpr)) {
-        const name = ancestorExpr.getText();
-        if (name === 'it' || name === 'test') return true;
-      }
-    }
-    ancestor = ancestor.getParent();
-  }
-  return false;
-}
-
-function hasPureFunctionCalls(sf: SourceFile): boolean {
-  let found = false;
-
-  sf.forEachDescendant(node => {
-    if (found) return;
-    if (!Node.isCallExpression(node)) return;
-    if (!isInsideTestBlock(node)) return;
-
-    const expr = node.getExpression();
-    if (Node.isIdentifier(expr)) {
-      const name = expr.getText();
-      if (!NON_PURE_NAMES.has(name) && !name.startsWith('use')) found = true;
-    }
-  });
-
-  return found;
 }
 
 // ---------------------------------------------------------------------------
@@ -730,9 +320,6 @@ interface CleanupInfo {
   restoresTimers: boolean;
   clearsStorage: boolean;
 }
-
-const MOCK_RESTORE_PATTERNS = ['restoreAllMocks', 'clearAllMocks', 'resetAllMocks'];
-const STORAGE_CLEAR_PATTERNS = ['localStorage.clear', 'sessionStorage.clear'];
 
 function scanAfterEachBodies(sf: SourceFile): Pick<CleanupInfo, 'restoresMocks' | 'restoresTimers' | 'clearsStorage'> {
   let restoresMocks = false;
@@ -748,9 +335,9 @@ function scanAfterEachBodies(sf: SourceFile): Pick<CleanupInfo, 'restoresMocks' 
     if (args.length === 0) return;
 
     const callbackText = args[0].getText();
-    if (MOCK_RESTORE_PATTERNS.some(p => callbackText.includes(p))) restoresMocks = true;
+    if (astConfig.testing.mockRestorePatterns.some(p => callbackText.includes(p))) restoresMocks = true;
     if (callbackText.includes('useRealTimers')) restoresTimers = true;
-    if (STORAGE_CLEAR_PATTERNS.some(p => callbackText.includes(p))) clearsStorage = true;
+    if (astConfig.testing.storageClearPatterns.some(p => callbackText.includes(p))) clearsStorage = true;
   });
 
   return { restoresMocks, restoresTimers, clearsStorage };
@@ -781,11 +368,13 @@ interface DataSourcingInfo {
 }
 
 function isFixtureImport(source: string): boolean {
-  return source.includes('fixtures') || source === '@/fixtures' || source.startsWith('@/fixtures/');
+  return astConfig.testing.fixtureImportPatterns.some(
+    pattern => source.includes(pattern) || source === pattern || source.startsWith(pattern + '/'),
+  );
 }
 
 function isSharedMutableImport(source: string): boolean {
-  return isTestFile(source) || source.includes('__tests__/constants') || source.includes('test-constants');
+  return isTestFile(source) || astConfig.testing.sharedMutablePatterns.some(pattern => source.includes(pattern));
 }
 
 function scanDataImports(sf: SourceFile): Pick<DataSourcingInfo, 'usesFixtureSystem' | 'usesSharedMutableConstants'> {
@@ -846,6 +435,351 @@ function countBlocks(sf: SourceFile): { describeCount: number; testCount: number
 }
 
 // ---------------------------------------------------------------------------
+// Observation extraction
+// ---------------------------------------------------------------------------
+
+function createObservation(
+  kind: TestObservationKind,
+  file: string,
+  line: number,
+  column: number,
+  evidence: TestObservationEvidence,
+): TestObservation {
+  return { kind, file, line, column, evidence };
+}
+
+function extractImportObservations(sf: SourceFile, filePath: string): TestObservation[] {
+  const observations: TestObservation[] = [];
+
+  for (const decl of sf.getImportDeclarations()) {
+    const source = decl.getModuleSpecifierValue();
+    const line = decl.getStartLineNumber();
+    const specifiers = decl
+      .getNamedImports()
+      .map(ni => ni.getName())
+      .concat(decl.getDefaultImport()?.getText() ?? [])
+      .filter(Boolean);
+
+    // Check for playwright imports
+    if (
+      astConfig.testing.playwrightSources.has(source) ||
+      source.endsWith('/fixture') ||
+      source.endsWith('../fixture')
+    ) {
+      observations.push(
+        createObservation('PLAYWRIGHT_IMPORT', filePath, line, 1, {
+          importSource: source,
+          specifiers,
+        }),
+      );
+    }
+
+    // Check for fixture imports
+    if (isFixtureImport(source)) {
+      observations.push(
+        createObservation('FIXTURE_IMPORT', filePath, line, 1, {
+          fixtureSource: source,
+          importSource: source,
+          specifiers,
+        }),
+      );
+    }
+
+    // Check for test helper imports
+    if (isTestHelperPath(source)) {
+      observations.push(
+        createObservation('TEST_HELPER_IMPORT', filePath, line, 1, {
+          importSource: source,
+          specifiers,
+        }),
+      );
+    }
+
+    // Check for shared mutable imports
+    if (isSharedMutableImport(source)) {
+      observations.push(
+        createObservation('SHARED_MUTABLE_IMPORT', filePath, line, 1, {
+          importSource: source,
+          specifiers,
+        }),
+      );
+    }
+  }
+
+  return observations;
+}
+
+function extractMockObservations(sf: SourceFile, filePath: string, mocks: MockInfo[]): TestObservation[] {
+  const observations: TestObservation[] = [];
+
+  sf.forEachDescendant(node => {
+    if (!Node.isCallExpression(node)) return;
+    const expr = node.getExpression();
+    if (!Node.isPropertyAccessExpression(expr)) return;
+
+    const objText = expr.getExpression().getText();
+    if (objText !== 'vi') return;
+
+    const methodName = expr.getName();
+    const line = node.getStartLineNumber();
+    const column = node.getStartLineNumber();
+
+    if (methodName === 'mock') {
+      const args = node.getArguments();
+      if (args.length === 0) return;
+
+      const firstArg = args[0];
+      if (!Node.isStringLiteral(firstArg)) return;
+
+      const target = firstArg.getLiteralValue();
+      const returnShapeText =
+        args.length >= 2 ? truncateText(args[1].getText(), astConfig.truncation.mockFactoryMaxLength) : 'auto-mocked';
+
+      observations.push(
+        createObservation('MOCK_DECLARATION', filePath, line, column, {
+          target,
+          returnShapeText,
+        }),
+      );
+
+      // Find the corresponding MockInfo to get the resolved path
+      const mockInfo = mocks.find(m => m.target === target && m.line === line);
+      if (mockInfo && mockInfo.resolvedPath !== target) {
+        // Try to get export names from the resolved file
+        const resolved = resolveModulePath(target, filePath);
+        if (resolved) {
+          try {
+            const resolvedSf = getSourceFile(resolved);
+            const exportNames = getExportedFunctionNames(resolvedSf);
+            const fileExtension = path.extname(resolved);
+            observations.push(
+              createObservation('MOCK_TARGET_RESOLVED', filePath, line, column, {
+                target,
+                resolvedPath: mockInfo.resolvedPath,
+                exportNames,
+                fileExtension,
+              }),
+            );
+          } catch {
+            // Could not read resolved file, skip MOCK_TARGET_RESOLVED observation
+          }
+        }
+      }
+    } else if (methodName === 'spyOn') {
+      const args = node.getArguments();
+      if (args.length < 2) return;
+
+      const spyTarget = args[0].getText();
+      const spyMethod = Node.isStringLiteral(args[1]) ? args[1].getLiteralValue() : args[1].getText();
+
+      observations.push(
+        createObservation('SPY_DECLARATION', filePath, line, column, {
+          spyTarget,
+          spyMethod,
+        }),
+      );
+    }
+  });
+
+  return observations;
+}
+
+function extractAssertionObservations(sf: SourceFile, filePath: string): TestObservation[] {
+  const observations: TestObservation[] = [];
+  const seen = new Set<number>();
+
+  sf.forEachDescendant(node => {
+    if (!Node.isCallExpression(node)) return;
+
+    const expr = node.getExpression();
+    if (!Node.isPropertyAccessExpression(expr)) return;
+
+    const methodName = expr.getName();
+    if (!methodName.startsWith('to') && methodName !== 'resolves' && methodName !== 'rejects') return;
+
+    const expectCall = findExpectInChain(node);
+    if (!expectCall) return;
+
+    const line = node.getStartLineNumber();
+    if (seen.has(line)) return;
+    seen.add(line);
+
+    const expectArgs = expectCall.getArguments();
+    const expectArgText = expectArgs.length > 0 ? expectArgs[0].getText() : '';
+
+    observations.push(
+      createObservation('ASSERTION_CALL', filePath, line, node.getStart(), {
+        matcherName: methodName,
+        expectArgText: truncateText(expectArgText, astConfig.truncation.assertionMaxLength),
+        isScreenQuery: expectArgText.includes('screen.'),
+        isResultCurrent: expectArgText.includes('result.current'),
+      }),
+    );
+  });
+
+  return observations;
+}
+
+function extractRenderObservations(sf: SourceFile, filePath: string): TestObservation[] {
+  const observations: TestObservation[] = [];
+
+  sf.forEachDescendant(node => {
+    if (!Node.isCallExpression(node)) return;
+    const expr = node.getExpression();
+    if (!Node.isIdentifier(expr)) return;
+
+    const name = expr.getText();
+    const line = node.getStartLineNumber();
+
+    if (name === 'render' || name === 'renderHook') {
+      const fullText = node.getText();
+      observations.push(
+        createObservation('RENDER_CALL', filePath, line, node.getStart(), {
+          isRenderHook: name === 'renderHook',
+          hasWrapper: fullText.includes('wrapper'),
+        }),
+      );
+    }
+  });
+
+  return observations;
+}
+
+function extractProviderObservations(sf: SourceFile, filePath: string): TestObservation[] {
+  const observations: TestObservation[] = [];
+  const fullText = sf.getFullText();
+
+  for (const signal of astConfig.testing.providerSignals) {
+    // Find all occurrences of the signal in the file
+    let searchPos = 0;
+    while (true) {
+      const idx = fullText.indexOf(signal, searchPos);
+      if (idx === -1) break;
+      searchPos = idx + 1;
+
+      // Get line number from position
+      const textBefore = fullText.substring(0, idx);
+      const line = textBefore.split('\n').length;
+
+      observations.push(
+        createObservation('PROVIDER_WRAPPER', filePath, line, 1, {
+          providerName: signal,
+        }),
+      );
+      break; // Only record once per signal type
+    }
+  }
+
+  return observations;
+}
+
+function extractCleanupObservations(sf: SourceFile, filePath: string): TestObservation[] {
+  const observations: TestObservation[] = [];
+
+  sf.forEachDescendant(node => {
+    if (!Node.isCallExpression(node)) return;
+    const expr = node.getExpression();
+    if (!Node.isIdentifier(expr)) return;
+
+    const name = expr.getText();
+    const line = node.getStartLineNumber();
+
+    if (name === 'afterEach') {
+      observations.push(createObservation('AFTER_EACH_BLOCK', filePath, line, node.getStart(), {}));
+
+      // Check the callback body for cleanup patterns
+      const args = node.getArguments();
+      if (args.length > 0) {
+        const callbackText = args[0].getText();
+
+        for (const pattern of astConfig.testing.mockRestorePatterns) {
+          if (callbackText.includes(pattern)) {
+            observations.push(
+              createObservation('CLEANUP_CALL', filePath, line, node.getStart(), {
+                cleanupType: pattern,
+              }),
+            );
+          }
+        }
+
+        for (const pattern of astConfig.testing.storageClearPatterns) {
+          if (callbackText.includes(pattern)) {
+            observations.push(
+              createObservation('CLEANUP_CALL', filePath, line, node.getStart(), {
+                cleanupType: pattern,
+              }),
+            );
+          }
+        }
+
+        if (callbackText.includes('useRealTimers')) {
+          observations.push(
+            createObservation('CLEANUP_CALL', filePath, line, node.getStart(), {
+              cleanupType: 'useRealTimers',
+            }),
+          );
+        }
+      }
+    }
+  });
+
+  return observations;
+}
+
+function extractBlockObservations(sf: SourceFile, filePath: string): TestObservation[] {
+  const observations: TestObservation[] = [];
+
+  sf.forEachDescendant(node => {
+    if (!Node.isCallExpression(node)) return;
+    const expr = node.getExpression();
+    const line = node.getStartLineNumber();
+
+    let name = '';
+    if (Node.isIdentifier(expr)) {
+      name = expr.getText();
+    } else if (Node.isPropertyAccessExpression(expr)) {
+      name = expr.getExpression().getText();
+    }
+
+    if (name === 'describe') {
+      const args = node.getArguments();
+      const describeName = args.length > 0 && Node.isStringLiteral(args[0]) ? args[0].getLiteralValue() : undefined;
+      observations.push(
+        createObservation('DESCRIBE_BLOCK', filePath, line, node.getStart(), {
+          describeName,
+        }),
+      );
+    }
+
+    if (name === 'it' || name === 'test') {
+      const args = node.getArguments();
+      const testName = args.length > 0 && Node.isStringLiteral(args[0]) ? args[0].getLiteralValue() : undefined;
+      observations.push(
+        createObservation('TEST_BLOCK', filePath, line, node.getStart(), {
+          testName,
+        }),
+      );
+    }
+  });
+
+  return observations;
+}
+
+export function extractTestObservations(sf: SourceFile, filePath: string, mocks: MockInfo[]): TestObservation[] {
+  const relativePath = path.relative(PROJECT_ROOT, filePath);
+
+  return [
+    ...extractImportObservations(sf, relativePath),
+    ...extractMockObservations(sf, relativePath, mocks),
+    ...extractAssertionObservations(sf, relativePath),
+    ...extractRenderObservations(sf, relativePath),
+    ...extractProviderObservations(sf, relativePath),
+    ...extractCleanupObservations(sf, relativePath),
+    ...extractBlockObservations(sf, relativePath),
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -856,28 +790,26 @@ export function analyzeTestFile(filePath: string): TestAnalysis {
 
   const { subjectPath, subjectExists } = detectSubject(sf, absolute);
   const isOrphaned = !subjectExists && subjectPath !== '';
-  const subjectDomainDir = subjectPath ? getDomainDir(subjectPath) : '';
 
-  const mocks = extractMocks(sf, absolute, subjectDomainDir);
-  const propCallbackNames = detectPropCallbackNames(sf);
-  const assertions = extractAssertions(sf, propCallbackNames);
-  const strategy = detectStrategy(sf);
+  const mocks = extractMocks(sf, absolute);
+  const assertions = extractAssertions(sf);
   const cleanup = analyzeCleanup(sf);
   const dataSourcing = analyzeDataSourcing(sf);
   const { describeCount, testCount } = countBlocks(sf);
+  const observations = extractTestObservations(sf, absolute, mocks);
 
   return {
     filePath: relativePath,
     subjectPath,
     subjectExists,
     isOrphaned,
-    strategy,
     describeCount,
     testCount,
     mocks,
     assertions,
     cleanup,
     dataSourcing,
+    observations,
   };
 }
 

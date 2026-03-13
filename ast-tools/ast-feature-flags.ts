@@ -4,7 +4,8 @@ import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
 import { getFilesInDirectory, truncateText, getContainingFunctionName } from './shared';
-import type { FeatureFlagAnalysis, FeatureFlagUsage, FeatureFlagUsageType } from './types';
+import type { FeatureFlagAnalysis, FeatureFlagUsage, FeatureFlagUsageType, FeatureFlagObservation } from './types';
+import { astConfig } from './ast-config';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -22,11 +23,8 @@ function emptySummary(): Record<FeatureFlagUsageType, number> {
 }
 
 // ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 // featureFlags binding detection
 // ---------------------------------------------------------------------------
-
-const FEATURE_FLAG_HOOKS = new Set(['usePosthogContext', 'useFeatureFlags']);
 
 /** Detect `const featureFlags = useFeatureFlags();` direct assignment patterns. */
 function collectDirectAssignmentBindings(sf: SourceFile, bindings: Set<string>): void {
@@ -36,7 +34,7 @@ function collectDirectAssignmentBindings(sf: SourceFile, bindings: Set<string>):
     const init = node.getInitializer();
     if (!init || !Node.isCallExpression(init)) return;
 
-    if (init.getExpression().getText() === 'useFeatureFlags') {
+    if (astConfig.featureFlags.flagHooks.has(init.getExpression().getText())) {
       bindings.add(node.getName());
     }
   });
@@ -55,7 +53,7 @@ function findOwningVariableDeclaration(node: Node): Node | undefined {
 function collectDestructuredBindings(sf: SourceFile, bindings: Set<string>): void {
   sf.forEachDescendant(node => {
     if (!Node.isBindingElement(node)) return;
-    if (node.getName() !== 'featureFlags') return;
+    if (node.getName() !== astConfig.featureFlags.flagBindingName) return;
 
     const decl = findOwningVariableDeclaration(node);
     if (!decl || !Node.isVariableDeclaration(decl)) return;
@@ -63,8 +61,8 @@ function collectDestructuredBindings(sf: SourceFile, bindings: Set<string>): voi
     const init = decl.getInitializer();
     if (!init || !Node.isCallExpression(init)) return;
 
-    if (FEATURE_FLAG_HOOKS.has(init.getExpression().getText())) {
-      bindings.add('featureFlags');
+    if (astConfig.featureFlags.flagHooks.has(init.getExpression().getText())) {
+      bindings.add(astConfig.featureFlags.flagBindingName);
     }
   });
 }
@@ -98,17 +96,9 @@ function classifyFlagHookCall(node: Node, ctx: FlagNodeContext): FeatureFlagUsag
 
   const callee = node.getExpression().getText();
 
-  if (callee === 'useFeatureFlags') {
-    return {
-      type: 'FLAG_HOOK_CALL',
-      line: ctx.line,
-      column: ctx.column,
-      flagName: null,
-      containingFunction: getContainingFunctionName(node),
-      text: truncateText(node.getText(), 80),
-    };
-  }
+  if (!astConfig.featureFlags.flagHooks.has(callee)) return null;
 
+  // For usePosthogContext, verify that featureFlags is destructured
   if (callee === 'usePosthogContext') {
     const parent = node.getParent();
     if (!parent || !Node.isVariableDeclaration(parent)) return null;
@@ -116,20 +106,18 @@ function classifyFlagHookCall(node: Node, ctx: FlagNodeContext): FeatureFlagUsag
     const nameNode = parent.getNameNode();
     if (!Node.isObjectBindingPattern(nameNode)) return null;
 
-    const hasFeatureFlags = nameNode.getElements().some(el => el.getName() === 'featureFlags');
+    const hasFeatureFlags = nameNode.getElements().some(el => el.getName() === astConfig.featureFlags.flagBindingName);
     if (!hasFeatureFlags) return null;
-
-    return {
-      type: 'FLAG_HOOK_CALL',
-      line: ctx.line,
-      column: ctx.column,
-      flagName: null,
-      containingFunction: getContainingFunctionName(node),
-      text: truncateText(node.getText(), 80),
-    };
   }
 
-  return null;
+  return {
+    type: 'FLAG_HOOK_CALL',
+    line: ctx.line,
+    column: ctx.column,
+    flagName: null,
+    containingFunction: getContainingFunctionName(node),
+    text: truncateText(node.getText(), 80),
+  };
 }
 
 /** Classify useFeatureFlagPageGuard() calls. */
@@ -137,7 +125,7 @@ function classifyPageGuard(node: Node, ctx: FlagNodeContext): FeatureFlagUsage |
   if (!Node.isCallExpression(node)) return null;
 
   const callee = node.getExpression().getText();
-  if (callee !== 'useFeatureFlagPageGuard') return null;
+  if (callee !== astConfig.featureFlags.pageGuardHook) return null;
 
   const args = node.getArguments();
   const flagName = args.length > 0 && Node.isStringLiteral(args[0]) ? args[0].getLiteralValue() : null;
@@ -152,14 +140,12 @@ function classifyPageGuard(node: Node, ctx: FlagNodeContext): FeatureFlagUsage |
   };
 }
 
-const FLAG_OVERRIDE_FNS = new Set(['__setFeatureFlags', '__clearFeatureFlags']);
-
 /** Classify __setFeatureFlags and __clearFeatureFlags calls. */
 function classifyFlagOverride(node: Node, ctx: FlagNodeContext): FeatureFlagUsage | null {
   if (!Node.isCallExpression(node)) return null;
 
   const callee = node.getExpression().getText();
-  if (!FLAG_OVERRIDE_FNS.has(callee)) return null;
+  if (!astConfig.featureFlags.overrideFunctions.has(callee)) return null;
 
   return {
     type: 'FLAG_OVERRIDE',
@@ -174,7 +160,7 @@ function classifyFlagOverride(node: Node, ctx: FlagNodeContext): FeatureFlagUsag
 /** Classify navigation tab gating via `featureFlag` property assignments. */
 function classifyNavTabGate(node: Node, ctx: FlagNodeContext): FeatureFlagUsage | null {
   if (!Node.isPropertyAssignment(node)) return null;
-  if (node.getName() !== 'featureFlag') return null;
+  if (node.getName() !== astConfig.featureFlags.tabGateProperty) return null;
 
   const init = node.getInitializer();
   const flagName = init && Node.isStringLiteral(init) ? init.getLiteralValue() : null;
@@ -334,6 +320,181 @@ function extractFlagFromExpression(expr: Node, flagBindings: Set<string>): strin
 }
 
 // ---------------------------------------------------------------------------
+// Observation extraction
+// ---------------------------------------------------------------------------
+
+export function extractFeatureFlagObservations(sf: SourceFile): FeatureFlagObservation[] {
+  const observations: FeatureFlagObservation[] = [];
+  const relativePath = path.relative(PROJECT_ROOT, sf.getFilePath());
+  const flagBindings = collectFeatureFlagBindings(sf);
+
+  sf.forEachDescendant(node => {
+    const line = node.getStartLineNumber();
+    const column = sf.getLineAndColumnAtPos(node.getStart()).column;
+    const containingFunction = getContainingFunctionName(node);
+
+    // FLAG_HOOK_CALL: useFeatureFlags() or usePosthogContext() with featureFlags destructured
+    if (Node.isCallExpression(node)) {
+      const callee = node.getExpression().getText();
+
+      if (astConfig.featureFlags.flagHooks.has(callee)) {
+        // For usePosthogContext, check if featureFlags is destructured
+        let destructuredBindings: string[] | undefined;
+        if (callee === 'usePosthogContext') {
+          const parent = node.getParent();
+          if (parent && Node.isVariableDeclaration(parent)) {
+            const nameNode = parent.getNameNode();
+            if (Node.isObjectBindingPattern(nameNode)) {
+              const hasFeatureFlags = nameNode
+                .getElements()
+                .some(el => el.getName() === astConfig.featureFlags.flagBindingName);
+              if (!hasFeatureFlags) return; // Skip if featureFlags not destructured
+              destructuredBindings = nameNode.getElements().map(el => el.getName());
+            } else {
+              return; // Skip if not destructuring
+            }
+          } else {
+            return; // Skip if not in a variable declaration
+          }
+        }
+
+        observations.push({
+          kind: 'FLAG_HOOK_CALL',
+          file: relativePath,
+          line,
+          column,
+          evidence: {
+            hookName: callee,
+            containingFunction,
+            destructuredBindings,
+          },
+        });
+        return;
+      }
+
+      // PAGE_GUARD: useFeatureFlagPageGuard()
+      if (callee === astConfig.featureFlags.pageGuardHook) {
+        const args = node.getArguments();
+        const flagName = args.length > 0 && Node.isStringLiteral(args[0]) ? args[0].getLiteralValue() : undefined;
+        observations.push({
+          kind: 'PAGE_GUARD',
+          file: relativePath,
+          line,
+          column,
+          evidence: {
+            hookName: callee,
+            flagName,
+            containingFunction,
+          },
+        });
+        return;
+      }
+
+      // FLAG_OVERRIDE: __setFeatureFlags, __clearFeatureFlags
+      if (astConfig.featureFlags.overrideFunctions.has(callee)) {
+        observations.push({
+          kind: 'FLAG_OVERRIDE',
+          file: relativePath,
+          line,
+          column,
+          evidence: {
+            hookName: callee,
+            containingFunction,
+          },
+        });
+        return;
+      }
+    }
+
+    // NAV_TAB_GATE: featureFlag property in object literal
+    if (Node.isPropertyAssignment(node)) {
+      if (node.getName() === astConfig.featureFlags.tabGateProperty) {
+        const init = node.getInitializer();
+        const flagName = init && Node.isStringLiteral(init) ? init.getLiteralValue() : undefined;
+        observations.push({
+          kind: 'NAV_TAB_GATE',
+          file: relativePath,
+          line,
+          column,
+          evidence: {
+            flagName,
+            containingFunction,
+          },
+        });
+        return;
+      }
+    }
+
+    // FLAG_READ: property access on featureFlags binding (non-JSX-conditional)
+    if (Node.isPropertyAccessExpression(node)) {
+      const objText = node.getExpression().getText();
+      if (flagBindings.has(objText)) {
+        // Skip reads inside JSX conditionals
+        if (isInsideJsxConditional(node, flagBindings)) return;
+
+        observations.push({
+          kind: 'FLAG_READ',
+          file: relativePath,
+          line,
+          column,
+          evidence: {
+            flagName: node.getName(),
+            containingFunction,
+          },
+        });
+        return;
+      }
+    }
+
+    // CONDITIONAL_RENDER: JSX conditionals gated on a feature flag
+    if (Node.isJsxExpression(node)) {
+      const expr = node.getExpression();
+      if (!expr) return;
+
+      // Ternary: featureFlags.x ? <A /> : <B />
+      if (Node.isConditionalExpression(expr)) {
+        const flagName = extractFlagFromExpression(expr.getCondition(), flagBindings);
+        if (flagName) {
+          observations.push({
+            kind: 'CONDITIONAL_RENDER',
+            file: relativePath,
+            line,
+            column,
+            evidence: {
+              flagName,
+              containingFunction,
+            },
+          });
+          return;
+        }
+      }
+
+      // Binary &&: featureFlags.x && <Component />
+      if (Node.isBinaryExpression(expr) && expr.getOperatorToken().getText() === '&&') {
+        const flagName = extractFlagFromExpression(expr.getLeft(), flagBindings);
+        if (flagName) {
+          observations.push({
+            kind: 'CONDITIONAL_RENDER',
+            file: relativePath,
+            line,
+            column,
+            evidence: {
+              flagName,
+              containingFunction,
+            },
+          });
+        }
+      }
+    }
+  });
+
+  // Sort by line number
+  observations.sort((a, b) => a.line - b.line || (a.column ?? 0) - (b.column ?? 0));
+
+  return observations;
+}
+
+// ---------------------------------------------------------------------------
 // Summary computation
 // ---------------------------------------------------------------------------
 
@@ -365,6 +526,7 @@ export function analyzeFeatureFlags(filePath: string): FeatureFlagAnalysis {
   const relativePath = path.relative(PROJECT_ROOT, absolute);
 
   const usages = findUsages(sf);
+  const observations = extractFeatureFlagObservations(sf);
   const summary = computeSummary(usages);
   const flagsReferenced = extractFlagsReferenced(usages);
 
@@ -373,6 +535,7 @@ export function analyzeFeatureFlags(filePath: string): FeatureFlagAnalysis {
     usages,
     flagsReferenced,
     summary,
+    observations,
   };
 }
 

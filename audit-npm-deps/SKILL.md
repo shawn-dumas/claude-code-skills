@@ -12,15 +12,29 @@ complete dependency update plan.
 
 ## Step 0: Run AST import analysis
 
-Run the import graph analyzer on the full source tree. This provides
-a structured map of which npm packages are actually imported and from
-where, replacing grep-based dead-dependency detection in Step 4 with
-machine-parsed data. It also catches type-only imports more reliably
-than regex.
+Run the import graph analyzer on the full source tree. This emits
+`STATIC_IMPORT` observations which provide a structured map of which
+npm packages are actually imported and from where.
 
 ```bash
+# Emits STATIC_IMPORT observations with source, specifiers, and isTypeOnly evidence
 npx tsx scripts/AST/ast-imports.ts src/ --pretty
 ```
+
+### Using observations
+
+`STATIC_IMPORT` observations replace grep-based dead-dependency detection:
+
+- `source` evidence: the import specifier (package name or path)
+- `specifiers` evidence: named imports
+- `isTypeOnly` evidence: whether this is `import type { ... }` (affects dead dep detection)
+
+For dead dependency detection (Step 4), group `STATIC_IMPORT` observations by
+`source` where the source is a package name (not a relative/aliased path). Packages
+with zero observations are dead. Packages where all observations have `isTypeOnly: true`
+are type-only dependencies (may be misplaced to devDependencies).
+
+No interpreter is needed for npm dep auditing -- observation-only consumption.
 
 ## Step 1: Read package.json
 
@@ -65,25 +79,25 @@ vulnerabilities (storybook, eslint, vitest chains) are lower priority.
 
 ## Step 4: Detect dead dependencies
 
-For each direct dependency in `package.json`, grep the source tree for actual
-imports. Use multiple patterns to catch all import styles:
+Use `STATIC_IMPORT` observations from ast-imports to detect dead dependencies.
 
-```bash
-# For a package named "foo":
-# - import ... from 'foo'
-# - import ... from 'foo/...'
-# - require('foo')
-# - require('foo/...')
-```
+For each direct dependency in `package.json`:
 
-Exclude `node_modules/`, lockfiles, and `package.json` itself from the search.
+1. Filter `STATIC_IMPORT` observations where `source` matches the package name
+   (exact match or starts with `<package>/`)
+2. Count total observations for that package
 
-A dependency is **dead** if it has zero import matches in the source tree, OR if
-all matches are type-only imports (e.g., `import type { X } from 'foo'`) and the
-package has no runtime side effects.
+A dependency is **dead** if it has zero `STATIC_IMPORT` observations in the
+source tree.
 
-For type-only imports, note what types are used -- they may need to be inlined or
-replaced before the package can be removed.
+A dependency is **type-only** if ALL observations for it have `isTypeOnly: true`
+evidence. Type-only dependencies may be candidates for:
+
+- Moving to devDependencies (if only used in test files)
+- Removal (if the types can be inlined or replaced)
+
+Note what types are imported from type-only packages -- they may need to be
+inlined before the package can be removed.
 
 ## Step 5: Detect misplaced dependencies
 

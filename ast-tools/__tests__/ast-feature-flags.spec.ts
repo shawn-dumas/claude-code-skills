@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeFeatureFlags, analyzeFeatureFlagsDirectory } from '../ast-feature-flags';
+import {
+  analyzeFeatureFlags,
+  analyzeFeatureFlagsDirectory,
+  extractFeatureFlagObservations,
+} from '../ast-feature-flags';
+import { getSourceFile } from '../project';
 import type { FeatureFlagAnalysis, FeatureFlagUsageType } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -217,5 +222,110 @@ describe('analyzeFeatureFlagsDirectory', () => {
     for (const r of results) {
       expect(r.filePath).toBeDefined();
     }
+  });
+});
+
+describe('observations', () => {
+  it('emits observations alongside legacy output', () => {
+    const result = analyzeFixture('feature-flag-samples.tsx');
+    expect(result.observations).toBeDefined();
+    expect(Array.isArray(result.observations)).toBe(true);
+    expect(result.observations.length).toBeGreaterThan(0);
+  });
+
+  it('observation count matches legacy usages count', () => {
+    const result = analyzeFixture('feature-flag-samples.tsx');
+    expect(result.observations.length).toBe(result.usages.length);
+  });
+
+  it('observations have kind matching FeatureFlagUsageType', () => {
+    const result = analyzeFixture('feature-flag-samples.tsx');
+    const validKinds: FeatureFlagUsageType[] = [
+      'FLAG_HOOK_CALL',
+      'FLAG_READ',
+      'PAGE_GUARD',
+      'NAV_TAB_GATE',
+      'CONDITIONAL_RENDER',
+      'FLAG_OVERRIDE',
+    ];
+    for (const obs of result.observations) {
+      expect(validKinds).toContain(obs.kind);
+    }
+  });
+
+  it('observations include flagName in evidence for FLAG_READ', () => {
+    const result = analyzeFixture('feature-flag-samples.tsx');
+    const flagReads = result.observations.filter(o => o.kind === 'FLAG_READ');
+    expect(flagReads.length).toBeGreaterThan(0);
+    for (const obs of flagReads) {
+      expect(obs.evidence.flagName).toBeDefined();
+    }
+  });
+
+  it('observations include hookName in evidence for FLAG_HOOK_CALL', () => {
+    const result = analyzeFixture('feature-flag-samples.tsx');
+    const hookCalls = result.observations.filter(o => o.kind === 'FLAG_HOOK_CALL');
+    expect(hookCalls.length).toBeGreaterThan(0);
+    for (const obs of hookCalls) {
+      expect(obs.evidence.hookName).toBeDefined();
+    }
+  });
+
+  it('extractFeatureFlagObservations can be called directly', () => {
+    const sf = getSourceFile(fixturePath('feature-flag-samples.tsx'));
+    const observations = extractFeatureFlagObservations(sf);
+    expect(observations.length).toBeGreaterThan(0);
+  });
+});
+
+describe('negative fixture', () => {
+  it('does NOT detect featureFlags variable not from PostHog as FLAG_READ', () => {
+    const result = analyzeFixture('feature-flags-negative.tsx');
+    const flagReads = usagesOfType(result, 'FLAG_READ');
+    // featureFlags from local const should NOT be detected
+    const localFlagRead = flagReads.find(r => r.flagName === 'darkMode');
+    expect(localFlagRead).toBeUndefined();
+  });
+
+  it('detects useFeatureFlags from other libraries as FLAG_HOOK_CALL', () => {
+    const result = analyzeFixture('feature-flags-negative.tsx');
+    const hookCalls = usagesOfType(result, 'FLAG_HOOK_CALL');
+    // Tool reports based on hook name pattern, not import source
+    const otherLibCall = hookCalls.find(h => h.containingFunction === 'OtherLibComponent');
+    expect(otherLibCall).toBeDefined();
+  });
+
+  it('detects featureFlag property in any object as NAV_TAB_GATE', () => {
+    const result = analyzeFixture('feature-flags-negative.tsx');
+    const navGates = usagesOfType(result, 'NAV_TAB_GATE');
+    // featureFlag property detected regardless of context
+    expect(navGates.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('does NOT detect usePosthogContext without featureFlags destructured', () => {
+    const result = analyzeFixture('feature-flags-negative.tsx');
+    const hookCalls = usagesOfType(result, 'FLAG_HOOK_CALL');
+    // ComponentWithoutFeatureFlags and ComponentWithStoredContext should NOT have FLAG_HOOK_CALL
+    const withoutFlags = hookCalls.find(h => h.containingFunction === 'ComponentWithoutFeatureFlags');
+    expect(withoutFlags).toBeUndefined();
+    const storedContext = hookCalls.find(h => h.containingFunction === 'ComponentWithStoredContext');
+    expect(storedContext).toBeUndefined();
+  });
+
+  it('detects user-defined __setFeatureFlags as FLAG_OVERRIDE', () => {
+    const result = analyzeFixture('feature-flags-negative.tsx');
+    // The local function definition itself should NOT be detected (it's a declaration, not a call)
+    // But the console.log inside it should be detected in side-effects, not here
+    const overrides = usagesOfType(result, 'FLAG_OVERRIDE');
+    // We don't have calls to __setFeatureFlags in negative fixture body
+    expect(overrides.length).toBe(0);
+  });
+
+  it('does NOT detect regular conditional render as CONDITIONAL_RENDER', () => {
+    const result = analyzeFixture('feature-flags-negative.tsx');
+    const conditionals = usagesOfType(result, 'CONDITIONAL_RENDER');
+    // ComponentWithOtherCondition uses isEnabled, not featureFlags
+    const otherCondition = conditionals.find(c => c.containingFunction === 'ComponentWithOtherCondition');
+    expect(otherCondition).toBeUndefined();
   });
 });

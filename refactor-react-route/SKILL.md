@@ -27,17 +27,37 @@ npx tsx scripts/AST/ast-jsx-analysis.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-storage-access.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-ownership.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-hooks.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-effects.ts $ARGUMENTS --pretty
 ```
 
-Use the inventory output across the route tree to identify all hook
-call sites in children (Step 2b), fetch depth (Step 2h), and effect
-bridges (Step 2f). Use JSX analysis for Step 2i (template complexity
-in children). Use side-effects for Steps 2d/2e (toast call sites and
-analytics events scattered through the component tree). Use
-storage-access for Step 2c (storage boundary -- which components access
-storage, raw vs typedStorage, Zod-validated reads). Use data-layer for
-Steps 2a/2b/2h (service hook locations, query key ownership, fetchApi
-endpoints across the route tree).
+Use ownership assessments for Step 2b (hooks in leaves detection):
+
+- `LEAF_VIOLATION` assessments identify components with affirmative leaf
+  evidence AND disallowed hooks -- these need hook extraction to container
+- `CONTAINER` assessments indicate existing containers that may be incomplete
+- `DDAU_COMPONENT` assessments indicate compliant leaf components
+
+Use hook assessments to classify each hook call in the route tree:
+
+- `LIKELY_SERVICE_HOOK` / `LIKELY_CONTEXT_HOOK` in children are violations
+- `LIKELY_AMBIENT_HOOK` may remain in children
+
+Use effect assessments for Step 2f (effect bridges in children):
+
+- `DERIVED_STATE` effects in child components indicate data that should
+  flow from the container via props instead
+- `TIMER_RACE` effects indicate cleanup issues to address
+
+Use JSX observations for Step 2i (template complexity in children). Use
+side effect observations (`TOAST_CALL`, `POSTHOG_CALL`) for Steps 2d/2e
+(toast call sites and analytics events scattered through the component
+tree). Use storage observations for Step 2c (storage boundary -- which
+components access storage, raw vs typedStorage). Use data layer
+observations (`QUERY_HOOK_DEFINITION`, `MUTATION_HOOK_DEFINITION`,
+`FETCH_API_CALL`) for Steps 2a/2b/2h (service hook locations, query key
+ownership, fetchApi endpoints across the route tree).
 
 ## Step 1: Build the dependency picture
 
@@ -67,28 +87,28 @@ embedded panels, shared surfaces) get their own container too.
 
 ### 2b. Hook absorption
 
-List every hook call site in the route's component tree (excluding the container).
-Each one is a potential violation:
+Review hook assessments from `ast-interpret-hooks` for all components in the
+route tree (excluding the container). Each hook with a problematic assessment
+is a violation:
 
-- **Context consumer hooks** in children (useInsightsContext, useTeams, useUsers,
-  useBpoProjectContext, useAuthState, usePosthogContext, useFlyoutContext, etc.)
-  -- these must move to the container. Children receive the values as props.
-- **Router and URL state hooks** in children (useRouter, usePathname,
-  useSearchParams, useQueryState, useQueryStates, router.query)
-  -- navigation becomes callback props, route/URL params become data props.
-  Children never read the URL directly; the container reads it and passes values.
-- **Auth hooks** in children -- container passes userRoles, currentUser, canEdit
-  as props.
-- **Feature flag hooks** in children -- container passes boolean props.
-- **Service hooks** in children (useQuery, useMutation calls)
-  -- container calls the hooks, passes data and mutation callbacks as props.
+- **`LIKELY_SERVICE_HOOK`** in children -- container must call these hooks and
+  pass data/callbacks as props
+- **`LIKELY_CONTEXT_HOOK`** in children -- container reads context and passes
+  values as props
+- **`UNKNOWN_HOOK`** in children -- requires manual classification
 
-**MAY-remain hooks (do NOT flag these in leaves):** useBreakpoints, useWindowSize,
-useDropdownScrollHandler, useClickAway, useScrollCallback, usePagination,
-useSorting, useTheme, useTranslation, and any `useXxxScope()` hook exported by a
-scoped context (`XxxScopeProvider`). These are either cross-cutting DOM/browser
-concerns, ambient UI environment hooks, or narrow scoped contexts that meet the
-escape-hatch criteria (stable, narrow, local, no orchestration).
+Review ownership assessments from `ast-interpret-ownership`:
+
+- **`LEAF_VIOLATION`** assessments identify components that have both leaf
+  evidence (props, not named as container, not in containers/) AND disallowed
+  hooks -- these need immediate hook extraction
+- **`AMBIGUOUS`** assessments need manual review to determine if the component
+  is a container or a leaf with violations
+
+Hooks assessed as **`LIKELY_AMBIENT_HOOK`** or **`LIKELY_STATE_HOOK`** may
+remain in leaf components. These are cross-cutting DOM/browser concerns,
+ambient UI environment hooks, or narrow scoped contexts that meet the
+escape-hatch criteria.
 
 ### 2c. Storage boundary
 
@@ -119,6 +139,14 @@ that invalidation happens in the container's onSuccess callback. Check:
 - Does the container handle cross-domain invalidation explicitly?
 
 ### 2f. Effect bridges (post-extraction artifact)
+
+Review effect assessments from `ast-interpret-effects` on children:
+
+- **`DERIVED_STATE`** in child components indicate data that should flow
+  from the container via props instead
+- **`EVENT_HANDLER_DISGUISED`** indicate effects that should move to event
+  handlers
+- **`TIMER_RACE`** indicate cleanup issues to address
 
 After context providers are replaced with prop-passing, child wrapper components
 often retain useEffects that transform incoming props and write back to parent state

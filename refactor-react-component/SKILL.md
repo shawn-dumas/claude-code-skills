@@ -22,14 +22,49 @@ npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-jsx-analysis.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-ownership.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-hooks.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-effects.ts $ARGUMENTS --pretty
 ```
 
-Use the inventory for Step 2 (hook calls, useEffect classification,
-props interface). Use JSX analysis for Step 2c-ii (template complexity).
-Use imports for Step 1 (dependency picture, consumer count, cross-domain
-imports) and Step 4 (updating imports after file splits). Use
-side-effects for Step 2a (hidden side effects in functions that look
-pure, toast calls in wrong layers) and Step 2e (timer patterns).
+Use ownership assessments to classify the component first:
+
+- `CONTAINER` -- component owns data orchestration, do not extract hooks
+- `DDAU_COMPONENT` -- pure data-down-actions-up, no refactoring needed
+- `LAYOUT_SHELL` -- documented layout exception
+- `LEAF_VIOLATION` -- has props but calls service/context hooks that
+  should move to a container
+- `AMBIGUOUS` -- mixed signals, requires manual classification
+
+Use hook assessments for Step 2 (what each hook call is):
+
+- `LIKELY_SERVICE_HOOK` -- data-fetching, belongs in container
+- `LIKELY_CONTEXT_HOOK` -- context consumer, belongs in container
+- `LIKELY_AMBIENT_HOOK` -- ambient UI hook, may remain in leaf
+- `LIKELY_STATE_HOOK` -- React builtin, fine anywhere
+- `UNKNOWN_HOOK` -- needs manual classification
+
+Use effect assessments for Step 2e (what each useEffect is doing):
+
+- `DERIVED_STATE` -- anti-pattern, replace with useMemo/useQuery
+- `EVENT_HANDLER_DISGUISED` -- move to event handler
+- `TIMER_RACE` -- potential race condition, add cleanup
+- `DOM_EFFECT` -- legitimate DOM interaction
+- `EXTERNAL_SUBSCRIPTION` -- legitimate subscription
+- `NECESSARY` -- no issues detected
+
+Use JSX observations (`JSX_TERNARY_CHAIN`, `JSX_GUARD_CHAIN`,
+`JSX_TRANSFORM_CHAIN`, `JSX_IIFE`, `JSX_INLINE_HANDLER`,
+`JSX_INLINE_STYLE`, `JSX_COMPLEX_CLASSNAME`, `JSX_RETURN_BLOCK`) for
+Step 2c-ii (template complexity).
+
+Use side effect observations (`CONSOLE_CALL`, `TOAST_CALL`, `TIMER_CALL`,
+`POSTHOG_CALL`, `WINDOW_MUTATION`) for Step 2a (hidden side effects in
+functions that look pure, toast calls in wrong layers) and Step 2e
+(timer patterns).
+
+Use import observations for Step 1 (dependency picture, consumer count,
+cross-domain imports) and Step 4 (updating imports after file splits).
 
 ## Step 1: Build the dependency picture
 
@@ -109,32 +144,38 @@ Check layer violations:
 
 ### 2e. useEffect discipline
 
-Flag every useEffect and classify it:
+Run `ast-interpret-effects` on the component file:
 
-- Derived state sync (useEffect + setState where useMemo works) -- **wrong**
-- Post-event work split across handler + effect -- **wrong**
-- Mount-only initialization that could be useState lazy init -- **wrong**
-- Post-mutation logic that could use TanStack Query onSuccess/onError -- **wrong**
-- Effect bridge (child useEffect watches props, writes back to parent via callback) -- **wrong**
-- Manual fetch (useEffect + fetch() + useState for loading/error/data) -- **wrong**
-- Timer-based state update (setTimeout/setInterval + setState) -- **code smell**
-- External system subscription (WebSocket, ResizeObserver, DOM listener) -- **ok**
-- Form library subscription (react-hook-form `form.watch()` with cleanup) -- **ok**
-- Unmount cleanup -- **ok**
-- Browser API sync with no React binding (document.title, focus) -- **ok**
+```bash
+npx tsx scripts/AST/ast-interpret-effects.ts $ARGUMENTS --pretty
+```
+
+For each assessment:
+
+- `DERIVED_STATE` -> eliminate the effect and replace with the appropriate derived
+  value pattern (useQuery, useMemo, or inline computation)
+- `EVENT_HANDLER_DISGUISED` -> move the logic to the relevant event handler prop
+- `TIMER_RACE` (no cleanup) -> add cleanup or restructure
+- `DOM_EFFECT` -> leave in place, verify cleanup
+- `NECESSARY` / `EXTERNAL_SUBSCRIPTION` -> leave in place
 
 ### 2f. Hooks and context boundaries
 
-- Leaf components must call zero hooks that reach outside their own scope
-- Only containers/pages call context hooks
-- Custom hooks wrapping context are still context dependencies -- they belong in containers
+Review hook assessments from `ast-interpret-hooks`:
 
-**MAY-remain hooks (do NOT flag these in leaves):** `useBreakpoints`, `useWindowSize`,
-`useDropdownScrollHandler`, `useClickAway`, `useScrollCallback`, `usePagination`,
-`useSorting`, `useTheme`, `useTranslation`, and any `useXxxScope()` hook exported by
-a scoped context (`XxxScopeProvider`). These are either cross-cutting DOM/browser
-concerns with no provider coupling, ambient UI environment hooks, or narrow scoped
-contexts that meet the escape-hatch criteria (stable, narrow, local, no orchestration).
+- Hooks assessed as `LIKELY_SERVICE_HOOK` or `LIKELY_CONTEXT_HOOK` in leaf
+  components are violations -- they belong in containers
+- Hooks assessed as `LIKELY_AMBIENT_HOOK` or `LIKELY_STATE_HOOK` may remain
+  in leaf components
+- Hooks assessed as `UNKNOWN_HOOK` require manual classification
+
+For ownership assessment:
+
+- If `ast-interpret-ownership` returns `LEAF_VIOLATION`, the component has
+  affirmative leaf evidence AND disallowed hooks -- container extraction needed
+- If it returns `CONTAINER`, the component already owns orchestration
+- If it returns `DDAU_COMPONENT`, no hook violations exist
+- If it returns `AMBIGUOUS`, apply manual classification rules
 
 ### 2g. State ownership
 

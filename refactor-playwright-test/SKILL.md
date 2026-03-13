@@ -30,16 +30,38 @@ Relevant testing philosophy principles for integration tests:
 
 ```bash
 npx tsx scripts/AST/ast-test-analysis.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-interpret-test-quality.ts $ARGUMENTS --pretty
 ```
 
-Use the test analysis tool to get structured data on mock classification,
-assertion quality, cleanup hygiene, and data sourcing patterns. This
-provides the mechanical baseline for the audit in Steps 2-4.
+Use the test quality assessments to get structured data on mock
+classification, assertion quality, cleanup hygiene, and data sourcing
+patterns. The interpreter produces:
+
+**Assertion assessments (P8):**
+
+- `ASSERTION_USER_VISIBLE` -- Playwright auto-waiting assertions (OK)
+- `ASSERTION_IMPLEMENTATION` -- manual checks via `innerText()` (violation)
+
+**Cleanup assessments (P10):**
+
+- `CLEANUP_COMPLETE` -- has `page.unrouteAll()` in afterEach (OK)
+- `CLEANUP_INCOMPLETE` -- missing route cleanup (violation)
+
+**Data sourcing assessments (P5):**
+
+- `DATA_SOURCING_COMPLIANT` -- uses fixture builders (OK)
+- `DATA_SOURCING_VIOLATION` -- shared mutable constants (violation)
+
+**Strategy assessment:**
+
+- `DETECTED_STRATEGY` with `subject.symbol` of `playwright` confirms
+  Playwright import detection
 
 ### AST-confirmed tagging
 
-When a finding is confirmed by AST tool output (mock count, assertion
-anti-pattern, missing cleanup), tag it `[AST-confirmed]` in the report.
+When a finding is confirmed by AST tool output (assertion type,
+cleanup pattern, data sourcing), tag it `[AST-confirmed]` in the report.
+Assessments with `confidence: 'high'` warrant the tag.
 
 ## Step 1: Read the spec and its target pages
 

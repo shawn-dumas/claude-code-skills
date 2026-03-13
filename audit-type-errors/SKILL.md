@@ -11,26 +11,77 @@ directory). This is a read-only diagnostic -- do not modify any files. Produce a
 structured report that groups errors by root cause and prioritizes fixes by
 cascade impact (fix one thing, eliminate N errors).
 
-## Step 0: Run AST analysis tools
+## Step 0: Run AST analysis tools and interpreters
 
-Before running tsc, run the type safety scanner and import graph
-analyzer. The type safety tool identifies `as any` concentration,
-trust boundary casts, and non-null assertion hotspots. The imports
-tool provides the dependency graph needed for Step 3 (cascading
-error chain tracing) and Step 4 (duplicate type detection across files).
+Before running tsc, run observation-producing tools and interpreters.
 
 ```bash
+# --- Observation-producing tools ---
+
+# Type safety (emits AS_ANY_CAST, AS_UNKNOWN_AS_CAST, NON_NULL_ASSERTION, TRUST_BOUNDARY_CAST,
+# EXPLICIT_ANY_ANNOTATION, TS_DIRECTIVE, ESLINT_DISABLE observations)
 npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+
+# Import graph (emits STATIC_IMPORT, CIRCULAR_DEPENDENCY, DEAD_EXPORT_CANDIDATE observations)
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+
+# --- Interpreters ---
+
+# Dead code detection (emits DEAD_EXPORT, CIRCULAR_DEPENDENCY assessments)
+npx tsx scripts/AST/ast-interpret-dead-code.ts $ARGUMENTS --pretty
 ```
+
+### Using observations and assessments
+
+**Observations** populate the structural tables:
+
+- `AS_ANY_CAST` observations: count per file for concentration analysis
+- `AS_UNKNOWN_AS_CAST` observations: double casts, often masking type errors
+- `NON_NULL_ASSERTION` observations: hotspots (count per file >= 3)
+- `TRUST_BOUNDARY_CAST` observations: silent type safety gaps (not tsc errors)
+- `TS_DIRECTIVE` observations: `ts-expect-error`, `ts-ignore` usage
+- `STATIC_IMPORT` observations: dependency graph for cascading error chains
+- `CIRCULAR_DEPENDENCY` observations: import cycles that cause undefined types
+
+**Assessments**:
+
+- `DEAD_EXPORT` assessments: exports with 0 consumers (may have tsc errors
+  because nothing consumes them -- delete, do not fix)
+- `CIRCULAR_DEPENDENCY` assessments: part of import cycle (root cause of
+  "used before declared" errors)
+
+## Report Policy
 
 ### AST-confirmed tagging
 
-When a finding is confirmed by AST tool output (a counted `as any` concentration,
-a trust boundary cast, a non-null assertion hotspot, etc.), tag it `[AST-confirmed]`
-in the report. In the cascading error chains and prioritized fix plan, prefix the
-description with the tag. AST-confirmed findings carry a +1 concern-level bump in
-the master audit's Findings Index because the measurement is objective.
+An observation or assessment qualifies for `[AST-confirmed]` tagging when ALL of:
+
+- Based on structural fact with no interpretive leap
+- For assessments: confidence is `high`, `isCandidate: false`
+
+Examples that qualify:
+
+- `AS_ANY_CAST` observation -> `[AST-confirmed]`
+- `NON_NULL_ASSERTION` observation -> `[AST-confirmed]`
+- `TRUST_BOUNDARY_CAST` observation -> `[AST-confirmed]`
+- `DEAD_EXPORT` assessment with high confidence -> `[AST-confirmed]`
+- `CIRCULAR_DEPENDENCY` assessment -> `[AST-confirmed]`
+
+### Severity bumping
+
+`[AST-confirmed]` findings get +1 concern-level bump.
+
+### Concentration thresholds (report policy)
+
+These thresholds are skill-level escalation rules:
+
+- **`AS_ANY_CAST` concentration**: flag files with count >= 5
+- **Non-null assertion hotspots**: flag files with count >= 3
+- **Cascade escalation**: if a type error's root cause is in a shared utility,
+  escalate severity (fix one, eliminate many)
+
+The interpreter emits individual observations with counts in `basedOn`.
+The skill applies thresholds to those counts for presentation.
 
 ## Step 1: Run tsc and capture structured output
 
@@ -148,15 +199,13 @@ targets for `src/shared/types/`.
 
 ### `any` concentration
 
-Count `any` usage per file:
-
-```bash
-grep -c ": any\|as any\|<any>\|any\[" src/**/*.ts src/**/*.tsx 2>/dev/null | grep -v ":0$"
-```
-
-Flag files with 5+ `any` usages. Cross-reference with tsc errors -- files with
-many `any` types often have cascading type errors because `any` silences errors
+Group `AS_ANY_CAST` observations by file and count per file. Flag files with
+count >= 5. Cross-reference with tsc errors -- files with many `AS_ANY_CAST`
+observations often have cascading type errors because `any` silences errors
 at the source but creates mismatches downstream.
+
+Use the observation count from ast-type-safety output rather than grep for
+accurate structured data.
 
 ### Unsound type guards
 
@@ -172,27 +221,24 @@ is unsound.
 
 ### Trust boundary casts
 
-Grep for `as` casts at data boundaries:
+Use `TRUST_BOUNDARY_CAST` observations from ast-type-safety. The observation
+includes `trustBoundarySource` evidence identifying the source:
 
-```bash
-# JSON.parse casts:
-grep -rn "JSON.parse.*) as " src/ --include="*.ts" --include="*.tsx"
-# fetch response casts:
-grep -rn "\.json().*as " src/ --include="*.ts" --include="*.tsx"
-# localStorage casts:
-grep -rn "getItem.*as " src/ --include="*.ts" --include="*.tsx"
-```
+- `JSON.parse` -- JSON.parse(...) as T
+- `.json()` -- fetch response .json() as T
+- `localStorage` -- localStorage.getItem(...) as T
+- `sessionStorage` -- sessionStorage.getItem(...) as T
+- `process.env` -- process.env.X as T
 
 These are not tsc errors (the cast silences them), but they are type safety gaps
-that should be noted alongside the explicit errors.
+that should be noted alongside the explicit errors. Use the observation data
+rather than grep for accurate structured results.
 
 ### Non-null assertion hotspots
 
-```bash
-grep -c "!\." src/**/*.ts src/**/*.tsx 2>/dev/null | grep -v ":0$" | sort -t: -k2 -nr | head -20
-```
-
-Flag files with 3+ non-null assertions.
+Group `NON_NULL_ASSERTION` observations by file and count per file. Flag files
+with count >= 3. Use the observation count from ast-type-safety output rather
+than grep for accurate structured data.
 
 ## Step 5: Produce the prioritized fix plan
 

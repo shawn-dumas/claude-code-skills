@@ -20,13 +20,27 @@ After identifying the page and container files (see Step 1), run:
 ```bash
 npx tsx scripts/AST/ast-data-layer.ts <container-path> --pretty
 npx tsx scripts/AST/ast-react-inventory.ts <container-path> --pretty
+npx tsx scripts/AST/ast-interpret-ownership.ts <container-path> --pretty
 ```
 
-Use data-layer to systematically identify every API endpoint the page
-calls (service hooks, fetchApi calls, query keys), replacing manual
-grep-based endpoint discovery in Step 3. Use react-inventory to map
-which hooks the container calls and what props flow to children,
-informing which user flows to test.
+Use data-layer observations to systematically identify every API endpoint
+the page calls:
+
+- `API_ENDPOINT` observations list the endpoints to intercept with `page.route()`
+- `QUERY_HOOK_DEFINITION` and `MUTATION_HOOK_DEFINITION` observations show
+  which service hooks the container uses
+
+Use react-inventory to extract component and hook observations:
+
+- `COMPONENT_DECLARATION` and `PROP_FIELD` observations show what props
+  flow from container to children
+- `HOOK_CALL` observations enumerate which hooks the container calls
+
+Use ast-interpret-ownership to verify the container classification:
+
+- `CONTAINER` assessment confirms this is the data orchestration boundary
+- Hook assessments (`LIKELY_SERVICE_HOOK`, `LIKELY_CONTEXT_HOOK`) identify
+  which hooks drive the page's data flow
 
 ## Step 1: Map the route to its page and container
 
