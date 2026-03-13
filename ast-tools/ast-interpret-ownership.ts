@@ -16,6 +16,7 @@ import type {
   ObservationRef,
   AssessmentResult,
 } from './types';
+import { cachedDirectory, hasNoCacheFlag, getCacheStats } from './ast-cache';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -519,56 +520,14 @@ function formatPrettyOutput(result: AssessmentResult<OwnershipAssessment>, targe
 }
 
 // ---------------------------------------------------------------------------
-// CLI
+// Directory analysis (with caching)
 // ---------------------------------------------------------------------------
 
-function main(): void {
-  const args = parseArgs(process.argv);
-
-  if (args.help) {
-    process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-interpret-ownership.ts <file|dir> [--pretty]\n' +
-        '\n' +
-        'Classify component ownership (DDAU/container/leaf).\n' +
-        '\n' +
-        'Assessment kinds:\n' +
-        '  CONTAINER       - Owns data orchestration (service hooks, router, etc.)\n' +
-        '  DDAU_COMPONENT  - Pure data-down-actions-up (all data via props)\n' +
-        '  LAYOUT_SHELL    - Layout wrapper (documented exception)\n' +
-        '  LEAF_VIOLATION  - Calls hooks it should not (service/context in leaf)\n' +
-        '  AMBIGUOUS       - Mixed signals, needs manual review\n' +
-        '\n' +
-        '  <file|dir>  A .tsx/.ts file or directory to analyze\n' +
-        '  --pretty    Format output as a human-readable table\n',
-    );
-    process.exit(0);
-  }
-
-  if (args.paths.length === 0) {
-    fatal('No file path provided. Use --help for usage.');
-  }
-
-  // Collect all files to analyze
-  const filePaths: string[] = [];
-  for (const p of args.paths) {
-    const fs = require('fs');
-    const absolute = path.isAbsolute(p) ? p : path.resolve(PROJECT_ROOT, p);
-    const stat = fs.statSync(absolute);
-
-    if (stat.isDirectory()) {
-      const glob = require('glob');
-      const files = glob.sync('**/*.tsx', { cwd: absolute, absolute: true });
-      filePaths.push(...files);
-    } else {
-      filePaths.push(absolute);
-    }
-  }
-
-  if (filePaths.length === 0) {
-    fatal('No .tsx files found.');
-  }
-
-  // Collect all observations and assessments
+/**
+ * Analyze all files in a directory and collect ownership assessments.
+ * This is the cached unit of work for directory-level analysis.
+ */
+function analyzeDirectory(filePaths: string[], pretty: boolean): AssessmentResult<OwnershipAssessment> {
   const allHookObservations: HookObservation[] = [];
   const allComponentObservations: ComponentObservation[] = [];
   const allHookAssessments: HookAssessment[] = [];
@@ -587,7 +546,7 @@ function main(): void {
         allHookAssessments.push(...hookResult.assessments);
       }
     } catch (e) {
-      if (!args.pretty) {
+      if (!pretty) {
         console.error(`Warning: could not analyze ${filePath}: ${e}`);
       }
     }
@@ -600,7 +559,81 @@ function main(): void {
     hookObservations: allHookObservations,
   };
 
-  const result = interpretOwnership(inputs, astConfig);
+  return interpretOwnership(inputs, astConfig);
+}
+
+// ---------------------------------------------------------------------------
+// CLI
+// ---------------------------------------------------------------------------
+
+function main(): void {
+  const args = parseArgs(process.argv);
+  const noCache = hasNoCacheFlag(process.argv);
+
+  if (args.help) {
+    process.stdout.write(
+      'Usage: npx tsx scripts/AST/ast-interpret-ownership.ts <file|dir> [--pretty] [--no-cache]\n' +
+        '\n' +
+        'Classify component ownership (DDAU/container/leaf).\n' +
+        '\n' +
+        'Assessment kinds:\n' +
+        '  CONTAINER       - Owns data orchestration (service hooks, router, etc.)\n' +
+        '  DDAU_COMPONENT  - Pure data-down-actions-up (all data via props)\n' +
+        '  LAYOUT_SHELL    - Layout wrapper (documented exception)\n' +
+        '  LEAF_VIOLATION  - Calls hooks it should not (service/context in leaf)\n' +
+        '  AMBIGUOUS       - Mixed signals, needs manual review\n' +
+        '\n' +
+        '  <file|dir>   A .tsx/.ts file or directory to analyze\n' +
+        '  --pretty     Format output as a human-readable table\n' +
+        '  --no-cache   Bypass cache and recompute (also refreshes cache)\n',
+    );
+    process.exit(0);
+  }
+
+  if (args.paths.length === 0) {
+    fatal('No file path provided. Use --help for usage.');
+  }
+
+  // Collect all files to analyze
+  const filePaths: string[] = [];
+  let isDirectory = false;
+  let dirPath = '';
+
+  for (const p of args.paths) {
+    const fs = require('fs');
+    const absolute = path.isAbsolute(p) ? p : path.resolve(PROJECT_ROOT, p);
+    const stat = fs.statSync(absolute);
+
+    if (stat.isDirectory()) {
+      isDirectory = true;
+      dirPath = absolute;
+      const glob = require('glob');
+      const files = glob.sync('**/*.tsx', { cwd: absolute, absolute: true });
+      filePaths.push(...files);
+    } else {
+      filePaths.push(absolute);
+    }
+  }
+
+  if (filePaths.length === 0) {
+    fatal('No .tsx files found.');
+  }
+
+  // Use directory-level caching if analyzing a directory
+  let result: AssessmentResult<OwnershipAssessment>;
+
+  if (isDirectory && filePaths.length > 1) {
+    result = cachedDirectory(
+      'interpret-ownership',
+      dirPath,
+      filePaths,
+      () => analyzeDirectory(filePaths, args.pretty),
+      { noCache },
+    );
+  } else {
+    // Single file - no directory caching benefit
+    result = analyzeDirectory(filePaths, args.pretty);
+  }
 
   if (args.pretty) {
     const relativePaths = filePaths.map(f => path.relative(PROJECT_ROOT, f)).join(', ');
@@ -610,6 +643,10 @@ function main(): void {
   } else {
     output(result, false);
   }
+
+  // Output cache stats
+  const stats = getCacheStats();
+  process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
 }
 
 // Run CLI when executed directly

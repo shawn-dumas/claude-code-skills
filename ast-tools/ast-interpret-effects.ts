@@ -9,6 +9,7 @@ import type {
   ObservationRef,
   AssessmentResult,
 } from './types';
+import { cachedDirectory, hasNoCacheFlag, getCacheStats } from './ast-cache';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -437,50 +438,14 @@ function formatPrettyOutput(result: AssessmentResult<EffectAssessment>, filePath
 }
 
 // ---------------------------------------------------------------------------
-// CLI
+// Directory analysis (with caching)
 // ---------------------------------------------------------------------------
 
-function main(): void {
-  const args = parseArgs(process.argv);
-
-  if (args.help) {
-    process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-interpret-effects.ts <file|dir> [--pretty]\n' +
-        '\n' +
-        'Interpret useEffect observations and classify them.\n' +
-        '\n' +
-        '  <file|dir>  A .tsx/.ts file or directory to analyze\n' +
-        '  --pretty    Format output as a human-readable table\n',
-    );
-    process.exit(0);
-  }
-
-  if (args.paths.length === 0) {
-    fatal('No file path provided. Use --help for usage.');
-  }
-
-  // Collect all files to analyze
-  const filePaths: string[] = [];
-  for (const p of args.paths) {
-    const fs = require('fs');
-    const absolute = path.isAbsolute(p) ? p : path.resolve(PROJECT_ROOT, p);
-    const stat = fs.statSync(absolute);
-
-    if (stat.isDirectory()) {
-      // Find all .tsx files in directory
-      const glob = require('glob');
-      const files = glob.sync('**/*.tsx', { cwd: absolute, absolute: true });
-      filePaths.push(...files);
-    } else {
-      filePaths.push(absolute);
-    }
-  }
-
-  if (filePaths.length === 0) {
-    fatal('No .tsx files found.');
-  }
-
-  // Analyze all files and collect assessments
+/**
+ * Analyze all files in a directory and collect effect assessments.
+ * This is the cached unit of work for directory-level analysis.
+ */
+function analyzeDirectory(filePaths: string[], pretty: boolean): AssessmentResult<EffectAssessment> {
   const allAssessments: EffectAssessment[] = [];
 
   for (const filePath of filePaths) {
@@ -494,13 +459,81 @@ function main(): void {
       }
     } catch (e) {
       // Skip files that cannot be parsed
-      if (!args.pretty) {
+      if (!pretty) {
         console.error(`Warning: could not analyze ${filePath}: ${e}`);
       }
     }
   }
 
-  const finalResult: AssessmentResult<EffectAssessment> = { assessments: allAssessments };
+  return { assessments: allAssessments };
+}
+
+// ---------------------------------------------------------------------------
+// CLI
+// ---------------------------------------------------------------------------
+
+function main(): void {
+  const args = parseArgs(process.argv);
+  const noCache = hasNoCacheFlag(process.argv);
+
+  if (args.help) {
+    process.stdout.write(
+      'Usage: npx tsx scripts/AST/ast-interpret-effects.ts <file|dir> [--pretty] [--no-cache]\n' +
+        '\n' +
+        'Interpret useEffect observations and classify them.\n' +
+        '\n' +
+        '  <file|dir>   A .tsx/.ts file or directory to analyze\n' +
+        '  --pretty     Format output as a human-readable table\n' +
+        '  --no-cache   Bypass cache and recompute (also refreshes cache)\n',
+    );
+    process.exit(0);
+  }
+
+  if (args.paths.length === 0) {
+    fatal('No file path provided. Use --help for usage.');
+  }
+
+  // Collect all files to analyze
+  const filePaths: string[] = [];
+  let isDirectory = false;
+  let dirPath = '';
+
+  for (const p of args.paths) {
+    const fs = require('fs');
+    const absolute = path.isAbsolute(p) ? p : path.resolve(PROJECT_ROOT, p);
+    const stat = fs.statSync(absolute);
+
+    if (stat.isDirectory()) {
+      isDirectory = true;
+      dirPath = absolute;
+      // Find all .tsx files in directory
+      const glob = require('glob');
+      const files = glob.sync('**/*.tsx', { cwd: absolute, absolute: true });
+      filePaths.push(...files);
+    } else {
+      filePaths.push(absolute);
+    }
+  }
+
+  if (filePaths.length === 0) {
+    fatal('No .tsx files found.');
+  }
+
+  // Use directory-level caching if analyzing a directory
+  let finalResult: AssessmentResult<EffectAssessment>;
+
+  if (isDirectory && filePaths.length > 1) {
+    finalResult = cachedDirectory(
+      'interpret-effects',
+      dirPath,
+      filePaths,
+      () => analyzeDirectory(filePaths, args.pretty),
+      { noCache },
+    );
+  } else {
+    // Single file - no directory caching benefit
+    finalResult = analyzeDirectory(filePaths, args.pretty);
+  }
 
   if (args.pretty) {
     const relativePaths = filePaths.map(f => path.relative(PROJECT_ROOT, f)).join(', ');
@@ -508,6 +541,10 @@ function main(): void {
   } else {
     output(finalResult, false);
   }
+
+  // Output cache stats
+  const stats = getCacheStats();
+  process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
 }
 
 // Run CLI when executed directly

@@ -293,3 +293,101 @@ export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+// ---------------------------------------------------------------------------
+// Directory-level caching (for interpreters)
+// ---------------------------------------------------------------------------
+
+// In-memory hash cache to avoid re-reading files during a single run
+const fileHashCache = new Map<string, string>();
+
+/**
+ * Get content hash for a file, with in-memory memoization.
+ */
+export function getFileHash(filePath: string): string {
+  const absolute = path.isAbsolute(filePath) ? filePath : path.join(PROJECT_ROOT, filePath);
+
+  if (fileHashCache.has(absolute)) {
+    return fileHashCache.get(absolute)!;
+  }
+
+  const hash = hashFileContent(absolute);
+  fileHashCache.set(absolute, hash);
+  return hash;
+}
+
+/**
+ * Compute a deterministic hash for an entire directory.
+ * Hash of sorted file hashes - changes if any file content changes.
+ */
+export function hashDirectory(dirPath: string, files: string[]): string {
+  const fileHashes = files.map(f => getFileHash(f)).sort();
+  return sha256(fileHashes.join(':'));
+}
+
+/**
+ * Get cached result for a directory-level tool (interpreters).
+ */
+export function getCachedDirectory<T>(toolName: string, dirHash: string): T | null {
+  ensureCacheValid();
+
+  const cacheFile = path.join(CACHE_DIR, toolName, `dir-${dirHash}.json`);
+
+  if (!fs.existsSync(cacheFile)) {
+    stats.misses++;
+    return null;
+  }
+
+  try {
+    const content = fs.readFileSync(cacheFile, 'utf-8');
+    stats.hits++;
+    return JSON.parse(content) as T;
+  } catch {
+    stats.misses++;
+    return null;
+  }
+}
+
+/**
+ * Store directory-level result in cache.
+ */
+export function setCacheDirectory<T>(toolName: string, dirHash: string, result: T): void {
+  ensureCacheValid();
+
+  const toolDir = path.join(CACHE_DIR, toolName);
+  const cacheFile = path.join(toolDir, `dir-${dirHash}.json`);
+
+  fs.mkdirSync(toolDir, { recursive: true });
+  fs.writeFileSync(cacheFile, JSON.stringify(result));
+}
+
+/**
+ * Get or compute cached result for directory-level tools.
+ * Used by interpreters which process entire directories at once.
+ */
+export function cachedDirectory<T>(
+  toolName: string,
+  dirPath: string,
+  files: string[],
+  compute: () => T,
+  options: { noCache?: boolean } = {},
+): T {
+  if (options.noCache) {
+    stats.misses++;
+    const result = compute();
+    // Still write to cache even with noCache (refresh behavior)
+    const dirHash = hashDirectory(dirPath, files);
+    setCacheDirectory(toolName, dirHash, result);
+    return result;
+  }
+
+  const dirHash = hashDirectory(dirPath, files);
+  const existing = getCachedDirectory<T>(toolName, dirHash);
+  if (existing !== null) {
+    return existing;
+  }
+
+  const result = compute();
+  setCacheDirectory(toolName, dirHash, result);
+  return result;
+}

@@ -4,6 +4,7 @@ import { PROJECT_ROOT } from './project';
 import { analyzeReactFile } from './ast-react-inventory';
 import { astConfig, type AstConfig } from './ast-config';
 import type { HookObservation, HookAssessment, HookAssessmentKind, ObservationRef, AssessmentResult } from './types';
+import { cachedDirectory, hasNoCacheFlag, getCacheStats } from './ast-cache';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -309,15 +310,45 @@ function formatPrettyOutput(result: AssessmentResult<HookAssessment>, filePath: 
 }
 
 // ---------------------------------------------------------------------------
+// Directory analysis (with caching)
+// ---------------------------------------------------------------------------
+
+/**
+ * Analyze all files in a directory and collect hook assessments.
+ * This is the cached unit of work for directory-level analysis.
+ */
+function analyzeDirectory(filePaths: string[], pretty: boolean): AssessmentResult<HookAssessment> {
+  const allAssessments: HookAssessment[] = [];
+
+  for (const filePath of filePaths) {
+    try {
+      const inventory = analyzeReactFile(filePath);
+      if (inventory.hookObservations.length > 0) {
+        const result = interpretHooks(inventory.hookObservations, astConfig);
+        allAssessments.push(...result.assessments);
+      }
+    } catch (e) {
+      // Skip files that cannot be parsed
+      if (!pretty) {
+        console.error(`Warning: could not analyze ${filePath}: ${e}`);
+      }
+    }
+  }
+
+  return { assessments: allAssessments };
+}
+
+// ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 
 function main(): void {
   const args = parseArgs(process.argv);
+  const noCache = hasNoCacheFlag(process.argv);
 
   if (args.help) {
     process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-interpret-hooks.ts <file|dir> [--pretty]\n' +
+      'Usage: npx tsx scripts/AST/ast-interpret-hooks.ts <file|dir> [--pretty] [--no-cache]\n' +
         '\n' +
         'Interpret hook call observations and classify them.\n' +
         '\n' +
@@ -328,8 +359,9 @@ function main(): void {
         '  LIKELY_STATE_HOOK    - React builtin (useState, useMemo, etc.)\n' +
         '  UNKNOWN_HOOK         - Cannot classify\n' +
         '\n' +
-        '  <file|dir>  A .tsx/.ts file or directory to analyze\n' +
-        '  --pretty    Format output as a human-readable table\n',
+        '  <file|dir>   A .tsx/.ts file or directory to analyze\n' +
+        '  --pretty     Format output as a human-readable table\n' +
+        '  --no-cache   Bypass cache and recompute (also refreshes cache)\n',
     );
     process.exit(0);
   }
@@ -340,12 +372,17 @@ function main(): void {
 
   // Collect all files to analyze
   const filePaths: string[] = [];
+  let isDirectory = false;
+  let dirPath = '';
+
   for (const p of args.paths) {
     const fs = require('fs');
     const absolute = path.isAbsolute(p) ? p : path.resolve(PROJECT_ROOT, p);
     const stat = fs.statSync(absolute);
 
     if (stat.isDirectory()) {
+      isDirectory = true;
+      dirPath = absolute;
       // Find all .tsx files in directory
       const glob = require('glob');
       const files = glob.sync('**/*.tsx', { cwd: absolute, absolute: true });
@@ -359,25 +396,21 @@ function main(): void {
     fatal('No .tsx files found.');
   }
 
-  // Analyze all files and collect assessments
-  const allAssessments: HookAssessment[] = [];
+  // Use directory-level caching if analyzing a directory
+  let finalResult: AssessmentResult<HookAssessment>;
 
-  for (const filePath of filePaths) {
-    try {
-      const inventory = analyzeReactFile(filePath);
-      if (inventory.hookObservations.length > 0) {
-        const result = interpretHooks(inventory.hookObservations, astConfig);
-        allAssessments.push(...result.assessments);
-      }
-    } catch (e) {
-      // Skip files that cannot be parsed
-      if (!args.pretty) {
-        console.error(`Warning: could not analyze ${filePath}: ${e}`);
-      }
-    }
+  if (isDirectory && filePaths.length > 1) {
+    finalResult = cachedDirectory(
+      'interpret-hooks',
+      dirPath,
+      filePaths,
+      () => analyzeDirectory(filePaths, args.pretty),
+      { noCache },
+    );
+  } else {
+    // Single file - no directory caching benefit
+    finalResult = analyzeDirectory(filePaths, args.pretty);
   }
-
-  const finalResult: AssessmentResult<HookAssessment> = { assessments: allAssessments };
 
   if (args.pretty) {
     const relativePaths = filePaths.map(f => path.relative(PROJECT_ROOT, f)).join(', ');
@@ -385,6 +418,10 @@ function main(): void {
   } else {
     output(finalResult, false);
   }
+
+  // Output cache stats
+  const stats = getCacheStats();
+  process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
 }
 
 // Run CLI when executed directly
