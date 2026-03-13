@@ -60,7 +60,27 @@ The AST tools evolved through three eras:
 | Original AST | Tools with embedded classifications | `hookCalls[].classification: "service"`            |
 | Current      | Observation/assessment separation   | Observations in tools, assessments in interpreters |
 
-The current architecture emerged from limitations of embedded classifications:
+**The bottom line:** Current uses 3x more tool output tokens but zero
+classification reasoning tokens, is idempotent, and produces traceable
+evidence chains.
+
+### Why This Matters
+
+**Idempotency.** With grep-based audits, running the same audit twice could
+produce different classifications because the agent reasoned differently each
+time. Frustrating when you're trying to track progress or compare runs.
+With interpreter-based classification, same code = same output, every time.
+
+**Hidden costs of Pre-AST.** Grep output is small (~6 KB), but the agent had
+to read source files (~22 KB) to manually classify hooks and components.
+That file content goes into context, and the agent burns tokens reasoning
+about "is this a service hook? is this a container?" Current eliminates
+that reasoning entirely -- the interpreter outputs `LIKELY_SERVICE_HOOK,
+confidence: high` and the agent just reads structured JSON.
+
+### Limitations of Embedded Classifications
+
+The current architecture emerged from limitations of the original AST approach:
 
 - Hardcoded rules required tool changes to evolve
 - No confidence levels (everything was certain or "unknown")
