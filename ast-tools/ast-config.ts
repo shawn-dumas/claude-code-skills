@@ -196,6 +196,7 @@ export const astConfig: AstConfig = Object.freeze({
 
   hooks: Object.freeze({
     ambientLeafHooks: new Set([
+      // UI utilities
       'useBreakpoints',
       'useWindowSize',
       'useDropdownScrollHandler',
@@ -205,6 +206,17 @@ export const astConfig: AstConfig = Object.freeze({
       'useSorting',
       'useTheme',
       'useTranslation',
+      // Router hooks (Next.js)
+      'useRouter',
+      'usePathname',
+      'useSearchParams',
+      // Form library hooks (react-hook-form)
+      'useForm',
+      'useWatch',
+      'useFormContext',
+      'useController',
+      'useFieldArray',
+      'useFormState',
     ]) as ReadonlySet<string>,
 
     knownContextHooks: new Set([
@@ -217,7 +229,14 @@ export const astConfig: AstConfig = Object.freeze({
       'useBpoProjectContext',
     ]) as ReadonlySet<string>,
 
-    tanstackQueryHooks: new Set(['useQuery', 'useMutation', 'useInfiniteQuery']) as ReadonlySet<string>,
+    tanstackQueryHooks: new Set([
+      'useQuery',
+      'useMutation',
+      'useInfiniteQuery',
+      'useQueryClient',
+      'useIsFetching',
+      'useIsMutating',
+    ]) as ReadonlySet<string>,
 
     serviceHookPathPatterns: ['services/hooks'] as const,
     contextHookPathPatterns: ['providers/', 'context/'] as const,
