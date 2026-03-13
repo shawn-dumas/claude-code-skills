@@ -81,6 +81,92 @@ _Ties directly into G3 -- a configurable abstraction is often a bad abstraction.
 
 At trust boundaries, throw or return typed errors immediately. No silently swallowing. No fallback defaults that hide bugs. Interior code can assume valid data (because G5 already parsed it). When something unexpected happens, surface it -- do not paper over it.
 
+## API Handler Principles
+
+The following principles specialize G1-G10 for Next.js BFF API route handlers in `src/pages/api/`. Parse/Process/Respond is G5 + G6 applied to the HTTP lifecycle. Middleware composition is G9 applied to cross-cutting concerns. Error envelope is G10 applied to HTTP error responses.
+
+Every API handler skill (`build-api-handler`, `refactor-api-handler`, `audit-api-handler`) enforces these rules.
+
+### Parse/Process/Respond
+
+Every handler follows a three-layer structure:
+
+```
+Request --> [Parse] --> [Process] --> [Respond] --> Response
+             |              |              |
+         Zod schemas    Pure logic    Validated output
+```
+
+- **Parse** (trust boundary): Every value from `req.body`, `req.query`, and dynamic route params passes through a Zod schema. No `as UserId`, `as TeamId`, or `as T` casts on request data. The parse layer produces typed, trusted values for the process layer. This is G5 applied to HTTP input.
+
+- **Process** (business logic): Database queries and data transformation. For non-trivial logic (3+ branches, complex joins, data aggregation), extract to a co-located `.logic.ts` file where functions accept typed parameters and return typed values -- no `req`/`res` dependency. For simple CRUD (single query + response mapping), inline processing is acceptable. This is G6 applied to handler code.
+
+- **Respond** (output boundary): The handler validates its output against the domain's Zod schema before returning. This catches shape drift between the DB layer and the client contract. This is G5 applied to HTTP output.
+
+### Middleware composition
+
+Every handler uses composed middleware in a fixed order:
+
+```ts
+export default withErrorHandler(withMethod(['GET'], withAuth(withRole(ROLES, handler))));
+```
+
+| Position      | Middleware         | Purpose                                           | When to use                  |
+| ------------- | ------------------ | ------------------------------------------------- | ---------------------------- |
+| 1 (outermost) | `withErrorHandler` | Catches thrown errors, maps to envelope           | Always                       |
+| 2             | `withMethod`       | Rejects disallowed HTTP methods                   | Always                       |
+| 3             | `withAuth`         | Verifies Firebase ID token, resolves user context | All non-public routes        |
+| 4 (innermost) | `withRole`         | Checks caller roles against allowlist             | When specific roles required |
+
+This is G9 -- each middleware does one job, they compose rather than one middleware with flags. The handler's only export is the default export (the composed chain).
+
+### Co-located schema files
+
+Zod schemas live next to the handler in `<handler>.schema.ts` (e.g., `index.schema.ts` for `index.ts`, `[id].schema.ts` for `[id].ts`). Import from `src/shared/types/` when the response shape matches a domain type. Handler-specific shapes (request body, query params) stay local.
+
+Schema files contain:
+
+- Request schemas (one per HTTP method if shapes differ)
+- Route param schemas (for dynamic `[id]` routes, using `z.coerce`)
+- Response schemas (imported from shared types when possible)
+- Derived types via `z.infer`
+
+Use branded type constructors in schema transforms where applicable (e.g., `z.string().transform(UserId)`).
+
+### Error envelope pattern
+
+Throw typed error classes instead of raw `res.status(N).json()`:
+
+```ts
+// Wrong
+if (!user) return res.status(404).json({ error: 'User not found' });
+
+// Right
+if (!user) throw new NotFoundError('User');
+```
+
+Error classes (`NotFoundError`, `BadRequestError`, `ConflictError`, `ForbiddenError`) live in `src/server/errors/ApiErrorResponse.ts`. `withErrorHandler` catches them and maps to HTTP status codes and the envelope format. This is G10 -- errors surface at boundaries, handler code reads like business logic.
+
+### Multi-tenancy scoping
+
+All DB queries are scoped to `ctx.organizationId`. No handler serves data across organization boundaries unless explicitly designed as an internal/admin route with appropriate role checks.
+
+### Pure-core extraction threshold
+
+| Condition                                           | Action                              |
+| --------------------------------------------------- | ----------------------------------- |
+| Single CRUD operation, handler body under ~50 lines | Inline in handler                   |
+| 3+ database queries with conditional branching      | Extract to `.logic.ts`              |
+| Data transformation independently testable          | Extract to `.logic.ts`              |
+| CC would exceed 10 without extraction               | Extract to `.logic.ts`              |
+| Same logic needed by multiple handlers              | Extract to shared `src/server/lib/` |
+
+Extracted functions accept typed parameters and return typed values. They throw error classes for business rule violations. Pure data transformation functions (no DB access) are separate from I/O functions.
+
+### Complexity targets
+
+Every function in a handler must have cyclomatic complexity <= 10. Target CC <= 5. Multi-method handlers split into per-method functions (`handleGet`, `handlePost`). `ast-complexity` is run on every generated or refactored handler.
+
 ## React Principles
 
 The following principles specialize the general rules above for React's component model. DDAU is G2 applied to components. Least power is G1 + G9 applied to hooks and context. Template least-power is G4 applied to JSX.
