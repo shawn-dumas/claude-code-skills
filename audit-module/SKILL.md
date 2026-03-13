@@ -106,7 +106,7 @@ threshold is a skill-level escalation rule, not an interpreter judgment.
 Read the target file. Then:
 
 - Read every file it imports (other local modules, types, utilities)
-- Find all consumers of this module (grep for its exports across the codebase)
+- Find all consumers of this module (use `ast-imports` STATIC_IMPORT observations from Step 0, or `sg -p 'exportedName' src/` for call-site matching)
 - Identify whether this module is re-exported through a barrel file
 
 Build a map of what this module depends on and what depends on it.
@@ -233,7 +233,7 @@ WARN if side effects are isolated but could be further separated.
 ### G7 -- Narrow Exports
 
 - List every export from the module.
-- For each export, check if it has consumers (grep across the codebase).
+- For each export, check if it has consumers (use `ast-interpret-dead-code` DEAD_EXPORT assessments from Step 0, or `ast-imports` DEAD_EXPORT_CANDIDATE observations).
 - Are there internal helper functions that are exported unnecessarily?
 - Does the module export types/values that no other module imports?
 

@@ -42,6 +42,7 @@ If neither is clear, ask the user what they want audited.
 Read the audit report (provided or generated). For each finding:
 
 1. **Classify severity:**
+
    - P1: Trust boundary violation, data loss, security issue
    - P2: Bug (wrong behavior), state desync, race condition
    - P3: Dead code, style violation, missing test, structural issue
@@ -58,6 +59,21 @@ Read the audit report (provided or generated). For each finding:
    can be grouped together. Complex fixes (rewrite a hook, extract a
    container) get their own prompt or share a prompt with at most 2-3
    other fixes in the same domain.
+
+### Recurring-Deferred Escalation
+
+Before assigning concern levels, check for recurring deferrals:
+
+1. Read the previous 2 cleanup files in `$PLANS_DIR/` (by timestamp,
+   most recent first)
+2. Read the previous 2 audit diff files in `~/audits/` (net-new--diff--)
+3. Extract all findings/items that appear in 3+ of these documents
+4. Auto-escalate them to High concern regardless of original priority
+5. Tag them `[RECURRING-DEFERRED]` in the prompt
+
+Items that have been flagged 3+ times without resolution are, by
+definition, not being addressed by the normal priority system. Escalation
+is the forcing function.
 
 ## Step 3: Decide whether to orchestrate
 
@@ -98,27 +114,27 @@ Create `$PLANS_DIR/<audit-name>-fixes.md` with:
 ## Findings Summary
 
 | Severity | Count |
-|----------|-------|
-| P1 | <N> |
-| P2 | <N> |
-| P3 | <N> |
-| P4 | <N> |
-| Total | <N> |
+| -------- | ----- |
+| P1       | <N>   |
+| P2       | <N>   |
+| P3       | <N>   |
+| P4       | <N>   |
+| Total    | <N>   |
 
 ## Findings Index
 
-| # | Severity | Domain | File | Finding | Prompt |
-|---|----------|--------|------|---------|--------|
-| 1 | P1 | chat | useChatApi.ts:32 | Non-null assertion on idToken | 01 |
-| 2 | P2 | workstreams | WorkstreamsTable.tsx:35 | Stale rowSelection | 02 |
-| ... | | | | | |
+| #   | Severity | Domain      | File                    | Finding                       | Prompt |
+| --- | -------- | ----------- | ----------------------- | ----------------------------- | ------ |
+| 1   | P1       | chat        | useChatApi.ts:32        | Non-null assertion on idToken | 01     |
+| 2   | P2       | workstreams | WorkstreamsTable.tsx:35 | Stale rowSelection            | 02     |
+| ... |          |             |                         |                               |        |
 
 ## Prompt Sequence
 
-| # | Prompt | Domain | Findings | Status |
-|---|--------|--------|----------|--------|
-| 1 | <name> | <domain> | #1, #2, #3 | pending |
-| 2 | <name> | <domain> | #4, #5, #6 | pending |
+| #   | Prompt | Domain   | Findings   | Status  |
+| --- | ------ | -------- | ---------- | ------- |
+| 1   | <name> | <domain> | #1, #2, #3 | pending |
+| 2   | <name> | <domain> | #4, #5, #6 | pending |
 
 ## Dependency Graph
 
@@ -128,10 +144,10 @@ Create `$PLANS_DIR/<audit-name>-fixes.md` with:
 
 <if integration scope is per-prompt or final-only, include this table>
 
-| # | Agent Ran PW? | Orchestrator Ran PW? | Results Match? | PASS/FAIL |
-|---|---------------|----------------------|----------------|-----------|
-| 1 | | | | |
-| 2 | | | | |
+| #   | Agent Ran PW? | Orchestrator Ran PW? | Results Match? | PASS/FAIL |
+| --- | ------------- | -------------------- | -------------- | --------- |
+| 1   |               |                      |                |           |
+| 2   |               |                      |                |           |
 ```
 
 ### Prompt ordering rules
@@ -150,10 +166,11 @@ Create prompt files in `$PLANS_DIR/prompts/` named
 
 Each prompt follows this structure:
 
-```markdown
+````markdown
 # Fix Prompt: <domain> Fixes
 
 ## Context
+
 - Repo: ~/github/user-frontend
 - Branch: <current branch>
 - Source audit: <audit report path>
@@ -165,6 +182,7 @@ Read ~/github/user-frontend/CLAUDE.md before starting.
 ## Fixes
 
 ### Fix 1: <title> (P<severity> #<finding-number>)
+
 <file:line> -- <what is wrong>.
 
 <what to do to fix it>
@@ -172,19 +190,53 @@ Read ~/github/user-frontend/CLAUDE.md before starting.
 <test requirement based on fix type>
 
 ### Fix 2: <title> (P<severity> #<finding-number>)
+
 ...
 
+## Pattern Discovery (if applicable)
+
+If any fix in this prompt targets a specific code pattern (cast removal,
+branded type enforcement, memoization fix, mock shape correction), run
+the following BEFORE applying fixes:
+
+Use the appropriate structural search tool:
+
+- **For code patterns** (function calls, type annotations, imports, casts):
+
+  ```bash
+  sg -p '<ast-pattern>' src/
+  ```
+
+  Example: `sg -p 'createColumnHelper()' src/` finds all call sites.
+
+- **For complexity / type-safety metrics**: use the matching AST tool:
+
+  ```bash
+  npx tsx scripts/AST/ast-complexity.ts <files> --pretty
+  npx tsx scripts/AST/ast-type-safety.ts <files> --pretty
+  ```
+
+- **For string literals or non-code content only**: `grep` or `rg` is
+  acceptable when the target is not a code structure.
+
+Compare the results against the fix list above. If the search finds
+instances not listed in the fixes, add them. Report the discovery in
+the reconciliation block.
+
 ## Commit Strategy
+
 <group P1/P2 fixes with tests in one commit, P3/P4 cleanup in another>
 
 ## Verification
+
 <standard verification + prompt-specific greps for each fix>
 
 ## Reconciliation
+
 <standard reconciliation block>
 
 Also update <master plan path>: mark findings <list> as DONE.
-```
+````
 
 ### Prompt generation rules
 
@@ -210,6 +262,7 @@ be addressed.
 ## Step 7: Present the plan to the user
 
 Show the user:
+
 - Findings summary (counts by severity)
 - Number of prompts
 - Prompt sequence with domain groupings
@@ -248,47 +301,51 @@ For each prompt:
    paste the reconciliation output.
 
 4. **Verify independently.** Run in `~/github/user-frontend`:
-    ```
-    git log --oneline -10
-    pnpm tsc --noEmit
-    pnpm test --run 2>&1 | tail -5
-    pnpm build 2>&1 | tail -5
-    npx eslint . --max-warnings 0 2>&1 | tail -3
-    ```
-    When integration scope is `per-prompt`, also run:
-    ```
-    pnpm test:integration 2>&1 | tail -5
-    ```
-    Plus prompt-specific verification greps.
 
-    **Independent verification rule.** When integration scope is
-    `per-prompt` or `final-only`, the orchestrator independently runs
-    the same integration tests the work agent was asked to run. Do not
-    trust the agent's self-reported Playwright results. Run the specs
-    yourself, compare the output, and fill in the verification checklist
-    in the master plan. A prompt is not PASS until the orchestrator's
-    row is filled in.
+   ```
+   git log --oneline -10
+   pnpm tsc --noEmit
+   pnpm test --run 2>&1 | tail -5
+   pnpm build 2>&1 | tail -5
+   npx eslint . --max-warnings 0 2>&1 | tail -3
+   ```
+
+   When integration scope is `per-prompt`, also run:
+
+   ```
+   pnpm test:integration 2>&1 | tail -5
+   ```
+
+   Plus prompt-specific verification greps.
+
+   **Independent verification rule.** When integration scope is
+   `per-prompt` or `final-only`, the orchestrator independently runs
+   the same integration tests the work agent was asked to run. Do not
+   trust the agent's self-reported Playwright results. Run the specs
+   yourself, compare the output, and fill in the verification checklist
+   in the master plan. A prompt is not PASS until the orchestrator's
+   row is filled in.
 
 5. **Compare results** against the reconciliation.
 
 6. **Gate.** PASS: update master plan, move on. FAIL: list discrepancies.
 
-    **Cannot-run gate.** If integration scope is `per-prompt` and the
-    work agent's reconciliation reports integration tests as "not run"
-    or "cannot run," this is NOT a PASS. Mark the prompt PARTIAL. Before
-    dispatching the next prompt, either fix the environment (start the
-    Firebase emulator and dev/prod server) and re-verify, or insert a
-    verification-only prompt that runs the affected specs. Do not
-    proceed with unverified integration test changes.
+   **Cannot-run gate.** If integration scope is `per-prompt` and the
+   work agent's reconciliation reports integration tests as "not run"
+   or "cannot run," this is NOT a PASS. Mark the prompt PARTIAL. Before
+   dispatching the next prompt, either fix the environment (start the
+   Firebase emulator and dev/prod server) and re-verify, or insert a
+   verification-only prompt that runs the affected specs. Do not
+   proceed with unverified integration test changes.
 
-    For auto prompts: if the Task agent reports Playwright as "not run"
-    or "cannot run," escalate to manual immediately.
+   For auto prompts: if the Task agent reports Playwright as "not run"
+   or "cannot run," escalate to manual immediately.
 
 7. **Read the cleanup file** after each prompt. If integration tests
-    could not be independently verified, append an integration
-    verification item: `- [ ] INTEGRATION VERIFY: Prompt N -- <specs
-    not verified, reason>`. The cleanup prompt must resolve all such
-    items before the plan is marked complete.
+   could not be independently verified, append an integration
+   verification item: `- [ ] INTEGRATION VERIFY: Prompt N -- <specs
+not verified, reason>`. The cleanup prompt must resolve all such
+   items before the plan is marked complete.
 
 ## Step 9: Generate the cleanup prompt
 

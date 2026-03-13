@@ -61,6 +61,34 @@ The container is the single orchestration boundary. All hooks, context, routing,
 storage, toasts, and cross-domain invalidation live here. Children receive
 everything via props.
 
+### nuqs URL State Rule
+
+All URL params that must stay synchronized MUST be in a single
+`useQueryStates()` call. Never use separate `useQueryState()` hooks
+for related params.
+
+**Anti-pattern (causes race condition):**
+
+```typescript
+const [tab, setTab] = useQueryState('tab', parseAsString);
+const [id, setId] = useQueryState('id', parseAsString);
+// BUG: setTab and setId in the same render cycle will clobber each other
+```
+
+**Correct pattern:**
+
+```typescript
+const [params, setParams] = useQueryStates({
+  tab: parseAsString,
+  id: parseAsString,
+});
+// setParams({ tab: 'foo', id: 'bar' }) is atomic
+```
+
+nuqs batches URL updates through a shared throttle queue. Two separate
+hooks updating in the same render cycle read stale `location.search`,
+causing one update to clobber the other's pending params.
+
 ## Step 4: Generate the files
 
 ### 4a. `src/pages/<path>.tsx` -- The page file
@@ -187,6 +215,7 @@ beforeEach(() => {
 
 The global `vitest.setup.ts` handles `afterEach(() => vi.clearAllMocks())`.
 Add file-level cleanup ONLY for:
+
 - `vi.useFakeTimers()` → `afterEach(() => vi.useRealTimers())`
 - `localStorage` → `afterEach(() => localStorage.clear())`
 - `sessionStorage` → `afterEach(() => sessionStorage.clear())`
@@ -200,6 +229,7 @@ components, own hooks, or own utilities. Let real presentational children
 render (P3).
 
 **Do NOT generate:**
+
 - `// TODO:` markers. Write real, passing tests.
 - Snapshot tests.
 - Tests asserting on internal state, hook call counts, or effect order.
@@ -226,11 +256,42 @@ Before defining any new type or interface inline, check first:
 4. For new shared types, add them to the appropriate domain module in
    `src/shared/types/`, not inline in the container or page file.
 
+### Branded Type Verification
+
+After generating files, verify branded type usage with `sg` (ast-grep):
+
+```bash
+sg -p 'userId: string' <generated-files>
+sg -p 'teamId: string' <generated-files>
+sg -p 'workstreamId: string' <generated-files>
+sg -p 'organizationId: string' <generated-files>
+```
+
+If any matches are found, replace the bare `string` type with the
+corresponding branded type (`UserId`, `TeamId`, `WorkstreamId`,
+`OrganizationId`). Import from `@/shared/types/`.
+
+Using `sg` (AST pattern) instead of grep ensures matches are structural
+(actual type annotations), not false positives in comments or strings.
+This check catches the most common branded type omission: ID fields
+typed as bare `string` in props interfaces, function parameters, and
+type definitions.
+
 ## Step 5: Verify
 
-Run `npx tsc --noEmit` scoped to the new files (or the whole project if scoping is
-not practical). If TypeScript errors appear, fix them before finishing. Run the new
-test files with `pnpm vitest run <path>`. Report the results in the summary.
+1. Run `pnpm tsc --noEmit` scoped to the new files (or the whole project if scoping
+   is not practical). If TypeScript errors appear, fix them before finishing.
+
+2. Run `npx tsx scripts/AST/ast-complexity.ts <generated-files> --pretty`.
+   Every function must have cyclomatic complexity <= 10. If any function
+   exceeds 10, decompose it before proceeding.
+
+3. Run `npx tsx scripts/AST/ast-type-safety.ts <generated-files> --pretty`.
+   Zero `as any` casts. Zero bare `as T` at trust boundaries (use Zod
+   `.parse()` instead). Non-null assertions are acceptable only with a
+   comment explaining why the value is guaranteed non-null.
+
+4. Run the new test files with `pnpm vitest run <path>`. All tests must pass.
 
 After generating, output a short summary of what was created (file paths), any
 prerequisite service hooks or child components that need to be created separately,

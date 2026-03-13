@@ -263,6 +263,24 @@ Apply all fixes. Follow these rules:
 - Do not change behavior. The component should do exactly what it did before, just
   with explicit, visible, typed wiring instead of hidden channels.
 
+### TanStack Table Components
+
+If the component imports from `@tanstack/react-table`, enforce:
+
+1. **`createColumnHelper` at module scope.** Never inside the component
+   body. Column helper is a type utility -- creating it per render wastes
+   cycles and causes column definitions to be recreated.
+
+2. **Column definitions are stable.** Define columns as a module-level
+   constant or inside `useMemo` with stable dependencies. Never define
+   columns inline in the component body without memoization.
+
+3. **`getCoreRowModel` (and other row models) are called once** and
+   passed to `useReactTable`. Never recreate them per render.
+
+4. **`columnHelper.accessor` callbacks are pure.** No side effects,
+   no hooks, no state access inside accessor functions.
+
 ## Step 4b: Common refactoring patterns
 
 Apply these proven patterns when rewriting. Each addresses a specific useEffect

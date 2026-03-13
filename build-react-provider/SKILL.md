@@ -115,15 +115,12 @@ type XxxScopeProviderProps = XxxScopeValue & {
 };
 
 export function XxxScopeProvider({ children, ...value }: XxxScopeProviderProps) {
-  return (
-    <XxxScopeContext.Provider value={value}>
-      {children}
-    </XxxScopeContext.Provider>
-  );
+  return <XxxScopeContext.Provider value={value}>{children}</XxxScopeContext.Provider>;
 }
 ```
 
 Key details:
+
 - Context default is `null`, not a mock object
 - Hook throws if used outside provider (fail-fast)
 - Provider receives value fields as props (DDAU -- the container passes them in)
@@ -156,9 +153,7 @@ describe('XxxScopeContext', () => {
   it('throws when useXxxScope is called outside provider', () => {
     // Suppress console.error for expected throw
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => renderHook(() => useXxxScope())).toThrow(
-      'useXxxScope must be used within XxxScopeProvider',
-    );
+    expect(() => renderHook(() => useXxxScope())).toThrow('useXxxScope must be used within XxxScopeProvider');
     spy.mockRestore();
   });
 
@@ -182,9 +177,19 @@ Before defining any new type or interface inline, check first:
 
 ## Step 6: Verify
 
-Run `npx tsc --noEmit` scoped to the new files (or the whole project if scoping is
-not practical). If TypeScript errors appear, fix them before finishing. Run the new
-test file with `pnpm vitest run <path>`. Report the results in the summary.
+1. Run `pnpm tsc --noEmit` scoped to the new files (or the whole project if scoping
+   is not practical). If TypeScript errors appear, fix them before finishing.
+
+2. Run `npx tsx scripts/AST/ast-complexity.ts <generated-files> --pretty`.
+   Every function must have cyclomatic complexity <= 10. If any function
+   exceeds 10, decompose it before proceeding.
+
+3. Run `npx tsx scripts/AST/ast-type-safety.ts <generated-files> --pretty`.
+   Zero `as any` casts. Zero bare `as T` at trust boundaries (use Zod
+   `.parse()` instead). Non-null assertions are acceptable only with a
+   comment explaining why the value is guaranteed non-null.
+
+4. Run the new test file with `pnpm vitest run <path>`. All tests must pass.
 
 After generating, output a short summary of what was created (file paths) and
 whether type-checking and tests passed.

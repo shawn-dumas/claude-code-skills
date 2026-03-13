@@ -94,6 +94,24 @@ The return statement is a flat declaration of layout. All logic lives above it.
 - If the return statement exceeds 50 lines, decompose into sub-components or
   extract named JSX fragments as variables.
 
+### TanStack Table Components
+
+If the component imports from `@tanstack/react-table`, enforce:
+
+1. **`createColumnHelper` at module scope.** Never inside the component
+   body. Column helper is a type utility -- creating it per render wastes
+   cycles and causes column definitions to be recreated.
+
+2. **Column definitions are stable.** Define columns as a module-level
+   constant or inside `useMemo` with stable dependencies. Never define
+   columns inline in the component body without memoization.
+
+3. **`getCoreRowModel` (and other row models) are called once** and
+   passed to `useReactTable`. Never recreate them per render.
+
+4. **`columnHelper.accessor` callbacks are pure.** No side effects,
+   no hooks, no state access inside accessor functions.
+
 ### 4b. `index.ts`
 
 ```ts
@@ -168,11 +186,13 @@ For **edge cases**: empty arrays, null/undefined optional values, loading
 states, error states, empty states.
 
 **Assertions (P8 — User Outcomes):**
+
 - Use `toBeVisible()`, `toBeInTheDocument()`, `toHaveTextContent()`,
   `toBeDisabled()`, `toHaveAttribute()`.
 - Never assert on CSS class names, DOM structure depth, or snapshot trees.
 
 **Cleanup (P10):**
+
 - The global `vitest.setup.ts` already provides
   `afterEach(() => vi.clearAllMocks())`. Do NOT add redundant cleanup.
 - Add file-level cleanup ONLY for resources the global setup does not cover:
@@ -181,16 +201,19 @@ states, error states, empty states.
   - `sessionStorage` → add `afterEach(() => sessionStorage.clear())`
 
 **Determinism (P9):**
+
 - If the component displays dates/times: add `vi.useFakeTimers()` in
   `beforeEach` and `vi.useRealTimers()` in `afterEach`.
 - Never rely on `Math.random()` or `new Date()` in assertions.
 
 **Mocking (P2):**
+
 - Do NOT mock own hooks, own child components, or own utility functions.
 - Mock only external boundaries if needed (fetch, storage, nav, firebase).
 - For DDAU components this is rarely needed — data arrives via props.
 
 **Do NOT generate:**
+
 - `// TODO:` markers. Write real, passing tests.
 - Snapshot tests.
 - Tests asserting on internal state, hook call counts, or effect order.
@@ -207,11 +230,42 @@ Before defining any new type or interface inline, check first:
 4. For new shared types, add them to the appropriate domain module in
    `src/shared/types/`, not inline in the component file.
 
+### Branded Type Verification
+
+After generating files, verify branded type usage with `sg` (ast-grep):
+
+```bash
+sg -p 'userId: string' <generated-files>
+sg -p 'teamId: string' <generated-files>
+sg -p 'workstreamId: string' <generated-files>
+sg -p 'organizationId: string' <generated-files>
+```
+
+If any matches are found, replace the bare `string` type with the
+corresponding branded type (`UserId`, `TeamId`, `WorkstreamId`,
+`OrganizationId`). Import from `@/shared/types/`.
+
+Using `sg` (AST pattern) instead of grep ensures matches are structural
+(actual type annotations), not false positives in comments or strings.
+This check catches the most common branded type omission: ID fields
+typed as bare `string` in props interfaces, function parameters, and
+type definitions.
+
 ## Step 5: Verify
 
-Run `npx tsc --noEmit` scoped to the new files (or the whole project if scoping is
-not practical). If TypeScript errors appear, fix them before finishing. Run the new
-test file with `pnpm vitest run <path>`. Report the results in the summary.
+1. Run `pnpm tsc --noEmit` scoped to the new files (or the whole project if scoping
+   is not practical). If TypeScript errors appear, fix them before finishing.
+
+2. Run `npx tsx scripts/AST/ast-complexity.ts <generated-files> --pretty`.
+   Every function must have cyclomatic complexity <= 10. If any function
+   exceeds 10, decompose it before proceeding.
+
+3. Run `npx tsx scripts/AST/ast-type-safety.ts <generated-files> --pretty`.
+   Zero `as any` casts. Zero bare `as T` at trust boundaries (use Zod
+   `.parse()` instead). Non-null assertions are acceptable only with a
+   comment explaining why the value is guaranteed non-null.
+
+4. Run the new test file with `pnpm vitest run <path>`. All tests must pass.
 
 After generating, output a short summary of what was created (file paths) and
 whether type-checking and tests passed.

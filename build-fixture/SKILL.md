@@ -50,15 +50,16 @@ Match the import style, function signatures, and spread-merge pattern exactly.
 
 For each type in the domain module, decide:
 
-| Type role | Builder name | Notes |
-|-----------|-------------|-------|
-| Primary entity | `build` | The main type gets the bare `build` name |
-| Secondary entity | `build<TypeName>` | e.g., `buildDatasetStatus`, `buildWorkstreamEntry` |
-| Mapped/derived variant | `buildMapped` | Computes derived fields from the base builder |
-| Collection helper | `buildMany` | Always for the primary entity; add for others if useful |
-| Exhaustive builder | `buildAll` | Only when the pool defines a finite set (teams, users) |
+| Type role              | Builder name      | Notes                                                   |
+| ---------------------- | ----------------- | ------------------------------------------------------- |
+| Primary entity         | `build`           | The main type gets the bare `build` name                |
+| Secondary entity       | `build<TypeName>` | e.g., `buildDatasetStatus`, `buildWorkstreamEntry`      |
+| Mapped/derived variant | `buildMapped`     | Computes derived fields from the base builder           |
+| Collection helper      | `buildMany`       | Always for the primary entity; add for others if useful |
+| Exhaustive builder     | `buildAll`        | Only when the pool defines a finite set (teams, users)  |
 
 Skip types that are:
+
 - Pure input/request types (the test provides these directly)
 - Union type aliases with no structure (e.g., `type DatasetKey = 'process' | 'systems'`)
 - Types already covered by an existing fixture in another domain
@@ -98,24 +99,24 @@ export function build(overrides?: Partial<MyType>, pool?: Pool): MyType {
 
 ### Field generation rules
 
-| Field kind | Generator | Example |
-|-----------|-----------|---------|
-| Branded ID that references a pool entity | Pool picker | `p.pickUser().uid` |
-| Branded ID not in pool | Brand generator | `fakeSpanId()` |
-| Branded timestamp | `fakeISOTimestamp()` | `createdAt: fakeISOTimestamp()` |
-| Branded duration | `fakeSeconds()`, `fakeMilliseconds()`, `fakeMinutes()` | |
-| Branded percentage | `fakePercentage()` | |
-| Email from pool identity | `identity.email as string` | |
-| Optional field | `faker.helpers.maybe(() => value, { probability: N })` | `companyLogoUrl: faker.helpers.maybe(() => faker.image.url(), { probability: 0.3 }) ?? null` |
-| Discriminant from `as const` | `faker.helpers.arrayElement(Object.values(X))` | |
-| Enum-like string | `faker.helpers.arrayElement([...])` | |
-| Free-text string | `faker.lorem.words()` or domain-specific faker | |
-| Numeric count/measure | `faker.number.int({ min, max })` | |
-| Boolean | `faker.datatype.boolean()` or hardcoded sensible default | |
-| Nested object | Call sibling builder | `teamData: [buildUserTeamData(undefined, p)]` |
-| Array of nested | `Array.from({ length: N }, () => buildX(undefined, p))` | |
-| System/page names | `fakeSystem()`, `fakePageForSystem()`, `fakeSystemAndPage()` | |
-| Timestamp pair (start/end) | `fakeTimestampPair()` | Returns `{ start, end, durationSeconds }` |
+| Field kind                               | Generator                                                    | Example                                                                                      |
+| ---------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| Branded ID that references a pool entity | Pool picker                                                  | `p.pickUser().uid`                                                                           |
+| Branded ID not in pool                   | Brand generator                                              | `fakeSpanId()`                                                                               |
+| Branded timestamp                        | `fakeISOTimestamp()`                                         | `createdAt: fakeISOTimestamp()`                                                              |
+| Branded duration                         | `fakeSeconds()`, `fakeMilliseconds()`, `fakeMinutes()`       |                                                                                              |
+| Branded percentage                       | `fakePercentage()`                                           |                                                                                              |
+| Email from pool identity                 | `identity.email as string`                                   |                                                                                              |
+| Optional field                           | `faker.helpers.maybe(() => value, { probability: N })`       | `companyLogoUrl: faker.helpers.maybe(() => faker.image.url(), { probability: 0.3 }) ?? null` |
+| Discriminant from `as const`             | `faker.helpers.arrayElement(Object.values(X))`               |                                                                                              |
+| Enum-like string                         | `faker.helpers.arrayElement([...])`                          |                                                                                              |
+| Free-text string                         | `faker.lorem.words()` or domain-specific faker               |                                                                                              |
+| Numeric count/measure                    | `faker.number.int({ min, max })`                             |                                                                                              |
+| Boolean                                  | `faker.datatype.boolean()` or hardcoded sensible default     |                                                                                              |
+| Nested object                            | Call sibling builder                                         | `teamData: [buildUserTeamData(undefined, p)]`                                                |
+| Array of nested                          | `Array.from({ length: N }, () => buildX(undefined, p))`      |                                                                                              |
+| System/page names                        | `fakeSystem()`, `fakePageForSystem()`, `fakeSystemAndPage()` |                                                                                              |
+| Timestamp pair (start/end)               | `fakeTimestampPair()`                                        | Returns `{ start, end, durationSeconds }`                                                    |
 
 ### buildMany signature
 
@@ -126,9 +127,7 @@ export function buildMany(
   pool?: Pool,
 ): MyType[] {
   const p = pool ?? createPool();
-  return Array.from({ length: count }, (_, i) =>
-    build(typeof overrides === 'function' ? overrides(i) : overrides, p),
-  );
+  return Array.from({ length: count }, (_, i) => build(typeof overrides === 'function' ? overrides(i) : overrides, p));
 }
 ```
 
@@ -187,10 +186,17 @@ individual tests without needing scenario integration.
 ## Step 7: Verify
 
 1. Run `npx tsc --noEmit` — fix any type errors in the new file.
-2. Check for lint issues — especially `no-duplicate-imports` (merge type and
+2. Run `npx tsx scripts/AST/ast-complexity.ts <generated-file> --pretty`.
+   Every builder function must have cyclomatic complexity <= 10. If any
+   builder exceeds 10, decompose it before proceeding.
+3. Run `npx tsx scripts/AST/ast-type-safety.ts <generated-file> --pretty`.
+   Zero `as any` casts. Fixture builders should use `satisfies`, not
+   bare `as T` casts. Non-null assertions are acceptable only with a
+   comment explaining why the value is guaranteed non-null.
+4. Check for lint issues — especially `no-duplicate-imports` (merge type and
    value imports from the same module) and `no-unused-vars` (remove unused
    imports, or prefix intentionally unused params with `_`).
-3. Report the file path and whether verification passed.
+5. Report the file path and whether verification passed.
 
 ## What NOT to do
 

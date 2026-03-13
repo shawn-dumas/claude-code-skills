@@ -462,13 +462,23 @@ describe('myFunction', () => {
 ## Step 7: Verify
 
 1. Run `npx tsc --noEmit` — fix any type errors in the new spec file.
-2. Run `pnpm vitest run <path-to-new-spec>` — all tests must pass.
-3. If tests fail because the component needs providers or context that the
+2. Run `npx tsx scripts/AST/ast-complexity.ts <path-to-new-spec> --pretty`.
+   Every function must have cyclomatic complexity <= 10. Test setup
+   functions can be complex — if any exceed 10, decompose them before
+   proceeding.
+3. Run `npx tsx scripts/AST/ast-type-safety.ts <path-to-new-spec> --pretty`.
+   Zero `as any` casts — test mocks that use `as any` undermine type
+   safety (P6). Use `satisfies`, fixture `build()`, or
+   `as unknown as WrongType` with a comment for intentionally invalid data.
+   Non-null assertions are acceptable only with a comment explaining why
+   the value is guaranteed non-null.
+4. Run `pnpm vitest run <path-to-new-spec>` — all tests must pass.
+5. If tests fail because the component needs providers or context that the
    unit test does not supply:
    - If the component is DDAU (props only), the test is correct and the
      component has a hidden dependency — report it.
    - If the component is a container, switch to integration strategy.
-4. Run `/audit-react-test <path-to-new-spec>` mentally against the 10
+6. Run `/audit-react-test <path-to-new-spec>` mentally against the 10
    principles. Every principle should score clean. If not, fix before
    finishing.
 

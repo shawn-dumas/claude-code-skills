@@ -366,14 +366,22 @@ history of every command run in every session.
 1. Run `npx tsc --noEmit` on the new spec (it imports from `@/fixtures`
    which resolves via vitest aliases -- check if Playwright config also
    resolves these, and add a `tsconfig` path if needed).
-2. Run ONLY the new spec -- never the full suite:
+2. Run `npx tsx scripts/AST/ast-complexity.ts <new-spec-file> --pretty`.
+   Every function must have cyclomatic complexity <= 10. If any function
+   exceeds 10, decompose it before proceeding.
+3. Run `npx tsx scripts/AST/ast-type-safety.ts <new-spec-file> --pretty`.
+   Zero `as any` casts. Non-null assertions are acceptable only with a
+   comment explaining why the value is guaranteed non-null. Note:
+   Playwright's `page.evaluate()` return values sometimes require type
+   assertions -- use `as unknown as T` with a comment, not `as any`.
+4. Run ONLY the new spec -- never the full suite:
    `bash scripts/run-integration.sh spec integration/tests/<new-file>.spec.ts`
    Or target specific tests by name:
    `bash scripts/run-integration.sh grep "<test-name>"`
    All tests must pass. If the environment cannot run Playwright (no
    Firebase emulator, no dev server), STOP. Do not commit unverified
    test files. Report the environment issue and what is needed to run.
-3. Report: file path, test count, verification result (pass/fail with
+5. Report: file path, test count, verification result (pass/fail with
    counts, not "not run").
 
 ## What NOT to do

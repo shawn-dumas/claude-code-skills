@@ -358,6 +358,35 @@ Takes a non-React TypeScript file and rewrites it to comply with G1-G10. Splits 
 /audit-api-handler src/pages/api/users/user-data.ts
 ```
 
+### refactor-api-handler
+
+Takes an existing API route handler and rewrites it to comply with G1-G10 plus handler-specific rules (schema completeness, parse/process/respond structure, middleware composition, error envelope). Extracts pure business logic to a `.logic.ts` file, adds or completes Zod schemas in a co-located `.schema.ts` file, normalizes error handling to typed error classes, and reports mandatory before/after cyclomatic complexity scores.
+
+Run `audit-api-handler` first for a prioritized refactor checklist.
+
+```
+/refactor-api-handler src/pages/api/users/user-data.ts
+/refactor-api-handler src/pages/api/users/update.ts
+```
+
+### build-api-handler
+
+Generates a new Next.js BFF API route handler with co-located schema, middleware composition, and optional pure-core extraction. Produces the handler file, Zod schema file, optional business logic module, and unit test. Enforces G4 complexity limits (CC <= 10) and G5 parse-at-boundary with AST verification.
+
+```
+/build-api-handler /api/users/teams GET,POST List and create teams for an organization
+/build-api-handler /api/users/teams/[id] PUT Update a team by ID
+```
+
+### build-module
+
+Generates a new non-React TypeScript module (utility, transformer, validator, data processor) following G1-G10 principles. Surveys the codebase for duplicates and conventions, designs the public API surface, generates the module file with barrel export and test file, and verifies with `tsc`, AST complexity, AST type safety, and `vitest run`.
+
+```
+/build-module formatDuration -- format a number of seconds into human-readable duration strings
+/build-module rankOpportunities -- score and rank automation opportunities by estimated savings
+```
+
 ### audit-module-test
 
 **Read-only diagnostic.** Audits test files for non-React modules against the 10 contract-first testing principles adapted for utilities, server processors, and data transformers. Detects internal mocking, stale mocks, missing cleanup, type-unsafe mocks, and non-determinism. Produces a per-file scorecard and migration priority list.
@@ -488,6 +517,14 @@ Generates a new domain fixture file for the centralized test data system (`src/f
 
 ```
 /build-fixture team-utilization Per-user utilization rates with active/idle breakdowns
+```
+
+### build-ast-tool
+
+Builds a new AST analysis tool for `scripts/AST/`. Reads `scripts/AST/GAPS.md` to identify which gap to fill, defines types in `types.ts`, implements the tool with the standard `analyze/analyzeDirectory/extractObservations` exports, writes tests with positive and negative fixtures, and updates the registry.
+
+```
+/build-ast-tool hook-consumer-analysis Find all consumers of a specific hook by call-site AST matching
 ```
 
 ### migrate-page-to-ssr
@@ -697,17 +734,19 @@ step. Always run the minimum set of tests that covers the changed code:
 | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | A single spec file                                                                                          | `bash scripts/run-integration.sh spec integration/tests/<file>.spec.ts` |
 | Tests matching a name                                                                                       | `bash scripts/run-integration.sh grep "<pattern>"`                      |
-| CRUD specs (users, teams, assignments, url-classification, settings)                                        | `bash scripts/run-integration.sh crud`                                  |
+| CRUD specs (users+teams, assignments+url-classification+bpo+projects)                                       | `bash scripts/run-integration.sh crud`                                  |
 | Insight specs in batch A (systems + microworkflows, then analyzer + user-productivity with server restart)  | `bash scripts/run-integration.sh insights-a`                            |
 | Insight specs in batch B (relays, favorites, navigation, usage)                                             | `bash scripts/run-integration.sh insights-b`                            |
 | Insight specs in batch C (realtime, auth, team-productivity, system-latency, components, operational-hours) | `bash scripts/run-integration.sh insights-c`                            |
 | Cross-cutting change (mock handler, fixture system, POM, config)                                            | `bash scripts/run-integration.sh` (full suite, only when necessary)     |
 
 The chunked runner (`scripts/run-integration.sh`) restarts the Next.js
-server between chunks to prevent server degradation. Insights-A is split
-into two sub-chunks (A1/A2) with a server restart between them. Insights
-chunks run with parallel workers (3 normal, 2 in coverage mode); CRUD
-runs serial due to shared mock state. See the script header for full usage.
+server between chunks to prevent server degradation. CRUD is split into
+two sub-chunks (CRUD-1: users+teams, CRUD-2: assignments+url-classification+bpo+projects)
+with a server restart between them. Insights-A is split into three
+sub-chunks (A1/A2/A3) with server restarts between them. Insights chunks
+run with parallel workers (3 normal, 2 in coverage mode); CRUD runs
+serial due to shared mock state. See the script header for full usage.
 
 ## Orchestration Skills
 
@@ -865,11 +904,22 @@ code structure queries. Each skill's Step 0 lists the specific tools to
 run. See `AGENTS.md` for the full tool inventory and the AST-first
 policy.
 
-**AST-first policy.** When analyzing code structure, use the matching
-AST tool. Grep is reserved for documentation search, config file lookup,
-and ad-hoc symbol/string queries. If you need structural code analysis
-and no AST tool exists for it, build one following the patterns in
-`scripts/AST/`.
+**Tool hierarchy (strict).** Use the highest-tier tool that covers your
+query. Never use a lower-tier tool when a higher-tier tool handles the
+pattern.
+
+| Tier | Tool                               | Use for                                         | Examples                                                                                                         |
+| ---- | ---------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 1    | AST tools (`scripts/AST/ast-*.ts`) | Domains with purpose-built analyzers            | `ast-imports` for import graph, `ast-complexity` for cyclomatic complexity, `ast-type-safety` for cast detection |
+| 2    | `sg` (ast-grep)                    | Structural code patterns with no AST tool       | `sg -p 'createColumnHelper()' src/`, `sg -p 'useHookName($$$)' src/`                                             |
+| 3    | `rg` (ripgrep)                     | Fast text search when structure does not matter | Config values, string literals, non-code content                                                                 |
+| 4    | `grep`                             | Fallback only                                   | Piped output filtering, environments without rg                                                                  |
+
+**Gap-flagging.** When using `sg` because no AST tool covers the pattern,
+append an entry to `scripts/AST/GAPS.md`. One row per pattern class, not
+per invocation. Before reaching for `sg`, check GAPS.md -- if the pattern
+has a `filled` entry, use that AST tool instead. Use `/build-ast-tool` to
+fill gaps from the registry.
 
 ### Three-layer architecture
 

@@ -191,7 +191,8 @@ Grep for type/interface names that appear in 2+ files:
 
 ```bash
 # Find all exported type/interface declarations
-grep -rn "export \(type\|interface\) " src/ --include="*.ts" --include="*.tsx"
+npx tsx scripts/AST/ast-imports.ts src/ --pretty
+# Use EXPORT_DECLARATION observations to find duplicate type names across files
 ```
 
 Flag any type name that is defined in multiple files -- these are deduplication
@@ -209,10 +210,10 @@ accurate structured data.
 
 ### Unsound type guards
 
-Grep for user-defined type guards:
+Find user-defined type guards using `sg`:
 
 ```bash
-grep -rn "): .* is " src/ --include="*.ts" --include="*.tsx"
+sg -p '$_($$$): $_ is $_' src/
 ```
 
 For each type guard, check whether the guard body validates enough properties to

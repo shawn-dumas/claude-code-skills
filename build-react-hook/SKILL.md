@@ -113,6 +113,7 @@ Vitest globals (`describe`, `it`, `expect`, `vi`) are auto-imported.
 - Do NOT mock own utility functions the hook may import (P2). Let them run.
 
 **Cleanup (P10):**
+
 - The global `vitest.setup.ts` handles `afterEach(() => vi.clearAllMocks())`.
 - Add file-level cleanup ONLY for resources the global setup does not cover:
   - `vi.useFakeTimers()` → `afterEach(() => vi.useRealTimers())`
@@ -127,6 +128,7 @@ use `vi.useFakeTimers()` in `beforeEach` and `vi.useRealTimers()` in
 `afterEach`. Use `vi.advanceTimersByTime()` to control timer progression.
 
 **Do NOT generate:**
+
 - `// TODO:` markers. Write real, passing tests.
 - Tests asserting on internal state variables or effect execution order.
 - Snapshot tests.
@@ -155,9 +157,19 @@ Before defining any new type or interface inline, check first:
 
 ## Step 5: Verify
 
-Run `npx tsc --noEmit` scoped to the new files (or the whole project if scoping is
-not practical). If TypeScript errors appear, fix them before finishing. Run the new
-test file with `pnpm vitest run <path>`. Report the results in the summary.
+1. Run `pnpm tsc --noEmit` scoped to the new files (or the whole project if scoping
+   is not practical). If TypeScript errors appear, fix them before finishing.
+
+2. Run `npx tsx scripts/AST/ast-complexity.ts <generated-files> --pretty`.
+   Every function must have cyclomatic complexity <= 10. If any function
+   exceeds 10, decompose it before proceeding.
+
+3. Run `npx tsx scripts/AST/ast-type-safety.ts <generated-files> --pretty`.
+   Zero `as any` casts. Zero bare `as T` at trust boundaries (use Zod
+   `.parse()` instead). Non-null assertions are acceptable only with a
+   comment explaining why the value is guaranteed non-null.
+
+4. Run the new test file with `pnpm vitest run <path>`. All tests must pass.
 
 After generating, output a short summary of what was created (file paths) and
 whether type-checking and tests passed.

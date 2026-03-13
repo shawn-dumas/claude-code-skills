@@ -33,22 +33,26 @@ Before proceeding, verify:
    require the `jira_agile` toolset in the MCP server config
    (`TOOLSETS=default,jira_agile`). If the MCP is not configured, stop
    and tell the user:
+
    > The Atlassian MCP server is not configured. Add it to your
    > `.claude/settings.json` before running this skill. See the
    > Atlassian MCP setup docs for configuration.
 
 2. **orchestrate-poc artifacts exist.** Look for:
+
    - `$PLANS_DIR/poc-<slug>.md` (the PRD)
    - `$PLANS_DIR/poc-<slug>-cleanup.md` (the cleanup file)
    - Optionally: `$PLANS_DIR/poc-<slug>-bff-handoff.md`
    - Optionally: `$PLANS_DIR/poc-<slug>-escalation.md`
 
    If the PRD does not exist, stop and tell the user:
+
    > No PRD found at `$PLANS_DIR/poc-<slug>.md`. Run `orchestrate-poc`
    > first to generate the planning artifacts.
 
 3. **The PRD status is not `Draft`.** If the PRD still says
    `Status: Draft`, warn the user:
+
    > The PRD is still in Draft status. Are you sure you want to
    > generate handoff tickets before finalizing it?
 
@@ -62,19 +66,19 @@ Before proceeding, verify:
      "Epic", "Task"), not by numeric ID. The IDs below are for reference
      only (useful if debugging via direct API calls). -->
 
-| Setting | Value |
-|---------|-------|
-| Project key | `AV` |
-| Board | `Alpha Board` (id: `2`) |
-| Epic issue type ID | `10000` |
-| Story issue type ID | `10009` |
-| Task issue type ID | `10002` |
-| Sub-task issue type ID | `10003` |
-| Component: Frontend | `Frontend` |
-| Component: Backend/BFF | `Backend` |
-| Component: Infrastructure | `Infrastructure` |
-| Component: QE | `QE` |
-| Default sprint | `current` |
+| Setting                   | Value                   |
+| ------------------------- | ----------------------- |
+| Project key               | `AV`                    |
+| Board                     | `Alpha Board` (id: `2`) |
+| Epic issue type ID        | `10000`                 |
+| Story issue type ID       | `10009`                 |
+| Task issue type ID        | `10002`                 |
+| Sub-task issue type ID    | `10003`                 |
+| Component: Frontend       | `Frontend`              |
+| Component: Backend/BFF    | `Backend`               |
+| Component: Infrastructure | `Infrastructure`        |
+| Component: QE             | `QE`                    |
+| Default sprint            | `current`               |
 
 ---
 
@@ -90,6 +94,7 @@ $PLANS_DIR/poc-<slug>-escalation.md   -- Escalation report (optional)
 ```
 
 Extract from the PRD:
+
 - Feature name
 - Feature slug
 - Feature flag name
@@ -102,17 +107,20 @@ Extract from the PRD:
 - Out of scope items
 
 Extract from the BFF handoff (if present):
+
 - Endpoint list with implementation paths (new vs extend existing)
 - Schema file locations
 - Mock route locations
 - Data source details
 
 Extract from the cleanup file:
+
 - Count of remaining items
 - Any `[NEEDS ENG REVIEW]` items
 - Any `INTEGRATION VERIFY` items
 
 Extract from the escalation report (if present):
+
 - Escalation reason
 - Items requiring engineering review
 - Items a cleanup prompt could handle
@@ -123,20 +131,21 @@ Extract from the escalation report (if present):
 
 The standard handoff produces 8 ticket types. Some are conditional.
 
-| # | Ticket | Type | Always? | Condition |
-|---|--------|------|---------|-----------|
-| 1 | Feature epic | Epic | Yes | -- |
-| 2 | Eng code review | Task | Yes | -- |
-| 3 | QE test plan + automation | Story | Yes | -- |
-| 4 | BFF migration | Story | No | BFF handoff doc exists |
-| 5 | Database / schema changes | Task | No | BFF handoff indicates DB changes |
-| 6 | Deploy to dev | Task | Yes | -- |
-| 7 | Deploy to staging | Task | Yes | -- |
-| 8 | Deploy to production | Task | Yes | -- |
-| 9 | Feature flag cleanup | Task | Yes | -- |
-| 10 | PoC environment decommission | Task | Yes | -- |
+| #   | Ticket                       | Type  | Always? | Condition                        |
+| --- | ---------------------------- | ----- | ------- | -------------------------------- |
+| 1   | Feature epic                 | Epic  | Yes     | --                               |
+| 2   | Eng code review              | Task  | Yes     | --                               |
+| 3   | QE test plan + automation    | Story | Yes     | --                               |
+| 4   | BFF migration                | Story | No      | BFF handoff doc exists           |
+| 5   | Database / schema changes    | Task  | No      | BFF handoff indicates DB changes |
+| 6   | Deploy to dev                | Task  | Yes     | --                               |
+| 7   | Deploy to staging            | Task  | Yes     | --                               |
+| 8   | Deploy to production         | Task  | Yes     | --                               |
+| 9   | Feature flag cleanup         | Task  | Yes     | --                               |
+| 10  | PoC environment decommission | Task  | Yes     | --                               |
 
 Additional tickets may be generated from:
+
 - Escalation report items tagged `[NEEDS ENG REVIEW]`
 - Cleanup items that require human judgment
 - BFF handoff endpoints (one sub-task per endpoint if multiple)
@@ -535,7 +544,7 @@ least one release cycle, remove the feature flag and all gating code.
 
 ## Engineering Notes
 - Feature flag name: <from PRD>
-- Files that reference the flag: <list from grep>
+- Files that reference the flag: <list from `ast-feature-flags` FLAG_READ observations>
 - This ticket should not be started until the feature has been in
   production for at least 2 weeks with no issues
 
@@ -663,9 +672,9 @@ For each ticket:
    - `additional_fields`: JSON string with remaining fields:
      ```json
      {
-       "priority": {"name": "High"},
+       "priority": { "name": "High" },
        "labels": ["poc-handoff", "<feature-slug>"],
-       "parent": {"key": "<epic-key>"}
+       "parent": { "key": "<epic-key>" }
      }
      ```
      For the epic itself, omit `parent`. For child tickets, set
@@ -694,6 +703,7 @@ Total tickets: N
 ## Step 6: Update the PRD
 
 After creating tickets, update the PRD file:
+
 - Add the epic key to the PRD header
 - Add a "Handoff Tickets" section listing all created ticket keys
 - Update PRD status from `Draft` to `Handoff`
@@ -717,12 +727,12 @@ From the commit messages, extract `Phase` and `Components` trailers.
 Aggregate into a table:
 
 ```markdown
-| Phase | Commits | Components |
-|-------|---------|------------|
-| 1-types | N | types, schemas, feature-flags |
-| 2-fixtures | N | fixtures |
-| ... | ... | ... |
-| iteration | N | container, components |
+| Phase      | Commits | Components                    |
+| ---------- | ------- | ----------------------------- |
+| 1-types    | N       | types, schemas, feature-flags |
+| 2-fixtures | N       | fixtures                      |
+| ...        | ...     | ...                           |
+| iteration  | N       | container, components         |
 ```
 
 If commits do not have trailers (pre-protocol commits), group them as

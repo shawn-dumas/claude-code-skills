@@ -60,7 +60,7 @@ Read the target file. Then read:
 
 - The context definition (createContext call, type interface)
 - Every hook and utility the provider imports
-- Every consumer of the context (grep for the context hook name across the codebase)
+- Every consumer of the context (use `sg -p 'useContextHookName($$$)' src/` or `ast-imports` STATIC_IMPORT observations)
 - Any standalone service hooks that already exist for this domain
 
 Count the fields in the context interface. List every consumer and which fields it
@@ -227,8 +227,8 @@ Apply all fixes. Follow these rules:
   a cleanup registration pattern. The provider does not watch auth state.
 
   The pattern works as follows. First, check if a cleanup registry already exists
-  in the codebase (grep for `registerCleanup`, `useCleanupRegistry`, or a
-  `cleanupRegistry` module). If one exists, use it. If none exists, create a minimal
+  in the codebase (`sg -p 'registerCleanup($$$)' src/` or
+  `sg -p 'useCleanupRegistry($$$)' src/`). If one exists, use it. If none exists, create a minimal
   one:
 
   ```ts

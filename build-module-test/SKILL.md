@@ -345,10 +345,20 @@ describe('buildSystemsOverviewFast', () => {
 ## Step 7: Verify
 
 1. Run `npx tsc --noEmit` -- fix any type errors in the new spec file.
-2. Run `pnpm vitest run <path-to-new-spec>` -- all tests must pass.
-3. If tests fail because the module has hidden dependencies not visible from
+2. Run `npx tsx scripts/AST/ast-complexity.ts <path-to-new-spec> --pretty`.
+   Every function must have cyclomatic complexity <= 10. Test setup
+   functions can be complex -- if any exceed 10, decompose them before
+   proceeding.
+3. Run `npx tsx scripts/AST/ast-type-safety.ts <path-to-new-spec> --pretty`.
+   Zero `as any` casts -- test mocks that use `as any` undermine type
+   safety (P6). Use `satisfies`, fixture `build()`, or
+   `as unknown as WrongType` with a comment for intentionally invalid data.
+   Non-null assertions are acceptable only with a comment explaining why
+   the value is guaranteed non-null.
+4. Run `pnpm vitest run <path-to-new-spec>` -- all tests must pass.
+5. If tests fail because the module has hidden dependencies not visible from
    the type signature, document them as production-code violations (G2).
-4. Mentally audit against the 10 principles. Every principle should score clean.
+6. Mentally audit against the 10 principles. Every principle should score clean.
 
 Report: file path, test count, pass/fail, and whether any principle violations
 remain.

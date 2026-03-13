@@ -54,8 +54,8 @@ Use side effect observations for G6 (impure code mixed with transformation):
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read every file it imports -- other local modules, types,
-utilities. Also find all consumers of this module (grep for its exports across the
-codebase). Build a map of what this module depends on and what depends on it.
+utilities. Also find all consumers of this module (use `ast-imports` STATIC_IMPORT
+observations from Step 0, or `sg -p 'exportedName' src/` for call-site matching). Build a map of what this module depends on and what depends on it.
 
 This map determines what changes are safe. If a function signature changes, every
 consumer must be updated.

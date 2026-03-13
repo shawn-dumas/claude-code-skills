@@ -26,6 +26,7 @@ directory (and `$PLANS_DIR/prompts/`) if it does not exist.
 ## Step 1: Parse the migration description
 
 Extract from the argument:
+
 - What is being migrated (pattern, library, architecture, test strategy)
 - What the target state looks like
 - Any scope constraints (specific directories, specific files)
@@ -38,8 +39,9 @@ Read `~/github/user-frontend/CLAUDE.md` for project conventions.
 
 Then build a complete inventory:
 
-1. **Find all instances of the old pattern.** Use grep/glob to locate
-   every file that uses the thing being migrated. Count them.
+1. **Find all instances of the old pattern.** Use AST tools or `sg`
+   (ast-grep) to locate every file that uses the thing being migrated.
+   Fall back to `rg` only for non-code patterns. Count them.
 
 2. **Classify instances by complexity.** Some migrations are mechanical
    (find-and-replace). Others require understanding context (e.g.,
@@ -98,8 +100,10 @@ Create `$PLANS_DIR/<migration-name>.md` with:
 <description of the old pattern>
 
 \`\`\`bash
-# How to find remaining instances
-<grep command>
+
+# How to find remaining instances (use AST tool or sg, not grep)
+
+<sg or AST tool command>
 # Current count: <N>
 \`\`\`
 
@@ -108,44 +112,47 @@ Create `$PLANS_DIR/<migration-name>.md` with:
 <description of the new pattern>
 
 \`\`\`bash
+
 # After migration, the above grep should return:
+
 # <0 hits | only-in-specific-exempt-files>
+
 \`\`\`
 
 ## Inventory
 
-| # | File | Domain | Complexity | Prompt | Status |
-|---|------|--------|-----------|--------|--------|
-| 1 | <path> | <domain> | mechanical | 01 | pending |
-| 2 | <path> | <domain> | contextual | 02 | pending |
-| ... | | | | | |
+| #   | File   | Domain   | Complexity | Prompt | Status  |
+| --- | ------ | -------- | ---------- | ------ | ------- |
+| 1   | <path> | <domain> | mechanical | 01     | pending |
+| 2   | <path> | <domain> | contextual | 02     | pending |
+| ... |        |          |            |        |         |
 
 ## Migration Phases
 
-| # | Phase | Prompt | What | Files | Status |
-|---|-------|--------|------|-------|--------|
-| 1 | Infrastructure | <name> | <create new utility/pattern> | <N> | pending |
-| 2 | Shared layer | <name> | <migrate shared code> | <N> | pending |
-| 3 | Domain: <name> | <name> | <migrate domain-specific code> | <N> | pending |
-| 4 | Domain: <name> | <name> | <migrate domain-specific code> | <N> | pending |
-| 5 | Cleanup | <name> | <delete old pattern, verify zero remaining> | <N> | pending |
+| #   | Phase          | Prompt | What                                        | Files | Status  |
+| --- | -------------- | ------ | ------------------------------------------- | ----- | ------- |
+| 1   | Infrastructure | <name> | <create new utility/pattern>                | <N>   | pending |
+| 2   | Shared layer   | <name> | <migrate shared code>                       | <N>   | pending |
+| 3   | Domain: <name> | <name> | <migrate domain-specific code>              | <N>   | pending |
+| 4   | Domain: <name> | <name> | <migrate domain-specific code>              | <N>   | pending |
+| 5   | Cleanup        | <name> | <delete old pattern, verify zero remaining> | <N>   | pending |
 
 ## Dependency Graph
 
 \`\`\`
 Phase 1 (infrastructure)
-     |
-     v
+|
+v
 Phase 2 (shared layer)
-     |
-     +---+---+---+
-     |   |   |   |
-     v   v   v   v
-Phase 3  4   5   6  (domains -- independent, can run in any order)
-     |   |   |   |
-     +---+---+---+
-         |
-         v
+|
++---+---+---+
+| | | |
+v v v v
+Phase 3 4 5 6 (domains -- independent, can run in any order)
+| | | |
++---+---+---+
+|
+v
 Phase 7 (cleanup + deletion)
 \`\`\`
 
@@ -153,10 +160,10 @@ Phase 7 (cleanup + deletion)
 
 <if integration scope is per-prompt or final-only, include this table>
 
-| # | Agent Ran PW? | Orchestrator Ran PW? | Results Match? | PASS/FAIL |
-|---|---------------|----------------------|----------------|-----------|
-| 1 | | | | |
-| 2 | | | | |
+| #   | Agent Ran PW? | Orchestrator Ran PW? | Results Match? | PASS/FAIL |
+| --- | ------------- | -------------------- | -------------- | --------- |
+| 1   |               |                      |                |           |
+| 2   |               |                      |                |           |
 ```
 
 ### Phase ordering rules
@@ -204,20 +211,24 @@ After this prompt, <specific measurable outcome>.
 ## Current State
 
 \`\`\`bash
-# Files to migrate in this prompt:
-<grep command scoped to this domain>
+
+# Files to migrate in this prompt (use AST tool or sg, not grep):
+
+<sg or AST tool command scoped to this domain>
 # Currently: <N hits>
 \`\`\`
 
 ## Steps
 
 ### Step 1: <title>
+
 <file path> -- <what to change>
 
 <specific instructions: what the old code looks like, what the new code
 should look like, what to watch out for>
 
 ### Step 2: <title>
+
 ...
 
 ## Implementation Rules
@@ -232,6 +243,7 @@ should look like, what to watch out for>
   path changes)
 
 ## Commit Strategy
+
 <one commit per logical group -- e.g., one commit per sub-domain>
 
 ## Verification
@@ -257,23 +269,33 @@ pnpm test:integration
 Prompt-specific checks:
 
 \`\`\`bash
+
 # Old pattern should be gone from this domain
+
 <grep for old pattern scoped to domain> | wc -l
+
 # Target: 0
 
 # New pattern should be present
+
 <grep for new pattern scoped to domain> | wc -l
+
 # Target: <N>
 
 # Global remaining count
+
 <grep for old pattern across entire src/> | wc -l
+
 # Target: <N remaining after this prompt>
+
 \`\`\`
 
 ## Reconciliation
+
 <standard reconciliation block with migration-specific fields>
 
 ### Plan File Updates
+
 - $PLANS_DIR/<migration-name>.md (update file/phase status, remaining count)
 - $PLANS_DIR/<migration-name>-cleanup.md (append)
 ```
@@ -302,12 +324,14 @@ be addressed.
 ## Documented Exemptions
 
 Files where the old pattern is intentionally kept:
+
 - (none yet)
 ```
 
 ## Step 7: Present the plan to the user
 
 Show the user:
+
 - What is being migrated (old pattern -> new pattern)
 - Total instance count
 - Number of phases and prompts
@@ -347,49 +371,53 @@ For each prompt:
    paste the reconciliation output.
 
 4. **Verify independently.** Run in `~/github/user-frontend`:
-    ```
-    git log --oneline -10
-    pnpm tsc --noEmit
-    pnpm test --run 2>&1 | tail -5
-    pnpm build 2>&1 | tail -5
-    npx eslint . --max-warnings 0 2>&1 | tail -3
-    ```
-    When integration scope is `per-prompt`, also run:
-    ```
-    pnpm test:integration 2>&1 | tail -5
-    ```
-    Plus prompt-specific verification greps. Pay special attention to
-    the remaining-instance counts.
 
-    **Independent verification rule.** When integration scope is
-    `per-prompt` or `final-only`, the orchestrator independently runs
-    the same integration tests the work agent was asked to run. Do not
-    trust the agent's self-reported Playwright results. Run the specs
-    yourself, compare the output, and fill in the verification checklist
-    in the master plan. A prompt is not PASS until the orchestrator's
-    row is filled in.
+   ```
+   git log --oneline -10
+   pnpm tsc --noEmit
+   pnpm test --run 2>&1 | tail -5
+   pnpm build 2>&1 | tail -5
+   npx eslint . --max-warnings 0 2>&1 | tail -3
+   ```
+
+   When integration scope is `per-prompt`, also run:
+
+   ```
+   pnpm test:integration 2>&1 | tail -5
+   ```
+
+   Plus prompt-specific verification greps. Pay special attention to
+   the remaining-instance counts.
+
+   **Independent verification rule.** When integration scope is
+   `per-prompt` or `final-only`, the orchestrator independently runs
+   the same integration tests the work agent was asked to run. Do not
+   trust the agent's self-reported Playwright results. Run the specs
+   yourself, compare the output, and fill in the verification checklist
+   in the master plan. A prompt is not PASS until the orchestrator's
+   row is filled in.
 
 5. **Compare results** against the reconciliation.
 
 6. **Gate.** PASS: update master plan (remaining count, phase status),
-    move on. FAIL: list discrepancies.
+   move on. FAIL: list discrepancies.
 
-    **Cannot-run gate.** If integration scope is `per-prompt` and the
-    work agent's reconciliation reports integration tests as "not run"
-    or "cannot run," this is NOT a PASS. Mark the prompt PARTIAL. Before
-    dispatching the next prompt, either fix the environment (start the
-    Firebase emulator and dev/prod server) and re-verify, or insert a
-    verification-only prompt that runs the affected specs. Do not
-    proceed with unverified integration test changes.
+   **Cannot-run gate.** If integration scope is `per-prompt` and the
+   work agent's reconciliation reports integration tests as "not run"
+   or "cannot run," this is NOT a PASS. Mark the prompt PARTIAL. Before
+   dispatching the next prompt, either fix the environment (start the
+   Firebase emulator and dev/prod server) and re-verify, or insert a
+   verification-only prompt that runs the affected specs. Do not
+   proceed with unverified integration test changes.
 
-    For auto prompts: if the Task agent reports Playwright as "not run"
-    or "cannot run," escalate to manual immediately.
+   For auto prompts: if the Task agent reports Playwright as "not run"
+   or "cannot run," escalate to manual immediately.
 
 7. **Read the cleanup file** for new items and exemptions. If integration
-    tests could not be independently verified, append an integration
-    verification item: `- [ ] INTEGRATION VERIFY: Prompt N -- <specs
-    not verified, reason>`. The cleanup prompt must resolve all such
-    items before the plan is marked complete.
+   tests could not be independently verified, append an integration
+   verification item: `- [ ] INTEGRATION VERIFY: Prompt N -- <specs
+not verified, reason>`. The cleanup prompt must resolve all such
+   items before the plan is marked complete.
 
 ## Step 9: Generate the cleanup prompt
 
@@ -413,6 +441,7 @@ or `final-only`, run `pnpm test:integration` as a full regression check.
 Run the global remaining-instance grep one last time.
 
 Update the master plan with:
+
 - Final remaining count (should match exemptions)
 - HEAD sha
 - Test/build metrics (including integration test results if scope is not `none`)
