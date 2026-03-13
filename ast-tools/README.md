@@ -52,18 +52,19 @@ No silent guessing.
 
 ## Evolution
 
-The AST tools evolved through four eras:
+The AST tools evolved through five eras:
 
-| Era            | Approach                            | Classification Location                            | Performance   |
-| -------------- | ----------------------------------- | -------------------------------------------------- | ------------- |
-| Pre-AST        | grep + manual reading               | Human judgment in reports                          | 24s (teams/)  |
-| Original AST   | Tools with embedded classifications | `hookCalls[].classification: "service"`            | 78s (teams/)  |
-| Current        | Observation/assessment separation   | Observations in tools, assessments in interpreters | 68s (teams/)  |
-| Current+Cached | Current + content-addressed caching | Same as Current                                    | 9.4s (teams/) |
+| Era              | Approach                            | Classification Location                            | Performance   |
+| ---------------- | ----------------------------------- | -------------------------------------------------- | ------------- |
+| Pre-AST          | grep + manual reading               | Human judgment in reports                          | 24s (teams/)  |
+| Original AST     | Tools with embedded classifications | `hookCalls[].classification: "service"`            | 78s (teams/)  |
+| Current          | Observation/assessment separation   | Observations in tools, assessments in interpreters | 68s (teams/)  |
+| Current+Cached   | Current + file-level caching        | Same as Current                                    | 9.4s (teams/) |
+| Current+DirCache | Current + file + directory caching  | Same as Current                                    | 8s (teams/)   |
 
-**The bottom line:** Current+Cached delivers the richest data (confidence levels,
-rationale, traceability) at near-grep speeds. The cache provides 76x speedup for
-full codebase scans.
+**The bottom line:** Current+DirCache delivers the richest data (confidence levels,
+rationale, traceability) at near-grep speeds. The two-level cache provides 76x
+speedup for full codebase scans and 8.5x speedup for single-directory audits.
 
 ### Why This Matters
 
@@ -90,10 +91,14 @@ The current architecture emerged from limitations of the original AST approach:
 
 ## Caching
 
-All observation tools support content-addressed caching for massive speedups
-on repeated analysis.
+The tools support a two-level content-addressed cache for massive speedups:
+
+1. **File-level cache** (observation tools): Caches results per-file
+2. **Directory-level cache** (interpreters): Caches assessment results per-directory
 
 ### How It Works
+
+**File-level caching (observations):**
 
 ```
 File Content -> SHA256 Hash -> Cache Lookup
@@ -109,22 +114,52 @@ File Content -> SHA256 Hash -> Cache Lookup
                                      Return JSON
 ```
 
+**Directory-level caching (interpreters):**
+
+```
+Directory Files -> Hash each file -> Sort hashes -> SHA256(joined)
+                                                         |
+                                                   Dir Hash
+                                                         |
+                                              +----------+----------+
+                                              |                     |
+                                          Cache Hit             Cache Miss
+                                              |                     |
+                                      Return Assessments    Run Observations
+                                                                    |
+                                                            Run Interpreter
+                                                                    |
+                                                            Write to Cache
+                                                                    |
+                                                           Return Assessments
+```
+
 - Cache location: `.ast-cache/` (gitignored)
-- Key format: `{tool}-{contentHash}.json`
+- File key format: `{tool}-{contentHash}.json`
+- Directory key format: `{tool}-dir-{dirHash}.json`
 - Auto-invalidates when `ast-config.ts` changes (config hash in manifest)
+- Directory cache invalidates when any file in directory changes
 
 ### Usage
 
 ```bash
-# Warm cache for entire codebase (one-time, ~66s)
+# Warm observation cache for entire codebase (one-time, ~66s)
 npx tsx scripts/AST/ast-cache-warm.ts
 
 # Warm cache for specific directory
 npx tsx scripts/AST/ast-cache-warm.ts src/ui/page_blocks/teams/
 
-# Subsequent tool runs use cache automatically
+# Subsequent observation tool runs use file cache
 npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/teams/
 # Output: Cache: 12 hits, 0 misses
+
+# First interpreter run populates directory cache
+npx tsx scripts/AST/ast-interpret-hooks.ts src/ui/page_blocks/teams/
+# Output: Cache: 0 hits, 1 misses
+
+# Second interpreter run hits directory cache
+npx tsx scripts/AST/ast-interpret-hooks.ts src/ui/page_blocks/teams/
+# Output: Cache: 1 hits, 0 misses
 
 # Bypass cache and force re-analysis
 npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/teams/ --no-cache
@@ -132,22 +167,37 @@ npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/teams/ --no-cache
 
 ### Performance
 
-| Scenario             | Cold (no cache) | Warm (cached) | Speedup |
-| -------------------- | --------------- | ------------- | ------- |
-| teams/ (16 files)    | 11.9s           | 9.4s          | 1.3x    |
-| Full codebase (1431) | 66s             | 865ms         | 76x     |
+| Scenario             | Cold | File-cached | Dir-cached | Speedup |
+| -------------------- | ---- | ----------- | ---------- | ------- |
+| teams/ (16 files)    | 68s  | 9.4s        | 8s         | 8.5x    |
+| Full codebase (1431) | 66s  | 865ms       | 865ms      | 76x     |
+
+**Interpreter timing (teams/ directory):**
+
+| Interpreter             | Cold | Dir-cached | Speedup |
+| ----------------------- | ---- | ---------- | ------- |
+| ast-interpret-hooks     | 2.1s | 1.1s       | 1.9x    |
+| ast-interpret-effects   | 2.6s | 0.9s       | 2.9x    |
+| ast-interpret-ownership | 2.3s | 1.0s       | 2.3x    |
 
 **Why speedup varies:** ts-morph initialization is ~500ms fixed cost per tool
 invocation. For small directories, this overhead dominates. For large directories,
-analysis time dominates and caching provides dramatic speedup.
+analysis time dominates and caching provides dramatic speedup. Directory-level
+caching helps interpreters by avoiding re-analysis when files haven't changed.
 
 ### Cache Invalidation
 
 The cache auto-invalidates in these scenarios:
 
-1. **File content changes:** SHA256 hash differs
-2. **Config changes:** `ast-config.ts` modification time changes
+1. **File content changes:** SHA256 hash differs (invalidates file + directory caches)
+2. **Config changes:** `ast-config.ts` modification time changes (clears entire cache)
 3. **Manual clear:** `rm -rf .ast-cache/`
+
+### Cache Storage
+
+- Location: `.ast-cache/` (gitignored)
+- Size: ~2.8 MB for full codebase (6491 cached results)
+- Format: JSON files with deterministic naming
 
 ## Tool Inventory
 
