@@ -159,7 +159,7 @@ interface Assessment {
     line: number;
     symbol?: string; // Function/component name
   };
-  confidence: "high" | "medium" | "low";
+  confidence: 'high' | 'medium' | 'low';
   rationale: string[]; // Human-readable reasons
   basedOn: ObservationRef[]; // Links to source observations
   isCandidate: boolean; // Flagged for DDAU review
@@ -192,14 +192,14 @@ Example assessment from `ast-interpret-hooks`:
 Each tool exports an `analyze*` function for use in other tools or scripts:
 
 ```typescript
-import { analyzeReactFile } from "./ast-react-inventory";
-import { interpretHooks } from "./ast-interpret-hooks";
+import { analyzeReactFile } from './ast-react-inventory';
+import { interpretHooks } from './ast-interpret-hooks';
 
-const inventory = analyzeReactFile("src/components/MyComponent.tsx");
+const inventory = analyzeReactFile('src/components/MyComponent.tsx');
 const assessments = interpretHooks(inventory.hookObservations);
 
 for (const a of assessments.assessments) {
-  if (a.kind === "LIKELY_SERVICE_HOOK" && a.isCandidate) {
+  if (a.kind === 'LIKELY_SERVICE_HOOK' && a.isCandidate) {
     console.log(`Service hook at ${a.subject.file}:${a.subject.line}`);
   }
 }
@@ -234,14 +234,14 @@ To classify a new hook, add it to the appropriate set in `ast-config.ts`:
 ```typescript
 // For ambient/utility hooks allowed anywhere:
 ambientLeafHooks: new Set([
-  "useBreakpoints",
-  "useMyNewUtilityHook", // Add here
+  'useBreakpoints',
+  'useMyNewUtilityHook', // Add here
 ]);
 
 // For TanStack Query hooks:
 tanstackQueryHooks: new Set([
-  "useQuery",
-  "useMyCustomQueryHook", // Add here
+  'useQuery',
+  'useMyCustomQueryHook', // Add here
 ]);
 ```
 
@@ -294,12 +294,10 @@ if (isDirectRun) {
 
 ```typescript
 // ast-interpret-my-thing.ts
-import { astConfig } from "./ast-config";
-import type { MyObservation, MyAssessment, AssessmentResult } from "./types";
+import { astConfig } from './ast-config';
+import type { MyObservation, MyAssessment, AssessmentResult } from './types';
 
-export function interpretMyThing(
-  observations: readonly MyObservation[],
-): AssessmentResult<MyAssessment> {
+export function interpretMyThing(observations: readonly MyObservation[]): AssessmentResult<MyAssessment> {
   const assessments: MyAssessment[] = [];
 
   for (const obs of observations) {
@@ -312,7 +310,7 @@ export function interpretMyThing(
       confidence: result.confidence,
       rationale: result.rationale,
       basedOn: [{ kind: obs.kind, file: obs.file, line: obs.line }],
-      requiresManualReview: result.confidence === "low",
+      requiresManualReview: result.confidence === 'low',
     });
   }
 
@@ -326,7 +324,7 @@ Add observation and assessment types to `types.ts`:
 
 ```typescript
 export interface MyObservation {
-  kind: "MY_OBSERVATION";
+  kind: 'MY_OBSERVATION';
   file: string;
   line: number;
   evidence: {
@@ -335,7 +333,7 @@ export interface MyObservation {
   };
 }
 
-export type MyAssessmentKind = "GOOD_PATTERN" | "BAD_PATTERN" | "UNKNOWN";
+export type MyAssessmentKind = 'GOOD_PATTERN' | 'BAD_PATTERN' | 'UNKNOWN';
 
 export interface MyAssessment extends BaseAssessment {
   kind: MyAssessmentKind;
