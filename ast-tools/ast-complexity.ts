@@ -5,6 +5,7 @@ import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
 import { getFilesInDirectory } from './shared';
 import { astConfig } from './ast-config';
+import { cached, hasNoCacheFlag, getCacheStats } from './ast-cache';
 import type { ComplexityAnalysis, FunctionComplexity, ComplexityObservation, ObservationResult } from './types';
 
 // ---------------------------------------------------------------------------
@@ -342,13 +343,13 @@ export function analyzeComplexity(filePath: string): ComplexityAnalysis {
   };
 }
 
-export function analyzeComplexityDirectory(dirPath: string): ComplexityAnalysis[] {
+export function analyzeComplexityDirectory(dirPath: string, options: { noCache?: boolean } = {}): ComplexityAnalysis[] {
   const absolute = path.isAbsolute(dirPath) ? dirPath : path.resolve(PROJECT_ROOT, dirPath);
   const filePaths = getFilesInDirectory(absolute);
 
   const results: ComplexityAnalysis[] = [];
   for (const fp of filePaths) {
-    const analysis = analyzeComplexity(fp);
+    const analysis = cached('ast-complexity', fp, () => analyzeComplexity(fp), options);
     results.push(analysis);
   }
 
@@ -401,15 +402,18 @@ function main(): void {
 
   if (args.help) {
     process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-complexity.ts <path...> [--pretty]\n' +
+      'Usage: npx tsx scripts/AST/ast-complexity.ts <path...> [--pretty] [--no-cache]\n' +
         '\n' +
         'Analyze per-function cyclomatic complexity.\n' +
         '\n' +
-        '  <path...>  One or more .ts/.tsx files or directories to analyze\n' +
-        '  --pretty   Format JSON output with indentation\n',
+        '  <path...>   One or more .ts/.tsx files or directories to analyze\n' +
+        '  --pretty    Format JSON output with indentation\n' +
+        '  --no-cache  Bypass cache and recompute\n',
     );
     process.exit(0);
   }
+
+  const noCache = hasNoCacheFlag(process.argv);
 
   if (args.paths.length === 0) {
     fatal('No file or directory path provided. Use --help for usage.');
@@ -425,10 +429,14 @@ function main(): void {
   const stat = fs.statSync(absolute);
 
   if (stat.isDirectory()) {
-    const results = analyzeComplexityDirectory(targetPath);
+    const results = analyzeComplexityDirectory(targetPath, { noCache });
     output(results, args.pretty);
+    const stats = getCacheStats();
+    if (stats.hits > 0 || stats.misses > 0) {
+      process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
+    }
   } else {
-    const result = analyzeComplexity(targetPath);
+    const result = cached('ast-complexity', absolute, () => analyzeComplexity(targetPath), { noCache });
     output(result, args.pretty);
   }
 }

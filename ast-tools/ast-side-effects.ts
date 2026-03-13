@@ -6,6 +6,7 @@ import { parseArgs, output, fatal } from './cli';
 import { getFilesInDirectory, truncateText, getContainingFunctionName } from './shared';
 import type { SideEffectsAnalysis, SideEffectInstance, SideEffectType, SideEffectObservation } from './types';
 import { astConfig } from './ast-config';
+import { cached, hasNoCacheFlag, getCacheStats } from './ast-cache';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -379,13 +380,16 @@ export function analyzeSideEffects(filePath: string): SideEffectsAnalysis {
   };
 }
 
-export function analyzeSideEffectsDirectory(dirPath: string): SideEffectsAnalysis[] {
+export function analyzeSideEffectsDirectory(
+  dirPath: string,
+  options: { noCache?: boolean } = {},
+): SideEffectsAnalysis[] {
   const absolute = path.isAbsolute(dirPath) ? dirPath : path.resolve(PROJECT_ROOT, dirPath);
   const filePaths = getFilesInDirectory(absolute);
 
   const results: SideEffectsAnalysis[] = [];
   for (const fp of filePaths) {
-    const analysis = analyzeSideEffects(fp);
+    const analysis = cached('side-effects', fp, () => analyzeSideEffects(fp), options);
     if (analysis.sideEffects.length > 0) {
       results.push(analysis);
     }
@@ -403,15 +407,17 @@ export function analyzeSideEffectsDirectory(dirPath: string): SideEffectsAnalysi
 
 function main(): void {
   const args = parseArgs(process.argv);
+  const noCache = hasNoCacheFlag(process.argv);
 
   if (args.help) {
     process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-side-effects.ts <path...> [--pretty]\n' +
+      'Usage: npx tsx scripts/AST/ast-side-effects.ts <path...> [--pretty] [--no-cache]\n' +
         '\n' +
         'Analyze side-effect calls (console, toast, timers, posthog, window mutations).\n' +
         '\n' +
-        '  <path...>  One or more .ts/.tsx files or directories to analyze\n' +
-        '  --pretty   Format JSON output with indentation\n',
+        '  <path...>   One or more .ts/.tsx files or directories to analyze\n' +
+        '  --pretty    Format JSON output with indentation\n' +
+        '  --no-cache  Bypass cache and recompute (also refreshes cache)\n',
     );
     process.exit(0);
   }
@@ -430,11 +436,17 @@ function main(): void {
   const stat = fs.statSync(absolute);
 
   if (stat.isDirectory()) {
-    const results = analyzeSideEffectsDirectory(targetPath);
+    const results = analyzeSideEffectsDirectory(targetPath, { noCache });
     output(results, args.pretty);
+
+    const stats = getCacheStats();
+    process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
   } else {
-    const result = analyzeSideEffects(targetPath);
+    const result = cached('side-effects', absolute, () => analyzeSideEffects(absolute), { noCache });
     output(result, args.pretty);
+
+    const stats = getCacheStats();
+    process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
   }
 }
 

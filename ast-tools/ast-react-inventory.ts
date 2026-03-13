@@ -9,9 +9,10 @@ import {
   Node,
 } from 'ts-morph';
 import path from 'path';
+import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, output, fatal } from './cli';
-import { getBody, detectComponents } from './shared';
+import { getBody, detectComponents, getFilesInDirectory } from './shared';
 import type {
   ReactInventory,
   ComponentInfo,
@@ -23,6 +24,7 @@ import type {
   ComponentObservation,
 } from './types';
 import { astConfig } from './ast-config';
+import { cached, hasNoCacheFlag, getCacheStats } from './ast-cache';
 
 // ---------------------------------------------------------------------------
 // Import resolution (lightweight, file-scoped)
@@ -1129,35 +1131,68 @@ export function analyzeReactFile(filePath: string): ReactInventory {
   };
 }
 
+export function analyzeReactFileDirectory(dirPath: string, options: { noCache?: boolean } = {}): ReactInventory[] {
+  const absolute = path.isAbsolute(dirPath) ? dirPath : path.resolve(PROJECT_ROOT, dirPath);
+  const filePaths = getFilesInDirectory(absolute);
+
+  const results: ReactInventory[] = [];
+  for (const fp of filePaths) {
+    const analysis = cached('react-inventory', fp, () => analyzeReactFile(fp), options);
+    // Include files with any components or hook definitions
+    if (analysis.components.length > 0 || analysis.hookDefinitions.length > 0) {
+      results.push(analysis);
+    }
+  }
+
+  return results;
+}
+
 // ---------------------------------------------------------------------------
 // CLI entry point
 // ---------------------------------------------------------------------------
 
 function main(): void {
   const args = parseArgs(process.argv);
+  const noCache = hasNoCacheFlag(process.argv);
 
   if (args.help) {
     process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-react-inventory.ts <file...> [--pretty]\n' +
+      'Usage: npx tsx scripts/AST/ast-react-inventory.ts <path...> [--pretty] [--no-cache]\n' +
         '\n' +
         'Analyze React components, hooks, useEffects, and props.\n' +
         '\n' +
-        '  <file...>  One or more .tsx/.ts files to analyze\n' +
-        '  --pretty   Format JSON output with indentation\n',
+        '  <path...>   One or more .tsx/.ts files or directories to analyze\n' +
+        '  --pretty    Format JSON output with indentation\n' +
+        '  --no-cache  Bypass cache and recompute (also refreshes cache)\n',
     );
     process.exit(0);
   }
 
   if (args.paths.length === 0) {
-    fatal('No file path provided. Use --help for usage.');
+    fatal('No file or directory path provided. Use --help for usage.');
   }
 
-  const results: ReactInventory[] = args.paths.map(p => analyzeReactFile(p));
+  const targetPath = args.paths[0];
+  const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
 
-  if (results.length === 1) {
-    output(results[0], args.pretty);
-  } else {
+  if (!fs.existsSync(absolute)) {
+    fatal(`Path does not exist: ${targetPath}`);
+  }
+
+  const stat = fs.statSync(absolute);
+
+  if (stat.isDirectory()) {
+    const results = analyzeReactFileDirectory(targetPath, { noCache });
     output(results, args.pretty);
+
+    const stats = getCacheStats();
+    process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
+  } else {
+    const result = cached('react-inventory', absolute, () => analyzeReactFile(absolute), { noCache });
+    output(result, args.pretty);
+
+    const stats = getCacheStats();
+    process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
   }
 }
 

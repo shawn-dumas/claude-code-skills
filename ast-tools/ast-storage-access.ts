@@ -6,6 +6,7 @@ import { parseArgs, output, fatal } from './cli';
 import { getFilesInDirectory, truncateText, getContainingFunctionName } from './shared';
 import type { StorageAccessAnalysis, StorageAccessInstance, StorageAccessType, StorageObservation } from './types';
 import { astConfig } from './ast-config';
+import { cached, hasNoCacheFlag, getCacheStats } from './ast-cache';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -382,13 +383,16 @@ export function analyzeStorageAccess(filePath: string): StorageAccessAnalysis {
   };
 }
 
-export function analyzeStorageAccessDirectory(dirPath: string): StorageAccessAnalysis[] {
+export function analyzeStorageAccessDirectory(
+  dirPath: string,
+  options: { noCache?: boolean } = {},
+): StorageAccessAnalysis[] {
   const absolute = path.isAbsolute(dirPath) ? dirPath : path.resolve(PROJECT_ROOT, dirPath);
   const filePaths = getFilesInDirectory(absolute);
 
   const results: StorageAccessAnalysis[] = [];
   for (const fp of filePaths) {
-    const analysis = analyzeStorageAccess(fp);
+    const analysis = cached('storage-access', fp, () => analyzeStorageAccess(fp), options);
     // Skip files with zero accesses
     if (analysis.accesses.length > 0) {
       results.push(analysis);
@@ -404,15 +408,17 @@ export function analyzeStorageAccessDirectory(dirPath: string): StorageAccessAna
 
 function main(): void {
   const args = parseArgs(process.argv);
+  const noCache = hasNoCacheFlag(process.argv);
 
   if (args.help) {
     process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-storage-access.ts <path...> [--pretty]\n' +
+      'Usage: npx tsx scripts/AST/ast-storage-access.ts <path...> [--pretty] [--no-cache]\n' +
         '\n' +
         'Inventory browser storage access patterns.\n' +
         '\n' +
-        '  <path...>  One or more .ts/.tsx files or directories to analyze\n' +
-        '  --pretty   Format JSON output with indentation\n',
+        '  <path...>   One or more .ts/.tsx files or directories to analyze\n' +
+        '  --pretty    Format JSON output with indentation\n' +
+        '  --no-cache  Bypass cache and recompute (also refreshes cache)\n',
     );
     process.exit(0);
   }
@@ -431,11 +437,17 @@ function main(): void {
   const stat = fs.statSync(absolute);
 
   if (stat.isDirectory()) {
-    const results = analyzeStorageAccessDirectory(targetPath);
+    const results = analyzeStorageAccessDirectory(targetPath, { noCache });
     output(results, args.pretty);
+
+    const stats = getCacheStats();
+    process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
   } else {
-    const result = analyzeStorageAccess(targetPath);
+    const result = cached('storage-access', absolute, () => analyzeStorageAccess(absolute), { noCache });
     output(result, args.pretty);
+
+    const stats = getCacheStats();
+    process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
   }
 }
 
