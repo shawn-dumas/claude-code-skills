@@ -240,12 +240,55 @@ over manual `innerText()` + `expect().toBe()`.
 2. Report: what was stale, what was fixed, what remains flaky, and
    the pass/fail result with counts (not "not run").
 
+## Step 6: Parity feedback loop
+
+If the parity tool (`ast-interpret-test-parity`) was run in Step 0 and it
+misclassifies a test (e.g., reports REDUCED when the port is actually PARITY
+because POM delegation inflated target weight, or reports NOT_PORTED when the
+test was restructured with a different mechanism), create a calibration fixture:
+
+1. Create a directory:
+   `scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+
+2. Copy the source e2e spec file with a "source-" prefix.
+   Copy the target integration spec file with a "target-" prefix.
+   If the target uses POM helpers, copy those with a "target-helper-"
+   prefix. These are snapshots of the actual files.
+
+3. Write a `manifest.json`:
+
+   ```json
+   {
+     "tool": "parity",
+     "created": "<ISO date>",
+     "source": "feedback",
+     "sourceFiles": ["source-<filename>.spec.ts"],
+     "targetFiles": ["target-<filename>.spec.ts"],
+     "helperFiles": ["target-helper-<filename>.ts"],
+     "expectedClassifications": [
+       {
+         "testName": "<test name that was misclassified>",
+         "expectedStatus": "PARITY",
+         "actualStatus": "REDUCED",
+         "notes": "<why the tool was wrong -- e.g., POM delegation>"
+       }
+     ],
+     "status": "pending"
+   }
+   ```
+
+   Classify ALL tests in the fixture pair, not just the misclassified one.
+
+4. Note in the summary output: "Created calibration fixture:
+   feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
+   parity when 3+ pending fixtures accumulate."
+
 ## What NOT to do
 
-- Do not change the auth flow (SSO providers, credentials) — those are
+- Do not change the auth flow (SSO providers, credentials) -- those are
   infrastructure concerns.
 - Do not add Playwright page objects unless the spec has 20+ unique
   locators. Helper functions are sufficient for most specs.
-- Do not remove `test.skip` annotations — those are intentional.
+- Do not remove `test.skip` annotations -- those are intentional.
 - Do not change `page.route()` mock data shapes -- those are the "fixture"
   for integration tests. If the shape is wrong, the production API changed.

@@ -364,16 +364,96 @@ Before defining any new type:
 
 1. **TypeScript:** Run `pnpm tsc --noEmit`. Fix any type errors in changed files.
 
-2. **Complexity (mandatory before/after):** Run `npx tsx scripts/AST/ast-complexity.ts <all-changed-files> --pretty`.
+2. **Intention matcher (post-tsc):** After tsc passes, run the intention matcher
+   to verify the refactor preserved the handler's behavioral signals. The matcher
+   is advisory, not blocking -- a low score triggers investigation, not automatic
+   rollback.
+
+   **`refactorType: 'api-handler'`**
+
+   a. Collect the file lists:
+      - **beforeFiles**: the handler file + schema file (if existed before)
+      - **afterFiles**: the handler file + schema file + any `.logic.ts` file
+
+   b. Run the intention matcher:
+
+      ```bash
+      npx tsx scripts/AST/ast-refactor-intent.ts \
+        --before <beforeFiles...> \
+        --after <afterFiles...> \
+        --pretty
+      ```
+
+   c. Run the interpreter:
+
+      ```bash
+      npx tsx scripts/AST/ast-interpret-refactor-intent.ts \
+        --signal-pair <output-from-step-2> \
+        --refactor-type api-handler \
+        --pretty
+      ```
+
+   d. Check the interpreter's exit code:
+      - **Exit 0** (score >= 90, zero ACCIDENTALLY_DROPPED): proceed.
+      - **Exit 1** (score >= 70, has ACCIDENTALLY_DROPPED): review the
+        pretty-printed output. List the dropped signals, assess whether each
+        is truly accidental. If all are explained (e.g., dead code removal),
+        proceed. If any are genuine drops, fix them before proceeding.
+      - **Exit 2** (score < 70): stop and investigate. Something went wrong.
+
+   e. If the intention matcher flags a signal as ACCIDENTALLY_DROPPED and
+      investigation confirms it was actually intentional (e.g., removing dead
+      code, cleaning up an unused side effect that the audit did not explicitly
+      flag), create a calibration fixture:
+
+      i. Create a directory:
+         `scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+
+      ii. Copy the before-file(s) with a "before-" prefix. Copy the
+          after-file(s) with an "after-" prefix. These are snapshots of the
+          actual code at this moment -- not references to live files.
+
+      iii. Write a `manifest.json`:
+
+           ```json
+           {
+             "tool": "intent",
+             "created": "<ISO date>",
+             "source": "feedback",
+             "refactorType": "api-handler",
+             "beforeFiles": ["before-<filename>"],
+             "afterFiles": ["after-<filename>"],
+             "expectedClassifications": [
+               {
+                 "kind": "<observation kind that was misclassified>",
+                 "functionContext": "<containing function name>",
+                 "expectedClassification": "INTENTIONALLY_REMOVED",
+                 "actualClassification": "ACCIDENTALLY_DROPPED",
+                 "notes": "<why this was actually intentional>"
+               }
+             ],
+             "status": "pending"
+           }
+           ```
+
+           Classify ALL signals in the fixture, not just the misclassified one.
+           The calibration skill needs the full picture to tune weights without
+           regressing other classifications.
+
+      iv. Note in the summary output: "Created calibration fixture:
+          feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
+          intent when 3+ pending fixtures accumulate."
+
+3. **Complexity (mandatory before/after):** Run `npx tsx scripts/AST/ast-complexity.ts <all-changed-files> --pretty`.
    Every function must have CC <= 10. Compare against the baseline recorded in Step 0.
 
-3. **Type safety:** Run `npx tsx scripts/AST/ast-type-safety.ts <all-changed-files> --pretty`.
+4. **Type safety:** Run `npx tsx scripts/AST/ast-type-safety.ts <all-changed-files> --pretty`.
    Zero `as any` casts. Zero bare `as T` casts at trust boundaries (use Zod `.parse()` instead).
 
-4. **Tests:** If existing unit or integration tests cover the handler, run them.
+5. **Tests:** If existing unit or integration tests cover the handler, run them.
    Report results. All tests must pass -- the refactoring is behavior-preserving.
 
-5. **Lint:** Run `npx eslint <all-changed-files> --max-warnings 0`. Zero errors,
+6. **Lint:** Run `npx eslint <all-changed-files> --max-warnings 0`. Zero errors,
    zero warnings.
 
 Report all results in the summary. A refactoring is not complete until tsc passes,
@@ -439,6 +519,25 @@ API route handler (<HTTP methods>, <auth level>)
 
 - No consumer changes required (HTTP contract preserved)
 - OR: <list of consumer files updated and why>
+
+### Files Changed
+
+```
+Before (read from HEAD):
+- <file1>
+- <file2>
+
+After (written/modified):
+- <file1> (modified)
+- <file3> (created)
+```
+
+### Intent preservation
+
+```
+Intent preservation: <score>/100
+  Preserved: <N> | Intentionally removed: <N> | Dropped: <N> | Added: <N>
+```
 
 ### Verification
 

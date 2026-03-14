@@ -16,7 +16,7 @@ skills or prompts and justifies a purpose-built analyzer.
 - The pattern is narrow (one-off query for a specific refactor) -- use `sg`
 - The pattern is non-structural (string literals, config values) -- use `rg`
 - An existing AST tool already covers the pattern (check GAPS.md for
-  `filled` entries and the tool inventory in `AGENTS.md`)
+  `filled` entries and the tool inventory in `CLAUDE.md`)
 
 ## Prerequisites
 
@@ -29,7 +29,9 @@ Read these files before starting:
 5. `scripts/AST/shared.ts` -- shared utilities (getFilesInDirectory, truncateText, getContainingFunctionName, detectComponents)
 6. `scripts/AST/ast-config.ts` -- repo conventions (hook lists, path patterns, thresholds)
 7. `scripts/AST/ast-cache.ts` -- caching infrastructure (cached, hasNoCacheFlag, getCacheStats)
-8. At least two existing tools for reference patterns:
+8. `scripts/AST/tool-registry.ts` -- tool registration (registerTool, getToolList)
+9. `scripts/AST/git-source.ts` -- git-based file content retrieval for before/after comparisons
+10. At least two existing tools for reference patterns:
    - `scripts/AST/ast-complexity.ts` -- simple observation-only tool
    - `scripts/AST/ast-imports.ts` -- tool with both observations and an interpreter
 
@@ -38,8 +40,8 @@ Read these files before starting:
 1. Read `scripts/AST/GAPS.md`. Identify the gap entry (or entries) this
    tool will fill.
 2. Confirm the pattern class has 3+ occurrences or is otherwise justified.
-3. Check the existing tool inventory -- make sure no existing tool already
-   covers this pattern. The tool inventory is in `AGENTS.md` under
+3.    Check the existing tool inventory -- make sure no existing tool already
+   covers this pattern. The tool inventory is in `CLAUDE.md` under
    "Tool inventory."
 4. Define the observation kind(s) this tool will emit. Each observation
    kind needs:
@@ -273,13 +275,25 @@ own judgment policies.
 1. **Update GAPS.md**: Change the status of the filled gap(s) from `open`
    to `filled (ast-<name>)`.
 
-2. **Update `AGENTS.md`**: Add the new tool to the "Tool inventory" table:
+2. **Register in `tool-registry.ts`**: Add the new tool to the registry so
+   it appears in tool listings and cache management:
+
+   ```ts
+   registerTool({
+     name: 'ast-<name>',
+     description: '<what it analyzes>',
+     observationKinds: ['MY_OBSERVATION_KIND'],
+     interpreter: 'ast-interpret-<name>', // or null for observation-only
+   });
+   ```
+
+3. **Update `CLAUDE.md`**: Add the new tool to the "Tool inventory" table:
 
    ```
    | `ast-<name>` | `OBSERVATION_KIND_1`, `OBSERVATION_KIND_2` | `ast-interpret-<name>` (or observation-only) |
    ```
 
-3. **Update skills README.md**: If the tool has an interpreter, add it to
+4. **Update skills README.md**: If the tool has an interpreter, add it to
    the tool list. If observation-only, note that.
 
 ## Step 7: Verify
@@ -312,7 +326,8 @@ All four commands must pass before the tool is complete.
 - [ ] Test file at `scripts/AST/__tests__/ast-<name>.spec.ts`
 - [ ] All tests pass
 - [ ] GAPS.md updated (status -> `filled`)
-- [ ] AGENTS.md tool inventory updated
+- [ ] `tool-registry.ts` registration added
+- [ ] CLAUDE.md tool inventory updated
 - [ ] Skills README.md updated (if interpreter added)
 - [ ] `pnpm tsc --noEmit` passes
 - [ ] Tool produces correct output on real codebase files

@@ -57,6 +57,22 @@ Then build a complete inventory:
    go in the same prompt. Cross-cutting migrations (shared utils,
    infrastructure) go first.
 
+6. **Check Playwright route intercepts.** If the migration changes API
+   response shapes (Zod schemas, response types, wire format), grep
+   `integration/tests/` for `page.route()` intercepts matching the
+   affected endpoint paths. These intercepts serve fixture data in the
+   current shape -- changing the response shape without updating the
+   intercepts will cause silent failures (Zod rejects the intercepted
+   data at runtime, not compile time). Count the intercepts and include
+   them in the inventory. Also check `integration/fixtures/` for fixture
+   builders that produce the old response shape.
+
+7. **Check mock route data sources.** If mock routes serve data from
+   `buildStandardScenario()`, note which scenario fields are affected.
+   Changing the scenario type has high blast radius (all mock route
+   consumers). Prefer inline mapping in the mock route over changing
+   the `StandardScenario` type.
+
 ## Step 3: Decide whether to orchestrate
 
 If the migration touches fewer than 5 files, all mechanical, do NOT
@@ -78,6 +94,16 @@ integration tests. Read the integration test scope rules in
   `final-only`.
 - If the migration is types-only, unit test infrastructure, or
   documentation, scope is `none`.
+
+**Response-shape migrations are a special case.** If the migration
+changes API response Zod schemas or wire format, `page.route()`
+intercepts in Playwright specs that serve fixture data for the affected
+endpoints need CODE CHANGES (not just a regression run). This is
+different from `final-only` scope -- the PW tests won't just fail,
+they'll fail because the test code is wrong, not because production
+code regressed. Add a dedicated Playwright prompt after all
+schema/handler changes complete. Record this as a separate scope line
+in the master plan header (e.g., `Playwright scope: dedicated prompt`).
 
 Record the scope in the master plan header. Reference it when generating
 prompt verification sections and the orchestrator verification loop.
@@ -292,7 +318,29 @@ Prompt-specific checks:
 
 ## Reconciliation
 
-<standard reconciliation block with migration-specific fields>
+\`\`\`
+=== RECONCILIATION: <NN-phase-name> ===
+HEAD: <git sha>
+Commits: <count> (<first_sha>..<last_sha>)
+tsc: <0 errors | N errors>
+Tests: <N specs, M passed, K todo>
+Build: <clean | failed>
+ESLint: <clean | N errors, M warnings>
+Integration: <N passed, M failed (Xm) | not run | skipped (scope: none)>
+
+Prompt-Specific:
+<verification results from the prompt's grep/check commands>
+<migration-specific counts: old pattern remaining, new pattern count>
+
+Behavioral Changes:
+<1-3 lines describing what changed in user-visible terms>
+
+Cleanup Items Added: <0 | N items>
+Subsequent Prompts Modified: <none | list>
+Deviations: <none | list>
+Work Left Undone: <none | list>
+=== END RECONCILIATION ===
+\`\`\`
 
 ### Plan File Updates
 

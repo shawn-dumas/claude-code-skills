@@ -499,5 +499,113 @@ is not practical). If TypeScript errors appear in files you touched, fix them be
 finishing. If existing tests cover the refactored component, run them with the
 project's test runner. Report the results in the summary.
 
-After rewriting, output a short summary of what changed, what files were created or
+### Step 5b: Intention matcher (post-verification)
+
+After tsc passes, run the intention matcher to verify the refactor preserved
+the component's behavioral signals. The matcher is advisory, not blocking --
+a low score triggers investigation, not automatic rollback.
+
+**`refactorType: 'component'`**
+
+1. Collect the file lists:
+   - **beforeFiles**: the original component file(s) as they existed before
+     the refactor (the files read in Step 1)
+   - **afterFiles**: all files created or modified in Step 4 (the component
+     file, any new container file, any extracted sub-component files)
+
+2. Run the intention matcher:
+
+   ```bash
+   npx tsx scripts/AST/ast-refactor-intent.ts \
+     --before <beforeFiles...> \
+     --after <afterFiles...> \
+     --pretty
+   ```
+
+3. Run the interpreter:
+
+   ```bash
+   npx tsx scripts/AST/ast-interpret-refactor-intent.ts \
+     --signal-pair <output-from-step-2> \
+     --refactor-type component \
+     --pretty
+   ```
+
+4. Check the interpreter's exit code:
+   - **Exit 0** (score >= 90, zero ACCIDENTALLY_DROPPED): proceed to summary.
+   - **Exit 1** (score >= 70, has ACCIDENTALLY_DROPPED): review the pretty-
+     printed output. List the dropped signals, assess whether each is truly
+     accidental. If all are explained (e.g., dead code removal), proceed.
+     If any are genuine drops, fix them before proceeding.
+   - **Exit 2** (score < 70): stop and investigate. Something went wrong.
+
+5. If the intention matcher flags a signal as ACCIDENTALLY_DROPPED and
+   investigation confirms it was actually intentional (e.g., removing dead
+   code, cleaning up an unused side effect that the audit did not explicitly
+   flag), create a calibration fixture:
+
+   a. Create a directory:
+      `scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+
+   b. Copy the before-file(s) into the directory with a "before-" prefix.
+      Copy the after-file(s) with an "after-" prefix. These are snapshots
+      of the actual code at this moment -- not references to live files.
+
+   c. Write a `manifest.json`:
+
+      ```json
+      {
+        "tool": "intent",
+        "created": "<ISO date>",
+        "source": "feedback",
+        "refactorType": "component",
+        "beforeFiles": ["before-<filename>"],
+        "afterFiles": ["after-<filename>"],
+        "expectedClassifications": [
+          {
+            "kind": "<observation kind that was misclassified>",
+            "functionContext": "<containing function name>",
+            "expectedClassification": "INTENTIONALLY_REMOVED",
+            "actualClassification": "ACCIDENTALLY_DROPPED",
+            "notes": "<why this was actually intentional>"
+          }
+        ],
+        "status": "pending"
+      }
+      ```
+
+      Classify ALL signals in the fixture, not just the misclassified one.
+      The calibration skill needs the full picture to tune weights without
+      regressing other classifications.
+
+   d. Note in the summary output: "Created calibration fixture:
+      feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
+      intent when 3+ pending fixtures accumulate."
+
+## Step 6: Summary
+
+Output a short summary of what changed, what files were created or
 modified, and whether type-checking and tests passed.
+
+### Files Changed
+
+```
+Before (read from HEAD):
+- <file1>
+- <file2>
+
+After (written/modified):
+- <file1> (modified)
+- <file3> (created)
+- <file4> (created)
+```
+
+### Intent preservation
+
+```
+Intent preservation: <score>/100
+  Preserved: <N> | Intentionally removed: <N> | Dropped: <N> | Added: <N>
+```
+
+If any ACCIDENTALLY_DROPPED signals exist, list them with the `!!` marker
+from the interpreter's pretty-print.

@@ -374,14 +374,67 @@ history of every command run in every session.
    comment explaining why the value is guaranteed non-null. Note:
    Playwright's `page.evaluate()` return values sometimes require type
    assertions -- use `as unknown as T` with a comment, not `as any`.
-4. Run ONLY the new spec -- never the full suite:
+4. **Parity comparison (post-generation validation).** If the new spec was
+   generated from an existing e2e spec (porting from the QA repo), run the
+   parity interpreter to verify structural coverage:
+
+   ```bash
+   npx tsx scripts/AST/ast-test-parity.ts <source-e2e-spec> --pretty
+   npx tsx scripts/AST/ast-test-parity.ts <new-integration-spec> --pretty
+   npx tsx scripts/AST/ast-interpret-test-parity.ts \
+     --source <source-e2e-spec> \
+     --target <new-integration-spec> \
+     --pretty
+   ```
+
+   Review the parity report. Tests classified as NOT_PORTED or REDUCED
+   should be investigated -- either add the missing coverage or document
+   why the gap is acceptable. If the parity tool misclassifies a test,
+   create a calibration fixture:
+
+   a. Create a directory:
+      `scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+
+   b. Copy the source e2e spec with a "source-" prefix. Copy the new
+      integration spec with a "target-" prefix. If the target uses POM
+      helpers, copy those with a "target-helper-" prefix.
+
+   c. Write a `manifest.json`:
+
+      ```json
+      {
+        "tool": "parity",
+        "created": "<ISO date>",
+        "source": "feedback",
+        "sourceFiles": ["source-<filename>.spec.ts"],
+        "targetFiles": ["target-<filename>.spec.ts"],
+        "helperFiles": ["target-helper-<filename>.ts"],
+        "expectedClassifications": [
+          {
+            "testName": "<test name that was misclassified>",
+            "expectedStatus": "PARITY",
+            "actualStatus": "REDUCED",
+            "notes": "<why the tool was wrong>"
+          }
+        ],
+        "status": "pending"
+      }
+      ```
+
+      Classify ALL tests in the fixture pair, not just the misclassified one.
+
+   d. Note in the summary: "Created calibration fixture:
+      feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
+      parity when 3+ pending fixtures accumulate."
+
+5. Run ONLY the new spec -- never the full suite:
    `bash scripts/run-integration.sh spec integration/tests/<new-file>.spec.ts`
    Or target specific tests by name:
    `bash scripts/run-integration.sh grep "<test-name>"`
    All tests must pass. If the environment cannot run Playwright (no
    Firebase emulator, no dev server), STOP. Do not commit unverified
    test files. Report the environment issue and what is needed to run.
-5. Report: file path, test count, verification result (pass/fail with
+6. Report: file path, test count, verification result (pass/fail with
    counts, not "not run").
 
 ## What NOT to do

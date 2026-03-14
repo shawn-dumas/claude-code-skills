@@ -613,6 +613,19 @@ Builds a new AST analysis tool for `scripts/AST/`. Reads `scripts/AST/GAPS.md` t
 /build-ast-tool hook-consumer-analysis Find all consumers of a specific hook by call-site AST matching
 ```
 
+### calibrate-ast-interpreter
+
+Calibrates an AST interpreter's weights and thresholds against ground truth
+fixtures. Reads pending feedback fixtures from `scripts/AST/ground-truth/fixtures/`,
+measures current accuracy, tunes `ast-config.ts` weights, and marks fixtures as
+consumed. Supports `--tool intent` (refactor intention matcher) and `--tool parity`
+(test parity interpreter).
+
+```
+/calibrate-ast-interpreter --tool intent
+/calibrate-ast-interpreter --tool parity
+```
+
 ### migrate-page-to-ssr
 
 Migrates a Next.js page from client-side-only data fetching to server-side rendering via `getServerSideProps`. Extracts server fetchers, seeds the TanStack Query cache, preserves DDAU and the fixture system.
@@ -1035,6 +1048,14 @@ mark `[AST-confirmed]` (high confidence, based on direct observations), when
 to bump severity, when to force manual confirmation, and when to suppress
 weak candidates.
 
+**Calibration.** A feedback loop that measures interpreter accuracy against
+fixture ground truth and tunes config. Not a fourth layer (it operates on
+the interpreter layer) but a lifecycle process: interpreters emit assessments,
+refactor/test skills create feedback fixtures when they encounter
+misclassifications, and the `/calibrate-ast-interpreter` skill consumes
+pending fixtures in batches (3+) to re-tune weights and thresholds in
+`ast-config.ts`. See `scripts/AST/ground-truth/` for the fixture corpus.
+
 ### Tool inventory
 
 | Tool                  | Observations emitted                                                                                                                       | Interpreter                                                               |
@@ -1051,6 +1072,7 @@ weak candidates.
 | `ast-feature-flags`   | `FLAG_HOOK_CALL`, `FLAG_READ`, `PAGE_GUARD`, `CONDITIONAL_RENDER`                                                                          | (observation-only)                                                        |
 | `ast-type-safety`     | `AS_ANY_CAST`, `NON_NULL_ASSERTION`, `TS_DIRECTIVE`, `TRUST_BOUNDARY_CAST`                                                                 | (observation-only)                                                        |
 | `ast-test-parity`     | `PW_TEST_BLOCK`, `PW_ASSERTION`, `PW_ROUTE_INTERCEPT`, `PW_NAVIGATION`, `PW_POM_USAGE`, `PW_AUTH_CALL`, `PW_SERIAL_MODE`, `PW_BEFORE_EACH` | `ast-interpret-test-parity`                                               |
+| `ast-refactor-intent` | `INTENT_SIGNAL_BEFORE`, `INTENT_SIGNAL_AFTER`, `INTENT_SIGNAL_PAIR`                                                                        | `ast-interpret-refactor-intent`                                           |
 
 ### The `astConfig` file
 
@@ -1063,6 +1085,10 @@ Sections include:
 - `testing`: boundary packages, fixture patterns, provider signals
 - `jsx`: transform methods, thresholds for violation detection
 - `ownership`: layout exceptions, container markers, router hooks
+- `intentMatcher`: signal weights, score thresholds, ignored observation kinds
+  (calibration-managed by `/calibrate-ast-interpreter --tool intent`)
+- `testParity`: assertion weights, POM delegation weights, parity thresholds
+  (calibration-managed by `/calibrate-ast-interpreter --tool parity`)
 
 Interpreters read from `astConfig` to make classifications. When repo conventions
 change, update `astConfig` once -- all tools and interpreters pick up the change.
