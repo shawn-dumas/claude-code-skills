@@ -1037,19 +1037,20 @@ weak candidates.
 
 ### Tool inventory
 
-| Tool                  | Observations emitted                                                                                                | Interpreter                                                               |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `ast-imports`         | `STATIC_IMPORT`, `DYNAMIC_IMPORT`, `EXPORT_DECLARATION`, `CIRCULAR_DEPENDENCY`, `DEAD_EXPORT_CANDIDATE`             | `ast-interpret-dead-code`                                                 |
-| `ast-react-inventory` | `HOOK_CALL`, `EFFECT_LOCATION`, `EFFECT_*`, `COMPONENT_DECLARATION`, `PROP_FIELD`                                   | `ast-interpret-effects`, `ast-interpret-hooks`, `ast-interpret-ownership` |
-| `ast-jsx-analysis`    | `JSX_TERNARY_CHAIN`, `JSX_GUARD_CHAIN`, `JSX_TRANSFORM_CHAIN`, `JSX_IIFE`, `JSX_INLINE_HANDLER`, `JSX_RETURN_BLOCK` | `ast-interpret-template`                                                  |
-| `ast-test-analysis`   | `MOCK_DECLARATION`, `ASSERTION_CALL`, `RENDER_CALL`, `CLEANUP_CALL`, `FIXTURE_IMPORT`                               | `ast-interpret-test-quality`                                              |
-| `ast-complexity`      | `FUNCTION_COMPLEXITY`                                                                                               | (observation-only)                                                        |
-| `ast-data-layer`      | `QUERY_HOOK_DEFINITION`, `MUTATION_HOOK_DEFINITION`, `FETCH_API_CALL`, `QUERY_KEY_FACTORY`                          | (observation-only)                                                        |
-| `ast-side-effects`    | `CONSOLE_CALL`, `TOAST_CALL`, `TIMER_CALL`, `POSTHOG_CALL`, `WINDOW_MUTATION`                                       | (observation-only)                                                        |
-| `ast-storage-access`  | `DIRECT_STORAGE_CALL`, `TYPED_STORAGE_CALL`, `JSON_PARSE_CALL`, `COOKIE_CALL`                                       | (observation-only)                                                        |
-| `ast-env-access`      | `PROCESS_ENV_ACCESS`, `ENV_WRAPPER_ACCESS`, `ENV_WRAPPER_IMPORT`                                                    | (observation-only)                                                        |
-| `ast-feature-flags`   | `FLAG_HOOK_CALL`, `FLAG_READ`, `PAGE_GUARD`, `CONDITIONAL_RENDER`                                                   | (observation-only)                                                        |
-| `ast-type-safety`     | `AS_ANY_CAST`, `NON_NULL_ASSERTION`, `TS_DIRECTIVE`, `TRUST_BOUNDARY_CAST`                                          | (observation-only)                                                        |
+| Tool                  | Observations emitted                                                                                                                       | Interpreter                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `ast-imports`         | `STATIC_IMPORT`, `DYNAMIC_IMPORT`, `EXPORT_DECLARATION`, `CIRCULAR_DEPENDENCY`, `DEAD_EXPORT_CANDIDATE`                                    | `ast-interpret-dead-code`                                                 |
+| `ast-react-inventory` | `HOOK_CALL`, `EFFECT_LOCATION`, `EFFECT_*`, `COMPONENT_DECLARATION`, `PROP_FIELD`                                                          | `ast-interpret-effects`, `ast-interpret-hooks`, `ast-interpret-ownership` |
+| `ast-jsx-analysis`    | `JSX_TERNARY_CHAIN`, `JSX_GUARD_CHAIN`, `JSX_TRANSFORM_CHAIN`, `JSX_IIFE`, `JSX_INLINE_HANDLER`, `JSX_RETURN_BLOCK`                        | `ast-interpret-template`                                                  |
+| `ast-test-analysis`   | `MOCK_DECLARATION`, `ASSERTION_CALL`, `RENDER_CALL`, `CLEANUP_CALL`, `FIXTURE_IMPORT`                                                      | `ast-interpret-test-quality`                                              |
+| `ast-complexity`      | `FUNCTION_COMPLEXITY`                                                                                                                      | (observation-only)                                                        |
+| `ast-data-layer`      | `QUERY_HOOK_DEFINITION`, `MUTATION_HOOK_DEFINITION`, `FETCH_API_CALL`, `QUERY_KEY_FACTORY`                                                 | (observation-only)                                                        |
+| `ast-side-effects`    | `CONSOLE_CALL`, `TOAST_CALL`, `TIMER_CALL`, `POSTHOG_CALL`, `WINDOW_MUTATION`                                                              | (observation-only)                                                        |
+| `ast-storage-access`  | `DIRECT_STORAGE_CALL`, `TYPED_STORAGE_CALL`, `JSON_PARSE_CALL`, `COOKIE_CALL`                                                              | (observation-only)                                                        |
+| `ast-env-access`      | `PROCESS_ENV_ACCESS`, `ENV_WRAPPER_ACCESS`, `ENV_WRAPPER_IMPORT`                                                                           | (observation-only)                                                        |
+| `ast-feature-flags`   | `FLAG_HOOK_CALL`, `FLAG_READ`, `PAGE_GUARD`, `CONDITIONAL_RENDER`                                                                          | (observation-only)                                                        |
+| `ast-type-safety`     | `AS_ANY_CAST`, `NON_NULL_ASSERTION`, `TS_DIRECTIVE`, `TRUST_BOUNDARY_CAST`                                                                 | (observation-only)                                                        |
+| `ast-test-parity`     | `PW_TEST_BLOCK`, `PW_ASSERTION`, `PW_ROUTE_INTERCEPT`, `PW_NAVIGATION`, `PW_POM_USAGE`, `PW_AUTH_CALL`, `PW_SERIAL_MODE`, `PW_BEFORE_EACH` | `ast-interpret-test-parity`                                               |
 
 ### The `astConfig` file
 
