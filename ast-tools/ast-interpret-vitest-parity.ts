@@ -346,9 +346,36 @@ export function interpretVitestParity(
 
     matchedTargetFiles.add(target.file);
     const usedTargetIndices = new Set<number>();
+    const matchedSourceIndices = new Set<number>();
+    const sourceMatchResults = new Map<number, { match: MatchCandidate; targetTest: VtTestBlock }>();
 
-    // Greedy matching: exact first, then fuzzy, then structural
-    for (const sourceTest of source.tests) {
+    // Pass 1: exact name matches (sim === 1.0). These must be locked in
+    // before fuzzy matching to prevent a fuzzy match from stealing an
+    // exact match's target.
+    for (let si = 0; si < source.tests.length; si++) {
+      const sourceTest = source.tests[si];
+      const normalizedSource = normalizeTestName(stripDescribePrefix(sourceTest.name));
+      if (normalizedSource.length === 0) continue;
+
+      for (let ti = 0; ti < target.tests.length; ti++) {
+        if (usedTargetIndices.has(ti)) continue;
+        const normalizedTarget = normalizeTestName(stripDescribePrefix(target.tests[ti].name));
+        if (normalizedSource === normalizedTarget) {
+          usedTargetIndices.add(ti);
+          matchedSourceIndices.add(si);
+          sourceMatchResults.set(si, {
+            match: { index: ti, similarity: 1.0, confidence: 'high' },
+            targetTest: target.tests[ti],
+          });
+          break;
+        }
+      }
+    }
+
+    // Pass 2: fuzzy + structural matches for remaining unmatched source tests
+    for (let si = 0; si < source.tests.length; si++) {
+      if (matchedSourceIndices.has(si)) continue;
+      const sourceTest = source.tests[si];
       const match = findBestMatch(
         sourceTest,
         target.tests,
@@ -359,22 +386,35 @@ export function interpretVitestParity(
         target.mocks,
       );
 
-      const sMocks = getTestMocks(sourceTest, source.mocks).map(m => m.mockTarget);
-
       if (match) {
         usedTargetIndices.add(match.index);
-        const targetTest = target.tests[match.index];
-        const status = classifyTestParity(sourceTest.assertionCount, targetTest.assertionCount);
-        const tMocks = getTestMocks(targetTest, target.mocks).map(m => m.mockTarget);
+        matchedSourceIndices.add(si);
+        sourceMatchResults.set(si, {
+          match,
+          targetTest: target.tests[match.index],
+        });
+      }
+    }
+
+    // Emit results for all source tests in order
+    for (let si = 0; si < source.tests.length; si++) {
+      const sourceTest = source.tests[si];
+      const sMocks = getTestMocks(sourceTest, source.mocks).map(m => m.mockTarget);
+      const result = sourceMatchResults.get(si);
+
+      if (result) {
+        const { match, targetTest: tTest } = result;
+        const status = classifyTestParity(sourceTest.assertionCount, tTest.assertionCount);
+        const tMocks = getTestMocks(tTest, target.mocks).map(m => m.mockTarget);
 
         allMatches.push({
           sourceTest: sourceTest.name,
           sourceFile: source.file,
-          targetTest: targetTest.name,
+          targetTest: tTest.name,
           targetFile: target.file,
           status,
           sourceAssertions: sourceTest.assertionCount,
-          targetAssertions: targetTest.assertionCount,
+          targetAssertions: tTest.assertionCount,
           sourceMocks: sMocks,
           targetMocks: tMocks,
           confidence: match.confidence,

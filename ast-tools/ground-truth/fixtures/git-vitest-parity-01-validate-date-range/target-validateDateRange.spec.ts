@@ -19,20 +19,20 @@ describe('validateDateRange', () => {
   });
   it('fails when date diff equals the limit', () => {
     expect(result.success).toBe(false);
-    expect(result.error.issues).toEqual(expect.arrayContaining([
-      expect.objectContaining({ path: ['dateRange'], message: 'Max 30 days' }),
-    ]));
+    expect(result.error.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: ['dateRange'], message: 'Max 30 days' })]),
+    );
   });
   it('fails when date diff exceeds the limit', () => {
     expect(result.success).toBe(false);
-    expect(result.error.issues).toEqual(expect.arrayContaining([
-      expect.objectContaining({ path: ['dateRange'], message: 'Max 7 days' }),
-    ]));
+    expect(result.error.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: ['dateRange'], message: 'Max 7 days' })]),
+    );
   });
   it('works with different dayLimits values', () => {
     expect(result.success).toBe(false);
-    expect(result.error.issues).toEqual(expect.arrayContaining([
-      expect.objectContaining({ path: ['dateRange'], message: 'Max 90 days' }),
-    ]));
+    expect(result.error.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: ['dateRange'], message: 'Max 90 days' })]),
+    );
   });
 });

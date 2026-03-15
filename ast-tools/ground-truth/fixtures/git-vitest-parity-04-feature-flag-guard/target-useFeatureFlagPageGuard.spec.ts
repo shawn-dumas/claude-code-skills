@@ -4,7 +4,9 @@ vi.mock('next/navigation', () => ({ useRouter: vi.fn() }));
 vi.mock('@/providers/posthogProvider', () => ({ usePosthogContext: vi.fn() }));
 
 describe('useFeatureFlagPageGuard', () => {
-  beforeEach(() => { vi.mocked(stableRouter.replace).mockClear(); });
+  beforeEach(() => {
+    vi.mocked(stableRouter.replace).mockClear();
+  });
   describe('when feature flag is false', () => {
     it('should redirect to home when feature flag is explicitly false', () => {
       expect(stableRouter.replace).toHaveBeenCalledWith('/home');

@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('next/navigation', () => ({ useRouter: vi.fn() }));
 vi.mock('@/providers/posthogProvider', () => ({ usePosthogContext: vi.fn() }));
 describe('useFeatureFlagPageGuard', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
   describe('when feature flag is false', () => {
     it('should redirect to home when feature flag is explicitly false', () => {
       expect(mockReplace).toHaveBeenCalledWith('/home');

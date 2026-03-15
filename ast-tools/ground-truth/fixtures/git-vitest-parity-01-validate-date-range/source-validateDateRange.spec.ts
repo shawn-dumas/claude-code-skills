@@ -3,7 +3,9 @@ import * as utilsModule from '@/shared/utils';
 
 const mockedGetDaysDiff = vi.spyOn(utilsModule, 'getDaysDiff');
 
-beforeEach(() => { vi.clearAllMocks(); });
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe('validateDateRange', () => {
   it('should not add issue when dateRange is undefined', () => {
