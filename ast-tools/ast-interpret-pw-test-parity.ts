@@ -1,5 +1,5 @@
 /**
- * Interpreter for ast-test-parity observations.
+ * Interpreter for ast-pw-test-parity observations.
  *
  * Takes two sets of PwSpecInventory (source and target), matches tests
  * by multi-signal intent comparison, classifies parity status, and
@@ -29,7 +29,7 @@ import {
   analyzeTestParityBranch,
   buildHelperIndex,
   buildHelperIndexFromBranch,
-} from './ast-test-parity';
+} from './ast-pw-test-parity';
 import type { PwSpecInventory, PwTestBlock, PwHelperIndex } from './types';
 
 // ---------------------------------------------------------------------------
@@ -775,7 +775,7 @@ function main(): void {
 
   if (args.help) {
     process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-interpret-test-parity.ts \\\n' +
+      'Usage: npx tsx scripts/AST/ast-interpret-pw-test-parity.ts \\\n' +
         '  --source-branch <branch> --source-dir <dir> \\\n' +
         '  --target-dir <dir> [--pretty]\n' +
         '\n' +
@@ -839,7 +839,8 @@ function main(): void {
 
 const isDirectRun =
   process.argv[1] &&
-  (process.argv[1].endsWith('ast-interpret-test-parity.ts') || process.argv[1].endsWith('ast-interpret-test-parity'));
+  (process.argv[1].endsWith('ast-interpret-pw-test-parity.ts') ||
+    process.argv[1].endsWith('ast-interpret-pw-test-parity'));
 
 if (isDirectRun) {
   main();

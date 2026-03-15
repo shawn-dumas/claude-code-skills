@@ -294,7 +294,7 @@ export function detectComponents(sf: SourceFile): DetectedComponent[] {
 }
 
 // ---------------------------------------------------------------------------
-// Expect chain walking (shared by ast-test-analysis and ast-test-parity)
+// Expect chain walking (shared by ast-test-analysis and ast-pw-test-parity)
 // ---------------------------------------------------------------------------
 
 /**

@@ -191,7 +191,7 @@ Write adjusted values to:
 
 Write adjusted values to:
 - `classifyTestParity`, `computeMatchScore`, or `computeTestWeight` in
-  `ast-interpret-test-parity.ts` (inline constants)
+  `ast-interpret-pw-test-parity.ts` (inline constants)
 - Or centralize in `astConfig.testParity` if the values are extracted there
 
 Add a calibration comment block to the updated section:

@@ -554,7 +554,7 @@ function detectEachPatterns(sf: SourceFile): EachExpansion[] {
 
 /**
  * Vitest factory functions: functions containing test()/it() calls
- * that are invoked multiple times. Adapted from ast-test-parity's
+ * that are invoked multiple times. Adapted from ast-pw-test-parity's
  * detectTestFactories pattern.
  */
 interface VitestFactory {

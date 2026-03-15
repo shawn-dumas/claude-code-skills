@@ -1,5 +1,5 @@
 /**
- * Factory-pattern fixture for ast-test-parity.
+ * Factory-pattern fixture for ast-pw-test-parity.
  * Tests that a wrapper function calling test() with a template literal
  * name is expanded into individual test blocks per invocation.
  */

@@ -974,6 +974,14 @@ Audits the orchestrate-poc skill against the current codebase and regenerates al
 /sync-orchestrate-poc
 ```
 
+### document-bff-requirements
+
+Generates BFF requirements documentation for a PoC feature branch. Uses `ast-bff-gaps` to mechanically extract endpoint gap data (BFF stubs returning 501, mock routes, missing BFF routes) and produces a structured markdown section for `docs/upcoming-poc-features-needing-bff-work.md`. Sections that require domain knowledge (ClickHouse queries, frontend changes) are marked with `[FILL IN]` placeholders. Run after completing a PoC prompt sequence that added mock routes and BFF stubs.
+
+```
+/document-bff-requirements sd/nga-systems-port "NGA Systems Port" src/pages/api/users/data-api/systems/
+```
+
 ## Decision Skills
 
 These skills help with thinking, not coding. They do not write files or
@@ -1077,8 +1085,9 @@ observer gaps) before tuning weights in `ast-config.ts`. See
 | `ast-env-access`      | `PROCESS_ENV_ACCESS`, `ENV_WRAPPER_ACCESS`, `ENV_WRAPPER_IMPORT`                                                                           | (observation-only)                                                        |
 | `ast-feature-flags`   | `FLAG_HOOK_CALL`, `FLAG_READ`, `PAGE_GUARD`, `CONDITIONAL_RENDER`                                                                          | (observation-only)                                                        |
 | `ast-type-safety`     | `AS_ANY_CAST`, `NON_NULL_ASSERTION`, `TS_DIRECTIVE`, `TRUST_BOUNDARY_CAST`                                                                 | (observation-only)                                                        |
-| `ast-test-parity`     | `PW_TEST_BLOCK`, `PW_ASSERTION`, `PW_ROUTE_INTERCEPT`, `PW_NAVIGATION`, `PW_POM_USAGE`, `PW_AUTH_CALL`, `PW_SERIAL_MODE`, `PW_BEFORE_EACH` | `ast-interpret-test-parity`                                               |
+| `ast-pw-test-parity`  | `PW_TEST_BLOCK`, `PW_ASSERTION`, `PW_ROUTE_INTERCEPT`, `PW_NAVIGATION`, `PW_POM_USAGE`, `PW_AUTH_CALL`, `PW_SERIAL_MODE`, `PW_BEFORE_EACH` | `ast-interpret-pw-test-parity`                                            |
 | `ast-refactor-intent` | `INTENT_SIGNAL_BEFORE`, `INTENT_SIGNAL_AFTER`, `INTENT_SIGNAL_PAIR`                                                                        | `ast-interpret-refactor-intent`                                           |
+| `ast-bff-gaps`        | `BFF_STUB_ROUTE`, `MOCK_ROUTE`, `BFF_MISSING_ROUTE`, `QUERY_HOOK_BFF_GAP`                                                                  | (observation-only)                                                        |
 
 ### The `astConfig` file
 

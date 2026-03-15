@@ -4,7 +4,7 @@
  * Each registered tool has a thin adapter that normalizes the tool's
  * native API into a common `(sourceFile, filePath) => AnyObservation[]`
  * signature. Tools that need intermediate analysis (complexity, data-layer,
- * imports, test-parity, test-analysis, react-inventory) are adapted to
+ * imports, pw-test-parity, test-analysis, react-inventory) are adapted to
  * work from a filePath since their internal APIs require it.
  */
 
@@ -21,7 +21,8 @@ import { analyzeReactFile } from './ast-react-inventory';
 import { extractSideEffectObservations } from './ast-side-effects';
 import { extractStorageObservations } from './ast-storage-access';
 import { analyzeTestFile } from './ast-test-analysis';
-import { analyzeTestParity, extractTestParityObservations } from './ast-test-parity';
+import { analyzeTestParity, extractTestParityObservations } from './ast-pw-test-parity';
+import { analyzeVitestParity, extractVitestParityObservations } from './ast-vitest-parity';
 import { extractTypeSafetyObservations } from './ast-type-safety';
 
 // ast-imports: SourceFile-based extraction for virtual/HEAD content
@@ -99,6 +100,12 @@ function testParityAdapter(_sf: SourceFile, filePath: string): AnyObservation[] 
   return [...result.observations];
 }
 
+function vitestParityAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
+  const analysis = analyzeVitestParity(filePath);
+  const result = extractVitestParityObservations(analysis);
+  return [...result.observations];
+}
+
 function typeSafetyAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
   return extractTypeSafetyObservations(filePath);
 }
@@ -118,7 +125,8 @@ const entries: ToolEntry[] = [
   { name: 'side-effects', analyze: sideEffectsAdapter },
   { name: 'storage-access', analyze: storageAccessAdapter },
   { name: 'test-analysis', analyze: testAnalysisAdapter },
-  { name: 'test-parity', analyze: testParityAdapter },
+  { name: 'pw-test-parity', analyze: testParityAdapter },
+  { name: 'vitest-parity', analyze: vitestParityAdapter },
   { name: 'type-safety', analyze: typeSafetyAdapter },
 ];
 

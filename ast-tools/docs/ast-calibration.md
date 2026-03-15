@@ -138,14 +138,14 @@ Source specs + Target specs + Helper files
     |
     v
 +---------------------------+
-| ast-test-parity.ts        |  Observation: parses spec files into
+| ast-pw-test-parity.ts     |  Observation: parses spec files into
 |                           |  PwSpecInventory (tests, assertions,
 |                           |  routes, POMs, helpers)
 +---------------------------+
     |
     v (PwSpecInventory[], PwHelperIndex)
 +---------------------------+
-| ast-interpret-test-       |  Interpretation: matches source tests
+| ast-interpret-pw-test-    |  Interpretation: matches source tests
 | parity.ts                 |  to target tests, classifies each as
 |                           |  PARITY / EXPANDED / REDUCED / NOT_PORTED
 +---------------------------+
@@ -202,7 +202,7 @@ and helper directories are also configured there.
 
 ```bash
 # Run parity analysis
-npx tsx scripts/AST/ast-interpret-test-parity.ts \
+npx tsx scripts/AST/ast-interpret-pw-test-parity.ts \
   --source-branch production --source-dir e2e/tests/ \
   --target-dir integration/tests/ --pretty
 ```

@@ -224,7 +224,7 @@ These emit structural facts with no classifications.
 | `ast-env-access`      | PROCESS_ENV_ACCESS, ENV_WRAPPER_ACCESS, ENV_WRAPPER_IMPORT                                                                 | Environment variable access        |
 | `ast-feature-flags`   | FLAG_HOOK_CALL, FLAG_READ, PAGE_GUARD, CONDITIONAL_RENDER                                                                  | Feature flag usage                 |
 | `ast-type-safety`     | AS_ANY_CAST, NON_NULL_ASSERTION, TS_DIRECTIVE, TRUST_BOUNDARY_CAST                                                         | Type safety violations             |
-| `ast-test-parity`     | PW_TEST_BLOCK, PW_ASSERTION, PW_ROUTE_INTERCEPT, PW_NAVIGATION, PW_POM_USAGE, PW_AUTH_CALL, PW_SERIAL_MODE, PW_BEFORE_EACH | Playwright spec structure          |
+| `ast-pw-test-parity`  | PW_TEST_BLOCK, PW_ASSERTION, PW_ROUTE_INTERCEPT, PW_NAVIGATION, PW_POM_USAGE, PW_AUTH_CALL, PW_SERIAL_MODE, PW_BEFORE_EACH | Playwright spec structure          |
 | `ast-refactor-intent` | INTENT_SIGNAL_BEFORE, INTENT_SIGNAL_AFTER, INTENT_SIGNAL_PAIR                                                              | Refactor intent signal matching    |
 
 ### Interpreters
@@ -239,7 +239,7 @@ These consume observations and emit assessments with confidence and rationale.
 | `ast-interpret-template`        | JSX\_\* observations                         | COMPLEX_TEMPLATE, NEEDS_EXTRACTION                                                             |
 | `ast-interpret-dead-code`       | STATIC_IMPORT, EXPORT_DECLARATION            | DEAD_EXPORT, UNUSED_IMPORT                                                                     |
 | `ast-interpret-test-quality`    | MOCK_DECLARATION, ASSERTION_CALL, etc.       | INTERNAL_MOCK, STALE_MOCK, MISSING_CLEANUP, etc.                                               |
-| `ast-interpret-test-parity`     | PW_TEST_BLOCK, PW_ASSERTION, etc.            | PARITY, EXPANDED, REDUCED, NOT_PORTED                                                          |
+| `ast-interpret-pw-test-parity`  | PW_TEST_BLOCK, PW_ASSERTION, etc.            | PARITY, EXPANDED, REDUCED, NOT_PORTED                                                          |
 | `ast-interpret-refactor-intent` | INTENT_SIGNAL_PAIR                           | PRESERVED, INTENTIONALLY_REMOVED, ACCIDENTALLY_DROPPED, ADDED                                  |
 
 ## Usage

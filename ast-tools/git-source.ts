@@ -1,7 +1,7 @@
 /**
  * Git source reading utilities for AST tools.
  *
- * Extracted from ast-test-parity.ts to enable reuse across tools.
+ * Extracted from ast-pw-test-parity.ts to enable reuse across tools.
  * Provides functions to read files and list directories from any git ref,
  * plus a virtual ts-morph Project factory for parsing non-tsconfig content.
  */

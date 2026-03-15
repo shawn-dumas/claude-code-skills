@@ -5,9 +5,9 @@ import { getSourceFile, PROJECT_ROOT } from '../project';
 
 describe('tool-registry', () => {
   describe('getToolNames', () => {
-    it('returns all 12 tool names', () => {
+    it('returns all 13 tool names', () => {
       const names = getToolNames();
-      expect(names).toHaveLength(12);
+      expect(names).toHaveLength(13);
       expect(names).toContain('complexity');
       expect(names).toContain('data-layer');
       expect(names).toContain('env-access');
@@ -18,7 +18,8 @@ describe('tool-registry', () => {
       expect(names).toContain('side-effects');
       expect(names).toContain('storage-access');
       expect(names).toContain('test-analysis');
-      expect(names).toContain('test-parity');
+      expect(names).toContain('pw-test-parity');
+      expect(names).toContain('vitest-parity');
       expect(names).toContain('type-safety');
     });
   });

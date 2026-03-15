@@ -17,8 +17,8 @@ import { createVirtualProject } from '../git-source';
 import { astConfig } from '../ast-config';
 import { interpretRefactorIntent } from '../ast-interpret-refactor-intent';
 import { matchSignals } from '../ast-refactor-intent';
-import { interpretTestParity } from '../ast-interpret-test-parity';
-import { analyzeTestParity, analyzeHelperFile } from '../ast-test-parity';
+import { interpretTestParity } from '../ast-interpret-pw-test-parity';
+import { analyzeTestParity, analyzeHelperFile } from '../ast-pw-test-parity';
 import type { AnyObservation, RefactorSignalPair, AuditContext, PwSpecInventory, PwHelperIndex } from '../types';
 
 // ---------------------------------------------------------------------------

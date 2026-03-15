@@ -1,5 +1,5 @@
 /**
- * Positive fixture for ast-test-parity.
+ * Positive fixture for ast-pw-test-parity.
  * Contains all patterns the tool should detect.
  */
 

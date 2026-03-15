@@ -1,5 +1,5 @@
 /**
- * Negative fixture for ast-test-parity.
+ * Negative fixture for ast-pw-test-parity.
  * Contains patterns that should NOT produce Playwright-specific observations.
  * This is a Vitest unit test, not a Playwright spec.
  */

@@ -180,6 +180,12 @@ interface AstConfig {
     readonly ignoredKinds: ReadonlySet<string>;
   };
 
+  readonly vitestParity: {
+    readonly testFileExtensions: readonly string[];
+    readonly playwrightImports: readonly string[];
+    readonly cleanupPatterns: readonly string[];
+  };
+
   readonly imports: {
     readonly nextJsPagePrefix: string;
   };
@@ -671,6 +677,20 @@ export const astConfig: AstConfig = Object.freeze({
       'ENV_WRAPPER_IMPORT',
       'RAW_ENV_IMPORT',
     ]) as ReadonlySet<string>,
+  }),
+
+  vitestParity: Object.freeze({
+    testFileExtensions: ['.spec.ts', '.spec.tsx', '.test.ts', '.test.tsx'] as const,
+    playwrightImports: ['@playwright/test', '../fixture', './fixture'] as const,
+    cleanupPatterns: [
+      'vi.useRealTimers',
+      'vi.restoreAllMocks',
+      'vi.clearAllMocks',
+      'localStorage.clear',
+      'sessionStorage.clear',
+      'fetchMock.resetMocks',
+      'cleanup',
+    ] as const,
   }),
 
   imports: Object.freeze({

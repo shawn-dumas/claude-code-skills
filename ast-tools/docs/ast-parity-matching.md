@@ -1,6 +1,6 @@
 # AST Parity Matching Algorithm
 
-Reference for the test parity interpreter (`ast-interpret-test-parity.ts`).
+Reference for the test parity interpreter (`ast-interpret-pw-test-parity.ts`).
 All values are from the source code and should be updated if the code changes.
 
 ## Composite similarity

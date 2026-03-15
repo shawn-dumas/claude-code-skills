@@ -412,5 +412,9 @@ Before defining any new type:
 5. **Lint:** Run `npx eslint <generated-files> --max-warnings 0`. Zero errors, zero
    warnings.
 
+6. **BFF gap closure** (if replacing a 501 stub): Run
+   `npx tsx scripts/AST/ast-bff-gaps.ts <api-directory> --kind BFF_STUB_ROUTE --no-cache`
+   and verify the endpoint no longer appears as a stub.
+
 Report all results in the summary. A generation is not complete until tsc passes and
 all functions have CC <= 10.

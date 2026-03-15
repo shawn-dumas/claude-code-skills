@@ -6,7 +6,7 @@
  * page.goto() navigations, POM instantiations, auth method, serial mode.
  *
  * This is an observation-only tool. Comparison and scoring live in
- * ast-interpret-test-parity.ts.
+ * ast-interpret-pw-test-parity.ts.
  *
  * Supports reading files from a git branch via --source-branch, using
  * ts-morph's createSourceFile() with content from git show.
@@ -754,7 +754,7 @@ export function analyzeTestParityDirectory(dirPath: string, options: { noCache?:
 
   for (const entry of entries) {
     const fullPath = path.join(absolute, entry);
-    const analysis = cached('ast-test-parity', fullPath, () => analyzeTestParity(fullPath), options);
+    const analysis = cached('ast-pw-test-parity', fullPath, () => analyzeTestParity(fullPath), options);
     results.push(analysis);
   }
 
@@ -777,7 +777,7 @@ export function analyzeTestParityBranch(branch: string, dirPath: string): PwSpec
     const gitPath = dirPath.endsWith('/') ? `${dirPath}${fileName}` : `${dirPath}/${fileName}`;
     const content = gitShowFile(branch, gitPath);
     if (!content) {
-      process.stderr.write(`[ast-test-parity] Could not read ${branch}:${gitPath}, skipping\n`);
+      process.stderr.write(`[ast-pw-test-parity] Could not read ${branch}:${gitPath}, skipping\n`);
       continue;
     }
 
@@ -898,7 +898,7 @@ export function buildHelperIndex(helperDirs: string[], options: { noCache?: bool
 
     for (const file of files) {
       const fullPath = path.join(absolute, file);
-      const fileEntries = cached('ast-test-parity-helpers', fullPath, () => analyzeHelperFile(fullPath), options);
+      const fileEntries = cached('ast-pw-test-parity-helpers', fullPath, () => analyzeHelperFile(fullPath), options);
       entries.push(...fileEntries);
     }
   }
@@ -1129,8 +1129,8 @@ function main(): void {
 
   if (args.help) {
     process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-test-parity.ts <dir> [--pretty] [--no-cache]\n' +
-        '       npx tsx scripts/AST/ast-test-parity.ts --source-branch <branch> --source-dir <dir> [--pretty]\n' +
+      'Usage: npx tsx scripts/AST/ast-pw-test-parity.ts <dir> [--pretty] [--no-cache]\n' +
+        '       npx tsx scripts/AST/ast-pw-test-parity.ts --source-branch <branch> --source-dir <dir> [--pretty]\n' +
         '\n' +
         'Inventory Playwright spec files: test blocks, assertions, route intercepts,\n' +
         'navigations, POM usage, auth method, serial mode.\n' +
@@ -1173,13 +1173,14 @@ function main(): void {
       process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
     }
   } else {
-    const result = cached('ast-test-parity', absolute, () => analyzeTestParity(targetDir), { noCache });
+    const result = cached('ast-pw-test-parity', absolute, () => analyzeTestParity(targetDir), { noCache });
     output(result, args.pretty);
   }
 }
 
 const isDirectRun =
-  process.argv[1] && (process.argv[1].endsWith('ast-test-parity.ts') || process.argv[1].endsWith('ast-test-parity'));
+  process.argv[1] &&
+  (process.argv[1].endsWith('ast-pw-test-parity.ts') || process.argv[1].endsWith('ast-pw-test-parity'));
 
 if (isDirectRun) {
   main();

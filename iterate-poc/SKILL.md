@@ -444,6 +444,9 @@ response shapes) and a BFF handoff document exists at
 
 - Update the affected endpoint definitions.
 - Add a note at the top: "Updated <date>: <what changed>."
+- Re-run `/document-bff-requirements` to regenerate the BFF requirements
+  section in `docs/upcoming-poc-features-needing-bff-work.md` if endpoints
+  were added or removed.
 - If the BFF team has already started implementation, warn the PM:
   > The BFF handoff document has been updated. If the BFF team has
   > already started implementing these endpoints, coordinate with them

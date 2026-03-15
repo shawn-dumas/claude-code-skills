@@ -31,12 +31,12 @@ Relevant testing philosophy principles for integration tests:
 ```bash
 npx tsx scripts/AST/ast-test-analysis.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-interpret-test-quality.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-test-parity.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-pw-test-parity.ts $ARGUMENTS --pretty
 ```
 
 Use the test quality assessments to get structured data on mock
 classification, assertion quality, cleanup hygiene, and data sourcing
-patterns. Use `ast-test-parity` for Playwright-specific structural
+patterns. Use `ast-pw-test-parity` for Playwright-specific structural
 inventory: test blocks, assertions (matcher + target), `page.route()`
 intercepts, `page.goto()` navigations, POM usage, helper delegations,
 auth method, and serial mode. The test quality interpreter produces:
@@ -260,7 +260,7 @@ Check the output:
 
 ## Step 6: Parity feedback loop
 
-If the parity tool (`ast-interpret-test-parity`) was run in Step 0 and it
+If the parity tool (`ast-interpret-pw-test-parity`) was run in Step 0 and it
 misclassifies a test (e.g., reports REDUCED when the port is actually PARITY
 because POM delegation inflated target weight, or reports NOT_PORTED when the
 test was restructured with a different mechanism), create a calibration fixture:

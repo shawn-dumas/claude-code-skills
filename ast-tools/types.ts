@@ -806,7 +806,7 @@ export type TestObservationEvidence = {
 
 export type TestObservation = Observation<TestObservationKind, TestObservationEvidence>;
 
-// --- ast-test-parity output (Playwright spec inventory) ---
+// --- ast-pw-test-parity output (Playwright spec inventory) ---
 
 export interface PwAssertionDetail {
   line: number;
@@ -864,7 +864,7 @@ export interface PwSpecInventory {
   authMethod: string | null;
 }
 
-// --- ast-test-parity observations ---
+// --- ast-pw-test-parity observations ---
 
 export type PwParityObservationKind =
   | 'PW_TEST_BLOCK'
@@ -905,6 +905,48 @@ export type PwParityObservationEvidence = {
 
 export type PwParityObservation = Observation<PwParityObservationKind, PwParityObservationEvidence>;
 
+// --- ast-bff-gaps output ---
+
+export type BffGapObservationKind =
+  | 'BFF_STUB_ROUTE' // BFF route file containing res.status(501)
+  | 'MOCK_ROUTE' // Mock route file serving fixture data
+  | 'BFF_MISSING_ROUTE' // Mock route exists but no corresponding BFF route
+  | 'QUERY_HOOK_BFF_GAP'; // Query hook references endpoint with 501 stub or missing BFF
+
+export type BffGapObservationEvidence = {
+  /** API path derived from the file system location (e.g., /api/users/data-api/systems/teams) */
+  apiPath?: string;
+  /** Path to the BFF route file (relative to project root) */
+  bffFile?: string;
+  /** Path to the corresponding mock route file */
+  mockFile?: string;
+  /** Middleware chain extracted from the default export (e.g., withErrorHandler, withAuth, withMethod) */
+  middleware?: string[];
+  /** TODO comments found in the file */
+  todoComments?: string[];
+  /** Fixture builder calls found in mock route (e.g., buildManyConfluencePageSummaries) */
+  fixtureBuilders?: string[];
+  /** Response schema name referenced by the query hook's fetchApi call */
+  responseSchema?: string;
+  /** Query hook name that references this endpoint */
+  queryHookName?: string;
+  /** The fetchApi URL from the query hook */
+  fetchApiUrl?: string;
+  /** HTTP methods accepted by the route (from withMethod) */
+  httpMethods?: string[];
+};
+
+export type BffGapObservation = Observation<BffGapObservationKind, BffGapObservationEvidence>;
+
+export interface BffGapAnalysis {
+  /** All BFF route files scanned */
+  bffRoutes: Array<{ path: string; isStub: boolean }>;
+  /** All mock route files scanned */
+  mockRoutes: Array<{ path: string; apiPath: string }>;
+  /** Observations emitted */
+  observations: BffGapObservation[];
+}
+
 // ============================================================
 // Unified observation types
 // ============================================================
@@ -927,7 +969,9 @@ export type AnyObservation =
   | ComponentObservation
   | JsxObservation
   | TestObservation
-  | PwParityObservation;
+  | PwParityObservation
+  | BffGapObservation
+  | VtParityObservation;
 
 /**
  * Unified result from running one or more observation tools on a single file.
@@ -995,4 +1039,139 @@ export interface RefactorSignalPair {
   unmatched: AnyObservation[];
   novel: AnyObservation[];
   matched: Array<{ before: AnyObservation; after: AnyObservation; similarity: number }>;
+}
+
+// ============================================================
+// ast-vitest-parity output (Vitest spec inventory)
+// ============================================================
+
+export interface VtDescribeBlock {
+  readonly name: string;
+  readonly nestedDepth: number;
+  readonly testCount: number;
+  readonly line: number;
+}
+
+export interface VtTestBlock {
+  readonly name: string;
+  readonly parentDescribe: string | null;
+  readonly assertionCount: number;
+  readonly line: number;
+}
+
+export interface VtMockDeclaration {
+  readonly mockTarget: string;
+  readonly mockType: 'vi.mock' | 'vi.spyOn' | 'vi.fn';
+  readonly parentDescribe: string | null;
+  readonly line: number;
+}
+
+export interface VtAssertion {
+  readonly matcher: string;
+  readonly target: string;
+  readonly negated: boolean;
+  readonly parentTest: string;
+  readonly line: number;
+}
+
+export interface VtRenderCall {
+  readonly component: string;
+  readonly hasWrapper: boolean;
+  readonly parentTest: string;
+  readonly line: number;
+}
+
+export interface VtFixtureImport {
+  readonly source: string;
+  readonly builders: string[];
+  readonly line: number;
+}
+
+export interface VtLifecycleHook {
+  readonly hookType: 'beforeEach' | 'afterEach' | 'beforeAll' | 'afterAll';
+  readonly cleanupTargets: string[];
+  readonly scope: string;
+  readonly line: number;
+}
+
+export interface VtSpecInventory {
+  readonly file: string;
+  readonly describes: VtDescribeBlock[];
+  readonly tests: VtTestBlock[];
+  readonly mocks: VtMockDeclaration[];
+  readonly assertions: VtAssertion[];
+  readonly renders: VtRenderCall[];
+  readonly fixtureImports: VtFixtureImport[];
+  readonly lifecycleHooks: VtLifecycleHook[];
+}
+
+// --- ast-vitest-parity observations ---
+
+export type VtParityObservationKind =
+  | 'VT_DESCRIBE_BLOCK'
+  | 'VT_TEST_BLOCK'
+  | 'VT_ASSERTION'
+  | 'VT_MOCK_DECLARATION'
+  | 'VT_RENDER_CALL'
+  | 'VT_FIXTURE_IMPORT'
+  | 'VT_BEFORE_EACH'
+  | 'VT_AFTER_EACH';
+
+export interface VtParityObservationEvidence {
+  readonly name?: string;
+  readonly nestedDepth?: number;
+  readonly testCount?: number;
+  readonly parentDescribe?: string | null;
+  readonly assertionCount?: number;
+  readonly matcher?: string;
+  readonly target?: string;
+  readonly negated?: boolean;
+  readonly parentTest?: string;
+  readonly mockTarget?: string;
+  readonly mockType?: string;
+  readonly component?: string;
+  readonly hasWrapper?: boolean;
+  readonly source?: string;
+  readonly builders?: string[];
+  readonly cleanupTargets?: string[];
+  readonly scope?: string;
+  readonly hookType?: string;
+}
+
+export type VtParityObservation = Observation<VtParityObservationKind, VtParityObservationEvidence>;
+
+// --- ast-interpret-vitest-parity output (Vitest parity interpreter) ---
+
+export type VtParityStatus = 'PARITY' | 'REDUCED' | 'EXPANDED' | 'NOT_PORTED';
+
+export interface VtTestMatch {
+  readonly sourceTest: string;
+  readonly sourceFile: string;
+  readonly targetTest: string | null;
+  readonly targetFile: string | null;
+  readonly status: VtParityStatus;
+  readonly sourceAssertions: number;
+  readonly targetAssertions: number;
+  readonly sourceMocks: readonly string[];
+  readonly targetMocks: readonly string[];
+  readonly confidence: 'high' | 'low';
+  readonly similarity: number;
+}
+
+export interface VtParityScore {
+  readonly total: number;
+  readonly matched: number;
+  readonly parity: number;
+  readonly reduced: number;
+  readonly expanded: number;
+  readonly notPorted: number;
+  readonly novel: number;
+  readonly score: number;
+}
+
+export interface VtParityReport {
+  readonly matches: readonly VtTestMatch[];
+  readonly score: VtParityScore;
+  readonly sourceFiles: readonly string[];
+  readonly targetFiles: readonly string[];
 }

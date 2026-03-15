@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeTestParity, analyzeHelperFile, extractTestParityObservations } from '../ast-test-parity';
+import { analyzeTestParity, analyzeHelperFile, extractTestParityObservations } from '../ast-pw-test-parity';
 import { PROJECT_ROOT } from '../project';
 
 const fixture = (name: string) => path.join(PROJECT_ROOT, 'scripts/AST/__tests__/fixtures', name);
 
-describe('ast-test-parity', () => {
+describe('ast-pw-test-parity', () => {
   describe('analyzeTestParity', () => {
     it('extracts test blocks from positive fixture', () => {
       const result = analyzeTestParity(fixture('pw-spec-positive.spec.ts'));
@@ -109,7 +109,7 @@ describe('ast-test-parity', () => {
 
   describe('negative fixture', () => {
     it('produces zero Playwright-specific patterns from a Vitest spec', () => {
-      const result = analyzeTestParity(fixture('pw-spec-negative.spec.ts'));
+      const result = analyzeTestParity(fixture('pw-spec-negative.spec.tsx'));
 
       // It should still parse test blocks (it/test are the same in both)
       expect(result.tests.length).toBe(2);
@@ -175,7 +175,7 @@ describe('ast-test-parity', () => {
     });
 
     it('does not produce PW_AUTH_CALL for negative fixture', () => {
-      const analysis = analyzeTestParity(fixture('pw-spec-negative.spec.ts'));
+      const analysis = analyzeTestParity(fixture('pw-spec-negative.spec.tsx'));
       const result = extractTestParityObservations(analysis);
 
       const authCalls = result.observations.filter(o => o.kind === 'PW_AUTH_CALL');

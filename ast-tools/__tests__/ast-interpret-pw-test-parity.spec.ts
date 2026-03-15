@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { interpretTestParity } from '../ast-interpret-test-parity';
+import { interpretTestParity } from '../ast-interpret-pw-test-parity';
 import type { PwSpecInventory, PwHelperIndex } from '../types';
 
 function buildInventory(overrides: Partial<PwSpecInventory> = {}): PwSpecInventory {
@@ -16,7 +16,7 @@ function buildInventory(overrides: Partial<PwSpecInventory> = {}): PwSpecInvento
   };
 }
 
-describe('ast-interpret-test-parity', () => {
+describe('ast-interpret-pw-test-parity', () => {
   describe('interpretTestParity', () => {
     it('returns 100% score when source and target have identical tests', () => {
       const source = buildInventory({

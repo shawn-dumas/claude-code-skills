@@ -1,5 +1,5 @@
 /**
- * Helper/POM fixture for ast-test-parity helper inventory.
+ * Helper/POM fixture for ast-pw-test-parity helper inventory.
  * Contains a class with methods that have assertions, and
  * standalone functions with and without assertions.
  */

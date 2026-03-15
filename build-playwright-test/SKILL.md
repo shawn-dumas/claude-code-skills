@@ -379,9 +379,9 @@ history of every command run in every session.
    parity interpreter to verify structural coverage:
 
    ```bash
-   npx tsx scripts/AST/ast-test-parity.ts <source-e2e-spec> --pretty
-   npx tsx scripts/AST/ast-test-parity.ts <new-integration-spec> --pretty
-   npx tsx scripts/AST/ast-interpret-test-parity.ts \
+   npx tsx scripts/AST/ast-pw-test-parity.ts <source-e2e-spec> --pretty
+   npx tsx scripts/AST/ast-pw-test-parity.ts <new-integration-spec> --pretty
+   npx tsx scripts/AST/ast-interpret-pw-test-parity.ts \
       --source-dir $(dirname <source-e2e-spec>) \
       --target-dir $(dirname <new-integration-spec>) \
       --pretty

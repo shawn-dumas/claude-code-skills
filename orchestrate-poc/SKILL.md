@@ -970,6 +970,10 @@ If new data entities exist, generate a BFF handoff document at
 - Worked examples of calculated values
 - Edge case handling
 
+After the PoC is complete, use `/document-bff-requirements` (which runs
+`ast-bff-gaps` under the hood) to generate the structured BFF requirements
+section for `docs/upcoming-poc-features-needing-bff-work.md`.
+
 ---
 
 ## Phase 4: UX Design

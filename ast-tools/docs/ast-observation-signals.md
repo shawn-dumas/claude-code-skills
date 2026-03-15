@@ -1,6 +1,6 @@
 # AST Observation Signals
 
-Reference for what `ast-test-parity.ts` (the observation layer) extracts
+Reference for what `ast-pw-test-parity.ts` (the observation layer) extracts
 from Playwright spec files and helper files. All values are from the source
 code and should be updated if the code changes.
 
