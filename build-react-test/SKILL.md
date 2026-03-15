@@ -323,8 +323,22 @@ function setup(overrides?: Partial<ContainerProps>) {
   ```typescript
   fetchMock.mockResponseOnce(JSON.stringify(teamFixtures.buildMany(3)));
   ```
-- No `as any`. If you need to test with invalid data, use
-  `as unknown as WrongType` with a comment explaining the intent.
+- No `as any`. Type hierarchy for test data (use the first that works):
+  1. **Fixture builder**: `teamFixtures.build({ name: 'Ops' })` -- preferred,
+     always type-safe, produces complete objects
+  2. **`satisfies`**: `{ id: '1', name: 'Ops' } satisfies Team` -- for inline
+     literals where a fixture builder does not exist
+  3. **Explicit type annotation**: `const team: Team = { ... }` -- same as
+     `satisfies` but for `const` bindings
+  4. **`as unknown as WrongType`**: ONLY for intentionally invalid data when
+     testing error paths (e.g., passing a malformed object to verify the
+     component handles it). Must include a comment explaining the intent.
+     Never use this to silence a type error on valid test data -- fix the
+     data instead.
+
+  If you find yourself reaching for `as unknown as` on valid data, the
+  fixture builder almost certainly has an `overrides` parameter that
+  handles it: `build({ category: 'unclassified' })`. Check before casting.
 
 **P7 — Refactor Sync:**
 
@@ -477,6 +491,39 @@ it('does not fetch when no teams are selected', async () => {
 correctly WITHOUT mocking own hooks. The rendered output confirms the data
 flows through the component tree correctly.
 
+#### "Nothing happened" assertions (no setTimeout)
+
+Never use `await new Promise(resolve => setTimeout(resolve, N))` to assert
+that something did NOT happen. This pattern is fragile (timing-dependent)
+and slow.
+
+For disabled queries or "nothing should render" checks, assert the state
+synchronously or use `waitFor` with a negative assertion:
+
+```typescript
+// WRONG: setTimeout to "wait and check nothing changed"
+setup();
+await new Promise(resolve => setTimeout(resolve, 50));
+expect(fetchMock).not.toHaveBeenCalled();
+
+// RIGHT: assert synchronously -- if the query is disabled, no fetch fires
+setup();
+expect(fetchMock).not.toHaveBeenCalled();
+expect(screen.getByText('Select a team to view data')).toBeVisible();
+
+// RIGHT: if you need to wait for an initial render cycle
+setup();
+await waitFor(() => {
+  expect(screen.getByText('Select a team to view data')).toBeVisible();
+});
+expect(fetchMock).not.toHaveBeenCalled();
+```
+
+The principle: assert on the visible state (empty state, placeholder, or
+absence of data), not on the passage of time. If the component renders an
+empty state when the query is disabled, assert on that. The `fetchMock`
+assertion is a secondary check confirming no request was made.
+
 ### Service hook test: renderHook pattern
 
 ```typescript
@@ -525,8 +572,22 @@ describe('useMyQuery', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(fetchMock.mock.calls[0][0]).toContain('team-1');
   });
+
+  it('does not fetch when teamId is undefined (query disabled)', () => {
+    const { wrapper } = createWrapper();
+    renderHook(() => useMyQuery({ teamId: undefined }), { wrapper });
+
+    // Assert synchronously -- disabled queries never call fetch
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
 ```
+
+**Disabled query testing:** When a service hook has `enabled: !!teamId`
+(or similar), the "query disabled" test should assert synchronously that
+`fetchMock` was not called. No `setTimeout`, no `waitFor` -- a disabled
+query never fires, so there is nothing to wait for. The assertion is
+immediate.
 
 ### Pure function test: minimal pattern
 
@@ -556,9 +617,11 @@ describe('myFunction', () => {
    functions can be complex — if any exceed 10, decompose them before
    proceeding.
 3. Run `npx tsx scripts/AST/ast-type-safety.ts <path-to-new-spec> --pretty`.
-   Zero `as any` casts — test mocks that use `as any` undermine type
-   safety (P6). Use `satisfies`, fixture `build()`, or
-   `as unknown as WrongType` with a comment for intentionally invalid data.
+   Zero `as any` casts. Zero `as unknown as` casts on valid test data.
+   Every `as unknown as` must have a comment explaining why the data is
+   intentionally invalid (error-path testing). If the cast exists because
+   the fixture builder does not support the needed override, fix the
+   fixture builder or use `satisfies` instead.
    Non-null assertions are acceptable only with a comment explaining why
    the value is guaranteed non-null.
 4. Run `pnpm vitest run <path-to-new-spec>` — all tests must pass.
@@ -585,6 +648,11 @@ violations remain.
 - Do not add `vi.clearAllMocks()` or `cleanup()` (global setup handles them).
 - Do not generate snapshot tests.
 - Do not generate tests that depend on render order or effect timing.
+- Do not use `await new Promise(resolve => setTimeout(resolve, N))` to
+  assert nothing happened. Assert the visible empty state instead.
+- Do not use `as unknown as` to silence type errors on valid test data.
+  Use fixture `build(overrides)` or `satisfies` instead. Reserve
+  `as unknown as` for intentionally invalid data in error-path tests.
 - Do not mock service hooks in container tests and assert on their call arguments.
 
   ```typescript
