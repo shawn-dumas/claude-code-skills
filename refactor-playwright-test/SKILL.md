@@ -281,7 +281,7 @@ test was restructured with a different mechanism), create a calibration fixture:
 
 4. Note in the summary output: "Created calibration fixture:
    feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
-   parity when 3+ pending fixtures accumulate."
+    parity when 3+ pending fixtures accumulate. See docs/ast-calibration.md for current accuracy baselines."
 
 ## What NOT to do
 

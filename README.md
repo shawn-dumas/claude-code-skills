@@ -615,11 +615,14 @@ Builds a new AST analysis tool for `scripts/AST/`. Reads `scripts/AST/GAPS.md` t
 
 ### calibrate-ast-interpreter
 
-Calibrates an AST interpreter's weights and thresholds against ground truth
-fixtures. Reads pending feedback fixtures from `scripts/AST/ground-truth/fixtures/`,
-measures current accuracy, tunes `ast-config.ts` weights, and marks fixtures as
-consumed. Supports `--tool intent` (refactor intention matcher) and `--tool parity`
-(test parity interpreter).
+Calibrates an AST interpreter against ground truth fixtures. Follows a
+diagnostic-first approach: checks for algorithmic defects (hard ceilings,
+double-counting, observer gaps) before tuning weights. Reads fixtures from
+`scripts/AST/ground-truth/fixtures/`, measures accuracy, fixes algorithm
+issues or tunes `ast-config.ts` weights, and marks fixtures as calibrated.
+Supports `--tool intent` (refactor intention matcher) and `--tool parity`
+(test parity interpreter). See `docs/ast-calibration.md` for accuracy
+baselines and calibration history.
 
 ```
 /calibrate-ast-interpreter --tool intent
@@ -1053,8 +1056,11 @@ fixture ground truth and tunes config. Not a fourth layer (it operates on
 the interpreter layer) but a lifecycle process: interpreters emit assessments,
 refactor/test skills create feedback fixtures when they encounter
 misclassifications, and the `/calibrate-ast-interpreter` skill consumes
-pending fixtures in batches (3+) to re-tune weights and thresholds in
-`ast-config.ts`. See `scripts/AST/ground-truth/` for the fixture corpus.
+pending fixtures in batches (3+). The skill follows a diagnostic-first
+approach: it checks for algorithmic defects (hard ceilings, double-counting,
+observer gaps) before tuning weights in `ast-config.ts`. See
+`scripts/AST/ground-truth/` for the fixture corpus and
+`docs/ast-calibration.md` for accuracy baselines and calibration history.
 
 ### Tool inventory
 
@@ -1085,10 +1091,12 @@ Sections include:
 - `testing`: boundary packages, fixture patterns, provider signals
 - `jsx`: transform methods, thresholds for violation detection
 - `ownership`: layout exceptions, container markers, router hooks
-- `intentMatcher`: signal weights, score thresholds, ignored observation kinds
-  (calibration-managed by `/calibrate-ast-interpreter --tool intent`)
-- `testParity`: assertion weights, POM delegation weights, parity thresholds
-  (calibration-managed by `/calibrate-ast-interpreter --tool parity`)
+- `intentMatcher`: signal weights, fail/warn thresholds, ignored observation kinds
+  (calibration-managed by `/calibrate-ast-interpreter --tool intent`;
+  current accuracy: 100% on 55 classifications across 9 fixtures)
+- `testParity`: file mapping, helper dirs, auth methods
+  (calibration-managed by `/calibrate-ast-interpreter --tool parity`;
+  current accuracy: 100% on 10 classifications across 3 fixtures)
 
 Interpreters read from `astConfig` to make classifications. When repo conventions
 change, update `astConfig` once -- all tools and interpreters pick up the change.

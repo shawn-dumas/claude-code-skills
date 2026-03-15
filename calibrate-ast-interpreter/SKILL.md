@@ -69,7 +69,66 @@ For each fixture:
 
 - If overall accuracy >= current threshold AND no pending fixtures:
   report "No calibration needed" and stop.
-- If pending fixtures exist OR accuracy < threshold: proceed to Step 5.
+- If pending fixtures exist OR accuracy < threshold: proceed to Step 4b.
+
+## Step 4b: Diagnose -- algorithmic defect or weight tuning?
+
+Before adjusting weights, determine whether the misclassifications stem
+from an algorithmic defect in the matching/classification code or from
+suboptimal weight/threshold values. Weight tuning cannot fix broken
+algorithms.
+
+For each misclassified observation:
+
+1. **Trace the similarity computation.** Run `computeSimilarity` on the
+   before/after observation pair and inspect the component scores
+   (`functionContextScore`, `jaccardSimilarity`, `positionScore`).
+
+2. **Check for hard ceilings.** Compute the maximum possible similarity
+   given the observation pair. If the maximum is below the fail threshold
+   (0.6), no weight adjustment can fix the match -- the algorithm has a
+   structural limitation.
+
+   Common ceiling patterns:
+   - **Cross-file context mismatch:** `functionContextScore` returns 0
+     when `parentFunction` differs across files, capping similarity at
+     `WEIGHT_EVIDENCE + WEIGHT_POSITION` (currently 0.50). This makes
+     cross-file refactoring matches impossible.
+   - **Double-counted evidence:** Context fields (`parentFunction`,
+     `containingFunction`) appearing in both `functionContextScore` AND
+     `jaccardSimilarity`, penalizing context differences twice.
+   - **Greedy sort ties:** Two candidates with similar similarity but
+     different name matches. The greedy algorithm picks the wrong one
+     because it has no tie-breaking beyond raw similarity.
+   - **Observer gap:** The observation is never emitted (e.g., HOOK_CALL
+     inside a hook definition). No matching algorithm can find a signal
+     that does not exist. Fix the manifest expectation, not the code.
+
+3. **Classify the fix type:**
+   - **Algorithm fix needed:** Hard ceiling, double-counting, missing
+     tie-breaking, observer gap. Proceed to Step 4c.
+   - **Weight tuning sufficient:** The similarity is in range but on the
+     wrong side of a threshold. Proceed to Step 5.
+
+   If both types are present, do algorithm fixes first (Step 4c), then
+   re-measure, then tune weights (Step 5) if still needed.
+
+## Step 4c: Fix algorithmic defects
+
+Apply targeted fixes to the matching or classification algorithm in
+`ast-refactor-intent.ts` or `ast-interpret-refactor-intent.ts`.
+
+After each fix:
+1. Re-run accuracy on all fixtures for this tool
+2. Verify the fix resolved the targeted misclassifications
+3. Verify no regressions on previously-correct fixtures
+4. If a fixture expectation was wrong (observer gap, wrong evidence
+   format), update the manifest -- do not bend the algorithm to match
+   a bad expectation
+
+When all algorithmic defects are addressed, return to Step 3 to
+recompute accuracy metrics, then proceed to Step 5 if weight tuning is
+still needed.
 
 ## Step 5: Tune weights
 

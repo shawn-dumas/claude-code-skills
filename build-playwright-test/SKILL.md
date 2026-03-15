@@ -425,7 +425,7 @@ history of every command run in every session.
 
    d. Note in the summary: "Created calibration fixture:
       feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
-      parity when 3+ pending fixtures accumulate."
+       parity when 3+ pending fixtures accumulate. See docs/ast-calibration.md for current accuracy baselines."
 
 5. Run ONLY the new spec -- never the full suite:
    `bash scripts/run-integration.sh spec integration/tests/<new-file>.spec.ts`
