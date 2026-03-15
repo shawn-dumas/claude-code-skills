@@ -947,6 +947,28 @@ export interface BffGapAnalysis {
   observations: BffGapObservation[];
 }
 
+// --- ast-branded-check output ---
+
+export type BrandedCheckObservationKind = 'UNBRANDED_ID_FIELD';
+
+export type BrandedCheckObservationEvidence = {
+  /** The property name (e.g., 'userId') */
+  propertyName: string;
+  /** The type annotation found (e.g., 'string') */
+  actualType: string;
+  /** The branded type that should be used (e.g., 'UserId') */
+  expectedType: string;
+  /** The containing type/interface name */
+  containingType: string;
+};
+
+export type BrandedCheckObservation = Observation<BrandedCheckObservationKind, BrandedCheckObservationEvidence>;
+
+export interface BrandedCheckAnalysis {
+  filePath: string;
+  observations: BrandedCheckObservation[];
+}
+
 // ============================================================
 // Unified observation types
 // ============================================================
@@ -971,7 +993,8 @@ export type AnyObservation =
   | TestObservation
   | PwParityObservation
   | BffGapObservation
-  | VtParityObservation;
+  | VtParityObservation
+  | BrandedCheckObservation;
 
 /**
  * Unified result from running one or more observation tools on a single file.

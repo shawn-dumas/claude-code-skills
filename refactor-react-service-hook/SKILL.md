@@ -65,7 +65,7 @@ Use data layer observations for Steps 2b/2c/2d/2f/2h:
 Read the target file. Then read:
 
 - Every file it imports (API utilities, query key constants, type files, other hooks)
-- Every consumer of this hook (use `sg -p 'useHookName($$$)' src/` or `ast-imports` STATIC_IMPORT observations)
+- Every consumer of this hook (use `npx tsx scripts/AST/ast-imports.ts --consumers $ARGUMENTS --pretty`)
 - The query key constants file for this domain
 - Any cross-domain query key files this hook imports
 

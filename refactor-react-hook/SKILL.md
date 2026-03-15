@@ -52,7 +52,7 @@ cross-domain query key imports).
 
 Read the target file. Then read every file it imports -- other hooks, API utilities,
 query key constants, type files, context providers. Also find all consumers of this
-hook (use `sg -p 'useHookName($$$)' src/` or `ast-imports` STATIC_IMPORT observations). Build a map of what this hook depends on
+hook (use `npx tsx scripts/AST/ast-imports.ts --consumers $ARGUMENTS --pretty`). Build a map of what this hook depends on
 and what depends on it.
 
 ## Step 2: Classify the hook

@@ -300,11 +300,10 @@ comment explaining why the value is guaranteed non-null.
 
 ### 5d. Branded type verification
 
+Use ast-branded-check to verify branded type usage:
+
 ```bash
-sg -p 'userId: string' <generated-files>
-sg -p 'teamId: string' <generated-files>
-sg -p 'workstreamId: string' <generated-files>
-sg -p 'organizationId: string' <generated-files>
+npx tsx scripts/AST/ast-branded-check.ts <generated-files> --pretty
 ```
 
 If any matches are found, replace the bare `string` with the

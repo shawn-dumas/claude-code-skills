@@ -1,0 +1,56 @@
+{
+  "tool": "vitest-parity",
+  "created": "2026-03-15",
+  "source": "forensic",
+  "gitSourceBranch": "production",
+  "gitSourcePath": "src/shared/utils/date/validateDateRange/validateDateRange.spec.ts",
+  "gitTargetBranch": "sd/productionize",
+  "gitTargetPath": "src/shared/utils/date/validateDateRange/validateDateRange.spec.ts",
+  "sourceFiles": ["source-validateDateRange.spec.ts"],
+  "targetFiles": ["target-validateDateRange.spec.ts"],
+  "expectedClassifications": [
+    {
+      "testName": "should not add issue when dateRange is undefined",
+      "expectedStatus": "REDUCED",
+      "targetTestName": "passes when dateRange is undefined",
+      "notes": "Fuzzy match on 'daterange' + 'undefined'. Source 2 assertions (spy + ctx), target 1 (result.success). Ratio 0.5 < 0.8."
+    },
+    {
+      "testName": "should not add issue when dateRange is empty array",
+      "expectedStatus": "REDUCED",
+      "targetTestName": "passes when dateRange is empty",
+      "notes": "Fuzzy match on 'daterange' + 'empty'. Source 2 assertions, target 1. Ratio 0.5."
+    },
+    {
+      "testName": "should not add issue when only start date is provided",
+      "expectedStatus": "REDUCED",
+      "targetTestName": "passes when only start date is provided",
+      "notes": "Strong token overlap on 'only start date provided'. Source 2, target 1. Ratio 0.5."
+    },
+    {
+      "testName": "should not add issue when date diff is less than dayLimits",
+      "expectedStatus": "REDUCED",
+      "targetTestName": "passes when date diff is within the limit",
+      "notes": "Best fuzzy match by 'date diff' + 'limit' tokens. Source 2, target 1. Ratio 0.5."
+    },
+    {
+      "testName": "should add issue when date diff equals dayLimits",
+      "expectedStatus": "PARITY",
+      "targetTestName": "fails when date diff equals the limit",
+      "notes": "Strong overlap on 'date diff equals limit'. Source 2, target 2. Ratio 1.0."
+    },
+    {
+      "testName": "should add issue when date diff exceeds dayLimits",
+      "expectedStatus": "PARITY",
+      "targetTestName": "fails when date diff exceeds the limit",
+      "notes": "Strong overlap on 'date diff exceeds limit'. Source 2, target 2. Ratio 1.0."
+    },
+    {
+      "testName": "should work with different dayLimits values",
+      "expectedStatus": "EXPANDED",
+      "targetTestName": "works with different dayLimits values",
+      "notes": "Near-exact match. Source 1 assertion, target 2. Ratio 2.0 > 1.2."
+    }
+  ],
+  "status": "pending"
+}

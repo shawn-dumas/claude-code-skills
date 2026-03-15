@@ -232,21 +232,16 @@ Before defining any new type or interface inline, check first:
 
 ### Branded Type Verification
 
-After generating files, verify branded type usage with `sg` (ast-grep):
+After generating files, use ast-branded-check to verify branded type usage:
 
 ```bash
-sg -p 'userId: string' <generated-files>
-sg -p 'teamId: string' <generated-files>
-sg -p 'workstreamId: string' <generated-files>
-sg -p 'organizationId: string' <generated-files>
+npx tsx scripts/AST/ast-branded-check.ts <generated-files> --pretty
 ```
 
 If any matches are found, replace the bare `string` type with the
 corresponding branded type (`UserId`, `TeamId`, `WorkstreamId`,
 `OrganizationId`). Import from `@/shared/types/`.
 
-Using `sg` (AST pattern) instead of grep ensures matches are structural
-(actual type annotations), not false positives in comments or strings.
 This check catches the most common branded type omission: ID fields
 typed as bare `string` in props interfaces, function parameters, and
 type definitions.

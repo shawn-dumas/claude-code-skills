@@ -901,11 +901,14 @@ export { traceBarrelChain, isBarrelFile };
 // ---------------------------------------------------------------------------
 
 function main(): void {
-  const args = parseArgs(process.argv);
+  const args = parseArgs(process.argv, {
+    namedOptions: ['--consumers'],
+  });
 
   if (args.help) {
     process.stdout.write(
       'Usage: npx tsx scripts/AST/ast-imports.ts <path...> [--pretty] [--no-cache] [--test-files] [--kind <kind>] [--count]\n' +
+        '       npx tsx scripts/AST/ast-imports.ts --consumers <file> [--pretty]\n' +
         '\n' +
         'Analyze imports, exports, and dependency relationships.\n' +
         '\n' +
@@ -914,9 +917,31 @@ function main(): void {
         '  --no-cache    Bypass cache and recompute (no-op for this tool)\n' +
         '  --test-files  Scan test files instead of production files\n' +
         '  --kind        Filter observations to a specific kind\n' +
-        '  --count       Output observation kind counts instead of full data\n',
+        '  --count       Output observation kind counts instead of full data\n' +
+        '  --consumers   Find all files that import the given file (reverse lookup)\n',
     );
     process.exit(0);
+  }
+
+  // --consumers mode: reverse lookup (find importers of a given file)
+  if (args.options.consumers) {
+    const targetPath = args.options.consumers;
+    const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
+
+    if (!fs.existsSync(absolute)) {
+      fatal(`Path does not exist: ${targetPath}`);
+    }
+
+    const targetFile = analyzeFile(absolute);
+    const consumers = findConsumersForFile(targetFile);
+    const consumerPaths = consumers.map(c => c.relativePath);
+
+    if (args.pretty) {
+      process.stdout.write(JSON.stringify(consumerPaths, null, 2) + '\n');
+    } else {
+      process.stdout.write(JSON.stringify(consumerPaths) + '\n');
+    }
+    return;
   }
 
   const testFiles = args.flags.has('test-files');

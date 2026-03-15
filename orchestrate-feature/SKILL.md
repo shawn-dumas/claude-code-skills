@@ -224,7 +224,7 @@ Prompt-specific checks:
 
 \`\`\`bash
 # <description>
-<verification grep/command>
+<verification command (AST tool --count, sg, or rg per tool hierarchy)>
 \`\`\`
 
 ## Reconciliation
@@ -239,8 +239,8 @@ Prompt-specific checks:
 - New production files require tests in the same prompt, not deferred
 - Prompts are sequenced by dependency -- types before hooks before
   containers before components
-- Include grep commands that verify new files exist and new exports are
-  wired into barrels
+- Include verification commands. Use `ast-imports --kind EXPORT_DECLARATION`
+  to verify barrel wiring. Use `rg` or `ls` to verify new files exist
 
 ## Step 6: Create the cleanup file
 
@@ -305,7 +305,7 @@ For each prompt:
     ```
     pnpm test:integration 2>&1 | tail -5
     ```
-    Plus the prompt-specific verification greps.
+    Plus the prompt-specific verification searches.
 
     **Independent verification rule.** When integration scope is
     `per-prompt` or `final-only`, the orchestrator independently runs

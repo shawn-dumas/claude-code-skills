@@ -1,0 +1,50 @@
+{
+  "tool": "vitest-parity",
+  "created": "2026-03-15",
+  "source": "forensic",
+  "gitSourceBranch": "production",
+  "gitSourcePath": "src/shared/utils/table/formatCellValue/formatCellValue.spec.ts",
+  "gitTargetBranch": "sd/productionize",
+  "gitTargetPath": "src/shared/utils/table/formatCellValue/formatCellValue.spec.ts",
+  "sourceFiles": ["source-formatCellValue.spec.ts"],
+  "targetFiles": ["target-formatCellValue.spec.ts"],
+  "expectedClassifications": [
+    {
+      "testName": "should format numbers to two decimal places",
+      "expectedStatus": "REDUCED",
+      "targetTestName": "should format numbers to two decimal places",
+      "notes": "Exact name match. Source 3 assertions, target 2. Ratio 0.67 < 0.8."
+    },
+    {
+      "testName": "should preserve string format",
+      "expectedStatus": "PARITY",
+      "targetTestName": "should format string numbers",
+      "notes": "Fuzzy match on 'should format string'. Source 1, target 1. Ratio 1.0."
+    },
+    {
+      "testName": "should format based on units",
+      "expectedStatus": "REDUCED",
+      "targetTestName": "should format with percent sign",
+      "notes": "Fuzzy match on 'should format'. Source 3, target 2. Ratio 0.67."
+    },
+    {
+      "testName": "should return default for unhandled type",
+      "expectedStatus": "EXPANDED",
+      "targetTestName": "should return dash for non-numeric",
+      "notes": "Fuzzy match on 'should return for'. Source 1, target 2. Ratio 2.0 > 1.2."
+    },
+    {
+      "testName": "should format large numbers with commas",
+      "expectedStatus": "EXPANDED",
+      "targetTestName": "should format large numbers with commas",
+      "notes": "Exact name match. Source 2, target 3. Ratio 1.5 > 1.2."
+    },
+    {
+      "testName": "should format time with commas",
+      "expectedStatus": "PARITY",
+      "targetTestName": "should format time with commas",
+      "notes": "Exact name match. Source 2, target 2. Ratio 1.0."
+    }
+  ],
+  "status": "pending"
+}

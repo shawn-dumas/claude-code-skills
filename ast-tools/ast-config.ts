@@ -186,6 +186,19 @@ interface AstConfig {
     readonly cleanupPatterns: readonly string[];
   };
 
+  readonly brandedCheck: {
+    /**
+     * Maps property names to their expected branded type name.
+     * The tool flags any property signature where the name matches a key
+     * and the type annotation is the primitive base type instead of the brand.
+     */
+    readonly fieldPatterns: Readonly<Record<string, { brandedType: string; baseType: string }>>;
+    /** File path substrings to exclude (e.g., schema files, wire-format types) */
+    readonly excludePathPatterns: readonly string[];
+    /** Containing type/interface name substrings to exclude (e.g., wire-format DTOs) */
+    readonly excludeTypeNamePatterns: readonly string[];
+  };
+
   readonly imports: {
     readonly nextJsPagePrefix: string;
   };
@@ -690,6 +703,35 @@ export const astConfig: AstConfig = Object.freeze({
       'sessionStorage.clear',
       'fetchMock.resetMocks',
       'cleanup',
+    ] as const,
+  }),
+
+  brandedCheck: Object.freeze({
+    fieldPatterns: Object.freeze({
+      userId: { brandedType: 'UserId', baseType: 'string' },
+      teamId: { brandedType: 'TeamId', baseType: 'number' },
+      workstreamId: { brandedType: 'WorkstreamId', baseType: 'string' },
+      organizationId: { brandedType: 'OrganizationId', baseType: 'number' },
+    } as Record<string, { brandedType: string; baseType: string }>),
+
+    excludePathPatterns: [
+      '.schema.ts', // Zod schema files define the parse boundary
+      '.spec.ts', // Test files
+      '.spec.tsx',
+      '.test.ts',
+      '.test.tsx',
+      '.fixture.ts', // Fixture builders use branded constructors
+      'brand.ts', // Brand definitions themselves
+    ] as const,
+
+    excludeTypeNamePatterns: [
+      'Response', // Wire-format types legitimately use primitives
+      'Request',
+      'Wire',
+      'Raw',
+      'Dto',
+      'DTO',
+      'Payload',
     ] as const,
   }),
 

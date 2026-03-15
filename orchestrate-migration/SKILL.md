@@ -58,7 +58,7 @@ Then build a complete inventory:
    infrastructure) go first.
 
 6. **Check Playwright route intercepts.** If the migration changes API
-   response shapes (Zod schemas, response types, wire format), grep
+   response shapes (Zod schemas, response types, wire format), search
    `integration/tests/` for `page.route()` intercepts matching the
    affected endpoint paths. These intercepts serve fixture data in the
    current shape -- changing the response shape without updating the
@@ -139,7 +139,7 @@ Create `$PLANS_DIR/<migration-name>.md` with:
 
 \`\`\`bash
 
-# After migration, the above grep should return:
+# After migration, the above search should return:
 
 # <0 hits | only-in-specific-exempt-files>
 
@@ -298,19 +298,19 @@ Prompt-specific checks:
 
 # Old pattern should be gone from this domain
 
-<grep for old pattern scoped to domain> | wc -l
+<search command (AST tool --count, sg, or rg per tool hierarchy) scoped to domain>
 
 # Target: 0
 
 # New pattern should be present
 
-<grep for new pattern scoped to domain> | wc -l
+<search command (AST tool --count, sg, or rg per tool hierarchy) scoped to domain>
 
 # Target: <N>
 
 # Global remaining count
 
-<grep for old pattern across entire src/> | wc -l
+<search command (AST tool --count, sg, or rg per tool hierarchy) across entire src/>
 
 # Target: <N remaining after this prompt>
 
@@ -329,7 +329,7 @@ ESLint: <clean | N errors, M warnings>
 Integration: <N passed, M failed (Xm) | not run | skipped (scope: none)>
 
 Prompt-Specific:
-<verification results from the prompt's grep/check commands>
+<verification results from the prompt's search/check commands>
 <migration-specific counts: old pattern remaining, new pattern count>
 
 Behavioral Changes:
@@ -350,8 +350,8 @@ Work Left Undone: <none | list>
 
 ### Prompt generation rules
 
-- Every prompt includes "before" and "after" grep counts for the old
-  pattern, scoped to the prompt's domain AND globally
+- Every prompt includes "before" and "after" verification counts for the
+  old pattern, scoped to the prompt's domain AND globally
 - The final cleanup prompt verifies the global count is 0 (or matches
   the documented exemptions)
 - If the migration involves replacing a dependency, the deletion happens
@@ -434,7 +434,7 @@ For each prompt:
    pnpm test:integration 2>&1 | tail -5
    ```
 
-   Plus prompt-specific verification greps. Pay special attention to
+   Plus prompt-specific verification searches. Pay special attention to
    the remaining-instance counts.
 
    **Independent verification rule.** When integration scope is
@@ -472,7 +472,7 @@ not verified, reason>`. The cleanup prompt must resolve all such
 After all planned prompts complete:
 
 1. Read `$PLANS_DIR/<migration-name>-cleanup.md` in full
-2. Run the global remaining-instance grep. If count > 0 and items are
+2. Run the global remaining-instance search. If count > 0 and items are
    not documented exemptions, include them in the cleanup prompt
 3. Group items by domain/file proximity
 4. Filter out items resolved by later prompts
@@ -486,7 +486,7 @@ After all planned prompts complete:
 
 Run the full verification suite. When integration scope is `per-prompt`
 or `final-only`, run `pnpm test:integration` as a full regression check.
-Run the global remaining-instance grep one last time.
+Run the global remaining-instance search one last time.
 
 Update the master plan with:
 
@@ -500,7 +500,8 @@ from `package.json` and `pnpm-lock.yaml`. Report to user.
 
 ### Doc audit
 
-After the migration is complete, grep `docs/` and `CLAUDE.md` for
-references to the old pattern, API, or library. Update any documentation
-that now describes the pre-migration state. Stale docs are a recurring
-source of agent confusion in subsequent work sessions.
+After the migration is complete, search `docs/` and `CLAUDE.md` for
+references to the old pattern, API, or library (text search -- docs are
+not code). Update any documentation that now describes the pre-migration
+state. Stale docs are a recurring source of agent confusion in subsequent
+work sessions.

@@ -1088,6 +1088,7 @@ observer gaps) before tuning weights in `ast-config.ts`. See
 | `ast-pw-test-parity`  | `PW_TEST_BLOCK`, `PW_ASSERTION`, `PW_ROUTE_INTERCEPT`, `PW_NAVIGATION`, `PW_POM_USAGE`, `PW_AUTH_CALL`, `PW_SERIAL_MODE`, `PW_BEFORE_EACH` | `ast-interpret-pw-test-parity`                                            |
 | `ast-refactor-intent` | `INTENT_SIGNAL_BEFORE`, `INTENT_SIGNAL_AFTER`, `INTENT_SIGNAL_PAIR`                                                                        | `ast-interpret-refactor-intent`                                           |
 | `ast-bff-gaps`        | `BFF_STUB_ROUTE`, `MOCK_ROUTE`, `BFF_MISSING_ROUTE`, `QUERY_HOOK_BFF_GAP`                                                                  | (observation-only)                                                        |
+| `ast-branded-check`   | `UNBRANDED_ID_FIELD`                                                                                                                       | (observation-only)                                                        |
 
 ### The `astConfig` file
 

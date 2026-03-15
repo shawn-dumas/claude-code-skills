@@ -327,13 +327,50 @@ export function analyzeBffGaps(
     mockByExpectedBffPath.set(mock.expectedBffPath, mock);
   }
 
-  // Generate observations
+  // --- Cross-reference with query hooks FIRST (needed by BFF_STUB_ROUTE) ---
+
+  // Collect all gap API paths (stubs + missing)
+  const gapApiPaths = new Set<string>();
+  for (const bff of bffRoutes) {
+    if (bff.isStub) gapApiPaths.add(bff.apiPath);
+  }
+  for (const mock of mockRoutes) {
+    if (!bffByApiPath.has(mock.expectedBffPath)) {
+      gapApiPaths.add(mock.expectedBffPath);
+    }
+  }
+
+  // Build schema lookup: apiPath -> { hookName, schema } from hook cross-reference
+  const schemaByApiPath = new Map<string, { hookName: string; schema: string | null }>();
+  let hookGaps: QueryHookGap[] = [];
+
+  if (options.hookDirs && options.hookDirs.length > 0 && gapApiPaths.size > 0) {
+    hookGaps = findQueryHookGaps(gapApiPaths, options.hookDirs);
+    for (const gap of hookGaps) {
+      // Normalize the fetchApi URL to match API paths
+      const normalizedUrl = gap.fetchApiUrl.replace(/`/g, '').replace(/\$\{[^}]+\}/g, match => {
+        const varName = match.slice(2, -1).trim();
+        return `[${varName}]`;
+      });
+
+      // Find the matching gap API path
+      for (const gapPath of gapApiPaths) {
+        if (normalizedUrl === gapPath || normalizedUrl.includes(gapPath.replace('/api/', ''))) {
+          schemaByApiPath.set(gapPath, { hookName: gap.hookName, schema: gap.responseSchema });
+          break;
+        }
+      }
+    }
+  }
+
+  // --- Generate observations ---
   const observations: BffGapObservation[] = [];
 
-  // 1. Emit BFF_STUB_ROUTE for each stub
+  // 1. Emit BFF_STUB_ROUTE for each stub (enriched with schema from hook cross-reference)
   for (const bff of bffRoutes) {
     if (!bff.isStub) continue;
     const correspondingMock = mockByExpectedBffPath.get(bff.apiPath);
+    const schemaInfo = schemaByApiPath.get(bff.apiPath);
     observations.push({
       kind: 'BFF_STUB_ROUTE',
       file: bff.relativePath,
@@ -345,6 +382,8 @@ export function analyzeBffGaps(
         middleware: bff.middleware,
         todoComments: bff.todoComments.length > 0 ? bff.todoComments : undefined,
         httpMethods: bff.httpMethods.length > 0 ? bff.httpMethods : undefined,
+        responseSchema: schemaInfo?.schema ?? undefined,
+        queryHookName: schemaInfo?.hookName,
       },
     });
   }
@@ -381,34 +420,18 @@ export function analyzeBffGaps(
     });
   }
 
-  // 4. Cross-reference with query hooks if hookDirs provided
-  if (options.hookDirs && options.hookDirs.length > 0) {
-    // Collect all gap API paths (stubs + missing)
-    const gapApiPaths = new Set<string>();
-    for (const bff of bffRoutes) {
-      if (bff.isStub) gapApiPaths.add(bff.apiPath);
-    }
-    for (const mock of mockRoutes) {
-      if (!bffByApiPath.has(mock.expectedBffPath)) {
-        gapApiPaths.add(mock.expectedBffPath);
-      }
-    }
-
-    if (gapApiPaths.size > 0) {
-      const hookGaps = findQueryHookGaps(gapApiPaths, options.hookDirs);
-      for (const gap of hookGaps) {
-        observations.push({
-          kind: 'QUERY_HOOK_BFF_GAP',
-          file: gap.hookFile,
-          line: 1,
-          evidence: {
-            queryHookName: gap.hookName,
-            fetchApiUrl: gap.fetchApiUrl,
-            responseSchema: gap.responseSchema ?? undefined,
-          },
-        });
-      }
-    }
+  // 4. Emit QUERY_HOOK_BFF_GAP for each hook referencing a gap endpoint
+  for (const gap of hookGaps) {
+    observations.push({
+      kind: 'QUERY_HOOK_BFF_GAP',
+      file: gap.hookFile,
+      line: 1,
+      evidence: {
+        queryHookName: gap.hookName,
+        fetchApiUrl: gap.fetchApiUrl,
+        responseSchema: gap.responseSchema ?? undefined,
+      },
+    });
   }
 
   return {

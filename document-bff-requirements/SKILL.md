@@ -29,54 +29,48 @@ The user provides:
 If analyzing a worktree, set `AST_PROJECT_ROOT` to the worktree path
 before running the tool.
 
-## Step 1: Run ast-bff-gaps
+## Step 1: Run ast-bff-gaps with hook cross-referencing
 
-Run the BFF gap analysis tool on the target directory:
+Always provide `--hook-dir` so the tool cross-references with
+`ast-data-layer` and includes `responseSchema` and `queryHookName`
+evidence on `BFF_STUB_ROUTE` observations. This eliminates the need for
+a separate schema search step.
 
 ```bash
-# If analyzing the current repo:
-npx tsx scripts/AST/ast-bff-gaps.ts <api-directory> --pretty --no-cache
+# Current repo:
+npx tsx scripts/AST/ast-bff-gaps.ts <api-directory> \
+  --hook-dir <hook-directory> --pretty --no-cache
 
-# If analyzing a worktree:
-AST_PROJECT_ROOT=<worktree-path> \
-  npx tsx scripts/AST/ast-bff-gaps.ts <api-directory> --pretty --no-cache
-
-# With hook cross-referencing:
+# Worktree:
 AST_PROJECT_ROOT=<worktree-path> \
   npx tsx scripts/AST/ast-bff-gaps.ts <api-directory> \
   --hook-dir <hook-directory> --pretty --no-cache
 ```
 
-Capture the JSON output. Verify observation counts:
+Verify observation counts:
 
 ```bash
-AST_PROJECT_ROOT=<worktree-path> \
-  npx tsx scripts/AST/ast-bff-gaps.ts <api-directory> --count --no-cache
+npx tsx scripts/AST/ast-bff-gaps.ts <api-directory> \
+  --hook-dir <hook-directory> --count --no-cache
 ```
 
-## Step 2: Run ast-data-layer (optional)
+## Step 2: Verify schema coverage
 
-If hook directories were provided, also run ast-data-layer to find
-which query hooks reference each endpoint:
+Check that every `BFF_STUB_ROUTE` observation has a `responseSchema`
+evidence field. If any are missing, the corresponding query hook either
+does not exist yet or does not pass a schema to `fetchApi`. Flag these
+for manual review.
 
-```bash
-AST_PROJECT_ROOT=<worktree-path> \
-  npx tsx scripts/AST/ast-data-layer.ts <hook-directory> --pretty
-```
+## Step 3: Read schemas from tool output
 
-Extract:
-- Hook name -> fetchApi URL -> response schema mappings
-- These map each BFF stub to the frontend query that consumes it
+When `--hook-dir` is provided in Step 1, the `BFF_STUB_ROUTE`
+observations include `responseSchema` and `queryHookName` evidence
+fields. These are propagated from the `ast-data-layer` cross-reference.
+No separate schema search step is needed -- the data is already in the
+Step 1 output.
 
-## Step 3: Find schemas
-
-Search for Zod schemas referenced by the stubs. The `responseSchema`
-evidence field on QUERY_HOOK_BFF_GAP observations contains the schema
-name. Also search the types directory:
-
-```bash
-rg 'ResponseSchema|RequestSchema' src/shared/types/ --type ts
-```
+If `--hook-dir` was not provided, re-run Step 1 with `--hook-dir` to
+get schema data.
 
 ## Step 4: Find TODO(blocked) comments
 
@@ -85,6 +79,9 @@ Search the codebase for TODO(blocked) comments related to the feature:
 ```bash
 rg 'TODO\(blocked\)' src/ --type ts --type tsx
 ```
+
+This is a non-structural text search for comment patterns. `rg` is the
+correct tool here (tier 3 -- no AST tool covers comment text matching).
 
 ## Step 5: Group endpoints
 
@@ -98,7 +95,7 @@ endpoint groups. The grouping algorithm:
 3. Within each group, list endpoints in a markdown table with columns:
    - Endpoint (the API path)
    - Stub file (relative path)
-   - Response schema (from query hook cross-reference or schema search)
+    - Response schema (from `responseSchema` evidence on BFF_STUB_ROUTE)
    - ClickHouse query needed (placeholder: `[FILL IN]`)
 
 ## Step 6: Identify BFF collapse opportunities

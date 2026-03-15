@@ -209,7 +209,7 @@ Append to $PLANS_DIR/<backlog-name>-cleanup.md:
 \`\`\`
 
 ## Verification
-<standard verification + prompt-specific greps>
+<standard verification + prompt-specific verification commands>
 
 ## Reconciliation
 <standard reconciliation block>
@@ -224,10 +224,12 @@ Append to $PLANS_DIR/<backlog-name>-cleanup.md:
 - Each prompt references the specific backlog items it addresses (B1, B2,
   etc.) so the master plan can be updated
 - For large items, break them into numbered steps within the prompt
-- Include "before" measurements (line counts, grep hit counts) that the
-  verification section checks against
+- Include "before" measurements (line counts, verification counts via
+  AST tool `--count`, `sg`, or `rg`) that the verification section
+  checks against
 - If an item involves replacing a pattern across many files, include the
-  grep command that finds remaining instances (target: 0)
+  search command (AST tool `--count`, `sg`, or `rg` per tool hierarchy)
+  that finds remaining instances (target: 0)
 
 ## Step 6: Create the cleanup file
 
@@ -292,7 +294,7 @@ For each prompt:
     ```
     pnpm test:integration 2>&1 | tail -5
     ```
-    Plus prompt-specific verification greps.
+    Plus prompt-specific verification searches.
 
     **Independent verification rule.** When integration scope is
     `per-prompt` or `final-only`, the orchestrator independently runs

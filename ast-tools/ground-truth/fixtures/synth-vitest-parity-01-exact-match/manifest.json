@@ -1,0 +1,25 @@
+{
+  "tool": "vitest-parity",
+  "created": "2026-03-15",
+  "source": "synthetic",
+  "sourceFiles": ["source-useTeamData.spec.ts"],
+  "targetFiles": ["target-useTeamData.spec.ts"],
+  "expectedClassifications": [
+    {
+      "testName": "returns team members",
+      "expectedStatus": "PARITY",
+      "notes": "Both have 3 assertions -- identical count"
+    },
+    {
+      "testName": "handles loading state",
+      "expectedStatus": "PARITY",
+      "notes": "Identical assertion count"
+    },
+    {
+      "testName": "handles error state",
+      "expectedStatus": "PARITY",
+      "notes": "Identical assertion count"
+    }
+  ],
+  "status": "pending"
+}

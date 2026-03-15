@@ -60,7 +60,7 @@ Read the target file. Then read:
 
 - The context definition (createContext call, type interface)
 - Every hook and utility the provider imports
-- Every consumer of the context (use `sg -p 'useContextHookName($$$)' src/` or `ast-imports` STATIC_IMPORT observations)
+- Every consumer of the context (use `npx tsx scripts/AST/ast-imports.ts --consumers $ARGUMENTS --pretty`)
 - Any standalone service hooks that already exist for this domain
 
 Count the fields in the context interface. List every consumer and which fields it

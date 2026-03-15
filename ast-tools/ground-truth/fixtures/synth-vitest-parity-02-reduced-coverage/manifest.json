@@ -1,0 +1,35 @@
+{
+  "tool": "vitest-parity",
+  "created": "2026-03-15",
+  "source": "synthetic",
+  "sourceFiles": ["source-UserCard.spec.tsx"],
+  "targetFiles": ["target-UserCard.spec.tsx"],
+  "expectedClassifications": [
+    {
+      "testName": "renders user card",
+      "expectedStatus": "REDUCED",
+      "notes": "Source 4 assertions, target 2 -- below 0.8 ratio"
+    },
+    {
+      "testName": "handles click",
+      "expectedStatus": "PARITY",
+      "notes": "Same assertion count in both"
+    },
+    {
+      "testName": "shows loading",
+      "expectedStatus": "PARITY",
+      "notes": "Same assertion count in both"
+    },
+    {
+      "testName": "shows error message",
+      "expectedStatus": "NOT_PORTED",
+      "notes": "Missing from target"
+    },
+    {
+      "testName": "renders empty state",
+      "expectedStatus": "NOT_PORTED",
+      "notes": "Missing from target"
+    }
+  ],
+  "status": "pending"
+}

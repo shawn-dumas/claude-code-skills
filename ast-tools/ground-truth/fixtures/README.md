@@ -9,11 +9,13 @@ tells the calibration skill which interpreter to run:
 
 - `intent` -- runs `analyzeRefactorIntent()` + `interpretRefactorIntent()`
 - `parity` -- runs `analyzeTestParity()` + `interpretTestParity()`
+- `vitest-parity` -- runs `analyzeVitestParity()` + `interpretVitestParity()`
 
 ## Naming convention
 
 - `synth-intent-NN-description/` -- synthetic intent matcher fixtures
-- `synth-parity-NN-description/` -- synthetic parity tool fixtures
+- `synth-parity-NN-description/` -- synthetic PW parity tool fixtures
+- `synth-vitest-parity-NN-description/` -- synthetic Vitest parity tool fixtures
 - `git-intent-NN-description/` -- git-history intent fixtures (from real refactoring commits)
 - `git-parity-NN-description/` -- git-history parity fixtures (from real test migration between QA and integration suites)
 - `feedback-YYYY-MM-DD-description/` -- feedback fixtures created by refactor skills on misclassification
@@ -57,6 +59,26 @@ tells the calibration skill which interpreter to run:
       "testName": "displays user email",
       "expectedStatus": "PARITY",
       "notes": "inline assertions in source, POM delegation in target"
+    }
+  ],
+  "status": "pending"
+}
+```
+
+### Vitest parity manifests
+
+```json
+{
+  "tool": "vitest-parity",
+  "created": "2026-03-15",
+  "source": "synthetic",
+  "sourceFiles": ["source-useTeamData.spec.ts"],
+  "targetFiles": ["target-useTeamData.spec.ts"],
+  "expectedClassifications": [
+    {
+      "testName": "returns team members",
+      "expectedStatus": "PARITY",
+      "notes": "Target has 3 assertions vs source 2 -- within parity threshold"
     }
   ],
   "status": "pending"

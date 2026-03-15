@@ -1,5 +1,6 @@
 /**
- * Regression test for interpreter accuracy (intent matcher + parity tool).
+ * Regression test for interpreter accuracy (intent matcher + parity tool +
+ * vitest parity tool).
  *
  * Loads all fixture pairs from ground-truth/fixtures/, groups by tool,
  * runs each interpreter on its fixtures, and asserts accuracy >= threshold
@@ -19,7 +20,16 @@ import { interpretRefactorIntent } from '../ast-interpret-refactor-intent';
 import { matchSignals } from '../ast-refactor-intent';
 import { interpretTestParity } from '../ast-interpret-pw-test-parity';
 import { analyzeTestParity, analyzeHelperFile } from '../ast-pw-test-parity';
-import type { AnyObservation, RefactorSignalPair, AuditContext, PwSpecInventory, PwHelperIndex } from '../types';
+import { analyzeVitestParity } from '../ast-vitest-parity';
+import { interpretVitestParity } from '../ast-interpret-vitest-parity';
+import type {
+  AnyObservation,
+  RefactorSignalPair,
+  AuditContext,
+  PwSpecInventory,
+  PwHelperIndex,
+  VtSpecInventory,
+} from '../types';
 
 // ---------------------------------------------------------------------------
 // Manifest types
@@ -60,7 +70,17 @@ interface ParityManifest {
   status: string;
 }
 
-type Manifest = IntentManifest | ParityManifest;
+interface VitestParityManifest {
+  tool: 'vitest-parity';
+  created: string;
+  source: string;
+  sourceFiles: string[];
+  targetFiles: string[];
+  expectedClassifications: ParityExpectedClassification[];
+  status: string;
+}
+
+type Manifest = IntentManifest | ParityManifest | VitestParityManifest;
 
 // ---------------------------------------------------------------------------
 // Temp directory management
@@ -290,12 +310,74 @@ function evaluateParityFixture(
 }
 
 // ---------------------------------------------------------------------------
+// Vitest parity fixture evaluation
+// ---------------------------------------------------------------------------
+
+function evaluateVitestParityFixture(
+  fixtureDir: string,
+  manifest: VitestParityManifest,
+): { correct: number; total: number; details: string[] } {
+  const basePath = path.join(FIXTURES_DIR, fixtureDir);
+  const tmpDir = createTempDir(fixtureDir);
+
+  // Write all fixture files to temp dir
+  const allFiles = [...manifest.sourceFiles, ...manifest.targetFiles];
+  for (const f of allFiles) {
+    const content = fs.readFileSync(path.join(basePath, f), 'utf-8');
+    fs.writeFileSync(path.join(tmpDir, f), content);
+  }
+
+  // Analyze each file. The interpreter matches source<->target by .file,
+  // so normalize both to a shared key derived from the basename with the
+  // source-/target- prefix stripped.
+  const sourceInventories: VtSpecInventory[] = manifest.sourceFiles.map(f => {
+    const inv = analyzeVitestParity(path.join(tmpDir, f));
+    const key = f.replace(/^source-/, '');
+    return { ...inv, file: key };
+  });
+
+  const targetInventories: VtSpecInventory[] = manifest.targetFiles.map(f => {
+    const inv = analyzeVitestParity(path.join(tmpDir, f));
+    const key = f.replace(/^target-/, '');
+    return { ...inv, file: key };
+  });
+
+  const report = interpretVitestParity(sourceInventories, targetInventories);
+
+  // Compare against expected classifications
+  let correct = 0;
+  const total = manifest.expectedClassifications.length;
+  const details: string[] = [];
+
+  for (const expected of manifest.expectedClassifications) {
+    const matchingTest = report.matches.find(m => m.sourceTest === expected.testName);
+
+    if (!matchingTest) {
+      details.push(`MISS: test "${expected.testName}" -- no matching test found in report`);
+      continue;
+    }
+
+    if (matchingTest.status === expected.expectedStatus) {
+      correct++;
+    } else {
+      details.push(
+        `WRONG: test "${expected.testName}" -- expected ${expected.expectedStatus}, got ${matchingTest.status}` +
+          (matchingTest.similarity > 0 ? ` (sim=${matchingTest.similarity.toFixed(2)})` : ''),
+      );
+    }
+  }
+
+  return { correct, total, details };
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 const allFixtures = discoverFixtures();
 const intentFixtures = allFixtures.filter(f => f.manifest.tool === 'intent');
 const parityFixtures = allFixtures.filter(f => f.manifest.tool === 'parity');
+const vitestParityFixtures = allFixtures.filter(f => f.manifest.tool === 'vitest-parity');
 
 describe('Intent matcher accuracy', () => {
   it.skipIf(intentFixtures.length === 0)('meets accuracy threshold on all intent fixtures', { timeout: 30_000 }, () => {
@@ -387,4 +469,54 @@ describe('Parity tool accuracy', () => {
         `${totalCorrect}/${totalExpected} classifications correct across ${parityFixtures.length} fixtures.`,
     ).toBeGreaterThanOrEqual(threshold);
   });
+});
+
+describe('Vitest parity tool accuracy', () => {
+  it.skipIf(vitestParityFixtures.length === 0)(
+    'meets accuracy threshold on all vitest-parity fixtures',
+    { timeout: 30_000 },
+    () => {
+      let totalCorrect = 0;
+      let totalExpected = 0;
+      const fixtureResults: Array<{ dir: string; correct: number; total: number; details: string[] }> = [];
+
+      for (const { dir, manifest } of vitestParityFixtures) {
+        const result = evaluateVitestParityFixture(dir, manifest as VitestParityManifest);
+        totalCorrect += result.correct;
+        totalExpected += result.total;
+        fixtureResults.push({ dir, ...result });
+      }
+
+      const accuracy = totalExpected > 0 ? totalCorrect / totalExpected : 0;
+      const threshold = 0.6; // minimum 60% accuracy
+
+      // Output per-fixture details for debugging
+      for (const r of fixtureResults) {
+        if (r.details.length > 0) {
+          // eslint-disable-next-line no-console
+          console.error(`\n[${r.dir}] ${r.correct}/${r.total}:`);
+          for (const d of r.details) {
+            // eslint-disable-next-line no-console
+            console.error(`  ${d}`);
+          }
+        }
+      }
+
+      // Per-fixture regression check: no single fixture should score below 50%
+      for (const r of fixtureResults) {
+        const fixtureAccuracy = r.total > 0 ? r.correct / r.total : 0;
+        expect(
+          fixtureAccuracy,
+          `Fixture [${r.dir}] accuracy ${(fixtureAccuracy * 100).toFixed(1)}% is below 50%. ` +
+            `${r.correct}/${r.total} correct. Details: ${r.details.join('; ')}`,
+        ).toBeGreaterThanOrEqual(0.5);
+      }
+
+      expect(
+        accuracy,
+        `Vitest parity accuracy ${(accuracy * 100).toFixed(1)}% is below threshold ${(threshold * 100).toFixed(1)}%. ` +
+          `${totalCorrect}/${totalExpected} classifications correct across ${vitestParityFixtures.length} fixtures.`,
+      ).toBeGreaterThanOrEqual(threshold);
+    },
+  );
 });

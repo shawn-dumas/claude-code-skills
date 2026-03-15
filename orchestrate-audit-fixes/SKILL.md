@@ -229,7 +229,7 @@ the reconciliation block.
 
 ## Verification
 
-<standard verification + prompt-specific greps for each fix>
+<standard verification + prompt-specific verification commands for each fix>
 
 ## Reconciliation
 
@@ -243,7 +243,7 @@ Also update <master plan path>: mark findings <list> as DONE.
 - P1 and P2 fixes that change observable behavior require a failing test
   before the fix (red-green pattern)
 - P3 and P4 fixes (structural, dead code, style) do not require tests
-- Each prompt includes grep commands that verify each fix was applied
+- Each prompt includes verification commands (AST tool `--count` preferred, or `rg` for text patterns) that verify each fix was applied
 - Reference the finding numbers from the master plan's Findings Index
 - After reconciliation, instruct the work agent to mark findings as DONE
   in the master plan
@@ -316,7 +316,7 @@ For each prompt:
    pnpm test:integration 2>&1 | tail -5
    ```
 
-   Plus prompt-specific verification greps.
+   Plus prompt-specific verification searches.
 
    **Independent verification rule.** When integration scope is
    `per-prompt` or `final-only`, the orchestrator independently runs

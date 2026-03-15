@@ -188,8 +188,8 @@ pnpm test:integration
 Prompt-specific checks:
 
 \`\`\`bash
-# <description of what this grep checks>
-<grep command that should return 0 hits after the fix>
+# <description of what this verification checks>
+<search command (AST tool --count, sg, or rg per tool hierarchy) that should return 0 hits after the fix>
 \`\`\`
 
 ## Reconciliation
@@ -208,7 +208,7 @@ ESLint: <clean | N errors, M warnings>
 Integration: <N passed, M failed (Xm) | not run | skipped (scope: none)>
 
 Prompt-Specific:
-  <each grep result>
+  <each verification result>
 
 Behavioral Changes:
   <1-3 lines describing what changed in user-visible terms>
@@ -225,7 +225,7 @@ Work Left Undone: <none | list>
 
 - Every fix that changes observable behavior (bug fix, guard addition,
   error handling change) MUST require a failing test before the fix
-- Every fix includes specific grep commands that verify the fix is applied
+- Every fix includes verification commands (AST tool `--count` preferred, or `rg` for text patterns) that verify the fix is applied
 - Fixes are grouped by domain -- one prompt per domain when possible
 - Each prompt must independently pass tsc + tests + build + eslint
 - Include the work agent rules from CLAUDE.md: stay on task, document
@@ -293,7 +293,7 @@ For each prompt:
     ```
     pnpm test:integration 2>&1 | tail -5
     ```
-    Plus the prompt-specific verification greps.
+    Plus the prompt-specific verification searches.
 
     **Independent verification rule.** When integration scope is
     `per-prompt` or `final-only`, the orchestrator independently runs

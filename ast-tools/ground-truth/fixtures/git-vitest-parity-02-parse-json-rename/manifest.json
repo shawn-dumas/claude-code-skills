@@ -1,0 +1,50 @@
+{
+  "tool": "vitest-parity",
+  "created": "2026-03-15",
+  "source": "forensic",
+  "gitSourceBranch": "production",
+  "gitSourcePath": "src/shared/utils/string/parseJson/parseJson.spec.ts",
+  "gitTargetBranch": "sd/productionize",
+  "gitTargetPath": "src/shared/utils/string/parseJson/parseJson.spec.ts",
+  "sourceFiles": ["source-parseJson.spec.ts"],
+  "targetFiles": ["target-parseJson.spec.ts"],
+  "expectedClassifications": [
+    {
+      "testName": "parses valid JSON: %s",
+      "expectedStatus": "EXPANDED",
+      "targetTestName": "returns ok:true for valid JSON: %s",
+      "notes": "Fuzzy match on 'valid json'. Source 1 assertion, target 2. Ratio 2.0 > 1.2."
+    },
+    {
+      "testName": "returns null for invalid JSON: %s",
+      "expectedStatus": "EXPANDED",
+      "targetTestName": "returns ok:false with error for invalid JSON: %s",
+      "notes": "Fuzzy match on 'returns for invalid json'. Source 1, target 2. Ratio 2.0."
+    },
+    {
+      "testName": "preserves all JSON types without coercion",
+      "expectedStatus": "PARITY",
+      "targetTestName": "preserves all JSON types without coercion",
+      "notes": "Exact name match. Source 3, target 3. Ratio 1.0."
+    },
+    {
+      "testName": "preserves nested objects",
+      "expectedStatus": "PARITY",
+      "targetTestName": "preserves nested objects",
+      "notes": "Exact name match. Source 2, target 2. Ratio 1.0."
+    },
+    {
+      "testName": "handles JSON with special characters in keys",
+      "expectedStatus": "PARITY",
+      "targetTestName": "handles JSON with special characters in keys",
+      "notes": "Exact name match. Source 1, target 1. Ratio 1.0."
+    },
+    {
+      "testName": "handles large JSON strings",
+      "expectedStatus": "REDUCED",
+      "targetTestName": "handles large JSON strings",
+      "notes": "Exact name match. Source 2, target 1. Ratio 0.5 < 0.8."
+    }
+  ],
+  "status": "pending"
+}
