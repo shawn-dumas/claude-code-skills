@@ -24,23 +24,24 @@ Read these files before starting:
 
 1. `scripts/AST/GAPS.md` -- identify which gap(s) this tool fills
 2. `scripts/AST/types.ts` -- all observation/assessment type definitions
-3. `scripts/AST/cli.ts` -- shared CLI infrastructure (parseArgs, output, fatal)
+3. `scripts/AST/cli.ts` -- shared CLI infrastructure (parseArgs, outputFiltered, fatal). `parseArgs` returns `flags: Set<string>` for boolean flags and `options: Record<string, string>` for named key-value pairs (e.g., `--kind`).
 4. `scripts/AST/project.ts` -- shared project scanning (getProject, getSourceFile, findConsumerFiles)
-5. `scripts/AST/shared.ts` -- shared utilities (getFilesInDirectory, truncateText, getContainingFunctionName, detectComponents)
+5. `scripts/AST/shared.ts` -- shared utilities (getFilesInDirectory, truncateText, getContainingFunctionName, detectComponents). Note the `FileFilter` type (`'production' | 'test' | 'all'`) accepted by `getFilesInDirectory`.
 6. `scripts/AST/ast-config.ts` -- repo conventions (hook lists, path patterns, thresholds)
-7. `scripts/AST/ast-cache.ts` -- caching infrastructure (cached, hasNoCacheFlag, getCacheStats)
+7. `scripts/AST/ast-cache.ts` -- caching infrastructure (cached, getCacheStats). Use `args.flags.has('no-cache')` from `parseArgs` instead of the deprecated `hasNoCacheFlag`.
 8. `scripts/AST/tool-registry.ts` -- tool registration (registerTool, getToolList)
 9. `scripts/AST/git-source.ts` -- git-based file content retrieval for before/after comparisons
 10. At least two existing tools for reference patterns:
-   - `scripts/AST/ast-complexity.ts` -- simple observation-only tool
-   - `scripts/AST/ast-imports.ts` -- tool with both observations and an interpreter
+
+- `scripts/AST/ast-complexity.ts` -- simple observation-only tool
+- `scripts/AST/ast-imports.ts` -- tool with both observations and an interpreter
 
 ## Step 0: Validate the gap
 
 1. Read `scripts/AST/GAPS.md`. Identify the gap entry (or entries) this
    tool will fill.
 2. Confirm the pattern class has 3+ occurrences or is otherwise justified.
-3.    Check the existing tool inventory -- make sure no existing tool already
+3. Check the existing tool inventory -- make sure no existing tool already
    covers this pattern. The tool inventory is in `CLAUDE.md` under
    "Tool inventory."
 4. Define the observation kind(s) this tool will emit. Each observation
@@ -84,10 +85,10 @@ import { type SourceFile, SyntaxKind, Node } from 'ts-morph';
 import path from 'path';
 import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
-import { parseArgs, output, fatal } from './cli';
+import { parseArgs, outputFiltered, fatal } from './cli';
 import { getFilesInDirectory } from './shared';
 import { astConfig } from './ast-config';
-import { cached, hasNoCacheFlag, getCacheStats } from './ast-cache';
+import { cached, getCacheStats } from './ast-cache';
 import type {} from /* your types */ './types';
 ```
 
@@ -97,9 +98,11 @@ Every tool must export:
 
 - **`analyze<Name>(filePath: string): <AnalysisType>`** -- single-file
   analysis. This is the programmatic API that tests and other tools call.
-- **`analyze<Name>Directory(dirPath: string, options?: { noCache?: boolean }): <AnalysisType>[]`** --
+- **`analyze<Name>Directory(dirPath: string, options?: { noCache?: boolean; filter?: FileFilter }): <AnalysisType>[]`** --
   directory analysis with caching. Calls `analyze<Name>` for each file
-  via `cached()`.
+  via `cached()`. The `filter` option controls which files are included
+  (`'production'` by default, `'test'` for test files, `'all'` for both).
+  Import `FileFilter` from `./shared`.
 - **`extract<Name>Observations(analysis: <AnalysisType>): ObservationResult<ObservationType>`** --
   convert analysis output to the observation format.
 
@@ -120,42 +123,50 @@ function main(): void {
 
   if (args.help) {
     process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-<name>.ts <path...> [--pretty] [--no-cache]\n' +
+      'Usage: npx tsx scripts/AST/ast-<name>.ts <path...> [--pretty] [--kind <kind>] [--count] [--test-files] [--no-cache]\n' +
         '\n' +
         '<description of what the tool analyzes>\n' +
         '\n' +
-        '  <path...>   One or more .ts/.tsx files or directories to analyze\n' +
-        '  --pretty    Format JSON output with indentation\n' +
-        '  --no-cache  Bypass cache and recompute\n',
+        '  <path...>      One or more .ts/.tsx files or directories to analyze\n' +
+        '  --pretty       Format JSON output with indentation\n' +
+        '  --kind <kind>  Filter observations to a specific kind\n' +
+        '  --count        Output observation kind counts instead of full data\n' +
+        '  --test-files   Analyze test files instead of production files\n' +
+        '  --no-cache     Bypass cache and recompute\n',
     );
     process.exit(0);
   }
 
-  const noCache = hasNoCacheFlag(process.argv);
+  const noCache = args.flags.has('no-cache');
+  const filter = args.flags.has('test-files') ? 'test' : 'production';
 
   if (args.paths.length === 0) {
     fatal('No file or directory path provided. Use --help for usage.');
   }
 
-  const targetPath = args.paths[0];
-  const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
+  const allResults: <AnalysisType>[] = [];
 
-  if (!fs.existsSync(absolute)) {
-    fatal(`Path does not exist: ${targetPath}`);
+  for (const targetPath of args.paths) {
+    const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
+
+    if (!fs.existsSync(absolute)) {
+      fatal(`Path does not exist: ${targetPath}`);
+    }
+
+    const stat = fs.statSync(absolute);
+
+    if (stat.isDirectory()) {
+      allResults.push(...analyze<Name>Directory(targetPath, { noCache, filter }));
+    } else {
+      allResults.push(cached('ast-<name>', absolute, () => analyze<Name>(targetPath), { noCache }));
+    }
   }
 
-  const stat = fs.statSync(absolute);
+  outputFiltered(allResults, args.pretty, { kind: args.options.kind, count: args.flags.has('count') });
 
-  if (stat.isDirectory()) {
-    const results = analyze < Name > Directory(targetPath, { noCache });
-    output(results, args.pretty);
-    const stats = getCacheStats();
-    if (stats.hits > 0 || stats.misses > 0) {
-      process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
-    }
-  } else {
-    const result = cached('ast-<name>', absolute, () => analyze<Name>(targetPath), { noCache });
-    output(result, args.pretty);
+  const stats = getCacheStats();
+  if (stats.hits > 0 || stats.misses > 0) {
+    process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
   }
 }
 
@@ -305,6 +316,15 @@ pnpm tsc --noEmit
 # Run the new tool on a sample directory
 npx tsx scripts/AST/ast-<name>.ts src/<relevant-dir>/ --pretty
 
+# Filter to a specific observation kind
+npx tsx scripts/AST/ast-<name>.ts src/<relevant-dir>/ --kind MY_OBSERVATION_KIND --pretty
+
+# Get observation counts only
+npx tsx scripts/AST/ast-<name>.ts src/<relevant-dir>/ --count
+
+# Analyze test files
+npx tsx scripts/AST/ast-<name>.ts src/<relevant-dir>/ --test-files --pretty
+
 # Run tests
 npx vitest run --config scripts/AST/vitest.config.mts scripts/AST/__tests__/ast-<name>.spec.ts
 
@@ -320,7 +340,7 @@ All four commands must pass before the tool is complete.
 - [ ] Types added to `scripts/AST/types.ts`
 - [ ] Tool file created at `scripts/AST/ast-<name>.ts`
 - [ ] Exports: `analyze<Name>`, `analyze<Name>Directory`, `extract<Name>Observations`
-- [ ] CLI entry point with `--help`, `--pretty`, `--no-cache`
+- [ ] CLI entry point with `--help`, `--pretty`, `--no-cache`, `--kind`, `--count`, `--test-files`
 - [ ] `astConfig` section added (if needed)
 - [ ] Positive and negative test fixtures created
 - [ ] Test file at `scripts/AST/__tests__/ast-<name>.spec.ts`

@@ -262,6 +262,14 @@ describe('MyComponent', () => {
   API calls. The global setup in `vitest.setup.ts` enables `vitest-fetch-mock`.
 - Third-party mocks (posthog, echarts) are acceptable
 
+For container tests: mock at the fetchApi/fetchMock boundary, not at the
+hook layer. Service hooks are own-project code. The HTTP layer is the
+external boundary.
+
+Asserting on `fetchMock` call arguments (URL, headers) IS acceptable --
+`fetchApi` is a boundary. Asserting on service hook call arguments is NOT
+acceptable -- those are internal implementation details.
+
 **P3 — System Isolation:**
 
 - Let pure presentational children render (do not mock them)
@@ -388,6 +396,87 @@ it('handles fetch error', async () => {
 });
 ```
 
+#### Scenario A: Verify a query is called with correct params from URL state
+
+When a container derives query params from URL state (nuqs, router), the
+test verifies the HTTP request URL rather than hook call arguments:
+
+```typescript
+import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { systemFixtures } from '@/fixtures';
+import { SystemsContainer } from './SystemsContainer';
+
+function createTestQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: 0 },
+      mutations: { retry: false },
+    },
+  });
+}
+
+function setup() {
+  const queryClient = createTestQueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <SystemsContainer />
+    </QueryClientProvider>,
+  );
+}
+
+describe('SystemsContainer', () => {
+  beforeEach(() => {
+    fetchMock.resetMocks();
+  });
+
+  it('fetches systems overview with team params from URL', async () => {
+    const systems = systemFixtures.buildMany(2);
+    fetchMock.mockResponseOnce(JSON.stringify(systems));
+
+    // Set URL params before render (via nuqs test utils or window.history)
+    window.history.replaceState({}, '', '?teams=1,2');
+
+    setup();
+
+    await waitFor(() => {
+      expect(screen.getByText(systems[0].name)).toBeVisible();
+    });
+
+    // Assert on fetchMock URL (boundary assertion -- acceptable)
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/systems/overview?teams=1,2'),
+      expect.any(Object),
+    );
+  });
+});
+```
+
+#### Scenario B: Verify a query is disabled when URL params are missing
+
+When a container requires URL params to enable a query, the test verifies
+the fetch was NOT made and the empty state is rendered:
+
+```typescript
+it('does not fetch when no teams are selected', async () => {
+  window.history.replaceState({}, '', '?');
+
+  setup();
+
+  // Verify the empty state renders
+  expect(screen.getByText('Select a team to view data')).toBeVisible();
+
+  // Verify no fetch was made for this endpoint
+  expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining('/api/systems/overview'), expect.any(Object));
+});
+```
+
+**Why this works:** Service hooks internally call `fetchApi`, which calls
+`fetch`. `vitest-fetch-mock` intercepts `fetch` globally. By asserting on
+`fetchMock` URL strings, we verify the container wired query params
+correctly WITHOUT mocking own hooks. The rendered output confirms the data
+flows through the component tree correctly.
+
 ### Service hook test: renderHook pattern
 
 ```typescript
@@ -496,3 +585,23 @@ violations remain.
 - Do not add `vi.clearAllMocks()` or `cleanup()` (global setup handles them).
 - Do not generate snapshot tests.
 - Do not generate tests that depend on render order or effect timing.
+- Do not mock service hooks in container tests and assert on their call arguments.
+
+  ```typescript
+  // WRONG: mocking the hook and asserting on call args
+  vi.mock('@/services/hooks/queries/insights', () => ({
+    useSystemsOverviewQuery: vi.fn().mockReturnValue({ data: [], isLoading: false }),
+  }));
+  expect(useSystemsOverviewQuery).toHaveBeenCalledWith(
+    expect.objectContaining({ teams: [1, 2] }),
+    expect.objectContaining({ enabled: true }),
+  );
+
+  // RIGHT: use fetchMock at the HTTP boundary
+  fetchMock.mockResponseOnce(JSON.stringify(systemFixtures.buildMany(2)));
+  expect(fetchMock).toHaveBeenCalledWith(
+    expect.stringContaining('/api/systems/overview?teams=1,2'),
+    expect.any(Object),
+  );
+  expect(screen.getByText('System Name')).toBeInTheDocument();
+  ```

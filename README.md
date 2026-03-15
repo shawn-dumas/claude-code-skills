@@ -1107,15 +1107,36 @@ change, update `astConfig` once -- all tools and interpreters pick up the change
 # Observation output (JSON by default)
 npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/dashboard/team/
 
-# Pretty-printed observation output
+# Pretty-printed
 npx tsx scripts/AST/ast-jsx-analysis.ts src/ui/components/8flow/Table/ --pretty
 
-# Run an interpreter on observations
-npx tsx scripts/AST/ast-interpret-effects.ts src/ui/page_blocks/dashboard/team/
+# Filter by observation kind
+npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/ --kind MOCK_DECLARATION
 
-# Run the full audit interpreter chain
+# Count mode for verification queries
+npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/ --kind TIMER_NEGATIVE_ASSERTION --count
+
+# Scan test files with any tool
+npx tsx scripts/AST/ast-type-safety.ts src/ui/page_blocks/dashboard/ --test-files --kind AS_UNKNOWN_AS_CAST
+
+# Glob patterns
+npx tsx scripts/AST/ast-type-safety.ts "src/ui/page_blocks/dashboard/systems/**/*.tsx" --pretty
+
+# Multi-file
+npx tsx scripts/AST/ast-type-safety.ts src/shared/utils/date/*.ts src/shared/utils/string/*.ts
+
+# Run an interpreter
+npx tsx scripts/AST/ast-interpret-effects.ts src/ui/page_blocks/dashboard/team/
 npx tsx scripts/AST/ast-interpret-ownership.ts src/ui/page_blocks/dashboard/team/
 ```
+
+All observation tools accept these flags:
+
+- `--pretty` -- human-readable JSON output
+- `--kind <KIND>` -- filter observations to a single kind
+- `--count` -- output observation kind counts (e.g., `{"MOCK_DECLARATION": 5}`)
+- `--test-files` -- scan test/spec files instead of production files
+- `--no-cache` -- bypass the file-content cache
 
 ### Using observations vs assessments in skills
 
