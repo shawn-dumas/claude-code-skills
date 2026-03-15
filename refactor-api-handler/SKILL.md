@@ -381,14 +381,14 @@ Before defining any new type:
       npx tsx scripts/AST/ast-refactor-intent.ts \
         --before <beforeFiles...> \
         --after <afterFiles...> \
-        --pretty
+        > /tmp/signal-pair.json
       ```
 
    c. Run the interpreter:
 
       ```bash
       npx tsx scripts/AST/ast-interpret-refactor-intent.ts \
-        --signal-pair <output-from-step-2> \
+        --signal-pair /tmp/signal-pair.json \
         --refactor-type api-handler \
         --pretty
       ```

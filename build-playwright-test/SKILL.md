@@ -382,9 +382,9 @@ history of every command run in every session.
    npx tsx scripts/AST/ast-test-parity.ts <source-e2e-spec> --pretty
    npx tsx scripts/AST/ast-test-parity.ts <new-integration-spec> --pretty
    npx tsx scripts/AST/ast-interpret-test-parity.ts \
-     --source <source-e2e-spec> \
-     --target <new-integration-spec> \
-     --pretty
+      --source-dir $(dirname <source-e2e-spec>) \
+      --target-dir $(dirname <new-integration-spec>) \
+      --pretty
    ```
 
    Review the parity report. Tests classified as NOT_PORTED or REDUCED
