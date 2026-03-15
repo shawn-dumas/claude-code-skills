@@ -1,0 +1,56 @@
+{
+  "tool": "vitest-parity",
+  "created": "2026-03-15",
+  "source": "forensic",
+  "gitSourceBranch": "production",
+  "gitSourcePath": "src/shared/hooks/useFeatureFlags/useFeatureFlagPageGuard/useFeatureFlagPageGuard.spec.ts",
+  "gitTargetBranch": "sd/productionize",
+  "gitTargetPath": "src/shared/hooks/useFeatureFlags/useFeatureFlagPageGuard/useFeatureFlagPageGuard.spec.ts",
+  "sourceFiles": ["source-useFeatureFlagPageGuard.spec.ts"],
+  "targetFiles": ["target-useFeatureFlagPageGuard.spec.ts"],
+  "expectedClassifications": [
+    {
+      "testName": "should redirect to home when feature flag is explicitly false",
+      "expectedStatus": "REDUCED",
+      "targetTestName": "should redirect to home when feature flag is explicitly false",
+      "notes": "Exact name match. Source 3 assertions, target 2. Ratio 0.67 < 0.8."
+    },
+    {
+      "testName": "should not redirect when feature flag is true",
+      "expectedStatus": "PARITY",
+      "targetTestName": "should not redirect when feature flag is true",
+      "notes": "Exact name match. Source 1, target 1. Ratio 1.0."
+    },
+    {
+      "testName": "should not redirect when feature flag is undefined",
+      "expectedStatus": "PARITY",
+      "targetTestName": "should not redirect when feature flag is undefined",
+      "notes": "Exact name match. Source 1, target 1. Ratio 1.0."
+    },
+    {
+      "testName": "should not redirect when feature flag is null",
+      "expectedStatus": "NOT_PORTED",
+      "targetTestName": null,
+      "notes": "No target test for null case. Dropped in refactor."
+    },
+    {
+      "testName": "should trigger redirect when flag changes from true to false",
+      "expectedStatus": "PARITY",
+      "targetTestName": "should trigger redirect when feature flag changes from true to false",
+      "notes": "Fuzzy match on 'trigger redirect changes from true to false'. Source 2, target 2. Ratio 1.0."
+    },
+    {
+      "testName": "should handle string-based feature flags",
+      "expectedStatus": "NOT_PORTED",
+      "targetTestName": null,
+      "notes": "No good token overlap with any remaining target test. Closest is 'should only redirect for the specific feature flag being guarded' but overlap is too low."
+    },
+    {
+      "testName": "should handle empty featureFlags object",
+      "expectedStatus": "PARITY",
+      "targetTestName": "should handle empty featureFlags object",
+      "notes": "Exact name match. Source 1, target 1. Ratio 1.0."
+    }
+  ],
+  "status": "pending"
+}

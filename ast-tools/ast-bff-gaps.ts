@@ -19,7 +19,8 @@ import path from 'path';
 import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
-import { getFilesInDirectory, truncateText } from './shared';
+import { getFilesInDirectory } from './shared';
+import { resolveConfig } from './ast-config';
 import { getCacheStats } from './ast-cache';
 import type {
   BffGapObservation,
@@ -33,8 +34,7 @@ import type {
 // Path helpers
 // ---------------------------------------------------------------------------
 
-/** The mock route prefix within src/pages/api/ */
-const MOCK_SEGMENT = '/mock/';
+// Mock segment and stub patterns are configured in ast-config.ts under bffGaps.
 
 /**
  * Convert a filesystem path to an API path.
@@ -57,11 +57,14 @@ function filePathToApiPath(filePath: string): string {
 }
 
 /**
- * Strip /mock/ from an API path to derive the expected BFF path.
+ * Strip the mock segment from an API path to derive the expected BFF path.
  * /api/mock/users/data-api/systems/teams -> /api/users/data-api/systems/teams
  */
 function mockPathToBffPath(mockApiPath: string): string {
-  return mockApiPath.replace('/api/mock/', '/api/');
+  const config = resolveConfig();
+  const mockSeg = config.bffGaps.mockSegment;
+  // Replace first occurrence of /api{mockSegment} with /api/
+  return mockApiPath.replace(`/api${mockSeg}`, '/api/');
 }
 
 /**
@@ -96,8 +99,9 @@ function analyzeBffRoute(filePath: string): BffRouteInfo {
   const sf = getSourceFile(absolute);
   const text = sf.getText();
 
-  // Quick text pre-filter for stub detection
-  const isStub = text.includes('status(501)');
+  // Quick text pre-filter for stub detection (patterns from config)
+  const config = resolveConfig();
+  const isStub = config.bffGaps.stubPatterns.some(pattern => text.includes(pattern));
 
   // Extract middleware from default export chain
   const middleware = extractMiddleware(text);
@@ -298,13 +302,15 @@ export function analyzeBffGaps(
   options: { noCache?: boolean; hookDirs?: string[] } = {},
 ): BffGapAnalysis {
   const absolute = path.isAbsolute(apiDirPath) ? apiDirPath : path.resolve(PROJECT_ROOT, apiDirPath);
+  const config = resolveConfig();
+  const mockSeg = config.bffGaps.mockSegment;
 
   // Find all BFF (non-mock) route files
-  const bffFiles = getFilesInDirectory(absolute).filter(f => !f.includes('/mock/'));
+  const bffFiles = getFilesInDirectory(absolute).filter(f => !f.includes(mockSeg));
 
   // Find all mock route files under the corresponding mock directory
   // Derive mock dir: src/pages/api/ -> src/pages/api/mock/
-  const mockDir = absolute.replace('/pages/api/', '/pages/api/mock/');
+  const mockDir = absolute.replace('/pages/api/', `/pages/api${mockSeg}`);
   const mockFiles = fs.existsSync(mockDir) ? getFilesInDirectory(mockDir) : [];
 
   // Analyze BFF routes
