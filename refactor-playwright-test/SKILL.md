@@ -237,8 +237,26 @@ over manual `innerText()` + `expect().toBe()`.
    Firebase emulator, no dev server), STOP. Do not commit unverified
    changes to spec files. Report the environment issue and what is
    needed to run.
-2. Report: what was stale, what was fixed, what remains flaky, and
-   the pass/fail result with counts (not "not run").
+
+### Step 5b: Intention matcher (MANDATORY -- do not skip)
+
+After tests pass, run the intention matcher on the refactored spec file.
+**This step is mandatory.** Do not skip it. Do not report success without
+running it and including the output in your summary.
+
+```bash
+npx tsx scripts/AST/ast-refactor-intent.ts <path-to-spec> --pretty
+```
+
+Check the output:
+
+- **0 UNMATCHED**: proceed to summary.
+- **Any UNMATCHED**: investigate. Unmatched signals mean test coverage
+  was lost during the refactor.
+
+2. Report: what was stale, what was fixed, what remains flaky,
+   the pass/fail result with counts (not "not run"), and intention
+   matcher results (matched/unmatched/novel counts).
 
 ## Step 6: Parity feedback loop
 
@@ -281,7 +299,7 @@ test was restructured with a different mechanism), create a calibration fixture:
 
 4. Note in the summary output: "Created calibration fixture:
    feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
-    parity when 3+ pending fixtures accumulate. See scripts/AST/docs/ast-calibration.md for current accuracy baselines."
+   parity when 3+ pending fixtures accumulate. See scripts/AST/docs/ast-calibration.md for current accuracy baselines."
 
 ## What NOT to do
 

@@ -499,15 +499,18 @@ is not practical). If TypeScript errors appear in files you touched, fix them be
 finishing. If existing tests cover the refactored component, run them with the
 project's test runner. Report the results in the summary.
 
-### Step 5b: Intention matcher (post-verification)
+### Step 5b: Intention matcher (MANDATORY -- do not skip)
 
-After tsc passes, run the intention matcher to verify the refactor preserved
-the component's behavioral signals. The matcher is advisory, not blocking --
-a low score triggers investigation, not automatic rollback.
+After tsc and tests pass, run the intention matcher to verify the refactor
+preserved the component's behavioral signals. **This step is mandatory.**
+Do not skip it. Do not report success without running it and including
+the output in your summary. A low score blocks the refactor until
+investigated and resolved.
 
 **`refactorType: 'component'`**
 
 1. Collect the file lists:
+
    - **beforeFiles**: the original component file(s) as they existed before
      the refactor (the files read in Step 1)
    - **afterFiles**: all files created or modified in Step 4 (the component
@@ -532,6 +535,7 @@ a low score triggers investigation, not automatic rollback.
    ```
 
 4. Check the interpreter's exit code:
+
    - **Exit 0** (score >= 90, zero ACCIDENTALLY_DROPPED): proceed to summary.
    - **Exit 1** (score >= 70, has ACCIDENTALLY_DROPPED): review the pretty-
      printed output. List the dropped signals, assess whether each is truly
@@ -545,47 +549,47 @@ a low score triggers investigation, not automatic rollback.
    flag), create a calibration fixture:
 
    a. Create a directory:
-      `scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+   `scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
 
    b. Copy the before-file(s) into the directory with a "before-" prefix.
-      Copy the after-file(s) with an "after-" prefix. These are snapshots
-      of the actual code at this moment -- not references to live files.
+   Copy the after-file(s) with an "after-" prefix. These are snapshots
+   of the actual code at this moment -- not references to live files.
 
    c. Write a `manifest.json`:
 
-      ```json
-      {
-        "tool": "intent",
-        "created": "<ISO date>",
-        "source": "feedback",
-        "refactorType": "component",
-        "beforeFiles": ["before-<filename>"],
-        "afterFiles": ["after-<filename>"],
-        "expectedClassifications": [
-          {
-            "kind": "<observation kind that was misclassified>",
-            "functionContext": "<containing function name>",
-            "expectedClassification": "INTENTIONALLY_REMOVED",
-            "actualClassification": "ACCIDENTALLY_DROPPED",
-            "notes": "<why this was actually intentional>"
-          }
-        ],
-        "status": "pending"
-      }
-      ```
+   ```json
+   {
+     "tool": "intent",
+     "created": "<ISO date>",
+     "source": "feedback",
+     "refactorType": "component",
+     "beforeFiles": ["before-<filename>"],
+     "afterFiles": ["after-<filename>"],
+     "expectedClassifications": [
+       {
+         "kind": "<observation kind that was misclassified>",
+         "functionContext": "<containing function name>",
+         "expectedClassification": "INTENTIONALLY_REMOVED",
+         "actualClassification": "ACCIDENTALLY_DROPPED",
+         "notes": "<why this was actually intentional>"
+       }
+     ],
+     "status": "pending"
+   }
+   ```
 
-      Classify ALL signals in the fixture, not just the misclassified one.
-      The calibration skill needs the full picture to tune weights without
-      regressing other classifications.
+   Classify ALL signals in the fixture, not just the misclassified one.
+   The calibration skill needs the full picture to tune weights without
+   regressing other classifications.
 
-      The calibration skill follows a diagnostic-first approach: it checks
-      for algorithmic defects before tuning weights. See
-      `scripts/AST/docs/ast-calibration.md`.
+   The calibration skill follows a diagnostic-first approach: it checks
+   for algorithmic defects before tuning weights. See
+   `scripts/AST/docs/ast-calibration.md`.
 
    d. Note in the summary output: "Created calibration fixture:
-      feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
-      intent when 3+ pending fixtures accumulate. See
-      scripts/AST/docs/ast-calibration.md for current accuracy baselines."
+   feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
+   intent when 3+ pending fixtures accumulate. See
+   scripts/AST/docs/ast-calibration.md for current accuracy baselines."
 
 ## Step 6: Summary
 

@@ -213,10 +213,27 @@ After applying fixes, check if the file structure is sound:
 
 ## Step 6: Verify
 
-1. Run `npx tsc --noEmit` — fix type errors in the spec.
-2. Run `pnpm vitest run <path-to-spec>` — all tests must pass.
+1. Run `npx tsc --noEmit` -- fix type errors in the spec.
+2. Run `pnpm vitest run <path-to-spec>` -- all tests must pass.
 3. Re-score against the 10 principles. Must be 10/10.
 4. If any principle still has violations after fixes, report which ones
    and why they cannot be fixed without production-code changes.
 
-Report: original score, new score, changes made, tests passing.
+### Step 6b: Intention matcher (MANDATORY -- do not skip)
+
+After tsc and tests pass, run the intention matcher on the refactored
+spec file. **This step is mandatory.** Do not skip it. Do not report
+success without running it and including the output in your summary.
+
+```bash
+npx tsx scripts/AST/ast-refactor-intent.ts <path-to-spec> --pretty
+```
+
+Check the output:
+
+- **0 UNMATCHED**: proceed to summary.
+- **Any UNMATCHED**: investigate. Unmatched signals mean test coverage
+  was lost during the refactor.
+
+Report: original score, new score, changes made, tests passing, intention
+matcher results (matched/unmatched/novel counts).

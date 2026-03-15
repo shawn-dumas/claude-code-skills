@@ -362,104 +362,107 @@ Before defining any new type:
 
 ## Step 5: Verify
 
-1. **TypeScript:** Run `pnpm tsc --noEmit`. Fix any type errors in changed files.
+1.  **TypeScript:** Run `pnpm tsc --noEmit`. Fix any type errors in changed files.
 
-2. **Intention matcher (post-tsc):** After tsc passes, run the intention matcher
-   to verify the refactor preserved the handler's behavioral signals. The matcher
-   is advisory, not blocking -- a low score triggers investigation, not automatic
-   rollback.
+2.  **Intention matcher (MANDATORY -- do not skip):** After tsc and tests pass,
+    run the intention matcher to verify the refactor preserved the handler's
+    behavioral signals. **This step is mandatory.** Do not skip it. Do not
+    report success without running it and including the output in your summary.
+    A low score blocks the refactor until investigated and resolved.
 
-   **`refactorType: 'api-handler'`**
+    **`refactorType: 'api-handler'`**
 
-   a. Collect the file lists:
-      - **beforeFiles**: the handler file + schema file (if existed before)
-      - **afterFiles**: the handler file + schema file + any `.logic.ts` file
+    a. Collect the file lists:
 
-   b. Run the intention matcher:
+    - **beforeFiles**: the handler file + schema file (if existed before)
+    - **afterFiles**: the handler file + schema file + any `.logic.ts` file
 
-      ```bash
-      npx tsx scripts/AST/ast-refactor-intent.ts \
-        --before <beforeFiles...> \
-        --after <afterFiles...> \
-        > /tmp/signal-pair.json
-      ```
+    b. Run the intention matcher:
 
-   c. Run the interpreter:
+    ```bash
+    npx tsx scripts/AST/ast-refactor-intent.ts \
+      --before <beforeFiles...> \
+      --after <afterFiles...> \
+      > /tmp/signal-pair.json
+    ```
 
-      ```bash
-      npx tsx scripts/AST/ast-interpret-refactor-intent.ts \
-        --signal-pair /tmp/signal-pair.json \
-        --refactor-type api-handler \
-        --pretty
-      ```
+    c. Run the interpreter:
 
-   d. Check the interpreter's exit code:
-      - **Exit 0** (score >= 90, zero ACCIDENTALLY_DROPPED): proceed.
-      - **Exit 1** (score >= 70, has ACCIDENTALLY_DROPPED): review the
-        pretty-printed output. List the dropped signals, assess whether each
-        is truly accidental. If all are explained (e.g., dead code removal),
-        proceed. If any are genuine drops, fix them before proceeding.
-      - **Exit 2** (score < 70): stop and investigate. Something went wrong.
+    ```bash
+    npx tsx scripts/AST/ast-interpret-refactor-intent.ts \
+      --signal-pair /tmp/signal-pair.json \
+      --refactor-type api-handler \
+      --pretty
+    ```
 
-   e. If the intention matcher flags a signal as ACCIDENTALLY_DROPPED and
-      investigation confirms it was actually intentional (e.g., removing dead
-      code, cleaning up an unused side effect that the audit did not explicitly
-      flag), create a calibration fixture:
+    d. Check the interpreter's exit code:
 
-      i. Create a directory:
-         `scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+    - **Exit 0** (score >= 90, zero ACCIDENTALLY_DROPPED): proceed.
+    - **Exit 1** (score >= 70, has ACCIDENTALLY_DROPPED): review the
+      pretty-printed output. List the dropped signals, assess whether each
+      is truly accidental. If all are explained (e.g., dead code removal),
+      proceed. If any are genuine drops, fix them before proceeding.
+    - **Exit 2** (score < 70): stop and investigate. Something went wrong.
 
-      ii. Copy the before-file(s) with a "before-" prefix. Copy the
-          after-file(s) with an "after-" prefix. These are snapshots of the
-          actual code at this moment -- not references to live files.
+    e. If the intention matcher flags a signal as ACCIDENTALLY_DROPPED and
+    investigation confirms it was actually intentional (e.g., removing dead
+    code, cleaning up an unused side effect that the audit did not explicitly
+    flag), create a calibration fixture:
 
-      iii. Write a `manifest.json`:
+    i. Create a directory:
+    `scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
 
-           ```json
-           {
-             "tool": "intent",
-             "created": "<ISO date>",
-             "source": "feedback",
-             "refactorType": "api-handler",
-             "beforeFiles": ["before-<filename>"],
-             "afterFiles": ["after-<filename>"],
-             "expectedClassifications": [
-               {
-                 "kind": "<observation kind that was misclassified>",
-                 "functionContext": "<containing function name>",
-                 "expectedClassification": "INTENTIONALLY_REMOVED",
-                 "actualClassification": "ACCIDENTALLY_DROPPED",
-                 "notes": "<why this was actually intentional>"
-               }
-             ],
-             "status": "pending"
-           }
-           ```
+    ii. Copy the before-file(s) with a "before-" prefix. Copy the
+    after-file(s) with an "after-" prefix. These are snapshots of the
+    actual code at this moment -- not references to live files.
 
-            Classify ALL signals in the fixture, not just the misclassified one.
-            The calibration skill needs the full picture to tune weights without
-            regressing other classifications.
+    iii. Write a `manifest.json`:
 
-            The calibration skill follows a diagnostic-first approach: it checks
-            for algorithmic defects before tuning weights. See
-            `scripts/AST/docs/ast-calibration.md`.
+            ```json
+            {
+              "tool": "intent",
+              "created": "<ISO date>",
+              "source": "feedback",
+              "refactorType": "api-handler",
+              "beforeFiles": ["before-<filename>"],
+              "afterFiles": ["after-<filename>"],
+              "expectedClassifications": [
+                {
+                  "kind": "<observation kind that was misclassified>",
+                  "functionContext": "<containing function name>",
+                  "expectedClassification": "INTENTIONALLY_REMOVED",
+                  "actualClassification": "ACCIDENTALLY_DROPPED",
+                  "notes": "<why this was actually intentional>"
+                }
+              ],
+              "status": "pending"
+            }
+            ```
 
-      iv. Note in the summary output: "Created calibration fixture:
-          feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
-          intent when 3+ pending fixtures accumulate. See
-          scripts/AST/docs/ast-calibration.md for current accuracy baselines."
+             Classify ALL signals in the fixture, not just the misclassified one.
+             The calibration skill needs the full picture to tune weights without
+             regressing other classifications.
 
-3. **Complexity (mandatory before/after):** Run `npx tsx scripts/AST/ast-complexity.ts <all-changed-files> --pretty`.
-   Every function must have CC <= 10. Compare against the baseline recorded in Step 0.
+             The calibration skill follows a diagnostic-first approach: it checks
+             for algorithmic defects before tuning weights. See
+             `scripts/AST/docs/ast-calibration.md`.
 
-4. **Type safety:** Run `npx tsx scripts/AST/ast-type-safety.ts <all-changed-files> --pretty`.
-   Zero `as any` casts. Zero bare `as T` casts at trust boundaries (use Zod `.parse()` instead).
+    iv. Note in the summary output: "Created calibration fixture:
+    feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
+    intent when 3+ pending fixtures accumulate. See
+    scripts/AST/docs/ast-calibration.md for current accuracy baselines."
 
-5. **Tests:** If existing unit or integration tests cover the handler, run them.
-   Report results. All tests must pass -- the refactoring is behavior-preserving.
+3.  **Complexity (mandatory before/after):** Run `npx tsx scripts/AST/ast-complexity.ts <all-changed-files> --pretty`.
+    Every function must have CC <= 10. Compare against the baseline recorded in Step 0.
 
-6. **Lint:** Run `npx eslint <all-changed-files> --max-warnings 0`. Zero errors,
-   zero warnings.
+4.  **Type safety:** Run `npx tsx scripts/AST/ast-type-safety.ts <all-changed-files> --pretty`.
+    Zero `as any` casts. Zero bare `as T` casts at trust boundaries (use Zod `.parse()` instead).
+
+5.  **Tests:** If existing unit or integration tests cover the handler, run them.
+    Report results. All tests must pass -- the refactoring is behavior-preserving.
+
+6.  **Lint:** Run `npx eslint <all-changed-files> --max-warnings 0`. Zero errors,
+    zero warnings.
 
 Report all results in the summary. A refactoring is not complete until tsc passes,
 all functions have CC <= 10, and existing tests pass.
@@ -526,22 +529,27 @@ API route handler (<HTTP methods>, <auth level>)
 - OR: <list of consumer files updated and why>
 
 ### Files Changed
-
 ```
+
 Before (read from HEAD):
+
 - <file1>
 - <file2>
 
 After (written/modified):
+
 - <file1> (modified)
 - <file3> (created)
+
 ```
 
 ### Intent preservation
 
 ```
+
 Intent preservation: <score>/100
-  Preserved: <N> | Intentionally removed: <N> | Dropped: <N> | Added: <N>
+Preserved: <N> | Intentionally removed: <N> | Dropped: <N> | Added: <N>
+
 ```
 
 ### Verification

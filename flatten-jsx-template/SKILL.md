@@ -238,5 +238,26 @@ Rewrite the component. Rules:
 Run `npx tsc --noEmit` scoped to the changed file. Fix any type errors. If tests
 exist for this component, run them. The template flatten must not break anything.
 
+### Step 5b: Intention matcher (MANDATORY -- do not skip)
+
+After tsc and tests pass, run the intention matcher to verify the flatten
+preserved the component's behavioral signals. **This step is mandatory.**
+Do not skip it. Do not report success without running it and including
+the output in your summary. A low score blocks the refactor until
+investigated and resolved.
+
+```bash
+npx tsx scripts/AST/ast-refactor-intent.ts $ARGUMENTS --pretty
+```
+
+Check the output:
+
+- **0 UNMATCHED, 0 NOVEL**: proceed to summary.
+- **Any UNMATCHED**: investigate. Each unmatched signal is a behavioral
+  change that must be explained or fixed before proceeding.
+- **Any NOVEL**: investigate. Novel signals indicate new behavior was
+  introduced, which a flatten should never do.
+
 Output a summary: violations found, what was extracted, lines before/after in the
-return statement, and whether type-checking and tests passed.
+return statement, type-checking results, test results, and intention matcher results
+(matched/unmatched/novel counts).

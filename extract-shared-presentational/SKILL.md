@@ -141,10 +141,30 @@ The extracted component's props should reference shared types, not redefine them
 Run `npx tsc --noEmit` on all changed files. Fix type errors. Run tests for
 every file that was modified. Run the new component's tests.
 
+### Step 7b: Intention matcher (MANDATORY -- do not skip)
+
+After tsc and tests pass, run the intention matcher on every file that was
+modified (the call sites, not the new shared component). **This step is
+mandatory.** Do not skip it. Do not report success without running it and
+including the output in your summary.
+
+```bash
+npx tsx scripts/AST/ast-refactor-intent.ts <modified-files...> --pretty
+```
+
+Check the output:
+
+- **0 UNMATCHED, 0 NOVEL**: proceed to summary.
+- **Any UNMATCHED**: investigate. The extraction may have changed behavior
+  at a call site.
+- **Any NOVEL**: investigate. Novel signals at call sites indicate the
+  extraction introduced new behavior.
+
 Output a summary:
 
 - Component created at (path)
 - Props interface
 - Call sites replaced (file:line for each)
 - Lines saved (total across all files)
-- Type-checking and test results
+- Type-checking, test results, and intention matcher results
+  (matched/unmatched/novel counts)
