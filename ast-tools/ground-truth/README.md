@@ -46,27 +46,19 @@ Each file is a JSON object with this structure:
 
 `<interpreter-name>.json` -- e.g., `ast-interpret-effects.json`.
 
-## Usage
+## Accuracy evaluation
 
-```bash
-npx tsx scripts/AST/accuracy.ts ast-interpret-effects \
-  scripts/AST/ground-truth/ast-interpret-effects.json \
-  src/ui/page_blocks/dashboard/ --pretty
-```
+Accuracy is measured by `interpreter-accuracy.spec.ts`, which loads all
+fixture pairs, runs each interpreter, and asserts accuracy >= threshold.
+This runs as a vitest spec so CI catches regressions from interpreter or
+observation tool changes.
 
-## Accuracy metrics
+Metrics tracked per fixture and in aggregate:
 
-The `measureAccuracy()` function computes:
-
-- **True positives (TP)**: assessment matches ground truth at same file + line + kind
-- **False positives (FP)**: assessment exists but no matching ground truth entry
-- **False negatives (FN)**: ground truth entry exists but no matching assessment
-- **Precision**: TP / (TP + FP) -- how many of the interpreter's claims are correct
-- **Recall**: TP / (TP + FN) -- how many ground truth entries the interpreter finds
-- **F1**: harmonic mean of precision and recall
-- **Bias ratio**: total assessments / total ground truth entries (>1 = over-reporting)
-
-Per-kind breakdowns show accuracy for each assessment kind separately.
+- **True positives (TP)**: classification matches expected at same signal
+- **False positives (FP)**: classification produced but not expected
+- **False negatives (FN)**: expected classification not produced
+- Per-fixture minimum: 50%. Aggregate minimum: 60%.
 
 ## Guidelines
 

@@ -199,6 +199,13 @@ interface AstConfig {
     readonly excludeTypeNamePatterns: readonly string[];
   };
 
+  readonly bffGaps: {
+    /** Text patterns that identify a BFF stub (searched in file content) */
+    readonly stubPatterns: readonly string[];
+    /** Path segment that identifies mock routes (e.g., '/mock/') */
+    readonly mockSegment: string;
+  };
+
   readonly imports: {
     readonly nextJsPagePrefix: string;
   };
@@ -733,6 +740,11 @@ export const astConfig: AstConfig = Object.freeze({
       'DTO',
       'Payload',
     ] as const,
+  }),
+
+  bffGaps: Object.freeze({
+    stubPatterns: ['status(501)'] as const,
+    mockSegment: '/mock/',
   }),
 
   imports: Object.freeze({
