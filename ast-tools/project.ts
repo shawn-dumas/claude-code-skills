@@ -6,7 +6,18 @@ import { fileURLToPath } from 'url';
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
 
-export const PROJECT_ROOT = path.resolve(currentDirPath, '../..');
+/**
+ * Root directory of the project being analyzed.
+ *
+ * Resolution order:
+ *   1. `AST_PROJECT_ROOT` env var (for standalone/external use)
+ *   2. Relative to this file: `../../` (for in-repo use at scripts/AST/)
+ *
+ * Standalone users set the env var to point at their repo before running tools.
+ */
+export const PROJECT_ROOT = process.env.AST_PROJECT_ROOT
+  ? path.resolve(process.env.AST_PROJECT_ROOT)
+  : path.resolve(currentDirPath, '../..');
 
 let cachedProject: Project | null = null;
 

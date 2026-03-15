@@ -621,7 +621,7 @@ double-counting, observer gaps) before tuning weights. Reads fixtures from
 `scripts/AST/ground-truth/fixtures/`, measures accuracy, fixes algorithm
 issues or tunes `ast-config.ts` weights, and marks fixtures as calibrated.
 Supports `--tool intent` (refactor intention matcher) and `--tool parity`
-(test parity interpreter). See `docs/ast-calibration.md` for accuracy
+(test parity interpreter). See `scripts/AST/docs/ast-calibration.md` for accuracy
 baselines and calibration history.
 
 ```
@@ -1060,7 +1060,7 @@ pending fixtures in batches (3+). The skill follows a diagnostic-first
 approach: it checks for algorithmic defects (hard ceilings, double-counting,
 observer gaps) before tuning weights in `ast-config.ts`. See
 `scripts/AST/ground-truth/` for the fixture corpus and
-`docs/ast-calibration.md` for accuracy baselines and calibration history.
+`scripts/AST/docs/ast-calibration.md` for accuracy baselines and calibration history.
 
 ### Tool inventory
 

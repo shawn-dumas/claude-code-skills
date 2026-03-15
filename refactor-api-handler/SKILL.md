@@ -442,12 +442,12 @@ Before defining any new type:
 
             The calibration skill follows a diagnostic-first approach: it checks
             for algorithmic defects before tuning weights. See
-            `docs/ast-calibration.md`.
+            `scripts/AST/docs/ast-calibration.md`.
 
       iv. Note in the summary output: "Created calibration fixture:
           feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
           intent when 3+ pending fixtures accumulate. See
-          docs/ast-calibration.md for current accuracy baselines."
+          scripts/AST/docs/ast-calibration.md for current accuracy baselines."
 
 3. **Complexity (mandatory before/after):** Run `npx tsx scripts/AST/ast-complexity.ts <all-changed-files> --pretty`.
    Every function must have CC <= 10. Compare against the baseline recorded in Step 0.

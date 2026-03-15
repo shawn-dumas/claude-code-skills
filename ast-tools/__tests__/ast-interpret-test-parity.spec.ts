@@ -1169,7 +1169,9 @@ describe('ast-interpret-test-parity', () => {
       const reportWithout = interpretTestParity([source], [target], { 'helpers.spec.ts': 'helpers.spec.ts' });
       const wmWithout = reportWithout.fileMatches[0].testMatches[0].sourceWeight;
 
-      // With helper index: weight = max(0 + 0 + 0 + (2+3) + 0, 1) = 5 (resolved: 2 assertions + 3 assertions)
+      // With helper index: weight = max(0 + 0 + 0 + (max(2,3)+max(3,3)) + 0, 1) = 6
+      // Resolved uses max(assertionCount, 3) baseline so low-assertion helpers
+      // don't decrease weight below the flat-3 fallback.
       const reportWith = interpretTestParity(
         [source],
         [target],
@@ -1181,9 +1183,56 @@ describe('ast-interpret-test-parity', () => {
       );
       const wmWith = reportWith.fileMatches[0].testMatches[0].sourceWeight;
 
-      // Weights should differ because resolved counts (2+3=5) differ from flat (3+3=6)
+      // With max(resolved, 3) baseline, both helpers clamp to 3 (2->3, 3->3)
+      // so weight equals flat fallback when all assertions are <= 3
       expect(wmWithout).toBe(6);
-      expect(wmWith).toBe(5);
+      expect(wmWith).toBe(6);
+    });
+
+    it('resolution increases weight when helper has more than 3 assertions', () => {
+      const source = buildInventory({
+        filePath: 'export.spec.ts',
+        tests: [
+          {
+            name: 'export test',
+            line: 10,
+            describeParent: null,
+            assertionCount: 0,
+            assertions: [],
+            routeIntercepts: [],
+            navigations: [],
+            pomUsages: [],
+            helperDelegations: [{ line: 11, functionName: 'insights.verifyExport', argCount: 4 }],
+          },
+        ],
+      });
+      const target = buildInventory({ filePath: 'export.spec.ts', tests: source.tests });
+
+      const highAssertionIndex: PwHelperIndex = {
+        entries: [
+          {
+            qualifiedName: 'InsightsPage.verifyExport',
+            assertionCount: 7,
+            filePath: 'pages/InsightsPage.ts',
+            line: 100,
+          },
+        ],
+        lookup: { 'InsightsPage.verifyExport': 7 },
+      };
+
+      // Without index: flat 3
+      const rWithout = interpretTestParity([source], [target], { 'export.spec.ts': 'export.spec.ts' });
+      // With index: fuzzy resolves insights.verifyExport -> InsightsPage.verifyExport (7 assertions)
+      // max(7, 3) = 7, so weight increases from 3 to 7
+      const rWith = interpretTestParity(
+        [source],
+        [target],
+        { 'export.spec.ts': 'export.spec.ts' },
+        { sourceHelpers: highAssertionIndex, targetHelpers: highAssertionIndex },
+      );
+
+      expect(rWithout.fileMatches[0].testMatches[0].sourceWeight).toBe(3);
+      expect(rWith.fileMatches[0].testMatches[0].sourceWeight).toBe(7);
     });
 
     it('falls back to flat weight when helper is not in the index', () => {

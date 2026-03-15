@@ -86,5 +86,5 @@ fixture contains before/after source files and a `manifest.json` with
 expected classifications.
 
 - `fixtures/README.md` -- manifest format and design rules
-- `docs/ast-fixture-authoring.md` -- full authoring guide (evaluation pipeline, cross-file factories, common pitfalls)
-- `docs/ast-calibration.md` -- accuracy baselines and calibration history
+- `docs/ast-fixture-authoring.md` -- full authoring guide (relative to `scripts/AST/`)
+- `docs/ast-calibration.md` -- accuracy baselines and calibration history (relative to `scripts/AST/`)

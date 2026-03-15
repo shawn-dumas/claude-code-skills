@@ -377,12 +377,12 @@ low score triggers investigation, not automatic rollback.
 
       The calibration skill follows a diagnostic-first approach: it checks
       for algorithmic defects before tuning weights. See
-      `docs/ast-calibration.md`.
+      `scripts/AST/docs/ast-calibration.md`.
 
    d. Note in the summary output: "Created calibration fixture:
       feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
       intent when 3+ pending fixtures accumulate. See
-      docs/ast-calibration.md for current accuracy baselines."
+      scripts/AST/docs/ast-calibration.md for current accuracy baselines."
 
 ## Step 6: Summary
 

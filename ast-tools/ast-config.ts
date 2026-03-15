@@ -1,3 +1,7 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 /**
  * Centralized repo convention config for AST tools.
  *
@@ -679,5 +683,117 @@ export const astConfig: AstConfig = Object.freeze({
     mockFactoryMaxLength: 200,
   }),
 }) satisfies AstConfig;
+
+// ---------------------------------------------------------------------------
+// Config-from-repo override
+// ---------------------------------------------------------------------------
+
+/** Filename to look for in the project root for repo-specific overrides. */
+const PROJECT_CONFIG_FILENAME = '.ast-config.json';
+
+/**
+ * Deep-merge a partial JSON config onto the frozen defaults.
+ *
+ * Arrays replace (not concatenate). Objects merge recursively.
+ * Set-typed fields accept arrays in JSON and are converted to Sets.
+ */
+function mergeConfig(base: AstConfig, overrides: Record<string, unknown>): AstConfig {
+  const result: Record<string, unknown> = {};
+
+  for (const [sectionKey, sectionValue] of Object.entries(base)) {
+    const overrideSection = overrides[sectionKey];
+
+    if (!overrideSection || typeof overrideSection !== 'object' || typeof sectionValue !== 'object') {
+      result[sectionKey] = sectionValue;
+      continue;
+    }
+
+    const merged: Record<string, unknown> = {};
+    const baseSection = sectionValue as Record<string, unknown>;
+    const overSection = overrideSection as Record<string, unknown>;
+
+    for (const [key, baseVal] of Object.entries(baseSection)) {
+      const overVal = overSection[key];
+
+      if (overVal === undefined) {
+        merged[key] = baseVal;
+      } else if (baseVal instanceof Set && Array.isArray(overVal)) {
+        // JSON arrays become Sets for Set-typed config fields
+        merged[key] = new Set(overVal as string[]);
+      } else if (
+        baseVal !== null &&
+        typeof baseVal === 'object' &&
+        !Array.isArray(baseVal) &&
+        !(baseVal instanceof Set)
+      ) {
+        // Nested objects (e.g., thresholds) merge recursively
+        merged[key] = Object.freeze({
+          ...(baseVal as Record<string, unknown>),
+          ...(overVal as Record<string, unknown>),
+        });
+      } else {
+        // Scalars and arrays replace directly
+        merged[key] = overVal;
+      }
+    }
+
+    // Include override keys not present in base (forward-compatible)
+    for (const [key, overVal] of Object.entries(overSection)) {
+      if (!(key in baseSection)) {
+        merged[key] = overVal;
+      }
+    }
+
+    result[sectionKey] = Object.freeze(merged);
+  }
+
+  return Object.freeze(result) as AstConfig;
+}
+
+let resolvedConfig: AstConfig | null = null;
+
+/**
+ * Resolve the effective config by merging project-level overrides onto defaults.
+ *
+ * Looks for `.ast-config.json` at the project root (determined by `PROJECT_ROOT`
+ * from `project.ts`). If found, deep-merges the JSON onto the built-in defaults.
+ * If not found, returns the built-in config unchanged.
+ *
+ * The result is cached after the first call.
+ *
+ * For standalone/external use:
+ *   1. Set `AST_PROJECT_ROOT` env var to point at your repo
+ *   2. Create `.ast-config.json` in your repo root with overrides
+ *   3. Run tools via `npx tsx ast-tools/ast-complexity.ts src/`
+ *
+ * The JSON file uses the same structure as `AstConfig`, with two differences:
+ *   - Set fields accept JSON arrays (e.g., `"ambientLeafHooks": ["useBreakpoints"]`)
+ *   - Only include the sections/fields you want to override; defaults apply to the rest
+ */
+export function resolveConfig(): AstConfig {
+  if (resolvedConfig) return resolvedConfig;
+
+  try {
+    const currentFile = fileURLToPath(import.meta.url);
+    const currentDir = path.dirname(currentFile);
+    const projectRoot = process.env.AST_PROJECT_ROOT
+      ? path.resolve(process.env.AST_PROJECT_ROOT)
+      : path.resolve(currentDir, '../..');
+    const configPath = path.join(projectRoot, PROJECT_CONFIG_FILENAME);
+
+    if (fs.existsSync(configPath)) {
+      const raw = fs.readFileSync(configPath, 'utf-8');
+      const overrides = JSON.parse(raw) as Record<string, unknown>;
+      resolvedConfig = mergeConfig(astConfig, overrides);
+    } else {
+      resolvedConfig = astConfig;
+    }
+  } catch {
+    // If anything fails (missing file, parse error), use defaults
+    resolvedConfig = astConfig;
+  }
+
+  return resolvedConfig;
+}
 
 export type { AstConfig };

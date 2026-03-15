@@ -72,4 +72,4 @@ tells the calibration skill which interpreter to run:
 - Classifications are written by hand. Never run the matcher and copy output.
 
 For the full authoring guide (evaluation pipeline, cross-file factory setup,
-common pitfalls), see `docs/ast-fixture-authoring.md`.
+common pitfalls), see `../docs/ast-fixture-authoring.md`.
