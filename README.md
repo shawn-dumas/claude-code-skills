@@ -1094,9 +1094,10 @@ Sections include:
 - `intentMatcher`: signal weights, fail/warn thresholds, ignored observation kinds
   (calibration-managed by `/calibrate-ast-interpreter --tool intent`;
   current accuracy: 100% on 55 classifications across 9 fixtures)
-- `testParity`: file mapping, helper dirs, auth methods
+- `testParity`: file mapping, helper dirs, auth methods, mock handler
+  baseline marker
   (calibration-managed by `/calibrate-ast-interpreter --tool parity`;
-  current accuracy: 100% on 10 classifications across 3 fixtures)
+  current accuracy: 100% on 26 classifications across 9 fixtures)
 
 Interpreters read from `astConfig` to make classifications. When repo conventions
 change, update `astConfig` once -- all tools and interpreters pick up the change.
