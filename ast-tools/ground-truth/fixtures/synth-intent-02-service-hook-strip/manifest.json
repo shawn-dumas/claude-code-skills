@@ -1,0 +1,41 @@
+{
+  "tool": "intent",
+  "created": "2026-03-14",
+  "source": "synthetic",
+  "refactorType": "service-hook",
+  "beforeFiles": ["before-useTeamsQuery.ts"],
+  "afterFiles": ["after-useTeamsQuery.ts"],
+  "expectedClassifications": [
+    {
+      "kind": "EXPORT_DECLARATION",
+      "evidence": { "exportName": "useTeamsQuery" },
+      "expectedClassification": "PRESERVED",
+      "notes": "Function export unchanged"
+    },
+    {
+      "kind": "TOAST_CALL",
+      "evidence": { "method": "success" },
+      "expectedClassification": "INTENTIONALLY_REMOVED",
+      "notes": "toast.success stripped per service hook rules"
+    },
+    {
+      "kind": "POSTHOG_CALL",
+      "evidence": { "method": "sendPosthogEvent" },
+      "expectedClassification": "INTENTIONALLY_REMOVED",
+      "notes": "posthog event stripped per service hook rules"
+    },
+    {
+      "kind": "STATIC_IMPORT",
+      "evidence": { "source": "react-hot-toast" },
+      "expectedClassification": "INTENTIONALLY_REMOVED",
+      "notes": "Import removed along with toast usage"
+    },
+    {
+      "kind": "STATIC_IMPORT",
+      "evidence": { "source": "@/shared/lib/posthog" },
+      "expectedClassification": "INTENTIONALLY_REMOVED",
+      "notes": "Import removed along with posthog usage"
+    }
+  ],
+  "status": "calibrated"
+}

@@ -1,0 +1,47 @@
+{
+  "tool": "intent",
+  "created": "2026-03-14",
+  "source": "synthetic",
+  "refactorType": "provider",
+  "beforeFiles": ["before-TeamProvider.tsx"],
+  "afterFiles": ["after-TeamProvider.tsx", "after-useTeamData.ts"],
+  "expectedClassifications": [
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useState" },
+      "expectedClassification": "PRESERVED",
+      "notes": "useState stays in provider for UI state"
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useQuery" },
+      "expectedClassification": "ACCIDENTALLY_DROPPED",
+      "notes": "useQuery emitted from TeamProvider (component) but not from useTeamData (hook definition). The react-inventory tool does not emit HOOK_CALL for hooks inside hook definitions. Correctly flagged as dropped."
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useFetchApi" },
+      "expectedClassification": "ACCIDENTALLY_DROPPED",
+      "notes": "useFetchApi emitted from TeamProvider (component) but not from useTeamData (hook definition). Same observer limitation as useQuery."
+    },
+    {
+      "kind": "FETCH_API_CALL",
+      "evidence": { "url": "{ url: '/api/teams', schema }" },
+      "expectedClassification": "PRESERVED",
+      "notes": "fetchApi call exists in both before (provider) and after (hook). Evidence url is the full call expression, not just the path."
+    },
+    {
+      "kind": "EXPORT_DECLARATION",
+      "evidence": { "exportName": "useTeamData" },
+      "expectedClassification": "ADDED",
+      "notes": "New service hook export"
+    },
+    {
+      "kind": "PROP_FIELD",
+      "evidence": { "propName": "data" },
+      "expectedClassification": "ADDED",
+      "notes": "New prop on thinned provider"
+    }
+  ],
+  "status": "calibrated"
+}

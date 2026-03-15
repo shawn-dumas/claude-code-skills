@@ -1,0 +1,31 @@
+{
+  "tool": "parity",
+  "created": "2026-03-14",
+  "source": "synthetic",
+  "sourceFiles": ["source-mockDataRealTime.spec.ts"],
+  "targetFiles": ["target-realtime.spec.ts"],
+  "helperFiles": [],
+  "expectedClassifications": [
+    {
+      "testName": "displays click events in feed",
+      "expectedStatus": "PARITY",
+      "notes": "Factory-generated source test matches direct target by name overlap and shared route"
+    },
+    {
+      "testName": "displays scroll events in feed",
+      "expectedStatus": "PARITY",
+      "notes": "Factory-generated source test matches direct target by name overlap and shared route"
+    },
+    {
+      "testName": "displays submit events in feed",
+      "expectedStatus": "PARITY",
+      "notes": "Factory-generated source test matches direct target by name overlap and shared route"
+    },
+    {
+      "testName": "displays navigate events in feed",
+      "expectedStatus": "PARITY",
+      "notes": "Factory-generated source test matches direct target by name overlap and shared route"
+    }
+  ],
+  "status": "calibrated"
+}

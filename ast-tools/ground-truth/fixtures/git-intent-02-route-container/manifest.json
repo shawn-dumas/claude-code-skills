@@ -1,0 +1,61 @@
+{
+  "tool": "intent",
+  "created": "2026-03-14",
+  "source": "git-history",
+  "gitCommit": "62a27ed7",
+  "gitMessage": "4.1.15: Create UsersContainer (route container)",
+  "refactorType": "component",
+  "beforeFiles": ["before-Users.tsx"],
+  "afterFiles": ["after-Users.tsx", "after-UsersContainer.tsx"],
+  "expectedClassifications": [
+    {
+      "kind": "COMPONENT_DECLARATION",
+      "evidence": { "componentName": "Users" },
+      "expectedClassification": "PRESERVED",
+      "notes": "Component preserved in same file"
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useAuthState" },
+      "expectedClassification": "PRESERVED",
+      "notes": "Auth hook moved to UsersContainer (cross-file match sim=0.805)"
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useUsersListQuery" },
+      "expectedClassification": "PRESERVED",
+      "notes": "Data query hook moved to UsersContainer (cross-file match sim=0.801)"
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useGetAllBPOs" },
+      "expectedClassification": "PRESERVED",
+      "notes": "Data query hook moved to UsersContainer (cross-file match sim=0.801)"
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useGetAllProjects" },
+      "expectedClassification": "PRESERVED",
+      "notes": "Data query hook moved to UsersContainer (cross-file match sim=0.801)"
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useKeepRowsSelection" },
+      "expectedClassification": "CHANGED",
+      "notes": "Selection hook moved to UsersContainer (cross-file match sim=0.791, below warn threshold 0.8 -> CHANGED)"
+    },
+    {
+      "kind": "COMPONENT_DECLARATION",
+      "evidence": { "componentName": "UsersContainer" },
+      "expectedClassification": "ADDED",
+      "notes": "New container component"
+    },
+    {
+      "kind": "EXPORT_DECLARATION",
+      "evidence": { "exportName": "UsersContainer" },
+      "expectedClassification": "ADDED",
+      "notes": "New container export"
+    }
+  ],
+  "status": "calibrated"
+}

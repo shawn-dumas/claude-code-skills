@@ -1,0 +1,30 @@
+{
+  "tool": "parity",
+  "created": "2026-03-14",
+  "source": "git-history",
+  "gitSourceBranch": "development",
+  "gitSourcePath": "e2e/tests/mockDataSystems.spec.ts",
+  "gitTargetBranch": "sd/productionize",
+  "gitTargetPath": "integration/tests/systems.spec.ts",
+  "sourceFiles": ["source-mockDataSystems.spec.ts"],
+  "targetFiles": ["target-systems.spec.ts"],
+  "helperFiles": ["target-helper-insightsPage.ts"],
+  "expectedClassifications": [
+    {
+      "testName": "Expect columns to be visible when filled with data - Systems tab",
+      "expectedStatus": "EXPANDED",
+      "notes": "Source tests table visibility with no inline assertions (waitFor only). Target 'system card click' matches via shared route intercepts and has POM delegation with resolved assertions. Target weight > 2x source weight."
+    },
+    {
+      "testName": "Expect table to be empty if a team is not selected - Systems tab",
+      "expectedStatus": "NOT_PORTED",
+      "notes": "Source tests empty table state with not-found-message. Target has no empty-state test -- the systems integration spec starts from cards view after filter submission."
+    },
+    {
+      "testName": "Test columns sorting - Systems tab",
+      "expectedStatus": "EXPANDED",
+      "notes": "Source clicks sort buttons with no assertions. Target 'sorting USERS column' has route intercepts + POM methods with resolved assertions. Target weight > 2x source weight."
+    }
+  ],
+  "status": "pending"
+}

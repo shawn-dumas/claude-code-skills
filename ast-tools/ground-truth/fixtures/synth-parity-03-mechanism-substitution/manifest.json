@@ -1,0 +1,26 @@
+{
+  "tool": "parity",
+  "created": "2026-03-14",
+  "source": "synthetic",
+  "sourceFiles": ["source-auth-sso.spec.ts"],
+  "targetFiles": ["target-auth-emulator.spec.ts"],
+  "helperFiles": [],
+  "expectedClassifications": [
+    {
+      "testName": "SSO redirect initiates on login button click",
+      "expectedStatus": "NOT_PORTED",
+      "notes": "No structural signal match -- SSO tests use browser redirects, emulator tests use route intercepts. Different auth mechanism entirely."
+    },
+    {
+      "testName": "SSO callback processes token exchange",
+      "expectedStatus": "NOT_PORTED",
+      "notes": "SSO callback URL has no equivalent in emulator auth flow"
+    },
+    {
+      "testName": "SSO session timeout redirects to provider",
+      "expectedStatus": "NOT_PORTED",
+      "notes": "Session timeout is SSO-specific, emulator auth does not have this flow"
+    }
+  ],
+  "status": "calibrated"
+}

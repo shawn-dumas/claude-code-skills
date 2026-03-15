@@ -1,0 +1,59 @@
+{
+  "tool": "intent",
+  "created": "2026-03-14",
+  "source": "synthetic",
+  "refactorType": "component",
+  "beforeFiles": ["before-UserPanel.tsx"],
+  "afterFiles": ["after-UserPanelContainer.tsx", "after-UserPanelBlock.tsx"],
+  "expectedClassifications": [
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useAuthState" },
+      "expectedClassification": "PRESERVED",
+      "notes": "useAuthState moved from UserPanel to UserPanelContainer"
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useRouter" },
+      "expectedClassification": "PRESERVED",
+      "notes": "useRouter moved from UserPanel to UserPanelContainer"
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useUsersQuery" },
+      "expectedClassification": "PRESERVED",
+      "notes": "useUsersQuery moved from UserPanel to UserPanelContainer"
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useEffect" },
+      "expectedClassification": "PRESERVED",
+      "notes": "useEffect moved from UserPanel to UserPanelContainer"
+    },
+    {
+      "kind": "TOAST_CALL",
+      "evidence": { "method": "success" },
+      "expectedClassification": "ACCIDENTALLY_DROPPED",
+      "notes": "Without audit context, toast removal is conservatively flagged as accidental drop. With audit context flagging TOAST_CALL, this would be INTENTIONALLY_REMOVED."
+    },
+    {
+      "kind": "COMPONENT_DECLARATION",
+      "evidence": { "componentName": "UserPanelBlock" },
+      "expectedClassification": "ADDED",
+      "notes": "New block component created from extraction"
+    },
+    {
+      "kind": "PROP_FIELD",
+      "evidence": { "propName": "email" },
+      "expectedClassification": "ADDED",
+      "notes": "New prop field on extracted block component"
+    },
+    {
+      "kind": "PROP_FIELD",
+      "evidence": { "propName": "users" },
+      "expectedClassification": "ADDED",
+      "notes": "New prop field on extracted block component"
+    }
+  ],
+  "status": "calibrated"
+}

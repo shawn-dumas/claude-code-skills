@@ -1,0 +1,30 @@
+{
+  "tool": "parity",
+  "created": "2026-03-14",
+  "source": "git-history",
+  "gitSourceBranch": "production",
+  "gitSourcePath": "e2e/tests/bpo.spec.ts",
+  "gitTargetBranch": "sd/productionize",
+  "gitTargetPath": "integration/tests/bpo.spec.ts",
+  "sourceFiles": ["source-bpo.spec.ts"],
+  "targetFiles": ["target-bpo.spec.ts"],
+  "helperFiles": ["settings-crud.factory.ts"],
+  "expectedClassifications": [
+    {
+      "testName": "Create BPO, Delete BPO",
+      "expectedStatus": "PARITY",
+      "notes": "CRUD create+delete matches factory-generated 'Create BPO, delete BPO' via cross-file factory expansion"
+    },
+    {
+      "testName": "Create BPO, Edit BPO Name, Delete BPO",
+      "expectedStatus": "PARITY",
+      "notes": "CRUD create+edit+delete matches factory-generated 'Create BPO, edit BPO name, delete BPO'"
+    },
+    {
+      "testName": "Unable to create blank bpos",
+      "expectedStatus": "PARITY",
+      "notes": "Validation test matches factory-generated 'Unable to create blank BPOs' -- case difference in bpos/BPOs resolved by word overlap"
+    }
+  ],
+  "status": "pending"
+}

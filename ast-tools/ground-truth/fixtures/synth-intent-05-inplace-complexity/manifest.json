@@ -1,0 +1,35 @@
+{
+  "tool": "intent",
+  "created": "2026-03-14",
+  "source": "synthetic",
+  "refactorType": "module",
+  "beforeFiles": ["before-formatStatus.ts"],
+  "afterFiles": ["after-formatStatus.ts"],
+  "expectedClassifications": [
+    {
+      "kind": "EXPORT_DECLARATION",
+      "evidence": { "exportName": "formatStatus" },
+      "expectedClassification": "PRESERVED",
+      "notes": "Export unchanged"
+    },
+    {
+      "kind": "EXPORT_DECLARATION",
+      "evidence": { "exportName": "isActive" },
+      "expectedClassification": "PRESERVED",
+      "notes": "Export unchanged"
+    },
+    {
+      "kind": "FUNCTION_COMPLEXITY",
+      "evidence": { "functionName": "formatStatus" },
+      "expectedClassification": "CHANGED",
+      "notes": "CC reduced via lookup map; real matching gives sim=0.700 (between fail=0.6 and warn=0.8)"
+    },
+    {
+      "kind": "FUNCTION_COMPLEXITY",
+      "evidence": { "functionName": "isActive" },
+      "expectedClassification": "PRESERVED",
+      "notes": "Unchanged trivial function"
+    }
+  ],
+  "status": "calibrated"
+}

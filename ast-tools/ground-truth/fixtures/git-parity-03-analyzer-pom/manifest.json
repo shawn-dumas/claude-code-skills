@@ -1,0 +1,25 @@
+{
+  "tool": "parity",
+  "created": "2026-03-14",
+  "source": "git-history",
+  "gitSourceBranch": "production",
+  "gitSourcePath": "e2e/tests/mockDataAnalyzer.spec.ts",
+  "gitTargetBranch": "sd/productionize",
+  "gitTargetPath": "integration/tests/analyzer.spec.ts",
+  "sourceFiles": ["source-analyzer.spec.ts"],
+  "targetFiles": ["target-analyzer.spec.ts"],
+  "helperFiles": ["target-helper-insightsPage.ts"],
+  "expectedClassifications": [
+    {
+      "testName": "Expect columns to be visible when filled with data - Workstreams tab",
+      "expectedStatus": "PARITY",
+      "notes": "Source uses inline assertions, target uses POM delegation (expectColumnsVisible). Target has additional activity-timeline route intercept. Helper resolution should bring weights close enough for PARITY."
+    },
+    {
+      "testName": "Expect table to be empty if a team is not selected - Workstreams tab",
+      "expectedStatus": "PARITY",
+      "notes": "Source uses inline assertions + waitFor, target uses POM delegation. Both verify empty state then filled state. Structural equivalence despite mechanism change."
+    }
+  ],
+  "status": "pending"
+}

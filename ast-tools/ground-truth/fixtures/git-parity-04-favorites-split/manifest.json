@@ -1,0 +1,30 @@
+{
+  "tool": "parity",
+  "created": "2026-03-14",
+  "source": "git-history",
+  "gitSourceBranch": "development",
+  "gitSourcePath": "e2e/tests/mockDataFavorites.spec.ts",
+  "gitTargetBranch": "sd/productionize",
+  "gitTargetPath": "integration/tests/favorites.spec.ts",
+  "sourceFiles": ["source-mockDataFavorites.spec.ts"],
+  "targetFiles": ["target-favorites.spec.ts"],
+  "helperFiles": ["target-helper-insightsPage.ts"],
+  "expectedClassifications": [
+    {
+      "testName": "Expect columns to be visible when filled with data - Favorites Usage tab",
+      "expectedStatus": "EXPANDED",
+      "notes": "Source has route intercepts + one toHaveText assertion. Target has same route intercepts + POM delegation (selectTeamAndSubmit, expectColumnsVisibleAndNonNull) with resolved assertions + 2 additional inline toBeVisible assertions. Target weight > 2x source weight."
+    },
+    {
+      "testName": "Expect table to be empty if a team is not selected - Favorites Usage tab",
+      "expectedStatus": "PARITY",
+      "notes": "Source and target have similar structure: waitFor empty message, click update, verify empty. Both have route intercepts. Weight ratio within PARITY band."
+    },
+    {
+      "testName": "Test columns sorting - Favorites Usage tab",
+      "expectedStatus": "EXPANDED",
+      "notes": "Source has route intercept + column button clicks but no assertions (sorting verification hidden in opaque helpers). Target has route intercepts + POM methods with resolved assertions. Target weight > 2x source weight."
+    }
+  ],
+  "status": "pending"
+}

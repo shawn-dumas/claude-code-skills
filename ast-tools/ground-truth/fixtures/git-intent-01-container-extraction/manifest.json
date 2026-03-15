@@ -1,0 +1,55 @@
+{
+  "tool": "intent",
+  "created": "2026-03-14",
+  "source": "git-history",
+  "gitCommit": "996fd1c8",
+  "gitMessage": "refactor(team): extract query and data derivation from ProductivityByDateContainer",
+  "refactorType": "component",
+  "beforeFiles": ["before-ProductivityByDateContainer.tsx"],
+  "afterFiles": ["after-ProductivityByDateContainer.tsx", "after-useProductivityByDateData.ts"],
+  "expectedClassifications": [
+    {
+      "kind": "COMPONENT_DECLARATION",
+      "evidence": { "componentName": "ProductivityByDateContainer" },
+      "expectedClassification": "PRESERVED",
+      "notes": "Container component preserved in the same file"
+    },
+    {
+      "kind": "EXPORT_DECLARATION",
+      "evidence": { "exportName": "ProductivityByDateContainer" },
+      "expectedClassification": "PRESERVED",
+      "notes": "Main export retained"
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useTTMForDaysTableColumns" },
+      "expectedClassification": "PRESERVED",
+      "notes": "Custom hook call stays in container"
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useTTMForDaysQuery" },
+      "expectedClassification": "INTENTIONALLY_REMOVED",
+      "notes": "Data query hook moved to useProductivityByDateData (hook definition). HOOK_CALL not emitted inside hook definitions, so classified as removed. Component refactorType includes HOOK_CALL in expected removals."
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useProductivityDayStatsQuery" },
+      "expectedClassification": "INTENTIONALLY_REMOVED",
+      "notes": "Same as useTTMForDaysQuery -- data query extracted to hook file"
+    },
+    {
+      "kind": "EXPORT_DECLARATION",
+      "evidence": { "exportName": "useProductivityByDateData" },
+      "expectedClassification": "ADDED",
+      "notes": "New hook export in extracted file"
+    },
+    {
+      "kind": "FUNCTION_COMPLEXITY",
+      "evidence": { "functionName": "ProductivityByDateContainer" },
+      "expectedClassification": "CHANGED",
+      "notes": "Container complexity reduced after extraction (CC dropped)"
+    }
+  ],
+  "status": "calibrated"
+}

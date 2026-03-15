@@ -1,0 +1,47 @@
+{
+  "tool": "intent",
+  "created": "2026-03-14",
+  "source": "synthetic",
+  "refactorType": "route",
+  "beforeFiles": ["before-SettingsPage.tsx"],
+  "afterFiles": ["after-SettingsPage.tsx", "after-SettingsContainer.tsx", "after-SettingsBlock.tsx"],
+  "expectedClassifications": [
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useRouter" },
+      "expectedClassification": "PRESERVED",
+      "notes": "useRouter moved from page to container"
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useAuthState" },
+      "expectedClassification": "PRESERVED",
+      "notes": "useAuthState moved from page to container"
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useSettingsQuery" },
+      "expectedClassification": "PRESERVED",
+      "notes": "useSettingsQuery moved from page to container"
+    },
+    {
+      "kind": "COMPONENT_DECLARATION",
+      "evidence": { "componentName": "SettingsContainer" },
+      "expectedClassification": "ADDED",
+      "notes": "New container component"
+    },
+    {
+      "kind": "COMPONENT_DECLARATION",
+      "evidence": { "componentName": "SettingsBlock" },
+      "expectedClassification": "ADDED",
+      "notes": "New block component"
+    },
+    {
+      "kind": "PROP_FIELD",
+      "evidence": { "propName": "theme" },
+      "expectedClassification": "ADDED",
+      "notes": "New prop on block component"
+    }
+  ],
+  "status": "calibrated"
+}

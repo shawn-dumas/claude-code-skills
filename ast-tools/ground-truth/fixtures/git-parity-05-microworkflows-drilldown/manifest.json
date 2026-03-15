@@ -1,0 +1,25 @@
+{
+  "tool": "parity",
+  "created": "2026-03-14",
+  "source": "git-history",
+  "gitSourceBranch": "development",
+  "gitSourcePath": "e2e/tests/mockDataMicroworkflows.spec.ts",
+  "gitTargetBranch": "sd/productionize",
+  "gitTargetPath": "integration/tests/microworkflows.spec.ts",
+  "sourceFiles": ["source-mockDataMicroworkflows.spec.ts"],
+  "targetFiles": ["target-microworkflows.spec.ts"],
+  "helperFiles": ["target-helper-insightsPage.ts"],
+  "expectedClassifications": [
+    {
+      "testName": "Expect columns to be visible when filled with data - Systems tab",
+      "expectedStatus": "PARITY",
+      "notes": "Source tests overview + drilldown in one monolithic test. Target 'overview table columns' matches via shared route intercept URLs and column testId names. Drilldown split out separately."
+    },
+    {
+      "testName": "Expect table to be empty if a team is not selected - Systems tab",
+      "expectedStatus": "PARITY",
+      "notes": "Source empty state test matches target 'empty table state' via shared route intercept for overview endpoint and empty-state UI pattern."
+    }
+  ],
+  "status": "pending"
+}

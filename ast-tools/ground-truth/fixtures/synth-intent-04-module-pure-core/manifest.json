@@ -1,0 +1,41 @@
+{
+  "tool": "intent",
+  "created": "2026-03-14",
+  "source": "synthetic",
+  "refactorType": "module",
+  "beforeFiles": ["before-processReport.ts"],
+  "afterFiles": ["after-processReport.ts", "after-processReport.logic.ts"],
+  "expectedClassifications": [
+    {
+      "kind": "EXPORT_DECLARATION",
+      "evidence": { "exportName": "processReport" },
+      "expectedClassification": "PRESERVED",
+      "notes": "Main export retained in I/O shell"
+    },
+    {
+      "kind": "STATIC_IMPORT",
+      "evidence": { "source": "fs" },
+      "expectedClassification": "PRESERVED",
+      "notes": "fs import stays in I/O shell"
+    },
+    {
+      "kind": "FUNCTION_COMPLEXITY",
+      "evidence": { "functionName": "processReport" },
+      "expectedClassification": "CHANGED",
+      "notes": "Name-based tie-breaking correctly pairs before processReport with after processReport despite CC difference; similarity between fail/warn thresholds -> CHANGED"
+    },
+    {
+      "kind": "EXPORT_DECLARATION",
+      "evidence": { "exportName": "computeReportSummary" },
+      "expectedClassification": "ADDED",
+      "notes": "New pure function export in logic file"
+    },
+    {
+      "kind": "STATIC_IMPORT",
+      "evidence": { "source": "./processReport.logic" },
+      "expectedClassification": "ADDED",
+      "notes": "New import wiring shell to logic"
+    }
+  ],
+  "status": "calibrated"
+}

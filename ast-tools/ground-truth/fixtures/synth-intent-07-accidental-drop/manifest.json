@@ -1,0 +1,47 @@
+{
+  "tool": "intent",
+  "created": "2026-03-14",
+  "source": "synthetic",
+  "refactorType": "component",
+  "beforeFiles": ["before-DashPanel.tsx"],
+  "afterFiles": ["after-DashPanelContainer.tsx", "after-DashPanelBlock.tsx"],
+  "expectedClassifications": [
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useAuthState" },
+      "expectedClassification": "PRESERVED",
+      "notes": "useAuthState moved to container"
+    },
+    {
+      "kind": "POSTHOG_CALL",
+      "evidence": { "method": "sendPosthogEvent" },
+      "expectedClassification": "ACCIDENTALLY_DROPPED",
+      "notes": "sendPosthogEvent was NOT flagged by audit and is not in component expected removals -- this is the key negative case"
+    },
+    {
+      "kind": "HOOK_CALL",
+      "evidence": { "hookName": "useEffect" },
+      "expectedClassification": "INTENTIONALLY_REMOVED",
+      "notes": "HOOK_CALL is in component expected removals heuristic -- useEffect dropped but heuristic cannot distinguish moved vs dropped"
+    },
+    {
+      "kind": "COMPONENT_DECLARATION",
+      "evidence": { "componentName": "DashPanelContainer" },
+      "expectedClassification": "ADDED",
+      "notes": "New container component"
+    },
+    {
+      "kind": "COMPONENT_DECLARATION",
+      "evidence": { "componentName": "DashPanelBlock" },
+      "expectedClassification": "ADDED",
+      "notes": "New block component"
+    },
+    {
+      "kind": "PROP_FIELD",
+      "evidence": { "propName": "email" },
+      "expectedClassification": "ADDED",
+      "notes": "New prop on block"
+    }
+  ],
+  "status": "calibrated"
+}

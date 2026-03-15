@@ -1,0 +1,30 @@
+{
+  "tool": "parity",
+  "created": "2026-03-14",
+  "source": "git-history",
+  "gitSourceBranch": "production",
+  "gitSourcePath": "e2e/tests/auth.spec.ts",
+  "gitTargetBranch": "sd/productionize",
+  "gitTargetPath": "integration/tests/auth.spec.ts",
+  "sourceFiles": ["source-auth-sso.spec.ts"],
+  "targetFiles": ["target-auth-emulator.spec.ts"],
+  "helperFiles": ["target-helper-authPage.ts"],
+  "expectedClassifications": [
+    {
+      "testName": "Gmail email, flow tenant, member sign in google, access denied",
+      "expectedStatus": "NOT_PORTED",
+      "notes": "SSO Google OAuth flow -- no structural equivalent in Firebase emulator suite. Different auth mechanism entirely."
+    },
+    {
+      "testName": "8flow email sign in as admin, okta sso",
+      "expectedStatus": "NOT_PORTED",
+      "notes": "OKTA SAML SSO flow -- no structural equivalent in emulator suite. Target uses signInWithEmulator, not SSO redirects."
+    },
+    {
+      "testName": "8flow email, sign in as admin, one login sso",
+      "expectedStatus": "NOT_PORTED",
+      "notes": "OneLogin SSO flow -- same mechanism gap as OKTA. The emulator auth tests verify auth boundaries, not provider-specific flows."
+    }
+  ],
+  "status": "pending"
+}
