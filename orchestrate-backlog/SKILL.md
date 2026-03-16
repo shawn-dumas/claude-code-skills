@@ -242,33 +242,17 @@ Items discovered during backlog prompts that are non-blocking but should
 be addressed.
 ```
 
-## Step 7: Present the plan to the user
+## Step 7: Pre-flight audit (MANDATORY)
 
-Show the user:
-- Number of backlog items, grouped by type
-- Items that were already resolved (removed from scope)
-- Dependency graph
-- Number of prompts with sequence
-- For each prompt, note whether it looks mechanical (good for auto/Task
-  tool) or complex (better run manually in a full conversation)
-- Ask: "Ready to start?"
+Run immediately after generating plan + prompts + cleanup file. Do NOT
+defer to execution time.
 
-Wait for the user's go-ahead.
+Launch `/pre-flight-plan-audit` as a sub-agent on the plan file. Wait
+for it to complete.
 
-## Step 8: Pre-flight gate check (MANDATORY)
-
-Check the plan file's `> Pre-flight:` header line.
-
-- **CERTIFIED** or **CONDITIONAL**: proceed to Step 9.
-- **Missing** or **BLOCKED**: launch `/pre-flight-plan-audit` as a
-  sub-agent on the plan file. Wait for it to complete.
-  - If the verdict is CERTIFIED or CONDITIONAL: proceed to Step 9.
-  - If the verdict is BLOCKED: report the blocker findings to the user
-    and **stop**. Do not execute a plan that has not passed pre-flight.
-
-Do not skip this step. A plan that has not been pre-flighted may contain
-structural issues (missing verification commands, dependency cycles,
-convention mismatches) that waste execution time.
+- **CERTIFIED** or **CONDITIONAL**: proceed to Step 8.
+- **BLOCKED**: fix the blocker findings, re-run pre-flight. Do not
+  present a BLOCKED plan to the user.
 
 **Calibration check.** If this plan's prompts run audit, refactor, or
 build skills that consume AST interpreter output, count pending
@@ -282,9 +266,46 @@ done
 ```
 
 If any tool has 3+ pending fixtures, run `/calibrate-ast-interpreter
---tool <name>` before proceeding to Step 9. Executing against
-uncalibrated interpreters produces incorrect findings that waste
-execution time and pollute cleanup files.
+--tool <name>` before proceeding.
+
+## Step 8: Adversarial plan review (conditional)
+
+**Gate:** Run this step only if the plan's blended complexity >= 5.0.
+Plans below 5.0 are simple enough that pre-flight structural checks are
+sufficient. Skip to Step 9 for low-complexity plans.
+
+Launch a single Task sub-agent (type: `general`) to review the plan and
+all prompt files adversarially. Use the plan-review critic prompt from
+`.claude/skills/spawn-satan/plan-review-prompt.md`, substituting the
+actual plan file path and prompt glob.
+
+The critic focuses on: correctness of proposed code transformations,
+completeness of inventory (missed files/patterns), dependency ordering
+validity, API contract consistency, risk of silent data bugs, and
+verification command sufficiency.
+
+For each finding the critic returns:
+- **Accept**: fix the issue in the plan/prompt file immediately.
+- **Reject**: state concretely why the criticism is incorrect or out of
+  scope.
+
+Do not skip any finding. After addressing all findings, the plan is ready
+to present.
+
+## Step 9: Present the plan to the user
+
+Show the user:
+- Number of backlog items, grouped by type
+- Items that were already resolved (removed from scope)
+- Dependency graph
+- Number of prompts with sequence
+- Pre-flight verdict and finding count
+- Adversarial review summary (if run): findings count, accepted/rejected
+- For each prompt, note whether it looks mechanical (good for auto/Task
+  tool) or complex (better run manually in a full conversation)
+- Ask: "Ready to start?"
+
+Wait for the user's go-ahead.
 
 ## Step 9: Execute the orchestrator loop
 
