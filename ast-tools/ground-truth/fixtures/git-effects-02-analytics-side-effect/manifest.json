@@ -1,0 +1,16 @@
+{
+  "tool": "effects",
+  "created": "2026-03-16",
+  "source": "git-history",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 25,
+      "symbol": "DashboardLayoutExtract",
+      "expectedKind": "NECESSARY",
+      "notes": "Fires an analytics network call (sendPosthogEvent) when pathname/userId changes. The ref (lastSentRef) is a dedup guard to prevent double-firing, not DOM manipulation. This is a legitimate necessary side effect -- it must be an effect because side effects during render double-fire in StrictMode. The interpreter misclassifies as DOM_EFFECT because it sees ref.current access and applies the DOM rule. Source: DashboardLayout.tsx"
+    }
+  ],
+  "status": "pending"
+}

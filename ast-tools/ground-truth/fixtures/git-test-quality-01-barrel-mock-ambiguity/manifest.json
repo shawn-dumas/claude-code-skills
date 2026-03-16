@@ -1,0 +1,52 @@
+{
+  "tool": "test-quality",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "description": "Barrel re-export mock ambiguity: mocking a hooks barrel (exports useDropdownScrollHandler, useBreakpoints) from same domain. Interpreter must decide if hooks barrel is boundary or internal. Ground truth: MOCK_INTERNAL_VIOLATION because utility hooks are own-project code even when re-exported through a barrel.",
+  "files": ["widget.tsx", "hooks.ts", "index.ts", "widget.spec.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "widget.spec.tsx",
+      "line": 6,
+      "symbol": "./hooks",
+      "expectedKind": "MOCK_INTERNAL_VIOLATION",
+      "notes": "mocking own hooks barrel -- utility hooks are internal, not boundaries"
+    },
+    {
+      "file": "widget.spec.tsx",
+      "line": 10,
+      "symbol": "next/router",
+      "expectedKind": "MOCK_BOUNDARY_COMPLIANT",
+      "notes": "next/router is in boundaryPackages -- clear boundary"
+    },
+    {
+      "file": "widget.spec.tsx",
+      "line": 17,
+      "symbol": "",
+      "expectedKind": "ASSERTION_USER_VISIBLE",
+      "notes": "screen.getByText -- isScreenQuery triggers user-visible"
+    },
+    {
+      "file": "widget.spec.tsx",
+      "line": 24,
+      "symbol": "",
+      "expectedKind": "ASSERTION_USER_VISIBLE",
+      "notes": "toHaveBeenCalledWith on onSelect prop callback"
+    },
+    {
+      "file": "widget.spec.tsx",
+      "line": 0,
+      "symbol": "unit-render",
+      "expectedKind": "DETECTED_STRATEGY",
+      "notes": "render without provider wrappers -> unit-render"
+    },
+    {
+      "file": "widget.spec.tsx",
+      "line": 0,
+      "symbol": "",
+      "expectedKind": "CLEANUP_COMPLETE",
+      "notes": "no local afterEach -- global cleanup handles it"
+    }
+  ],
+  "status": "pending"
+}

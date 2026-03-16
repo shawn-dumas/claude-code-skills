@@ -1,0 +1,16 @@
+{
+  "tool": "hooks",
+  "created": "2026-03-16",
+  "source": "git",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 16,
+      "symbol": "useTypewriter",
+      "expectedKind": "UNKNOWN_HOOK",
+      "notes": "Relative import './useTypewriter'. No path match, no name match. Tracing source reveals a DOM animation hook (useState + useEffect + setTimeout) -- a human would call this LIKELY_AMBIENT_HOOK. But the interpreter has no signal from path or name. UNKNOWN_HOOK is the correct classification given the interpreter's design constraints. Known limitation: co-located utility hooks with relative imports are opaque."
+    }
+  ],
+  "status": "pending"
+}

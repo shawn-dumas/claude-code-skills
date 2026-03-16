@@ -1,0 +1,23 @@
+{
+  "tool": "hooks",
+  "created": "2026-03-16",
+  "source": "git",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 14,
+      "symbol": "useMemo",
+      "expectedKind": "LIKELY_STATE_HOOK",
+      "notes": "React builtin"
+    },
+    {
+      "file": "component.tsx",
+      "line": 19,
+      "symbol": "useMicroworkflowDetailsQuery",
+      "expectedKind": "LIKELY_SERVICE_HOOK",
+      "notes": "Imported from @/services/hooks/queries/insights -- matches serviceHookPathPatterns 'services/hooks'. Clean path-based classification."
+    }
+  ],
+  "status": "pending"
+}

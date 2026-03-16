@@ -1,0 +1,65 @@
+{
+  "tool": "hooks",
+  "created": "2026-03-16",
+  "source": "git",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 16,
+      "symbol": "useQueryClient",
+      "expectedKind": "LIKELY_SERVICE_HOOK",
+      "notes": "In tanstackQueryHooks set. TanStack Query hook, classified via import path stage (tanstackQueryHooks check is inside classifyByImportPath)."
+    },
+    {
+      "file": "component.tsx",
+      "line": 17,
+      "symbol": "usePosthogContext",
+      "expectedKind": "LIKELY_CONTEXT_HOOK",
+      "notes": "Imported from @/providers/posthogProvider -- matches contextHookPathPatterns 'providers/'. Also in knownContextHooks name list (Stage 4). Near-boundary: both import-path and name-heuristic match."
+    },
+    {
+      "file": "component.tsx",
+      "line": 18,
+      "symbol": "useAuthState",
+      "expectedKind": "LIKELY_CONTEXT_HOOK",
+      "notes": "Imported from @/providers/context/auth -- matches contextHookPathPatterns 'providers/' and 'context/'. Also in knownContextHooks name list."
+    },
+    {
+      "file": "component.tsx",
+      "line": 19,
+      "symbol": "useDashboardFiltersState",
+      "expectedKind": "LIKELY_CONTEXT_HOOK",
+      "notes": "Imported from @/providers/context/layout -- matches contextHookPathPatterns 'providers/' and 'context/'"
+    },
+    {
+      "file": "component.tsx",
+      "line": 20,
+      "symbol": "useOpportunitiesUrlParams",
+      "expectedKind": "UNKNOWN_HOOK",
+      "notes": "Relative import '../useOpportunitiesUrlParams'. No path match, no name match. Tracing source reveals a thin wrapper around nuqs useQueryStates. Name gives no signal to distinguish it from any other custom hook. UNKNOWN_HOOK is correct given interpreter's design constraints."
+    },
+    {
+      "file": "component.tsx",
+      "line": 21,
+      "symbol": "useTeamsListQuery",
+      "expectedKind": "LIKELY_SERVICE_HOOK",
+      "notes": "Imported from @/services/hooks/queries/teams -- matches serviceHookPathPatterns 'services/hooks'"
+    },
+    {
+      "file": "component.tsx",
+      "line": 22,
+      "symbol": "useMemo",
+      "expectedKind": "LIKELY_STATE_HOOK",
+      "notes": "React builtin"
+    },
+    {
+      "file": "component.tsx",
+      "line": 23,
+      "symbol": "useCallback",
+      "expectedKind": "LIKELY_STATE_HOOK",
+      "notes": "React builtin"
+    }
+  ],
+  "status": "pending"
+}

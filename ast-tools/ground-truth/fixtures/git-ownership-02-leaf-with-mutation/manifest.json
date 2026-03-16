@@ -1,0 +1,16 @@
+{
+  "tool": "ownership",
+  "created": "2026-03-16",
+  "source": "git-production",
+  "files": ["UserRoleSelect.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "UserRoleSelect.tsx",
+      "line": 12,
+      "symbol": "UserRoleSelect",
+      "expectedKind": "LEAF_VIOLATION",
+      "notes": "Leaf component (has props, not named Container, not in containers/) that calls useChangeUserTeamRoleMutation (service hook). Documented exception in AGENTS.md -- mutation tightly coupled to role change UI."
+    }
+  ],
+  "status": "pending"
+}

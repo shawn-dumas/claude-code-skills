@@ -1,0 +1,16 @@
+{
+  "tool": "ownership",
+  "created": "2026-03-16",
+  "source": "git-production",
+  "files": ["EightFlowDashboardLayout.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "EightFlowDashboardLayout.tsx",
+      "line": 13,
+      "symbol": "EightFlowDashboardLayout",
+      "expectedKind": "LAYOUT_SHELL",
+      "notes": "Production DashboardLayout.tsx. Exported as EightFlowDashboardLayout but the layout exception list has DashboardLayout. Renders children in a page shell -- structurally a layout wrapper. The name mismatch causes the exception lookup to miss."
+    }
+  ],
+  "status": "pending"
+}

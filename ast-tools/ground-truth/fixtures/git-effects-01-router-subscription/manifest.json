@@ -1,0 +1,16 @@
+{
+  "tool": "effects",
+  "created": "2026-03-16",
+  "source": "git-history",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 19,
+      "symbol": "PosthogProvider",
+      "expectedKind": "EXTERNAL_SUBSCRIPTION",
+      "notes": "Subscribes to Router.events (external event emitter) with proper cleanup. The ref access (oldUrlRef.current) is incidental -- reading a stored value, not DOM manipulation. The interpreter misclassifies as DOM_EFFECT because it sees ref.current and triggers the DOM rule before reaching the EXTERNAL_SUBSCRIPTION rule. Source: posthogProvider.tsx"
+    }
+  ],
+  "status": "pending"
+}

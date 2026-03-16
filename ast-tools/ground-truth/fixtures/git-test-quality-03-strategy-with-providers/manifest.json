@@ -1,0 +1,38 @@
+{
+  "tool": "test-quality",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "description": "Strategy detection with QueryClientProvider wrapper and afterEach with queryClient.clear(). Tests: (1) integration-providers strategy detection, (2) cleanup classification when afterEach uses queryClient.clear() instead of restoreAllMocks -- interpreter misses this as valid cleanup.",
+  "files": ["container.tsx", "useQuery.ts", "container.spec.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "container.spec.tsx",
+      "line": 6,
+      "symbol": "./useQuery",
+      "expectedKind": "MOCK_INTERNAL_VIOLATION",
+      "notes": "mocking own hook -- same domain directory"
+    },
+    {
+      "file": "container.spec.tsx",
+      "line": 25,
+      "symbol": "",
+      "expectedKind": "ASSERTION_USER_VISIBLE",
+      "notes": "screen.getByText -- isScreenQuery triggers user-visible"
+    },
+    {
+      "file": "container.spec.tsx",
+      "line": 0,
+      "symbol": "integration-providers",
+      "expectedKind": "DETECTED_STRATEGY",
+      "notes": "render + QueryClientProvider -> integration-providers"
+    },
+    {
+      "file": "container.spec.tsx",
+      "line": 0,
+      "symbol": "",
+      "expectedKind": "CLEANUP_COMPLETE",
+      "notes": "afterEach calls queryClient.clear() -- legitimate cleanup. Interpreter emits CLEANUP_INCOMPLETE because it only recognizes mock restoration patterns, not query cache cleanup. This is a known interpreter gap."
+    }
+  ],
+  "status": "pending"
+}

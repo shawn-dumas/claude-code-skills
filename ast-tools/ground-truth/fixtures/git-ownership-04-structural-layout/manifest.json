@@ -1,0 +1,23 @@
+{
+  "tool": "ownership",
+  "created": "2026-03-16",
+  "source": "git-production",
+  "files": ["DashboardContent.tsx", "RequireRoles.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "DashboardContent.tsx",
+      "line": 11,
+      "symbol": "DashboardContent",
+      "expectedKind": "DDAU_COMPONENT",
+      "notes": "Structural layout wrapper (renders children, pageTitle, filters) but not in the layout exceptions list. Has 4 props, no hooks, no side effects. DDAU_COMPONENT is the correct classification given the interpreter's vocabulary -- it genuinely follows DDAU."
+    },
+    {
+      "file": "RequireRoles.tsx",
+      "line": 10,
+      "symbol": "RequireRoles",
+      "expectedKind": "LAYOUT_SHELL",
+      "notes": "Auth guard component listed in layout exceptions. Calls useAuthState (context hook) but the exception lookup fires first, correctly classifying as LAYOUT_SHELL."
+    }
+  ],
+  "status": "pending"
+}

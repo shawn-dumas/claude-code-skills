@@ -1,0 +1,108 @@
+{
+  "tool": "dead-code",
+  "created": "2026-03-16",
+  "source": "git:src/server/middleware/",
+  "files": ["errors.ts", "withAuth.ts", "withRole.ts", "handler.ts"],
+  "expectedClassifications": [
+    {
+      "file": "withAuth.ts",
+      "line": 6,
+      "symbol": "",
+      "expectedKind": "CIRCULAR_DEPENDENCY",
+      "notes": "withAuth.ts imports DEFAULT_ROLE from withRole.ts; withRole.ts imports AuthedContext from withAuth.ts -- bidirectional cycle"
+    },
+    {
+      "file": "errors.ts",
+      "line": 6,
+      "symbol": "ApiErrorResponse",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "Interface exported but never imported by name. Used only as return type annotation within errors.ts. High confidence."
+    },
+    {
+      "file": "errors.ts",
+      "line": 27,
+      "symbol": "unprocessable",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "Function with 0 consumers. High confidence."
+    },
+    {
+      "file": "withRole.ts",
+      "line": 16,
+      "symbol": "RoleValue",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "Type alias used internally in withRole.ts but never imported by any other file. High confidence."
+    },
+    {
+      "file": "withRole.ts",
+      "line": 37,
+      "symbol": "ASSIGN_ROLES",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "Const array with 0 consumers. High confidence."
+    },
+    {
+      "file": "handler.ts",
+      "line": 16,
+      "symbol": "updateHandler",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "Const with 0 consumers. In production this is a Next.js API route default export consumed by framework, but not in pages/api/ path here so not classified as POSSIBLY_DEAD. High confidence."
+    },
+    {
+      "file": "errors.ts",
+      "line": 14,
+      "symbol": "unauthorized",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer (withAuth.ts). NOT dead. Low confidence."
+    },
+    {
+      "file": "errors.ts",
+      "line": 20,
+      "symbol": "forbidden",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer (withAuth.ts). NOT dead. Low confidence."
+    },
+    {
+      "file": "errors.ts",
+      "line": 33,
+      "symbol": "ForbiddenError",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer (withRole.ts). NOT dead. Low confidence."
+    },
+    {
+      "file": "withAuth.ts",
+      "line": 23,
+      "symbol": "withAuth",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer (handler.ts). NOT dead. Low confidence."
+    },
+    {
+      "file": "withAuth.ts",
+      "line": 9,
+      "symbol": "AuthedContext",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer (withRole.ts). NOT dead. Low confidence."
+    },
+    {
+      "file": "withRole.ts",
+      "line": 26,
+      "symbol": "withRole",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer (handler.ts). NOT dead. Low confidence."
+    },
+    {
+      "file": "withRole.ts",
+      "line": 9,
+      "symbol": "Role",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer (handler.ts). NOT dead. Low confidence."
+    },
+    {
+      "file": "withRole.ts",
+      "line": 18,
+      "symbol": "DEFAULT_ROLE",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer (withAuth.ts). NOT dead. Low confidence."
+    }
+  ],
+  "notes": "Circular dependency between withAuth.ts and withRole.ts, plus 5 truly dead exports (high confidence) and 8 fragile exports (low confidence). The most complex fixture: tests CIRCULAR_DEPENDENCY detection, DEAD_EXPORT detection, and fragile export analysis simultaneously. Based on server middleware pattern with artificial circular dep.",
+  "status": "pending"
+}

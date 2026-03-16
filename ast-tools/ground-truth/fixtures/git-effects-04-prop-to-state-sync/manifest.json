@@ -1,0 +1,16 @@
+{
+  "tool": "effects",
+  "created": "2026-03-16",
+  "source": "git-history",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 33,
+      "symbol": "WorkstreamsTableExtract",
+      "expectedKind": "DERIVED_STATE",
+      "notes": "Mirrors initialRowSelection (derived from props via useMemo) into local state via setRowSelection. This is the classic prop-to-state sync anti-pattern: the local state is always a stale copy of a value computable from props. The interpreter classifies as NECESSARY because it sees only a state setter with no fetch/async/prop mirror pattern -- but the dependency (initialRowSelection) is itself derived from props, making this derived state. Source: WorkstreamsTable.tsx"
+    }
+  ],
+  "status": "pending"
+}

@@ -1,0 +1,16 @@
+{
+  "tool": "effects",
+  "created": "2026-03-16",
+  "source": "git-history",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 22,
+      "symbol": "SystemsContainerExtract",
+      "expectedKind": "NECESSARY",
+      "notes": "Pushes header metrics into a parent layout context on mount/update and clears on unmount. This is a legitimate lifecycle side effect -- the component must tell the layout what metrics to display while mounted. Has cleanup (returning null on unmount). The interpreter classifies as EXTERNAL_SUBSCRIPTION because it sees cleanup + no state setter, but this is not subscribing to an external source -- it is imperatively pushing state into a context setter. Borderline case: reasonable people could argue EXTERNAL_SUBSCRIPTION if you squint at the cleanup pattern. Source: SystemsContainer.tsx"
+    }
+  ],
+  "status": "pending"
+}

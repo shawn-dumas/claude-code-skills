@@ -1,0 +1,37 @@
+{
+  "tool": "hooks",
+  "created": "2026-03-16",
+  "source": "git",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 11,
+      "symbol": "useQueryStates",
+      "expectedKind": "LIKELY_AMBIENT_HOOK",
+      "notes": "Third-party import from 'nuqs'. Name not in ambientLeafHooks, so interpreter says UNKNOWN_HOOK. But nuqs useQueryStates is functionally equivalent to useSearchParams (which IS in the ambient list). Correct human classification is LIKELY_AMBIENT_HOOK. Gap: useQueryStates and useQueryState should be added to ambientLeafHooks."
+    },
+    {
+      "file": "component.tsx",
+      "line": 19,
+      "symbol": "useMemo",
+      "expectedKind": "LIKELY_STATE_HOOK",
+      "notes": "React builtin"
+    },
+    {
+      "file": "component.tsx",
+      "line": 25,
+      "symbol": "useMemo",
+      "expectedKind": "LIKELY_STATE_HOOK",
+      "notes": "React builtin"
+    },
+    {
+      "file": "component.tsx",
+      "line": 26,
+      "symbol": "useOperationalAnalysisQuery",
+      "expectedKind": "LIKELY_SERVICE_HOOK",
+      "notes": "Imported from @/services/hooks/queries/insights -- matches serviceHookPathPatterns 'services/hooks'"
+    }
+  ],
+  "status": "pending"
+}

@@ -1,0 +1,23 @@
+{
+  "tool": "template",
+  "created": "2026-03-16",
+  "source": "git-history",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 20,
+      "symbol": "TableHead",
+      "expectedKind": "EXTRACTION_CANDIDATE",
+      "notes": "2 depth-2 ternary chains (lines 40 and 58) trigger extraction rule. Line 40: sort-order cycle mapping inside handleClick. Line 58: aria-sort attribute mapping. Both are value-level ternaries (string mapping), not structural JSX branching. Source: src/ui/components/8flow/Table/TableHead.tsx"
+    },
+    {
+      "file": "component.tsx",
+      "line": 20,
+      "symbol": "TableHead",
+      "expectedKind": "COMPLEXITY_HOTSPOT",
+      "notes": "3 distinct observation kinds: JSX_TRANSFORM_CHAIN (headerGroups.map), JSX_TERNARY_CHAIN (multiple), JSX_INLINE_STYLE (cursor style). Boundary case: exactly 3 kinds, the minimum for hotspot. Source: src/ui/components/8flow/Table/TableHead.tsx"
+    }
+  ],
+  "status": "pending"
+}

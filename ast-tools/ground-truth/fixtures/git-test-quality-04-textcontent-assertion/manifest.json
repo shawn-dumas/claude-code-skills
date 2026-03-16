@@ -1,0 +1,59 @@
+{
+  "tool": "test-quality",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "description": "Assertion edge cases: .textContent direct access (still user-visible because screen query is in the chain), .not.toThrow() on render (user-visible: component renders without crashing), and toHaveLength on a variable from screen.getAllByRole (user-visible but interpreter cannot trace variable back to screen query). Tests interpreter boundary between user-visible and implementation-detail assertions.",
+  "files": ["card.tsx", "card.spec.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "card.spec.tsx",
+      "line": 8,
+      "symbol": "",
+      "expectedKind": "ASSERTION_USER_VISIBLE",
+      "notes": "screen.getByRole + toHaveTextContent -- standard user-visible"
+    },
+    {
+      "file": "card.spec.tsx",
+      "line": 13,
+      "symbol": "",
+      "expectedKind": "ASSERTION_USER_VISIBLE",
+      "notes": "screen.getByRole().textContent + toBe -- screen query in expect arg, user-visible"
+    },
+    {
+      "file": "card.spec.tsx",
+      "line": 18,
+      "symbol": "",
+      "expectedKind": "ASSERTION_USER_VISIBLE",
+      "notes": "screen.getByText + toBeVisible -- standard user-visible"
+    },
+    {
+      "file": "card.spec.tsx",
+      "line": 22,
+      "symbol": "",
+      "expectedKind": "ASSERTION_USER_VISIBLE",
+      "notes": ".not.toThrow() on render -- rendering without crash IS user-visible. Interpreter emits ASSERTION_IMPLEMENTATION because toThrow is not in userVisibleMatchers. Known interpreter gap."
+    },
+    {
+      "file": "card.spec.tsx",
+      "line": 28,
+      "symbol": "",
+      "expectedKind": "ASSERTION_USER_VISIBLE",
+      "notes": "toHaveLength on variable from screen.getAllByRole -- user-visible (DOM element count), but interpreter cannot trace variable assignment back to screen query. Known interpreter gap."
+    },
+    {
+      "file": "card.spec.tsx",
+      "line": 0,
+      "symbol": "unit-render",
+      "expectedKind": "DETECTED_STRATEGY",
+      "notes": "render without provider wrappers -> unit-render"
+    },
+    {
+      "file": "card.spec.tsx",
+      "line": 0,
+      "symbol": "",
+      "expectedKind": "CLEANUP_COMPLETE",
+      "notes": "no local afterEach -- global cleanup handles it"
+    }
+  ],
+  "status": "pending"
+}

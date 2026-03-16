@@ -1,0 +1,16 @@
+{
+  "tool": "effects",
+  "created": "2026-03-16",
+  "source": "git-history",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 22,
+      "symbol": "AutoSelectContainer",
+      "expectedKind": "EVENT_HANDLER_DISGUISED",
+      "notes": "Auto-selects the single result when data arrives. The pattern is: when data changes, call setAzWs. This is 'when X happens, do Y' -- an event handler disguised as an effect. The ref (prevDataRef) is a change-detection guard, not DOM manipulation. The interpreter misclassifies as DOM_EFFECT because it sees ref.current and applies the DOM rule before checking other patterns. Source: WorkstreamsAnalyzerContainer.tsx"
+    }
+  ],
+  "status": "pending"
+}

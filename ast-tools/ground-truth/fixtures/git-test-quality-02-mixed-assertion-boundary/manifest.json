@@ -1,0 +1,66 @@
+{
+  "tool": "test-quality",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "description": "Mixed assertion boundary: file combines user-visible assertions (screen queries, prop callbacks) with implementation-detail assertions (toast mock, mutation mock, hook mock). Tests the interpreter's ability to distinguish boundary side-effect checks from prop callback checks when both use toHaveBeenCalledWith.",
+  "files": ["panel.tsx", "useData.ts", "panel.spec.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "panel.spec.tsx",
+      "line": 6,
+      "symbol": "./useData",
+      "expectedKind": "MOCK_INTERNAL_VIOLATION",
+      "notes": "mocking own hook -- same domain directory"
+    },
+    {
+      "file": "panel.spec.tsx",
+      "line": 13,
+      "symbol": "",
+      "expectedKind": "ASSERTION_USER_VISIBLE",
+      "notes": "screen.getByRole with toHaveTextContent -- screen query"
+    },
+    {
+      "file": "panel.spec.tsx",
+      "line": 20,
+      "symbol": "",
+      "expectedKind": "ASSERTION_USER_VISIBLE",
+      "notes": "toHaveBeenCalledTimes on onSave prop callback"
+    },
+    {
+      "file": "panel.spec.tsx",
+      "line": 26,
+      "symbol": "",
+      "expectedKind": "ASSERTION_IMPLEMENTATION",
+      "notes": "toHaveBeenCalledWith on toast.success -- boundary side-effect but still implementation detail per P2"
+    },
+    {
+      "file": "panel.spec.tsx",
+      "line": 32,
+      "symbol": "",
+      "expectedKind": "ASSERTION_IMPLEMENTATION",
+      "notes": "toHaveBeenCalledWith on mutateAsync -- testing mutation internals"
+    },
+    {
+      "file": "panel.spec.tsx",
+      "line": 38,
+      "symbol": "",
+      "expectedKind": "ASSERTION_IMPLEMENTATION",
+      "notes": "toHaveBeenCalled on useDataQuery -- hook mock pattern, high confidence impl detail"
+    },
+    {
+      "file": "panel.spec.tsx",
+      "line": 0,
+      "symbol": "unit-render",
+      "expectedKind": "DETECTED_STRATEGY",
+      "notes": "render without provider wrappers -> unit-render"
+    },
+    {
+      "file": "panel.spec.tsx",
+      "line": 0,
+      "symbol": "",
+      "expectedKind": "CLEANUP_COMPLETE",
+      "notes": "no local afterEach -- global cleanup handles it"
+    }
+  ],
+  "status": "pending"
+}

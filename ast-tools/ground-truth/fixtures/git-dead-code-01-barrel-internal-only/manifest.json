@@ -1,0 +1,17 @@
+{
+  "tool": "dead-code",
+  "created": "2026-03-16",
+  "source": "git:src/shared/utils/color/extendColorsSet/",
+  "files": ["constants.ts", "extendColorsSet.ts", "index.ts", "consumer.ts"],
+  "expectedClassifications": [
+    {
+      "file": "extendColorsSet.ts",
+      "line": 7,
+      "symbol": "extendColorsSet",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer edge (barrel index.ts). NOT actually dead -- consumer.ts imports through barrel. Interpreter flags single-consumer exports as DEAD_EXPORT(low). COLORS and Colors have 2 consumers (sibling + barrel) so are correctly not flagged."
+    }
+  ],
+  "notes": "Boundary case: fragile export detection in barrel chain. extendColorsSet has only 1 direct consumer edge (barrel) despite being consumed transitively by consumer.ts. The interpreter counts direct edge consumers, not transitive consumers. COLORS/Colors have 2 direct consumers each (sibling + barrel) so are stable.",
+  "status": "pending"
+}

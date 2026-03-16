@@ -1,0 +1,38 @@
+{
+  "tool": "dead-code",
+  "created": "2026-03-16",
+  "source": "git:src/shared/utils/insightsQueryParams/",
+  "files": ["shared.ts", "realtime.ts", "microworkflows.ts", "index.ts", "consumer.ts"],
+  "expectedClassifications": [
+    {
+      "file": "shared.ts",
+      "line": 9,
+      "symbol": "formatTimezone",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer (realtime.ts). NOT dead -- consumed by sibling, just has exactly 1 consumer."
+    },
+    {
+      "file": "shared.ts",
+      "line": 13,
+      "symbol": "formatTeams",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer (microworkflows.ts). NOT dead -- consumed by sibling, just has exactly 1 consumer."
+    },
+    {
+      "file": "realtime.ts",
+      "line": 7,
+      "symbol": "getRealtimeStatsQueryParams",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer (barrel index.ts). In production has many consumers via barrel, but in fixture graph only the barrel edge counts."
+    },
+    {
+      "file": "microworkflows.ts",
+      "line": 7,
+      "symbol": "getMicroworkflowsQueryParams",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer (barrel index.ts). Same pattern as getRealtimeStatsQueryParams."
+    }
+  ],
+  "notes": "Boundary case: all exports have exactly 1 direct consumer each, triggering fragile detection. In the real codebase, shared.ts has 7 consumers (all sibling modules) and the barrel-re-exported functions have many external consumers. The fixture's small graph makes every export appear fragile. This tests that the interpreter correctly counts consumers within the analyzed graph scope.",
+  "status": "pending"
+}

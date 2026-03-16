@@ -1,0 +1,51 @@
+{
+  "tool": "hooks",
+  "created": "2026-03-16",
+  "source": "git",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 10,
+      "symbol": "useFeatureFlagPageGuard",
+      "expectedKind": "LIKELY_AMBIENT_HOOK",
+      "notes": "Imported via barrel @/shared/hooks -> resolves to shared/hooks path -> matches domUtilityPathPatterns. Functionally this is a page-access guard that calls router.replace(), not truly ambient, but the path pattern wins. Correct by rules, questionable semantically."
+    },
+    {
+      "file": "component.tsx",
+      "line": 11,
+      "symbol": "useSystemsUrlState",
+      "expectedKind": "UNKNOWN_HOOK",
+      "notes": "Relative import './useSystemsUrlState'. No path match, no name match. Tracing source reveals it wraps nuqs useQueryStates for URL-backed state -- a human would call LIKELY_AMBIENT_HOOK. But name gives no signal. UNKNOWN_HOOK is correct given interpreter's design constraints."
+    },
+    {
+      "file": "component.tsx",
+      "line": 12,
+      "symbol": "useSystemsQueries",
+      "expectedKind": "LIKELY_SERVICE_HOOK",
+      "notes": "Relative import './useSystemsQueries'. Interpreter sees no path match and says UNKNOWN_HOOK. But tracing the source reveals it wraps 5 TanStack Query service hooks from @/services/hooks/queries/insights. Correct human classification is LIKELY_SERVICE_HOOK. The interpreter WILL get this wrong."
+    },
+    {
+      "file": "component.tsx",
+      "line": 13,
+      "symbol": "useLayout",
+      "expectedKind": "LIKELY_CONTEXT_HOOK",
+      "notes": "Imported from @/providers/context/layout -- matches contextHookPathPatterns 'providers/' and 'context/'"
+    },
+    {
+      "file": "component.tsx",
+      "line": 15,
+      "symbol": "useEffect",
+      "expectedKind": "LIKELY_STATE_HOOK",
+      "notes": "React builtin"
+    },
+    {
+      "file": "component.tsx",
+      "line": 22,
+      "symbol": "useMemo",
+      "expectedKind": "LIKELY_STATE_HOOK",
+      "notes": "React builtin"
+    }
+  ],
+  "status": "pending"
+}

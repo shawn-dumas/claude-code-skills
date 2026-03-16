@@ -1,0 +1,66 @@
+{
+  "tool": "dead-code",
+  "created": "2026-03-16",
+  "source": "git:src/shared/types/",
+  "files": ["common.ts", "table.ts", "ui.ts", "index.ts", "consumerA.ts", "consumerB.ts"],
+  "expectedClassifications": [
+    {
+      "file": "common.ts",
+      "line": 22,
+      "symbol": "InternalConfig",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "Interface with 0 consumers -- not re-exported by barrel, not imported by any file. High confidence."
+    },
+    {
+      "file": "table.ts",
+      "line": 15,
+      "symbol": "DeprecatedPageSize",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "Const+type dual export with 0 consumers -- not re-exported by barrel. High confidence."
+    },
+    {
+      "file": "ui.ts",
+      "line": 21,
+      "symbol": "LegacyDialogProps",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "Interface with 0 consumers -- not re-exported by barrel. High confidence."
+    },
+    {
+      "file": "common.ts",
+      "line": 6,
+      "symbol": "Environment",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer edge (barrel index.ts). Consumed by consumerA.ts transitively through barrel but only 1 direct edge."
+    },
+    {
+      "file": "common.ts",
+      "line": 16,
+      "symbol": "RuleOption",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer edge (barrel index.ts). Consumed by consumerA.ts transitively through barrel."
+    },
+    {
+      "file": "table.ts",
+      "line": 5,
+      "symbol": "PageSizeValue",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer edge (barrel index.ts). Consumed by consumerA.ts transitively through barrel."
+    },
+    {
+      "file": "ui.ts",
+      "line": 6,
+      "symbol": "ModalState",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer edge (barrel index.ts). Consumed by consumerB.ts transitively through barrel."
+    },
+    {
+      "file": "ui.ts",
+      "line": 13,
+      "symbol": "TableSelection",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "[fragile] Single consumer edge (barrel index.ts). Consumed by consumerB.ts transitively through barrel."
+    }
+  ],
+  "notes": "Mixed dead and fragile exports in a nested barrel chain. 3 exports are truly dead (0 consumers, high confidence). 5 exports are alive but flagged as fragile (1 consumer edge to barrel). Models the src/shared/types/ pattern where source modules are consumed only through a single barrel.",
+  "status": "pending"
+}

@@ -744,13 +744,13 @@ describe('Vitest parity tool accuracy', () => {
 function runEntryAccuracyTest(toolName: string, fixtures: Array<{ dir: string; manifest: Manifest }>): void {
   let totalCorrect = 0;
   let totalExpected = 0;
-  const fixtureResults: Array<{ dir: string; correct: number; total: number; details: string[] }> = [];
+  const fixtureResults: Array<{ dir: string; correct: number; total: number; details: string[]; status: string }> = [];
 
   for (const { dir, manifest } of fixtures) {
     const result = evaluateEntryFixture(dir, manifest as EntryManifest);
     totalCorrect += result.correct;
     totalExpected += result.total;
-    fixtureResults.push({ dir, ...result });
+    fixtureResults.push({ dir, ...result, status: manifest.status ?? 'calibrated' });
   }
 
   const accuracy = totalExpected > 0 ? totalCorrect / totalExpected : 0;
@@ -760,7 +760,7 @@ function runEntryAccuracyTest(toolName: string, fixtures: Array<{ dir: string; m
   for (const r of fixtureResults) {
     if (r.details.length > 0) {
       // eslint-disable-next-line no-console
-      console.error(`\n[${r.dir}] ${r.correct}/${r.total}:`);
+      console.error(`\n[${r.dir}] ${r.correct}/${r.total} (${r.status}):`);
       for (const d of r.details) {
         // eslint-disable-next-line no-console
         console.error(`  ${d}`);
@@ -768,10 +768,13 @@ function runEntryAccuracyTest(toolName: string, fixtures: Array<{ dir: string; m
     }
   }
 
-  // Per-fixture regression check: no single fixture should score below 50%
+  // Per-fixture regression check: no single calibrated fixture should score below 50%.
+  // Pending fixtures are allowed to fail -- they exist to document known
+  // misclassifications that the calibration skill will address.
   // Skip fixtures with 0 expected entries (negative-only fixtures).
   for (const r of fixtureResults) {
     if (r.total === 0) continue;
+    if (r.status === 'pending') continue;
     const fixtureAccuracy = r.correct / r.total;
     expect(
       fixtureAccuracy,
