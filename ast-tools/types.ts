@@ -969,6 +969,63 @@ export interface BrandedCheckAnalysis {
   observations: BrandedCheckObservation[];
 }
 
+// --- Plan audit observations (ast-plan-audit, MDAST-based) ---
+
+export type PlanAuditObservationKind =
+  | 'PLAN_HEADER_MISSING'
+  | 'PLAN_HEADER_INVALID'
+  | 'VERIFICATION_BLOCK_MISSING'
+  | 'CLEANUP_FILE_MISSING'
+  | 'PROMPT_FILE_MISSING'
+  | 'PROMPT_VERIFICATION_MISSING'
+  | 'PROMPT_DEPENDENCY_CYCLE'
+  | 'PROMPT_MODE_UNSET'
+  | 'STANDING_ELEMENT_MISSING'
+  | 'RECONCILIATION_TEMPLATE_MISSING'
+  | 'PRE_FLIGHT_CERTIFIED'
+  | 'PRE_FLIGHT_MARK_MISSING'
+  | 'NAMING_CONVENTION_INSTRUCTION'
+  | 'CLIENT_SIDE_AGGREGATION'
+  | 'DEFERRED_CLEANUP_REFERENCE'
+  | 'FILE_PATH_REFERENCE'
+  | 'SKILL_REFERENCE';
+
+export type PlanAuditObservationEvidence = {
+  /** Field name (PLAN_HEADER_MISSING, PLAN_HEADER_INVALID) */
+  field?: string;
+  /** Field value (PLAN_HEADER_INVALID) */
+  value?: string;
+  /** Prompt file path (PROMPT_FILE_MISSING, PROMPT_VERIFICATION_MISSING, RECONCILIATION_TEMPLATE_MISSING) */
+  promptFile?: string;
+  /** Prompt name (PROMPT_MODE_UNSET) */
+  promptName?: string;
+  /** Cycle path (PROMPT_DEPENDENCY_CYCLE) */
+  cyclePath?: string[];
+  /** Element name (STANDING_ELEMENT_MISSING) */
+  elementName?: string;
+  /** Naming instruction text (NAMING_CONVENTION_INSTRUCTION) */
+  instruction?: string;
+  /** Matched text (CLIENT_SIDE_AGGREGATION) */
+  matchedText?: string;
+  /** Deferred item text (DEFERRED_CLEANUP_REFERENCE) */
+  deferredItem?: string;
+  /** Referenced file path (FILE_PATH_REFERENCE) */
+  referencedPath?: string;
+  /** Skill name (SKILL_REFERENCE) */
+  skillName?: string;
+  /** Certification date (PRE_FLIGHT_CERTIFIED) */
+  certificationDate?: string;
+  /** Certification tier (PRE_FLIGHT_CERTIFIED) */
+  certificationTier?: string;
+};
+
+export type PlanAuditObservation = Observation<PlanAuditObservationKind, PlanAuditObservationEvidence>;
+
+export interface PlanAuditResult {
+  filePath: string;
+  observations: PlanAuditObservation[];
+}
+
 // ============================================================
 // Unified observation types
 // ============================================================

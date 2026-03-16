@@ -254,7 +254,22 @@ Show the user:
 
 Wait for the user's go-ahead.
 
-## Step 8: Execute the orchestrator loop
+## Step 8: Pre-flight gate check (MANDATORY)
+
+Check the plan file's `> Pre-flight:` header line.
+
+- **CERTIFIED** or **CONDITIONAL**: proceed to Step 9.
+- **Missing** or **BLOCKED**: launch `/pre-flight-plan-audit` as a
+  sub-agent on the plan file. Wait for it to complete.
+  - If the verdict is CERTIFIED or CONDITIONAL: proceed to Step 9.
+  - If the verdict is BLOCKED: report the blocker findings to the user
+    and **stop**. Do not execute a plan that has not passed pre-flight.
+
+Do not skip this step. A plan that has not been pre-flighted may contain
+structural issues (missing verification commands, dependency cycles,
+convention mismatches) that waste execution time.
+
+## Step 9: Execute the orchestrator loop
 
 Prompts run strictly one at a time. Run one, verify, confirm PASS, then
 move to the next. Never run prompts in parallel -- earlier prompts change
@@ -328,12 +343,12 @@ For each prompt:
     -- <specs not verified, reason>`. The cleanup prompt must resolve
     all such items before the plan is marked complete.
 
-## Step 9: Generate the cleanup prompt
+## Step 10: Generate the cleanup prompt
 
 After all planned prompts complete:
 
 1. Read `$PLANS_DIR/<bug-name>-fix-cleanup.md` in full
-2. If no items were accumulated, skip to Step 10
+2. If no items were accumulated, skip to Step 11
 3. Group items by domain/file proximity
 4. Filter out items already resolved by later prompts
 5. Generate `$PLANS_DIR/prompts/<bug-name>-fix-cleanup.md` with the standard
@@ -342,7 +357,7 @@ After all planned prompts complete:
    and approve, or edit before I run it."
 7. Run only after the user approves
 
-## Step 10: Final verification and plan update
+## Step 11: Final verification and plan update
 
 Run the full verification suite one final time. When integration scope is
 `per-prompt` or `final-only`, run `pnpm test:integration` as a full

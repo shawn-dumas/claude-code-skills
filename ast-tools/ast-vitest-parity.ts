@@ -590,7 +590,7 @@ export function analyzeVitestParityBranch(branch: string, dirPath: string): VtSp
     // Skip Playwright specs even in branch mode
     if (isPlaywrightSpec(sf)) continue;
 
-    inventories.push(buildInventory(sf, fileName));
+    inventories.push(buildInventory(sf, gitPath));
   }
 
   return inventories;

@@ -211,21 +211,22 @@ The cache auto-invalidates in these scenarios:
 
 These emit structural facts with no classifications.
 
-| Tool                  | Observations Emitted                                                                                                       | Purpose                            |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| `ast-imports`         | STATIC_IMPORT, DYNAMIC_IMPORT, EXPORT_DECLARATION, CIRCULAR_DEPENDENCY, DEAD_EXPORT_CANDIDATE                              | Import graph analysis              |
-| `ast-react-inventory` | HOOK*CALL, EFFECT_LOCATION, EFFECT*\*, COMPONENT_DECLARATION, PROP_FIELD                                                   | React component/hook structure     |
-| `ast-jsx-analysis`    | JSX_TERNARY_CHAIN, JSX_GUARD_CHAIN, JSX_TRANSFORM_CHAIN, JSX_IIFE, JSX_INLINE_HANDLER, JSX_RETURN_BLOCK                    | JSX complexity                     |
-| `ast-test-analysis`   | MOCK_DECLARATION, ASSERTION_CALL, RENDER_CALL, CLEANUP_CALL, FIXTURE_IMPORT                                                | Test file structure                |
-| `ast-complexity`      | FUNCTION_COMPLEXITY                                                                                                        | Cyclomatic complexity per function |
-| `ast-data-layer`      | QUERY_HOOK_DEFINITION, MUTATION_HOOK_DEFINITION, FETCH_API_CALL, QUERY_KEY_FACTORY                                         | Data fetching patterns             |
-| `ast-side-effects`    | CONSOLE_CALL, TOAST_CALL, TIMER_CALL, POSTHOG_CALL, WINDOW_MUTATION                                                        | Side effect detection              |
-| `ast-storage-access`  | DIRECT_STORAGE_CALL, TYPED_STORAGE_CALL, JSON_PARSE_CALL, COOKIE_CALL                                                      | Storage API usage                  |
-| `ast-env-access`      | PROCESS_ENV_ACCESS, ENV_WRAPPER_ACCESS, ENV_WRAPPER_IMPORT                                                                 | Environment variable access        |
-| `ast-feature-flags`   | FLAG_HOOK_CALL, FLAG_READ, PAGE_GUARD, CONDITIONAL_RENDER                                                                  | Feature flag usage                 |
-| `ast-type-safety`     | AS_ANY_CAST, NON_NULL_ASSERTION, TS_DIRECTIVE, TRUST_BOUNDARY_CAST                                                         | Type safety violations             |
-| `ast-pw-test-parity`  | PW_TEST_BLOCK, PW_ASSERTION, PW_ROUTE_INTERCEPT, PW_NAVIGATION, PW_POM_USAGE, PW_AUTH_CALL, PW_SERIAL_MODE, PW_BEFORE_EACH | Playwright spec structure          |
-| `ast-refactor-intent` | INTENT_SIGNAL_BEFORE, INTENT_SIGNAL_AFTER, INTENT_SIGNAL_PAIR                                                              | Refactor intent signal matching    |
+| Tool                  | Observations Emitted                                                                                                                  | Purpose                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `ast-imports`         | STATIC_IMPORT, DYNAMIC_IMPORT, EXPORT_DECLARATION, CIRCULAR_DEPENDENCY, DEAD_EXPORT_CANDIDATE                                         | Import graph analysis              |
+| `ast-react-inventory` | HOOK*CALL, EFFECT_LOCATION, EFFECT*\*, COMPONENT_DECLARATION, PROP_FIELD                                                              | React component/hook structure     |
+| `ast-jsx-analysis`    | JSX_TERNARY_CHAIN, JSX_GUARD_CHAIN, JSX_TRANSFORM_CHAIN, JSX_IIFE, JSX_INLINE_HANDLER, JSX_RETURN_BLOCK                               | JSX complexity                     |
+| `ast-test-analysis`   | MOCK_DECLARATION, ASSERTION_CALL, RENDER_CALL, CLEANUP_CALL, FIXTURE_IMPORT                                                           | Test file structure                |
+| `ast-complexity`      | FUNCTION_COMPLEXITY                                                                                                                   | Cyclomatic complexity per function |
+| `ast-data-layer`      | QUERY_HOOK_DEFINITION, MUTATION_HOOK_DEFINITION, FETCH_API_CALL, QUERY_KEY_FACTORY                                                    | Data fetching patterns             |
+| `ast-side-effects`    | CONSOLE_CALL, TOAST_CALL, TIMER_CALL, POSTHOG_CALL, WINDOW_MUTATION                                                                   | Side effect detection              |
+| `ast-storage-access`  | DIRECT_STORAGE_CALL, TYPED_STORAGE_CALL, JSON_PARSE_CALL, COOKIE_CALL                                                                 | Storage API usage                  |
+| `ast-env-access`      | PROCESS_ENV_ACCESS, ENV_WRAPPER_ACCESS, ENV_WRAPPER_IMPORT                                                                            | Environment variable access        |
+| `ast-feature-flags`   | FLAG_HOOK_CALL, FLAG_READ, PAGE_GUARD, CONDITIONAL_RENDER                                                                             | Feature flag usage                 |
+| `ast-type-safety`     | AS_ANY_CAST, NON_NULL_ASSERTION, TS_DIRECTIVE, TRUST_BOUNDARY_CAST                                                                    | Type safety violations             |
+| `ast-pw-test-parity`  | PW_TEST_BLOCK, PW_ASSERTION, PW_ROUTE_INTERCEPT, PW_NAVIGATION, PW_POM_USAGE, PW_AUTH_CALL, PW_SERIAL_MODE, PW_BEFORE_EACH            | Playwright spec structure          |
+| `ast-refactor-intent` | INTENT_SIGNAL_BEFORE, INTENT_SIGNAL_AFTER, INTENT_SIGNAL_PAIR                                                                         | Refactor intent signal matching    |
+| `ast-vitest-parity`   | VT_DESCRIBE_BLOCK, VT_TEST_BLOCK, VT_ASSERTION, VT_MOCK_DECLARATION, VT_RENDER_CALL, VT_FIXTURE_IMPORT, VT_BEFORE_EACH, VT_AFTER_EACH | Vitest spec structure              |
 
 ### Interpreters
 
@@ -241,6 +242,7 @@ These consume observations and emit assessments with confidence and rationale.
 | `ast-interpret-test-quality`    | MOCK_DECLARATION, ASSERTION_CALL, etc.       | INTERNAL_MOCK, STALE_MOCK, MISSING_CLEANUP, etc.                                               |
 | `ast-interpret-pw-test-parity`  | PW_TEST_BLOCK, PW_ASSERTION, etc.            | PARITY, EXPANDED, REDUCED, NOT_PORTED                                                          |
 | `ast-interpret-refactor-intent` | INTENT_SIGNAL_PAIR                           | PRESERVED, INTENTIONALLY_REMOVED, ACCIDENTALLY_DROPPED, ADDED                                  |
+| `ast-interpret-vitest-parity`   | VT_TEST_BLOCK, VT_ASSERTION, etc.            | PARITY, EXPANDED, REDUCED, NOT_PORTED                                                          |
 
 ## Usage
 
