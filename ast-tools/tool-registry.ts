@@ -32,6 +32,22 @@ import { extractImportObservationsFromSource } from './ast-imports';
 // Registry types
 // ---------------------------------------------------------------------------
 
+/**
+ * Unified tool adapter interface. Both parameters are always provided so that
+ * `runAllObservers` can dispatch to any tool without per-tool branching.
+ *
+ * Tools fall into two groups by which parameter they actually consume:
+ * - SourceFile-based (env-access, feature-flags, side-effects, storage-access):
+ *   traverse the AST from the SourceFile, ignore filePath.
+ * - filePath-based (complexity, data-layer, jsx-analysis, react-inventory,
+ *   test-analysis, pw-test-parity, vitest-parity, type-safety):
+ *   re-parse the file at filePath via their own internal API, ignore sourceFile.
+ * - Both (imports): uses SourceFile for AST and filePath for path normalization.
+ *
+ * Callers MUST ensure that filePath points to a file whose content matches the
+ * SourceFile. If the content differs (e.g., analyzing a git HEAD version),
+ * write the content to a temp file first and pass that temp path as filePath.
+ */
 export interface ToolEntry {
   readonly name: string;
   readonly analyze: (sourceFile: SourceFile, filePath: string) => AnyObservation[];

@@ -1,10 +1,16 @@
-# AST Observation Signals
+# AST Parity Observation Signals
 
-Reference for what `ast-pw-test-parity.ts` (the observation layer) extracts
-from Playwright spec files and helper files. All values are from the source
-code and should be updated if the code changes.
+Reference for what the parity observation tools extract from spec files.
+All values are from the source code and should be updated if the code changes.
 
-## Extracted signals
+- Playwright: `ast-pw-test-parity.ts`
+- Vitest: `ast-vitest-parity.ts`
+
+---
+
+## Playwright Observation Signals
+
+### Extracted signals
 
 ### 1. Assertions
 
@@ -155,9 +161,45 @@ expansion, the tool attempts cross-file resolution:
 path. This means the fixture test must write helper files to the temp
 directory before analyzing target specs. See `ast-fixture-authoring.md`.
 
-## In-file factory detection
+### In-file factory detection
 
 Detects function declarations or arrow-function variables that contain
 `test()` / `it()` calls with template-expression names. Finds all call
 sites, resolves the interpolated parameter from the call argument, and
 creates one `PwTestBlock` per invocation with the resolved name.
+
+---
+
+## Vitest Observation Signals
+
+Extracted by `ast-vitest-parity.ts` from Vitest spec files (`.spec.ts`,
+`.spec.tsx`). Playwright specs (detected by `@playwright/test` imports)
+are skipped in directory mode.
+
+### Extracted signals
+
+| Signal | Observation kind | Detection |
+|--------|-----------------|-----------|
+| Describe blocks | `VT_DESCRIBE_BLOCK` | `describe()` and `describe.each(...)()` calls. Records name, nesting depth, direct test count. |
+| Test blocks | `VT_TEST_BLOCK` | `it()`, `test()`, `it.each(...)()`, `test.each(...)()`. Records name, parent describe, assertion count. |
+| Assertions | `VT_ASSERTION` | `expect(...).toXxx()` chains. Records matcher, target text, negation, parent test. Deduplicated by line. |
+| Mocks | `VT_MOCK_DECLARATION` | `vi.mock()`, `vi.spyOn()`, `vi.fn()`. Records target, type, parent describe. |
+| Render calls | `VT_RENDER_CALL` | `render()` and `renderHook()`. Records component name, wrapper presence, parent test. |
+| Fixture imports | `VT_FIXTURE_IMPORT` | Imports matching `astConfig.testing.fixtureImportPatterns`. Records source, builder names. |
+| Lifecycle hooks | `VT_BEFORE_EACH` / `VT_AFTER_EACH` | `beforeEach`, `afterEach`, `beforeAll`, `afterAll`. Records scope, cleanup patterns. |
+
+### .each() pattern handling
+
+`it.each(...)('name', fn)`, `test.each(...)('name', fn)`, and
+`describe.each(...)('name', fn)` are double-invocation AST patterns.
+The outer call's expression is a `CallExpression` (the `.each([...])`
+invocation), not an `Identifier` or `PropertyAccessExpression`.
+`resolveCallName` returns `''` for these. A dedicated `detectEachPattern`
+function identifies the pattern by walking the two-level call structure.
+
+### NOT extracted
+
+- Test names with printf-style substitution (`%s`, `%d`) are preserved
+  literally (e.g., `"parses valid JSON: %s"`), not expanded per row.
+- `test.todo()` and `test.skip()` calls are not extracted.
+- Helper delegation analysis is not performed (unlike PW parity).

@@ -175,45 +175,23 @@ function computeMatchScore(
   const tMocks = getTestMocks(targetTest, targetMocks);
   const mockScore = mockTargetOverlap(sMocks, tMocks);
 
+  // Describe-context bonus: tests in the same describe block are more likely
+  // to be related. No penalty for different describes -- structural
+  // reorganization (flat -> nested) is common in refactors and not a
+  // negative signal.
+  const describeBonus =
+    sourceTest.parentDescribe && targetTest.parentDescribe && sourceTest.parentDescribe === targetTest.parentDescribe
+      ? 0.05
+      : 0;
+
   // Composite: name has highest weight
-  const composite = nameScore * 0.6 + assertionScore * 0.25 + mockScore * 0.15;
+  const composite = Math.min(nameScore * 0.6 + assertionScore * 0.25 + mockScore * 0.15 + describeBonus, 1.0);
 
   if (composite < 0.15) return null;
 
   const confidence: 'high' | 'low' = nameScore > 0.8 ? 'high' : 'low';
 
   return { index: -1, similarity: composite, confidence };
-}
-
-function findBestMatch(
-  sourceTest: VtTestBlock,
-  targetTests: readonly VtTestBlock[],
-  usedIndices: Set<number>,
-  sourceAssertions: readonly VtAssertion[],
-  targetAssertions: readonly VtAssertion[],
-  sourceMocks: readonly VtMockDeclaration[],
-  targetMocks: readonly VtMockDeclaration[],
-): MatchCandidate | null {
-  let best: MatchCandidate | null = null;
-
-  for (let i = 0; i < targetTests.length; i++) {
-    if (usedIndices.has(i)) continue;
-    const candidate = computeMatchScore(
-      sourceTest,
-      targetTests[i],
-      sourceAssertions,
-      targetAssertions,
-      sourceMocks,
-      targetMocks,
-    );
-    if (!candidate) continue;
-    candidate.index = i;
-    if (!best || candidate.similarity > best.similarity) {
-      best = candidate;
-    }
-  }
-
-  return best;
 }
 
 // ---------------------------------------------------------------------------
@@ -372,28 +350,41 @@ export function interpretVitestParity(
       }
     }
 
-    // Pass 2: fuzzy + structural matches for remaining unmatched source tests
+    // Pass 2: fuzzy + structural matches for remaining unmatched source tests.
+    // Compute ALL candidate pairs, sort by similarity descending, then
+    // greedily assign from highest to lowest. This prevents a low-quality
+    // match from stealing a target that a higher-quality source needs.
+    const candidates: Array<{ si: number; ti: number; match: MatchCandidate }> = [];
     for (let si = 0; si < source.tests.length; si++) {
       if (matchedSourceIndices.has(si)) continue;
       const sourceTest = source.tests[si];
-      const match = findBestMatch(
-        sourceTest,
-        target.tests,
-        usedTargetIndices,
-        source.assertions,
-        target.assertions,
-        source.mocks,
-        target.mocks,
-      );
-
-      if (match) {
-        usedTargetIndices.add(match.index);
-        matchedSourceIndices.add(si);
-        sourceMatchResults.set(si, {
-          match,
-          targetTest: target.tests[match.index],
-        });
+      for (let ti = 0; ti < target.tests.length; ti++) {
+        if (usedTargetIndices.has(ti)) continue;
+        const candidate = computeMatchScore(
+          sourceTest,
+          target.tests[ti],
+          source.assertions,
+          target.assertions,
+          source.mocks,
+          target.mocks,
+        );
+        if (candidate) {
+          candidates.push({ si, ti, match: { ...candidate, index: ti } });
+        }
       }
+    }
+
+    // Sort descending by similarity so the strongest matches are assigned first
+    candidates.sort((a, b) => b.match.similarity - a.match.similarity);
+
+    for (const { si, ti, match } of candidates) {
+      if (matchedSourceIndices.has(si) || usedTargetIndices.has(ti)) continue;
+      usedTargetIndices.add(ti);
+      matchedSourceIndices.add(si);
+      sourceMatchResults.set(si, {
+        match,
+        targetTest: target.tests[ti],
+      });
     }
 
     // Emit results for all source tests in order

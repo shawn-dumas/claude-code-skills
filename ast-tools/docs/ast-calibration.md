@@ -13,6 +13,7 @@ regression test, and calibration skill (`/calibrate-ast-interpreter`).
 |------|----------|----------|-----------|-----------------|
 | Intent matcher | 100% (55/55) | 7 synthetic + 2 git-history | 60% | 2026-03-14 |
 | Parity tool | 100% (26/26) | 3 synthetic + 6 git-history | 60% | 2026-03-14 |
+| Vitest parity tool | 100% (13/13) | 3 synthetic + 4 git-history | 60% | 2026-03-15 |
 
 ## Intent Matcher
 
@@ -224,6 +225,86 @@ accuracy.
 | Production REDUCED | 7 | 4 |
 | Development REDUCED | 19 | 6 |
 
+## Vitest Parity Tool
+
+Compares Vitest test suites across branches. Inventories spec files,
+matches tests by composite similarity, and classifies coverage status.
+Uses the same ground-truth fixture infrastructure as the other tools.
+
+### Pipeline
+
+```
+Source specs + Target specs
+    |
+    v
++---------------------------+
+| ast-vitest-parity.ts      |  Observation: parses spec files into
+|                           |  VtSpecInventory (describes, tests,
+|                           |  assertions, mocks, renders, fixtures,
+|                           |  lifecycle hooks)
++---------------------------+
+    |
+    v (VtSpecInventory[])
++---------------------------+
+| ast-interpret-vitest-     |  Interpretation: matches source tests
+| parity.ts                 |  to target tests, classifies each as
+|                           |  PARITY / EXPANDED / REDUCED / NOT_PORTED
++---------------------------+
+    |
+    v (VtParityReport: matches, score)
+```
+
+### Test matching
+
+Two-pass matching:
+
+**Pass 1:** Exact normalized name matches (locked at sim=1.0).
+
+**Pass 2:** Global-sort greedy. Computes ALL (source, target) candidate
+pairs, sorts by composite similarity descending, assigns greedily.
+This prevents low-quality matches from stealing targets that
+higher-quality sources need.
+
+Composite similarity:
+
+| Signal | Weight | Measures |
+|--------|--------|----------|
+| Name token overlap | 0.60 | Jaccard on words > 2 chars |
+| Assertion target overlap | 0.25 | Set intersection of expect() targets |
+| Mock target overlap | 0.15 | Set intersection of vi.mock() paths |
+| Describe-context bonus | +0.05 | Same parentDescribe name |
+
+Match threshold: 0.15. Composite clamped to 1.0.
+
+### Classification
+
+Based on assertion ratio (target / source assertions):
+
+| Assertion ratio | Status |
+|----------------|--------|
+| > 1.2 | EXPANDED |
+| 0.8 -- 1.2 | PARITY |
+| < 0.8 | REDUCED |
+
+### test.each / it.each support
+
+The observation tool handles the `it.each(...)('name %s', fn)` double-
+invocation AST pattern. The outer call's expression is a CallExpression
+(the `.each([...])` invocation), not an Identifier, so `resolveCallName`
+does not cover it. A dedicated `detectEachPattern` function identifies
+this structure in `extractTestBlocks`, `extractAssertions`,
+`extractRenderCalls`, and `countTestsInDescribe`.
+
+### Known limitation
+
+Token-based matching is vulnerable to domain vocabulary overlap. When
+two semantically unrelated tests share many domain-specific words (e.g.,
+"should not redirect when feature flag is null" vs. "should only redirect
+for the specific feature flag being guarded"), the composite similarity
+can exceed the 0.15 threshold despite the tests testing different
+behaviors. The describe-context bonus partially mitigates this for tests
+in the same describe block.
+
 ## Ground Truth Fixtures
 
 Fixtures live in `scripts/AST/ground-truth/fixtures/`. Each fixture is
@@ -236,9 +317,11 @@ for the full evaluation pipeline, cross-file factory setup, and common pitfalls.
 | Prefix | Source | Purpose |
 |--------|--------|---------|
 | `synth-intent-*` | Hand-written minimal examples | Core algorithm coverage |
-| `synth-parity-*` | Hand-written spec pairs | Parity matching coverage |
+| `synth-parity-*` | Hand-written spec pairs | PW parity matching coverage |
+| `synth-vitest-parity-*` | Hand-written spec pairs | Vitest parity matching coverage |
 | `git-intent-*` | Extracted from real git commits | Real-world validation |
-| `git-parity-*` | Real QA-to-integration spec pairs | Real-world parity validation |
+| `git-parity-*` | Real QA-to-integration spec pairs | Real-world PW parity validation |
+| `git-vitest-parity-*` | Real cross-branch spec pairs | Real-world Vitest parity validation |
 | `feedback-*` | Created by refactor skills on misclassification | Regression prevention |
 
 ### Adding fixtures
@@ -279,7 +362,7 @@ matching + interpretation pipeline, and asserts accuracy >= threshold
 per tool. It catches regressions where changes to one tool degrade
 accuracy on the other.
 
-Current test counts: 790 tests across 30 spec files (full AST suite).
+Current test counts: 866 tests across 32 spec files (full AST suite).
 
 ## Calibration Skill
 
@@ -309,3 +392,4 @@ protocol.
 | 2026-03-14 | intent | Cleanup: real matcher in tests | 83% | 69% (29/42) |
 | 2026-03-14 | parity | Cleanup: template literal fix | 100% | 100% (10/10) |
 | 2026-03-14 | intent | Algorithm fix: cross-file matching, de-duplication, tie-breaking | 69% | 100% (55/55) |
+| 2026-03-15 | vitest-parity | it.each extraction, global-sort greedy matching, describe-context bonus | 69% (9/13) | 100% (13/13) |

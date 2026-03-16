@@ -81,18 +81,20 @@ function gitListSpecFiles(branch: string, dirPath: string): string[] {
 // Enclosing describe detection
 // ---------------------------------------------------------------------------
 
+function isDescribeCall(node: Node): boolean {
+  if (!Node.isCallExpression(node)) return false;
+  return resolveCallName(node) === 'describe' || detectEachPattern(node) === 'describe';
+}
+
 function findEnclosingDescribe(node: Node): string | null {
   let current: Node | undefined = node.getParent();
   while (current) {
-    if (Node.isCallExpression(current)) {
-      const name = resolveCallName(current);
-      if (name === 'describe') {
-        const args = current.getArguments();
-        if (args.length > 0 && Node.isStringLiteral(args[0])) {
-          return args[0].getLiteralValue();
-        }
-        return '<unnamed describe>';
+    if (isDescribeCall(current) && Node.isCallExpression(current)) {
+      const args = current.getArguments();
+      if (args.length > 0 && Node.isStringLiteral(args[0])) {
+        return args[0].getLiteralValue();
       }
+      return '<unnamed describe>';
     }
     current = current.getParent();
   }
@@ -106,10 +108,7 @@ function computeDescribeDepth(node: Node): number {
   let depth = 0;
   let current: Node | undefined = node.getParent();
   while (current) {
-    if (Node.isCallExpression(current)) {
-      const name = resolveCallName(current);
-      if (name === 'describe') depth++;
-    }
+    if (isDescribeCall(current)) depth++;
     current = current.getParent();
   }
   return depth;
@@ -161,17 +160,17 @@ function countTestsInDescribe(describeNode: Node): number {
   describeNode.forEachDescendant(descendant => {
     if (!Node.isCallExpression(descendant)) return;
     const callName = resolveCallName(descendant);
-    if (callName !== 'it' && callName !== 'test') return;
+    const isDirectTest = callName === 'it' || callName === 'test';
+    const eachBase = !isDirectTest ? detectEachPattern(descendant) : null;
+    const isEachTest = eachBase === 'it' || eachBase === 'test';
+    if (!isDirectTest && !isEachTest) return;
 
     // Check that the nearest describe ancestor is our node
     let parent: Node | undefined = descendant.getParent();
     while (parent) {
-      if (Node.isCallExpression(parent)) {
-        const parentName = resolveCallName(parent);
-        if (parentName === 'describe') {
-          if (parent === describeNode) count++;
-          break;
-        }
+      if (isDescribeCall(parent)) {
+        if (parent === describeNode) count++;
+        break;
       }
       parent = parent.getParent();
     }
@@ -192,7 +191,9 @@ function extractDescribeBlocks(sf: SourceFile): VtDescribeBlock[] {
     if (!Node.isCallExpression(node)) return;
 
     const callName = resolveCallName(node);
-    if (callName !== 'describe') return;
+    const isDirectDescribe = callName === 'describe';
+    const isEachDescribe = !isDirectDescribe && detectEachPattern(node) === 'describe';
+    if (!isDirectDescribe && !isEachDescribe) return;
 
     const args = node.getArguments();
     const name = args.length > 0 && Node.isStringLiteral(args[0]) ? args[0].getLiteralValue() : '<unnamed>';
@@ -215,17 +216,68 @@ function extractDescribeBlocks(sf: SourceFile): VtDescribeBlock[] {
 // Test block extraction
 // ---------------------------------------------------------------------------
 
+/**
+ * Detect if a CallExpression is an `.each(...)('name', fn)` pattern.
+ * The AST structure is:
+ *   CallExpression (outer) -- the invocation ('name', fn)
+ *     CallExpression (inner) -- the .each([...]) call
+ *       PropertyAccessExpression -- it.each / test.each / describe.each
+ *
+ * Returns the base name ('it', 'test', or 'describe') if it matches, or null.
+ */
+function detectEachPattern(node: Node): string | null {
+  if (!Node.isCallExpression(node)) return null;
+  const outerExpr = node.getExpression();
+  if (!Node.isCallExpression(outerExpr)) return null;
+
+  const innerExpr = outerExpr.getExpression();
+  if (!Node.isPropertyAccessExpression(innerExpr)) return null;
+  if (innerExpr.getName() !== 'each') return null;
+
+  const baseExpr = innerExpr.getExpression();
+  if (!Node.isIdentifier(baseExpr)) return null;
+  const baseName = baseExpr.getText();
+  if (baseName === 'it' || baseName === 'test' || baseName === 'describe') return baseName;
+  return null;
+}
+
 function extractTestBlocks(sf: SourceFile): VtTestBlock[] {
   const tests: VtTestBlock[] = [];
 
   sf.forEachDescendant(node => {
     if (!Node.isCallExpression(node)) return;
 
+    // Check for it.each(...)('name', fn) / test.each(...)('name', fn)
+    const eachBase = detectEachPattern(node);
+    if (eachBase === 'it' || eachBase === 'test') {
+      const args = node.getArguments();
+      if (args.length < 2) return;
+
+      const nameArg = args[0];
+      let testName = '';
+      if (Node.isStringLiteral(nameArg)) {
+        testName = nameArg.getLiteralValue();
+      } else if (Node.isNoSubstitutionTemplateLiteral(nameArg)) {
+        testName = truncateText(nameArg.getText(), 120);
+      } else {
+        testName = truncateText(nameArg.getText(), 80);
+      }
+
+      const parentDescribe = findEnclosingDescribe(node);
+      const callback = args[args.length - 1];
+      const assertionCount = countAssertionsInCallback(callback);
+
+      tests.push({
+        name: testName,
+        parentDescribe,
+        assertionCount,
+        line: node.getStartLineNumber(),
+      });
+      return;
+    }
+
     const callName = resolveCallName(node);
     if (callName !== 'it' && callName !== 'test') return;
-
-    // Handle it.each / test.each -- skip the outer invocation pattern
-    // (these are covered when we encounter the actual test call)
 
     const args = node.getArguments();
     if (args.length < 2) return;
@@ -241,24 +293,8 @@ function extractTestBlocks(sf: SourceFile): VtTestBlock[] {
     }
 
     const parentDescribe = findEnclosingDescribe(node);
-
-    // Count assertions inside this test's callback
     const callback = args[args.length - 1];
-    let assertionCount = 0;
-    const assertionSeen = new Set<number>();
-    callback.forEachDescendant(inner => {
-      if (!Node.isCallExpression(inner)) return;
-      const expr = inner.getExpression();
-      if (!Node.isPropertyAccessExpression(expr)) return;
-      const methodName = expr.getName();
-      if (!methodName.startsWith('to')) return;
-      const expectCall = findExpectInChain(inner);
-      if (!expectCall) return;
-      const line = inner.getStartLineNumber();
-      if (assertionSeen.has(line)) return;
-      assertionSeen.add(line);
-      assertionCount++;
-    });
+    const assertionCount = countAssertionsInCallback(callback);
 
     tests.push({
       name: testName,
@@ -271,6 +307,25 @@ function extractTestBlocks(sf: SourceFile): VtTestBlock[] {
   return tests;
 }
 
+function countAssertionsInCallback(callback: Node): number {
+  let assertionCount = 0;
+  const assertionSeen = new Set<number>();
+  callback.forEachDescendant(inner => {
+    if (!Node.isCallExpression(inner)) return;
+    const expr = inner.getExpression();
+    if (!Node.isPropertyAccessExpression(expr)) return;
+    const methodName = expr.getName();
+    if (!methodName.startsWith('to')) return;
+    const expectCall = findExpectInChain(inner);
+    if (!expectCall) return;
+    const line = inner.getStartLineNumber();
+    if (assertionSeen.has(line)) return;
+    assertionSeen.add(line);
+    assertionCount++;
+  });
+  return assertionCount;
+}
+
 // ---------------------------------------------------------------------------
 // Assertion extraction
 // ---------------------------------------------------------------------------
@@ -281,8 +336,13 @@ function extractAssertions(sf: SourceFile, tests: VtTestBlock[]): VtAssertion[] 
   // Build a map of test line -> test name for parent resolution
   sf.forEachDescendant(outerNode => {
     if (!Node.isCallExpression(outerNode)) return;
+
+    // Support both direct test calls and .each test patterns (not describe.each)
     const outerName = resolveCallName(outerNode);
-    if (outerName !== 'it' && outerName !== 'test') return;
+    const isDirectTest = outerName === 'it' || outerName === 'test';
+    const eachBase = !isDirectTest ? detectEachPattern(outerNode) : null;
+    const isEachTest = eachBase === 'it' || eachBase === 'test';
+    if (!isDirectTest && !isEachTest) return;
 
     const outerArgs = outerNode.getArguments();
     if (outerArgs.length < 2) return;
@@ -405,8 +465,12 @@ function extractRenderCalls(sf: SourceFile): VtRenderCall[] {
 
   sf.forEachDescendant(outerNode => {
     if (!Node.isCallExpression(outerNode)) return;
+
     const outerName = resolveCallName(outerNode);
-    if (outerName !== 'it' && outerName !== 'test') return;
+    const isDirectTest = outerName === 'it' || outerName === 'test';
+    const eachBase = !isDirectTest ? detectEachPattern(outerNode) : null;
+    const isEachTest = eachBase === 'it' || eachBase === 'test';
+    if (!isDirectTest && !isEachTest) return;
 
     const outerArgs = outerNode.getArguments();
     if (outerArgs.length < 2) return;

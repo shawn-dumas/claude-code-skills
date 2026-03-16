@@ -70,7 +70,7 @@ function resolveImportsForFile(sf: SourceFile): ResolvedImport[] {
 // ---------------------------------------------------------------------------
 
 function isHookCall(name: string): boolean {
-  return (name.startsWith('use') && name.length > 3 && name[3] >= 'A' && name[3] <= 'Z') || name === 'useId';
+  return name.startsWith('use') && name.length > 3 && name[3] >= 'A' && name[3] <= 'Z';
 }
 
 function getDestructuredNames(decl: VariableDeclaration | null): string[] {

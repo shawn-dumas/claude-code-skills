@@ -1,9 +1,16 @@
 # AST Parity Matching Algorithm
 
-Reference for the test parity interpreter (`ast-interpret-pw-test-parity.ts`).
-All values are from the source code and should be updated if the code changes.
+Reference for both parity interpreters. All values are from the source
+code and should be updated if the code changes.
 
-## Composite similarity
+- Playwright: `ast-interpret-pw-test-parity.ts`
+- Vitest: `ast-interpret-vitest-parity.ts`
+
+---
+
+## Playwright Parity
+
+### Composite similarity
 
 Each source test is compared against every target test in the mapped file.
 The composite similarity score determines whether a match exists:
@@ -147,9 +154,99 @@ The mapping uses basenames:
 Unmapped source files produce `NOT_MAPPED` status with all tests `NOT_PORTED`.
 Target files with no source mapping appear in `netNewTargetFiles`.
 
-## Split detection
+### Split detection
 
 After matching, the interpreter checks each matched source test for
 unmatched target tests in the same file that share route intercept URLs
 or navigation URLs. These are recorded in `splitCoverage[]` to indicate
 a source test may have been split into multiple target tests.
+
+---
+
+## Vitest Parity
+
+### Test matching
+
+Two-pass matching:
+
+**Pass 1:** Exact normalized name matches. Both names are lowercased,
+non-alphanumeric characters stripped, whitespace collapsed. Describe
+prefixes (before ` > `) are stripped. Exact matches are locked at
+similarity 1.0 before fuzzy matching runs.
+
+**Pass 2:** Global-sort greedy. Computes ALL remaining (source, target)
+candidate pairs, sorts by composite similarity descending, then assigns
+greedily from highest to lowest. This prevents a low-quality match from
+stealing a target that a higher-quality source needs.
+
+### Composite similarity
+
+```
+composite = min(nameScore * 0.6
+              + assertionScore * 0.25
+              + mockScore * 0.15
+              + describeBonus, 1.0)
+```
+
+| Signal | Weight | Computed from |
+|--------|--------|---------------|
+| Name token overlap | 60% | Jaccard on words with length > 2 |
+| Assertion target overlap | 25% | Set intersection of `expect()` target text |
+| Mock target overlap | 15% | Set intersection of `vi.mock()` module paths |
+| Describe-context bonus | +0.05 | Same `parentDescribe` name (both non-null) |
+
+Each overlap function uses: `intersection.size / max(setA.size, setB.size)`.
+
+### Match threshold
+
+```
+composite < 0.15 --> no match (candidate rejected)
+```
+
+A source test with no candidate scoring >= 0.15 is classified `NOT_PORTED`.
+
+### Classification
+
+Based on assertion ratio (target assertions / source assertions):
+
+| Assertion ratio | Status |
+|----------------|--------|
+| > 1.2 | `EXPANDED` |
+| 0.8 -- 1.2 | `PARITY` |
+| < 0.8 | `REDUCED` |
+| Source has 0 assertions, target > 0 | `EXPANDED` |
+| Both have 0 assertions | `PARITY` |
+
+### Overall score
+
+```
+For each matched test (weight = max(assertionCount, 1)):
+  PARITY or EXPANDED:   matchedWeight += weight           (full credit)
+  REDUCED:              matchedWeight += (target/source) * weight  (partial)
+  NOT_PORTED:           matchedWeight += 0                (no credit)
+
+score = round((matchedWeight / totalWeight) * 1000) / 10   // 0-100, one decimal
+```
+
+### File mapping
+
+Source and target specs are matched by the `.file` property after
+stripping `source-`/`target-` prefixes. This assumes the source and
+target have the same relative path structure.
+
+### .each() support
+
+The vitest parity observation tool handles `it.each(...)('name', fn)`,
+`test.each(...)('name', fn)`, and `describe.each(...)('name', fn)`.
+These are double-invocation AST patterns where the outer call's
+expression is a CallExpression (the `.each([...])` invocation), not an
+Identifier. `resolveCallName` does not cover this pattern; a dedicated
+`detectEachPattern` function identifies it.
+
+### Known limitation: domain vocabulary overlap
+
+Token-based matching is vulnerable to high vocabulary overlap within a
+domain. When two semantically unrelated tests share many domain-specific
+words, the composite similarity can exceed the 0.15 threshold despite
+the tests testing different behaviors. The describe-context bonus
+partially mitigates this for tests in the same describe block.

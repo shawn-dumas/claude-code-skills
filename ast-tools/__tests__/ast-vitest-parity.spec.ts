@@ -156,6 +156,60 @@ describe('ast-vitest-parity', () => {
     });
   });
 
+  describe('analyzeVitestParity - .each() patterns', () => {
+    it('extracts test blocks from it.each patterns', () => {
+      const result = analyzeVitestParity(fixture('vt-spec-each.spec.ts'));
+
+      // 2 from it.each + 1 regular + 1 inside describe.each = 4
+      expect(result.tests.length).toBe(4);
+
+      const eachTest1 = result.tests.find(t => t.name === 'parses valid JSON: %s');
+      expect(eachTest1).toBeDefined();
+      expect(eachTest1!.parentDescribe).toBe('valid JSON strings');
+      expect(eachTest1!.assertionCount).toBe(1);
+
+      const eachTest2 = result.tests.find(t => t.name === 'returns null for invalid JSON: %s');
+      expect(eachTest2).toBeDefined();
+      expect(eachTest2!.parentDescribe).toBe('invalid JSON strings');
+      expect(eachTest2!.assertionCount).toBe(1);
+
+      const normalTest = result.tests.find(t => t.name === 'handles a normal test case');
+      expect(normalTest).toBeDefined();
+      expect(normalTest!.parentDescribe).toBe('parseJson');
+    });
+
+    it('extracts assertions from it.each test callbacks', () => {
+      const result = analyzeVitestParity(fixture('vt-spec-each.spec.ts'));
+      const obs = extractVitestParityObservations(result);
+
+      const assertions = obs.observations.filter(o => o.kind === 'VT_ASSERTION');
+      // 1 from each it.each test + 1 from regular + 1 from describe.each test = 4
+      expect(assertions.length).toBe(4);
+
+      const eachAssertion = assertions.find(a => a.evidence.parentTest === 'parses valid JSON: %s');
+      expect(eachAssertion).toBeDefined();
+      expect(eachAssertion!.evidence.matcher).toBe('toEqual');
+    });
+
+    it('extracts describe.each blocks', () => {
+      const result = analyzeVitestParity(fixture('vt-spec-each.spec.ts'));
+
+      // parseJson + valid JSON strings + invalid JSON strings + type: %s = 4
+      const eachDescribe = result.describes.find(d => d.name === 'type: %s');
+      expect(eachDescribe).toBeDefined();
+      expect(eachDescribe!.nestedDepth).toBe(0);
+      expect(eachDescribe!.testCount).toBe(1);
+    });
+
+    it('resolves parentDescribe for tests inside describe.each', () => {
+      const result = analyzeVitestParity(fixture('vt-spec-each.spec.ts'));
+
+      const describeEachTest = result.tests.find(t => t.name === 'round-trips through serialize');
+      expect(describeEachTest).toBeDefined();
+      expect(describeEachTest!.parentDescribe).toBe('type: %s');
+    });
+  });
+
   describe('Playwright spec skipping', () => {
     it('does not skip Vitest specs', () => {
       // analyzeVitestParity should parse Vitest files without issue

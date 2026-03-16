@@ -8,6 +8,7 @@
  */
 
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { parseArgs, output, fatal } from './cli';
@@ -183,25 +184,37 @@ function filterIgnoredKinds(observations: AnyObservation[]): AnyObservation[] {
 }
 
 /**
- * Collect observations from source content using a virtual project.
- * Returns filtered observations (ignoredKinds removed, scoped to target file).
+ * Collect observations from source content.
+ *
+ * Writes content to a temp file so that filePath-based tools in the registry
+ * (complexity, react-inventory, jsx-analysis, type-safety, test-analysis,
+ * data-layer, pw-test-parity, vitest-parity) read the correct content instead
+ * of whatever is on disk at `filePath`. Without this, those tools produce
+ * identical before/after observations when comparing HEAD vs. working tree,
+ * rendering them useless for intent detection.
+ *
+ * SourceFile-based tools use the virtual SourceFile created from `content`.
  */
 function collectObservations(content: string, filePath: string): AnyObservation[] {
-  const project = createVirtualProject();
-  const ext = path.extname(filePath);
-  const virtualPath = `/virtual/${path.basename(filePath)}${ext ? '' : '.tsx'}`;
-
-  const sourceFile = project.createSourceFile(virtualPath, content, { overwrite: true });
+  // Write content to a temp file so filePath-based tools read it
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ast-intent-'));
+  const tmpFile = path.join(tmpDir, path.basename(filePath));
+  fs.writeFileSync(tmpFile, content);
 
   try {
-    const raw = runAllObservers(sourceFile, filePath);
+    const project = createVirtualProject();
+    const ext = path.extname(filePath);
+    const virtualPath = `/virtual/${path.basename(filePath)}${ext ? '' : '.tsx'}`;
+    const sourceFile = project.createSourceFile(virtualPath, content, { overwrite: true });
 
-    // Normalize virtual paths back to the real filePath and filter to
-    // only observations from the target file. Some tools (imports, etc.)
-    // resolve cross-file dependencies from disk and emit observations for
-    // neighboring files -- these are noise for intent matching.
+    // Pass tmpFile as filePath so filePath-based tools read from the temp
+    // copy (correct content) instead of the real disk path (may differ).
+    const raw = runAllObservers(sourceFile, tmpFile);
+
+    // Normalize paths: map both virtual and temp paths back to the real
+    // filePath, then scope to only observations from the target file.
     const normalized = raw.map(obs => {
-      if (obs.file.startsWith('/virtual/')) {
+      if (obs.file.startsWith('/virtual/') || obs.file === tmpFile || obs.file.includes(tmpDir)) {
         return { ...obs, file: filePath };
       }
       return obs;
@@ -213,6 +226,8 @@ function collectObservations(content: string, filePath: string): AnyObservation[
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`Warning: observation collection failed for ${filePath}: ${message}\n`);
     return [];
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 }
 
