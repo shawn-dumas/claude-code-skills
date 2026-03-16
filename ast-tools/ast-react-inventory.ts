@@ -117,16 +117,43 @@ function extractHookCalls(funcNode: Node, parentName: string): HookCall[] {
   return hooks;
 }
 
+/**
+ * Extract the hook name from a call expression. Handles both direct calls
+ * (useHook()) and member-call expressions (obj.useHook()). Returns null
+ * if the expression is not a hook call.
+ */
+function extractHookName(
+  callExpr: Node & { getExpression(): Node },
+): { hookName: string; isMemberCall: boolean } | null {
+  const expr = callExpr.getExpression();
+  const directName = expr.getText();
+
+  // Direct call: useHook()
+  if (isHookCall(directName)) {
+    return { hookName: directName, isMemberCall: false };
+  }
+
+  // Member call: obj.useHook()
+  if (Node.isPropertyAccessExpression(expr)) {
+    const propName = expr.getName();
+    if (isHookCall(propName)) {
+      return { hookName: propName, isMemberCall: true };
+    }
+  }
+
+  return null;
+}
+
 function visitStatementForHooks(node: Node, parentName: string, hooks: HookCall[]): void {
-  // Variable declaration: const [x, y] = useHook()
+  // Variable declaration: const [x, y] = useHook() or obj.useHook()
   if (Node.isVariableStatement(node)) {
     for (const decl of node.getDeclarationList().getDeclarations()) {
       const init = decl.getInitializer();
       if (init && Node.isCallExpression(init)) {
-        const callName = init.getExpression().getText();
-        if (isHookCall(callName)) {
+        const hookInfo = extractHookName(init);
+        if (hookInfo) {
           hooks.push({
-            name: callName,
+            name: hookInfo.hookName,
             line: init.getStartLineNumber(),
             column: init.getSourceFile().getLineAndColumnAtPos(init.getStart()).column,
             parentFunction: parentName,
@@ -138,14 +165,14 @@ function visitStatementForHooks(node: Node, parentName: string, hooks: HookCall[
     return;
   }
 
-  // Expression statement: useHook() (no assignment)
+  // Expression statement: useHook() or obj.useHook() (no assignment)
   if (Node.isExpressionStatement(node)) {
     const expr = node.getExpression();
     if (Node.isCallExpression(expr)) {
-      const callName = expr.getExpression().getText();
-      if (isHookCall(callName)) {
+      const hookInfo = extractHookName(expr);
+      if (hookInfo) {
         hooks.push({
-          name: callName,
+          name: hookInfo.hookName,
           line: expr.getStartLineNumber(),
           column: expr.getSourceFile().getLineAndColumnAtPos(expr.getStart()).column,
           parentFunction: parentName,
@@ -194,16 +221,16 @@ function extractHookObservationsFromStatement(
   resolvedImports: ResolvedImport[],
   observations: HookObservation[],
 ): void {
-  // Variable declaration: const [x, y] = useHook()
+  // Variable declaration: const [x, y] = useHook() or obj.useHook()
   if (Node.isVariableStatement(node)) {
     for (const decl of node.getDeclarationList().getDeclarations()) {
       const init = decl.getInitializer();
       if (init && Node.isCallExpression(init)) {
-        const callName = init.getExpression().getText();
-        if (isHookCall(callName)) {
-          const imp = resolvedImports.find(i => i.specifier === callName);
+        const hookInfo = extractHookName(init);
+        if (hookInfo) {
+          const imp = hookInfo.isMemberCall ? undefined : resolvedImports.find(i => i.specifier === hookInfo.hookName);
           const importSource = imp ? (imp.sourcePath ?? imp.rawSource) : undefined;
-          const isReactBuiltin = astConfig.react.builtinHooks.has(callName);
+          const isReactBuiltin = astConfig.react.builtinHooks.has(hookInfo.hookName);
 
           observations.push({
             kind: 'HOOK_CALL',
@@ -211,11 +238,12 @@ function extractHookObservationsFromStatement(
             line: init.getStartLineNumber(),
             column: init.getSourceFile().getLineAndColumnAtPos(init.getStart()).column,
             evidence: {
-              hookName: callName,
+              hookName: hookInfo.hookName,
               importSource,
               destructuredNames: getDestructuredNames(decl),
               parentFunction: parentName,
               isReactBuiltin,
+              isMemberCall: hookInfo.isMemberCall || undefined,
             },
           });
         }
@@ -224,15 +252,15 @@ function extractHookObservationsFromStatement(
     return;
   }
 
-  // Expression statement: useHook() (no assignment)
+  // Expression statement: useHook() or obj.useHook() (no assignment)
   if (Node.isExpressionStatement(node)) {
     const expr = node.getExpression();
     if (Node.isCallExpression(expr)) {
-      const callName = expr.getExpression().getText();
-      if (isHookCall(callName)) {
-        const imp = resolvedImports.find(i => i.specifier === callName);
+      const hookInfo = extractHookName(expr);
+      if (hookInfo) {
+        const imp = hookInfo.isMemberCall ? undefined : resolvedImports.find(i => i.specifier === hookInfo.hookName);
         const importSource = imp ? (imp.sourcePath ?? imp.rawSource) : undefined;
-        const isReactBuiltin = astConfig.react.builtinHooks.has(callName);
+        const isReactBuiltin = astConfig.react.builtinHooks.has(hookInfo.hookName);
 
         observations.push({
           kind: 'HOOK_CALL',
@@ -240,11 +268,12 @@ function extractHookObservationsFromStatement(
           line: expr.getStartLineNumber(),
           column: expr.getSourceFile().getLineAndColumnAtPos(expr.getStart()).column,
           evidence: {
-            hookName: callName,
+            hookName: hookInfo.hookName,
             importSource,
             destructuredNames: [],
             parentFunction: parentName,
             isReactBuiltin,
+            isMemberCall: hookInfo.isMemberCall || undefined,
           },
         });
       }
@@ -410,6 +439,88 @@ function analyzeEffectBody(callback: Node, knownSetters: Set<string>): UseEffect
 }
 
 // ---------------------------------------------------------------------------
+// Ref DOM type resolution
+// ---------------------------------------------------------------------------
+
+const DOM_TYPE_PATTERN = /^(HTML\w*Element|SVGElement|SVG\w*Element|Element)$/;
+
+/**
+ * Build a map from ref variable name -> isDomRef for all useRef calls
+ * in a function body. Returns undefined for the value when the useRef
+ * call has no generic parameter (ambiguous).
+ */
+function buildRefDomTypeMap(funcNode: Node): Map<string, boolean | undefined> {
+  const refMap = new Map<string, boolean | undefined>();
+  const body = getBody(funcNode);
+  if (!body) return refMap;
+
+  for (const stmt of body.getStatements()) {
+    if (!Node.isVariableStatement(stmt)) continue;
+    for (const decl of stmt.getDeclarationList().getDeclarations()) {
+      const init = decl.getInitializer();
+      if (!init || !Node.isCallExpression(init)) continue;
+      const callName = init.getExpression().getText();
+      if (callName !== 'useRef') continue;
+
+      const refName = decl.getName();
+      const typeArgs = init.getTypeArguments();
+
+      if (typeArgs.length === 0) {
+        // No generic parameter -- ambiguous (could be DOM or value ref)
+        refMap.set(refName, undefined);
+        continue;
+      }
+
+      const typeArgNode = typeArgs[0];
+      const typeText = typeArgNode.getText();
+
+      // Direct match: useRef<HTMLDivElement>, useRef<SVGElement>, etc.
+      if (DOM_TYPE_PATTERN.test(typeText)) {
+        refMap.set(refName, true);
+        continue;
+      }
+
+      // Use the type checker to resolve the type and check base types.
+      // This handles union types like useRef<HTMLDivElement | null> or
+      // type aliases that resolve to DOM element types.
+      try {
+        const typeArgType = typeArgNode.getType();
+        // For union types (e.g., HTMLDivElement | null), check non-null parts
+        const typesToCheck = typeArgType.isUnion() ? typeArgType.getUnionTypes() : [typeArgType];
+        let hasDomType = false;
+        let hasNonNullType = false;
+
+        for (const t of typesToCheck) {
+          const text = t.getText();
+          // Skip null/undefined in union
+          if (text === 'null' || text === 'undefined') continue;
+          hasNonNullType = true;
+
+          if (DOM_TYPE_PATTERN.test(text)) {
+            hasDomType = true;
+            break;
+          }
+
+          // Check base types for subtypes
+          const baseTypes = t.getBaseTypes();
+          if (baseTypes.some(bt => DOM_TYPE_PATTERN.test(bt.getSymbol()?.getName() ?? ''))) {
+            hasDomType = true;
+            break;
+          }
+        }
+
+        refMap.set(refName, hasNonNullType ? hasDomType : undefined);
+      } catch {
+        // Type resolution failed -- treat as ambiguous
+        refMap.set(refName, undefined);
+      }
+    }
+  }
+
+  return refMap;
+}
+
+// ---------------------------------------------------------------------------
 // Effect observations (new semantic layering approach)
 // ---------------------------------------------------------------------------
 
@@ -425,6 +536,7 @@ function extractEffectObservations(
   knownSetters: Set<string>,
   propNames: Set<string>,
   contextBindings: Map<string, string>,
+  refDomTypeMap: Map<string, boolean | undefined>,
 ): EffectObservation[] {
   const observations: EffectObservation[] = [];
   const effectLine = expr.getStartLineNumber();
@@ -474,6 +586,9 @@ function extractEffectObservations(
     });
   }
 
+  // Build dep set for EFFECT_BODY_DEP_CALL detection
+  const depSet = new Set(depArray);
+
   // Walk the callback body for observations
   callback.forEachDescendant(node => {
     const line = node.getStartLineNumber();
@@ -484,6 +599,24 @@ function extractEffectObservations(
       // Direct function calls
       if (Node.isIdentifier(callee)) {
         const name = callee.getText();
+
+        // EFFECT_BODY_DEP_CALL: a dep array identifier used as a callee.
+        // Emitted for deps not already covered by setter/fetch/timer/nav observations.
+        if (
+          depSet.has(name) &&
+          !knownSetters.has(name) &&
+          !astConfig.effects.dispatchIdentifiers.has(name) &&
+          !astConfig.effects.fetchFunctions.has(name) &&
+          !astConfig.effects.timerFunctions.has(name) &&
+          !astConfig.effects.navigateFunctions.has(name)
+        ) {
+          observations.push({
+            kind: 'EFFECT_BODY_DEP_CALL',
+            file: filePath,
+            line,
+            evidence: { effectLine, identifier: name },
+          });
+        }
 
         // EFFECT_STATE_SETTER_CALL
         if (knownSetters.has(name)) {
@@ -583,11 +716,12 @@ function extractEffectObservations(
 
         // EFFECT_REF_TOUCH (.current access)
         if (method === 'current') {
+          const isDomRef = refDomTypeMap.get(obj);
           observations.push({
             kind: 'EFFECT_REF_TOUCH',
             file: filePath,
             line,
-            evidence: { effectLine, identifier: obj },
+            evidence: { effectLine, identifier: obj, ...(isDomRef !== undefined && { isDomRef }) },
           });
         }
 
@@ -680,11 +814,12 @@ function extractEffectObservations(
         // Avoid duplicating with the call expression case
         const parent = node.getParent();
         if (!Node.isCallExpression(parent)) {
+          const isDomRef = refDomTypeMap.get(obj);
           observations.push({
             kind: 'EFFECT_REF_TOUCH',
             file: filePath,
             line,
-            evidence: { effectLine, identifier: obj },
+            evidence: { effectLine, identifier: obj, ...(isDomRef !== undefined && { isDomRef }) },
           });
         }
       }
@@ -759,6 +894,7 @@ function extractAllEffectObservations(funcNode: Node, parentName: string, filePa
   const stateSetters = collectStateSetters(body);
   const propNames = collectPropNames(funcNode);
   const contextBindings = collectContextBindings(funcNode);
+  const refDomTypeMap = buildRefDomTypeMap(funcNode);
   const observations: EffectObservation[] = [];
 
   for (const stmt of body.getStatements()) {
@@ -768,7 +904,7 @@ function extractAllEffectObservations(funcNode: Node, parentName: string, filePa
     if (!astConfig.effects.effectHookNames.has(expr.getExpression().getText())) continue;
 
     observations.push(
-      ...extractEffectObservations(expr, parentName, filePath, stateSetters, propNames, contextBindings),
+      ...extractEffectObservations(expr, parentName, filePath, stateSetters, propNames, contextBindings, refDomTypeMap),
     );
   }
 

@@ -1,0 +1,16 @@
+{
+  "tool": "ownership",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["ConfigPanel.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "ConfigPanel.tsx",
+      "line": 10,
+      "symbol": "ConfigPanel",
+      "expectedKind": "DDAU_COMPONENT",
+      "notes": "Negative case: config prop with no hooks. Should be classified as DDAU_COMPONENT because it has props, no service/context hooks, and no side effects."
+    }
+  ],
+  "status": "calibrated"
+}

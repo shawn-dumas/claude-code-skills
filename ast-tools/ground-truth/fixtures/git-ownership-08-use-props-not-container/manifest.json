@@ -1,0 +1,16 @@
+{
+  "tool": "ownership",
+  "created": "2026-03-16",
+  "source": "git-history",
+  "files": ["ThemeToggle.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "ThemeToggle.tsx",
+      "line": 13,
+      "symbol": "ThemeToggle",
+      "expectedKind": "DDAU_COMPONENT",
+      "notes": "Component receives use*-named props but they are utility/ambient hooks, not service hooks. Has onToggle callback and isActive prop -- classic DDAU. Should NOT be classified as CONTAINER despite use* prop names."
+    }
+  ],
+  "status": "calibrated"
+}

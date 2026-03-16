@@ -423,15 +423,13 @@ React source files
    observation because the detector looks for method calls only, not
    property assignments. These effects classify as NECESSARY.
 
-3. **Observation layer does not emit EFFECT_DOM_API for ref.current DOM
-   property access.** `containerRef.current.scrollTop = 0` produces
-   EFFECT_REF_TOUCH but not EFFECT_DOM_API. Without explicit DOM API
-   signals, ref.current access is indistinguishable from value-storage
-   refs (dedup guards, previous-value tracking). As of 2026-03-16, the
-   interpreter no longer classifies ref-only access as DOM_EFFECT.
-   Fix path: enhance the observation layer to emit EFFECT_DOM_API for
-   `ref.current.{domProperty}` patterns (scrollTop, style, focus, etc.).
-   Affects synth-effects-04 line 11 (expected DOM_EFFECT, gets NECESSARY).
+3. **~~Observation layer does not emit EFFECT_DOM_API for ref.current DOM
+   property access.~~** RESOLVED 2026-03-16. The observation layer now
+   resolves `useRef<T>()` generic type parameters. When T extends
+   HTMLElement/SVGElement/Element, the EFFECT_REF_TOUCH observation carries
+   `isDomRef: true`, and the interpreter classifies as DOM_EFFECT.
+   Untyped refs (no generic parameter) remain ambiguous and fall through
+   to NECESSARY. synth-effects-04 line 11 now correctly classified.
 
 4. **Priority cascade: EVENT_HANDLER_DISGUISED wins over DOM_EFFECT.**
    When a useEffect has both a callback prop dependency and a
@@ -448,11 +446,12 @@ React source files
    "reactive side effect" from "necessary synchronization," which is
    a harder problem.
 
-6. **89.5% accuracy (17/19) reflects 2 known observation-layer and
-   heuristic limitations.** Synth and git-history fixtures together cover
-   19 classifications. The 2 remaining misclassifications require either
-   observation-layer enhancement (limitation 3) or broader heuristic
-   development (limitation 5).
+6. **94.7% accuracy (18/19) reflects 1 known heuristic limitation.**
+   Synth and git-history fixtures together cover 19 classifications.
+   The 1 remaining misclassification (git-effects-03, limitation 5)
+   requires broader heuristic development to distinguish reactive side
+   effects from necessary synchronization. Limitation 3 (DOM ref
+   resolution) was resolved 2026-03-16.
 
 ## Hooks Interpreter
 

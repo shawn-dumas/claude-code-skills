@@ -9,7 +9,7 @@
       "line": 11,
       "symbol": "DomAndSubscription",
       "expectedKind": "DOM_EFFECT",
-      "notes": "ref.current access to set scrollTop -- legitimate DOM effect"
+      "notes": "ref.current access to set scrollTop on useRef<HTMLDivElement> -- DOM-typed ref resolved at observation layer"
     },
     {
       "file": "component.tsx",
@@ -33,5 +33,5 @@
       "notes": "document.title assignment -- observation layer does not emit DOM_API for property assignments"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

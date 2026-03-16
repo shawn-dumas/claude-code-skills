@@ -163,7 +163,7 @@ describe('ast-interpret-effects', () => {
       expect(result.assessments[0].kind).toBe('EXTERNAL_SUBSCRIPTION');
     });
 
-    it('classifies ref-only access without cleanup as NECESSARY', () => {
+    it('classifies untyped ref-only access without cleanup as NECESSARY', () => {
       const observations: EffectObservation[] = [
         makeLocation('test.tsx', 10),
         makeObs('EFFECT_REF_TOUCH', 'test.tsx', 11, 10, { identifier: 'containerRef' }),
@@ -171,11 +171,26 @@ describe('ast-interpret-effects', () => {
 
       const result = interpretEffects(observations);
 
-      // Ref-only without DOM API or cleanup falls through to NECESSARY.
-      // Known limitation: cannot distinguish DOM refs from value-storage refs
-      // without observation-layer enhancement.
+      // Ref-only without DOM API, isDomRef, or cleanup falls through to NECESSARY.
+      // Untyped refs remain ambiguous.
       expect(result.assessments).toHaveLength(1);
       expect(result.assessments[0].kind).toBe('NECESSARY');
+    });
+
+    it('classifies DOM-typed ref access as DOM_EFFECT via isDomRef', () => {
+      const observations: EffectObservation[] = [
+        makeLocation('test.tsx', 10),
+        makeObs('EFFECT_REF_TOUCH', 'test.tsx', 11, 10, { identifier: 'containerRef', isDomRef: true }),
+      ];
+
+      const result = interpretEffects(observations);
+
+      // When the observation layer resolves the ref's generic type as a DOM
+      // element type, the interpreter classifies as DOM_EFFECT.
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('DOM_EFFECT');
+      expect(result.assessments[0].confidence).toBe('high');
+      expect(result.assessments[0].rationale[0]).toContain('DOM-typed ref');
     });
 
     it('classifies DOM API access as DOM_EFFECT', () => {

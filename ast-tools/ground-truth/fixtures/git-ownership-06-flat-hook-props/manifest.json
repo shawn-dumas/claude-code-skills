@@ -1,0 +1,16 @@
+{
+  "tool": "ownership",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["EntityManager.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "EntityManager.tsx",
+      "line": 15,
+      "symbol": "EntityManager",
+      "expectedKind": "CONTAINER",
+      "notes": "Receives hooks via flat props (useEntityQuery, useCreateMutation) and calls them. The hooks interpreter classifies these as LIKELY_SERVICE_HOOK via convention (low confidence). Combined with the service hook count, this gives 1 container signal. Without a Container suffix or containers/ directory, this currently classifies as AMBIGUOUS. Marking as pending until DI-via-props detection is refined."
+    }
+  ],
+  "status": "pending"
+}

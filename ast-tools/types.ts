@@ -400,7 +400,8 @@ export type EffectObservationKind =
   | 'EFFECT_PROP_READ'
   | 'EFFECT_CONTEXT_READ'
   | 'EFFECT_REF_TOUCH'
-  | 'EFFECT_DOM_API';
+  | 'EFFECT_DOM_API'
+  | 'EFFECT_BODY_DEP_CALL';
 
 export type EffectObservationEvidence = {
   effectLine: number;
@@ -409,6 +410,8 @@ export type EffectObservationEvidence = {
   identifier?: string;
   targetObject?: string;
   method?: string;
+  /** True when the ref's generic type parameter extends HTMLElement/SVGElement/Element. */
+  isDomRef?: boolean;
 };
 
 export type EffectObservation = Observation<EffectObservationKind, EffectObservationEvidence>;
@@ -677,6 +680,7 @@ export type HookObservationEvidence = {
   destructuredNames?: string[]; // const { data, isLoading } = useQuery()
   parentFunction?: string; // enclosing component/hook name
   isReactBuiltin?: boolean; // true for useState, useRef, etc.
+  isMemberCall?: boolean; // true when called as obj.useHook() (DI via props)
   // For HOOK_DEFINITION:
   definesHooks?: string[]; // hooks called inside this hook definition
   returnsIdentifier?: string; // callee name of the return expression

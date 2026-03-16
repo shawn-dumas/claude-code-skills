@@ -26,10 +26,13 @@ interface GroupedObservations {
   hasTimerCall: boolean;
   hasDomApi: boolean;
   hasRefTouch: boolean;
+  /** True when any EFFECT_REF_TOUCH observation has isDomRef: true in its evidence. */
+  hasDomRef: boolean;
   stateSetterNames: string[];
   depEntries: string[];
   propReads: string[];
   contextReads: string[];
+  bodyDepCalls: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -67,6 +70,7 @@ function groupObservationsByEffect(observations: readonly EffectObservation[]): 
       hasTimerCall: obs.some(o => o.kind === 'EFFECT_TIMER_CALL'),
       hasDomApi: obs.some(o => o.kind === 'EFFECT_DOM_API'),
       hasRefTouch: obs.some(o => o.kind === 'EFFECT_REF_TOUCH'),
+      hasDomRef: obs.some(o => o.kind === 'EFFECT_REF_TOUCH' && o.evidence.isDomRef === true),
       stateSetterNames: obs
         .filter(o => o.kind === 'EFFECT_STATE_SETTER_CALL')
         .map(o => o.evidence.identifier ?? '')
@@ -81,6 +85,10 @@ function groupObservationsByEffect(observations: readonly EffectObservation[]): 
         .filter(Boolean),
       contextReads: obs
         .filter(o => o.kind === 'EFFECT_CONTEXT_READ')
+        .map(o => o.evidence.identifier ?? '')
+        .filter(Boolean),
+      bodyDepCalls: obs
+        .filter(o => o.kind === 'EFFECT_BODY_DEP_CALL')
         .map(o => o.evidence.identifier ?? '')
         .filter(Boolean),
     });
@@ -311,7 +319,47 @@ function classifyEventHandlerDisguised(group: GroupedObservations): Classificati
     }
   }
 
+  // Guard-then-call pattern: effect has deps that are called as functions
+  // in the body, AND other deps that look like data (not called, not
+  // function-shaped). No cleanup. This is "when data arrives, dispatch
+  // action" -- an event handler in disguise.
+  if (group.bodyDepCalls.length > 0 && !group.hasCleanup) {
+    const calledDepSet = new Set(group.bodyDepCalls);
+    const dataDeps = group.depEntries.filter(d => !calledDepSet.has(d) && !isLikelyFunctionDep(d));
+    if (dataDeps.length > 0) {
+      const calledNames = group.bodyDepCalls.join(', ');
+      const dataNames = dataDeps.join(', ');
+      return {
+        kind: 'EVENT_HANDLER_DISGUISED',
+        confidence: 'low',
+        rationale: [
+          `guard-then-call: deps [${dataNames}] guarding call to [${calledNames}] -- "when data arrives, dispatch action" pattern`,
+          'no cleanup return (supporting signal)',
+        ],
+        isCandidate: true,
+        requiresManualReview: true,
+        basedOnKinds: ['EFFECT_DEP_ENTRY', 'EFFECT_BODY_DEP_CALL'],
+      };
+    }
+  }
+
   return null;
+}
+
+/**
+ * Heuristic: does a dep name look like a function?
+ * Without type info, we use naming conventions:
+ * - on[A-Z]* (callback props)
+ * - handle[A-Z]* (event handlers)
+ * - set[A-Z]* (state setters or setter-like callbacks)
+ * - dispatch (reducer dispatch)
+ */
+function isLikelyFunctionDep(name: string): boolean {
+  if (/^on[A-Z]/.test(name)) return true;
+  if (/^handle[A-Z]/.test(name)) return true;
+  if (/^set[A-Z]/.test(name)) return true;
+  if (name === 'dispatch') return true;
+  return false;
 }
 
 function classifyTimerRace(group: GroupedObservations): ClassificationResult | null {
@@ -345,7 +393,6 @@ function classifyTimerRace(group: GroupedObservations): ClassificationResult | n
 
 function classifyDomEffect(group: GroupedObservations): ClassificationResult | null {
   // Strong DOM_EFFECT: explicit DOM API access (document.*, window.*)
-  // Ref-only access is handled separately at lower priority by classifyRefOnlyDomEffect
   if (group.hasDomApi) {
     const rationale: string[] = ['contains DOM API access'];
     const basedOnKinds: string[] = ['EFFECT_DOM_API'];
@@ -369,19 +416,38 @@ function classifyDomEffect(group: GroupedObservations): ClassificationResult | n
     };
   }
 
+  // DOM_EFFECT via typed DOM ref: ref.current access where the ref's generic
+  // type parameter extends HTMLElement/SVGElement/Element.
+  if (group.hasDomRef) {
+    const rationale: string[] = ['ref.current access on a DOM-typed ref (useRef<HTMLElement>)'];
+    const basedOnKinds: string[] = ['EFFECT_REF_TOUCH'];
+
+    if (group.hasCleanup) {
+      rationale.push('has cleanup function');
+      basedOnKinds.push('EFFECT_CLEANUP_PRESENT');
+    }
+
+    return {
+      kind: 'DOM_EFFECT',
+      confidence: 'high',
+      rationale,
+      isCandidate: false,
+      requiresManualReview: false,
+      basedOnKinds,
+    };
+  }
+
   return null;
 }
 
-// NOTE: ref-only DOM_EFFECT (classifyRefOnlyDomEffect) was removed during
-// calibration 2026-03-16. Ref.current access without explicit DOM API calls
-// (window.*, document.*) is too ambiguous -- many refs store non-DOM values
-// (dedup guards, previous-value tracking, change detection). Without
-// distinguishing DOM property access (ref.current.scrollTop, ref.current.style)
-// from value storage (ref.current = "some string"), ref-only access falls
-// through to NECESSARY. This causes one known false negative on synth-effects-04
-// line 11 (containerRef.current.scrollTop classified as NECESSARY instead of
-// DOM_EFFECT). Fix path: enhance the observation layer to emit EFFECT_DOM_API
-// for ref.current.{domProperty} patterns.
+// NOTE: generic ref-only DOM_EFFECT (classifyRefOnlyDomEffect) was removed
+// during calibration 2026-03-16. Ref.current access without explicit DOM API
+// calls or type information is too ambiguous -- many refs store non-DOM values.
+// The ambiguity was resolved by enhancing the observation layer to resolve
+// useRef<T> generic parameters: when T extends HTMLElement/SVGElement/Element,
+// the EFFECT_REF_TOUCH observation carries isDomRef: true, and classifyDomEffect
+// uses it. Untyped refs (no generic parameter) remain ambiguous and fall through
+// to NECESSARY.
 
 /**
  * Lifecycle imperative: effect calls a callback prop (often a setter from parent

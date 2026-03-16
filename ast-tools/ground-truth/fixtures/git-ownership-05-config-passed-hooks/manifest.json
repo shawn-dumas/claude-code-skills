@@ -9,8 +9,8 @@
       "line": 14,
       "symbol": "SettingsEntityContainer",
       "expectedKind": "CONTAINER",
-      "notes": "Named SettingsEntityContainer (Container suffix = 1 signal). Service hooks come from config props (useGetAllQuery, useCreateMutation) so the hooks interpreter sees them as UNKNOWN_HOOK rather than LIKELY_SERVICE_HOOK. Only 1 container signal (suffix) is insufficient for CONTAINER classification. Interpreter says DDAU_COMPONENT but this is a data-orchestrating container."
+      "notes": "Named SettingsEntityContainer (Container suffix = 1 signal). Service hooks come from config props (useGetAllQuery, useCreateMutation). The hooks interpreter classifies these as LIKELY_SERVICE_HOOK via convention fallback (stage 4b). Service hooks (1 signal) + Container suffix (1 signal) = 2 signals => CONTAINER medium."
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

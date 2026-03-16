@@ -223,6 +223,32 @@ function classifyByConvention(observation: HookObservation): ClassificationResul
 }
 
 /**
+ * Stage 4c: Member-call hooks (DI via props).
+ * Hooks called as obj.useHook() have no import path. If the hook name
+ * matches service hook naming conventions, classify as LIKELY_SERVICE_HOOK
+ * with low confidence. This catches the dependency-injection-via-props
+ * pattern (e.g., config.useGetAllQuery()).
+ */
+function classifyMemberCallHook(observation: HookObservation): ClassificationResult | null {
+  if (!observation.evidence.isMemberCall) return null;
+
+  const hookName = observation.evidence.hookName;
+  const serviceHookPattern = /^use.+(Quer(?:y|ies)|Mutation(?:s)?)$/;
+
+  if (serviceHookPattern.test(hookName)) {
+    return {
+      kind: 'LIKELY_SERVICE_HOOK',
+      confidence: 'low',
+      rationale: [`member-call hook '${hookName}' matches service hook naming convention (DI via props)`],
+      isCandidate: true,
+      requiresManualReview: true,
+    };
+  }
+
+  return null;
+}
+
+/**
  * Stage 5: Unknown.
  * Everything else falls here.
  */
@@ -251,12 +277,13 @@ function classifyUnknown(observation: HookObservation): ClassificationResult {
 /**
  * Interpret hook observations and produce assessments.
  *
- * Classification rules (6-stage cascade):
+ * Classification rules (7-stage cascade):
  * 1. React builtins -> LIKELY_STATE_HOOK
  * 2. Config name lists (ambient hooks, scope suffix) -> LIKELY_AMBIENT_HOOK
  * 3. Import path patterns -> LIKELY_SERVICE_HOOK | LIKELY_CONTEXT_HOOK | LIKELY_AMBIENT_HOOK
  * 4. Name heuristics -> LIKELY_CONTEXT_HOOK | LIKELY_SERVICE_HOOK (lower confidence)
  * 4b. Convention fallback -> LIKELY_SERVICE_HOOK (use*Query/Queries/Mutation/Mutations)
+ * 4c. Member-call hooks -> LIKELY_SERVICE_HOOK (DI via props, obj.useHook())
  * 5. Unknown -> UNKNOWN_HOOK
  *
  * @param observations - Hook observations from ast-react-inventory
@@ -286,6 +313,7 @@ export function interpretHooks(
       classifyByImportPath(observation, config) ??
       classifyByNameHeuristics(observation, config) ??
       classifyByConvention(observation) ??
+      classifyMemberCallHook(observation) ??
       classifyUnknown(observation);
 
     // Detect near-boundary: count how many stages would produce a result
@@ -299,6 +327,7 @@ export function interpretHooks(
       if (classifyByImportPath(observation, config)) alternateResults.push('import-path');
       if (classifyByNameHeuristics(observation, config)) alternateResults.push('name-heuristic');
       if (classifyByConvention(observation)) alternateResults.push('convention');
+      if (classifyMemberCallHook(observation)) alternateResults.push('member-call');
       if (alternateResults.length > 1) {
         rationale.push(`[near-boundary] multiple patterns matched: ${alternateResults.join(', ')}`);
       }
