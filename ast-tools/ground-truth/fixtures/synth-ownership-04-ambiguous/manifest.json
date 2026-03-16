@@ -19,5 +19,5 @@
       "notes": "1 signal (router hook via useRouter) but useRouter is LIKELY_AMBIENT_HOOK, not service/context. Has props but no disallowed hooks -> falls through all classifiers."
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

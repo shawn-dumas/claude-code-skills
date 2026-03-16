@@ -108,6 +108,7 @@ interface AstConfig {
     readonly nonPureTestNames: ReadonlySet<string>;
     readonly mockRestorePatterns: readonly string[];
     readonly storageClearPatterns: readonly string[];
+    readonly queryCacheClearPatterns: readonly string[];
     readonly testHelperPathPatterns: readonly string[];
     readonly fixtureImportPatterns: readonly string[];
     readonly sharedMutablePatterns: readonly string[];
@@ -273,6 +274,9 @@ export const astConfig: AstConfig = Object.freeze({
       'useSorting',
       'useTheme',
       'useTranslation',
+      // URL state hooks (nuqs)
+      'useQueryState',
+      'useQueryStates',
       // Router hooks (Next.js)
       'useRouter',
       'usePathname',
@@ -507,6 +511,7 @@ export const astConfig: AstConfig = Object.freeze({
       'toBeEnabled',
       'toHaveAccessibleName',
       'toHaveAccessibleDescription',
+      'toThrow',
     ]) as ReadonlySet<string>,
 
     snapshotMatchers: new Set(['toMatchSnapshot', 'toMatchInlineSnapshot']) as ReadonlySet<string>,
@@ -544,6 +549,8 @@ export const astConfig: AstConfig = Object.freeze({
     mockRestorePatterns: ['restoreAllMocks', 'clearAllMocks', 'resetAllMocks'] as const,
 
     storageClearPatterns: ['localStorage.clear', 'sessionStorage.clear'] as const,
+
+    queryCacheClearPatterns: ['queryClient.clear', 'queryClient.resetQueries', 'queryClient.removeQueries'] as const,
 
     testHelperPathPatterns: ['__tests__/helpers', 'test-utils', 'test-helpers', 'vitest', '@testing-library'] as const,
 

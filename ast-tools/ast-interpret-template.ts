@@ -181,8 +181,42 @@ function classifyExtractionCandidate(group: GroupedObservations): Classification
 }
 
 /**
+ * Check whether a component has at least one "substantive" JSX observation.
+ * Trivial instances (depth-1 ternary, 1-statement handler, 1-2 condition guard,
+ * single-method transform) are common in clean components and should not
+ * contribute to hotspot detection when variety is at the minimum threshold.
+ *
+ * Severity floors align with ast-config.ts violation thresholds so that
+ * a "substantive" instance is one that would also be a standalone violation.
+ */
+function hasSubstantiveObservation(observations: JsxObservation[]): boolean {
+  for (const obs of observations) {
+    switch (obs.kind) {
+      case 'JSX_TERNARY_CHAIN':
+        if ((obs.evidence.depth ?? 0) >= 2) return true;
+        break;
+      case 'JSX_INLINE_HANDLER':
+        if ((obs.evidence.statementCount ?? 0) >= 2) return true;
+        break;
+      case 'JSX_GUARD_CHAIN':
+        if ((obs.evidence.conditionCount ?? 0) >= 3) return true;
+        break;
+      case 'JSX_TRANSFORM_CHAIN':
+        if ((obs.evidence.chainLength ?? 0) >= 2) return true;
+        break;
+      case 'JSX_IIFE':
+      case 'JSX_INLINE_STYLE':
+      case 'JSX_COMPLEX_CLASSNAME':
+        return true;
+    }
+  }
+  return false;
+}
+
+/**
  * COMPLEXITY_HOTSPOT:
- * - 3+ distinct JSX observation kinds in the same component
+ * - 4+ distinct JSX observation kinds in the same component
+ * - OR 3 distinct kinds where at least one is substantive (above severity floor)
  * - OR JSX_INLINE_HANDLER with statementCount >= 4
  */
 function classifyComplexityHotspot(group: GroupedObservations): ClassificationResult | null {
@@ -194,8 +228,15 @@ function classifyComplexityHotspot(group: GroupedObservations): ClassificationRe
   meaningfulKinds.delete('JSX_RETURN_BLOCK');
 
   if (meaningfulKinds.size >= THRESHOLDS.distinctKindsForHotspot) {
-    rationale.push(`${meaningfulKinds.size} distinct complexity patterns: ${Array.from(meaningfulKinds).join(', ')}`);
-    basedOnKinds.push(...Array.from(meaningfulKinds));
+    // At the minimum threshold (3 kinds), require at least one substantive
+    // instance. This filters trivial-only components (depth-1 ternary +
+    // 1-statement handler + simple guard) while preserving sensitivity for
+    // real hotspots. At 4+ kinds, the variety alone signals complexity.
+    const needsSeverityCheck = meaningfulKinds.size === THRESHOLDS.distinctKindsForHotspot;
+    if (!needsSeverityCheck || hasSubstantiveObservation(group.observations)) {
+      rationale.push(`${meaningfulKinds.size} distinct complexity patterns: ${Array.from(meaningfulKinds).join(', ')}`);
+      basedOnKinds.push(...Array.from(meaningfulKinds));
+    }
   }
 
   // Check handler statement count

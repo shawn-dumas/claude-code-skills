@@ -26,5 +26,5 @@
       "notes": "context read + setState -- derives local state from context value"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

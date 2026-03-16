@@ -19,5 +19,5 @@
       "notes": "Auth guard component listed in layout exceptions. Calls useAuthState (context hook) but the exception lookup fires first, correctly classifying as LAYOUT_SHELL."
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

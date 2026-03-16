@@ -101,10 +101,10 @@ describe('ast-interpret-template', () => {
   });
 
   describe('COMPLEXITY_HOTSPOT classification', () => {
-    it('classifies component with 3+ distinct observation kinds as COMPLEXITY_HOTSPOT', () => {
+    it('classifies component with 3 distinct kinds and at least one substantive as COMPLEXITY_HOTSPOT', () => {
       const observations: JsxObservation[] = [
         makeReturnBlock('test.tsx', 'ComplexComponent', 10, 50),
-        makeObs('JSX_TERNARY_CHAIN', 'test.tsx', 'ComplexComponent', 15, { depth: 1 }),
+        makeObs('JSX_TERNARY_CHAIN', 'test.tsx', 'ComplexComponent', 15, { depth: 2 }),
         makeObs('JSX_GUARD_CHAIN', 'test.tsx', 'ComplexComponent', 20, { conditionCount: 2 }),
         makeObs('JSX_INLINE_HANDLER', 'test.tsx', 'ComplexComponent', 25, { statementCount: 1 }),
       ];
@@ -115,6 +115,33 @@ describe('ast-interpret-template', () => {
       const hotspot = result.assessments.find(a => a.kind === 'COMPLEXITY_HOTSPOT');
       expect(hotspot?.confidence).toBe('medium');
       expect(hotspot?.isCandidate).toBe(true);
+    });
+
+    it('does not classify 3 trivial distinct kinds as COMPLEXITY_HOTSPOT', () => {
+      const observations: JsxObservation[] = [
+        makeReturnBlock('test.tsx', 'TrivialComponent', 10, 50),
+        makeObs('JSX_TERNARY_CHAIN', 'test.tsx', 'TrivialComponent', 15, { depth: 1 }),
+        makeObs('JSX_GUARD_CHAIN', 'test.tsx', 'TrivialComponent', 20, { conditionCount: 2 }),
+        makeObs('JSX_INLINE_HANDLER', 'test.tsx', 'TrivialComponent', 25, { statementCount: 1 }),
+      ];
+
+      const result = interpretTemplate(observations);
+
+      expect(result.assessments.some(a => a.kind === 'COMPLEXITY_HOTSPOT')).toBe(false);
+    });
+
+    it('classifies 4+ distinct kinds as COMPLEXITY_HOTSPOT regardless of severity', () => {
+      const observations: JsxObservation[] = [
+        makeReturnBlock('test.tsx', 'VariedComponent', 10, 50),
+        makeObs('JSX_TERNARY_CHAIN', 'test.tsx', 'VariedComponent', 15, { depth: 1 }),
+        makeObs('JSX_GUARD_CHAIN', 'test.tsx', 'VariedComponent', 20, { conditionCount: 1 }),
+        makeObs('JSX_INLINE_HANDLER', 'test.tsx', 'VariedComponent', 25, { statementCount: 1 }),
+        makeObs('JSX_TRANSFORM_CHAIN', 'test.tsx', 'VariedComponent', 30, { chainLength: 1 }),
+      ];
+
+      const result = interpretTemplate(observations);
+
+      expect(result.assessments.some(a => a.kind === 'COMPLEXITY_HOTSPOT')).toBe(true);
     });
 
     it('classifies large inline handler (>= 4 statements) as COMPLEXITY_HOTSPOT', () => {

@@ -33,5 +33,5 @@
       "notes": "Has props (leaf evidence) + useAuthState (context hook, high confidence)"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

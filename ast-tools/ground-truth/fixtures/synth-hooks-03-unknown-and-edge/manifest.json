@@ -33,5 +33,5 @@
       "notes": "Matches scope hook suffix pattern (ends with 'Scope', length > 8)"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

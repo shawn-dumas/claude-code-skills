@@ -12,5 +12,5 @@
       "notes": "Production DashboardLayout.tsx. Exported as EightFlowDashboardLayout but the layout exception list has DashboardLayout. Renders children in a page shell -- structurally a layout wrapper. The name mismatch causes the exception lookup to miss."
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

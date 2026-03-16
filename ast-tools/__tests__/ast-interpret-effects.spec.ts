@@ -148,7 +148,7 @@ describe('ast-interpret-effects', () => {
   });
 
   describe('DOM_EFFECT classification', () => {
-    it('classifies ref access as DOM_EFFECT with high confidence', () => {
+    it('classifies ref-only access with cleanup as EXTERNAL_SUBSCRIPTION (ref-only removed)', () => {
       const observations: EffectObservation[] = [
         makeLocation('test.tsx', 10),
         makeObs('EFFECT_REF_TOUCH', 'test.tsx', 11, 10, { identifier: 'inputRef' }),
@@ -157,11 +157,25 @@ describe('ast-interpret-effects', () => {
 
       const result = interpretEffects(observations);
 
+      // Ref-only access without DOM API does not trigger DOM_EFFECT.
+      // Cleanup + no state setter -> EXTERNAL_SUBSCRIPTION.
       expect(result.assessments).toHaveLength(1);
-      expect(result.assessments[0].kind).toBe('DOM_EFFECT');
-      expect(result.assessments[0].confidence).toBe('high');
-      expect(result.assessments[0].isCandidate).toBe(false);
-      expect(result.assessments[0].requiresManualReview).toBe(false);
+      expect(result.assessments[0].kind).toBe('EXTERNAL_SUBSCRIPTION');
+    });
+
+    it('classifies ref-only access without cleanup as NECESSARY', () => {
+      const observations: EffectObservation[] = [
+        makeLocation('test.tsx', 10),
+        makeObs('EFFECT_REF_TOUCH', 'test.tsx', 11, 10, { identifier: 'containerRef' }),
+      ];
+
+      const result = interpretEffects(observations);
+
+      // Ref-only without DOM API or cleanup falls through to NECESSARY.
+      // Known limitation: cannot distinguish DOM refs from value-storage refs
+      // without observation-layer enhancement.
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('NECESSARY');
     });
 
     it('classifies DOM API access as DOM_EFFECT', () => {

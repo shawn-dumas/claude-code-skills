@@ -13,11 +13,11 @@
     },
     {
       "file": "component.tsx",
-      "line": 19,
+      "line": 16,
       "symbol": "useMicroworkflowDetailsQuery",
       "expectedKind": "LIKELY_SERVICE_HOOK",
-      "notes": "Imported from @/services/hooks/queries/insights -- matches serviceHookPathPatterns 'services/hooks'. Clean path-based classification."
+      "notes": "Imported from @/services/hooks/queries/insights -- matches serviceHookPathPatterns 'services/hooks'. Clean path-based classification. Multiline call starts at line 16."
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

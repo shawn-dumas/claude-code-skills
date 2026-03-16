@@ -33,5 +33,5 @@
       "notes": "Imported from @/services/hooks/queries/insights -- matches serviceHookPathPatterns 'services/hooks'"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

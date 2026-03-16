@@ -12,5 +12,5 @@
       "notes": "Subscribes to Router.events (external event emitter) with proper cleanup. The ref access (oldUrlRef.current) is incidental -- reading a stored value, not DOM manipulation. The interpreter misclassifies as DOM_EFFECT because it sees ref.current and triggers the DOM rule before reaching the EXTERNAL_SUBSCRIPTION rule. Source: posthogProvider.tsx"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

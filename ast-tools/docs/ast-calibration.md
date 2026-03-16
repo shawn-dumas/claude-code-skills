@@ -60,11 +60,11 @@ skill will address it in batch.
 | Intent matcher | 100% (55/55) | 7 synthetic + 2 git-history | 60% | 2026-03-14 |
 | Parity tool | 100% (26/26) | 3 synthetic + 6 git-history | 60% | 2026-03-14 |
 | Vitest parity tool | 100% (13/13) | 3 synthetic + 4 git-history | 60% | 2026-03-15 |
-| Effects | 100% (14/14) | 5 synthetic | 60% | 2026-03-16 |
+| Effects | 89.5% (17/19) | 5 synthetic + 5 git-history | 60% | 2026-03-16 |
 | Hooks | 100% (18/18) | 3 synthetic | 60% | 2026-03-16 |
-| Ownership | 100% (12/12) | 4 synthetic | 60% | 2026-03-16 |
-| Template | 100% (8/8) | 3 synthetic (incl. 1 negative) | 60% | 2026-03-16 |
-| Test quality | 100% (23/23) | 4 synthetic | 60% | 2026-03-16 |
+| Ownership | 94.4% (17/18) | 4 synthetic + 5 git-history | 60% | 2026-03-16 |
+| Template | 100% (14/14) | 3 synthetic + 5 git-history (incl. 3 negative) | 60% | 2026-03-16 |
+| Test quality | 100% (48/48) | 4 synthetic + 4 git-history | 60% | 2026-03-16 |
 | Dead code | 100% (12/12) | 4 synthetic | 60% | 2026-03-16 |
 
 ## Intent Matcher
@@ -399,34 +399,60 @@ React source files
 ### Thresholds and tunables
 
 - Priority cascade order: DERIVED_STATE > EVENT_HANDLER_DISGUISED >
-  TIMER_RACE > DOM_EFFECT > EXTERNAL_SUBSCRIPTION > NECESSARY
-- `setterMirrorsProp` heuristic for prop-mirror DERIVED_STATE detection
+  TIMER_RACE > DOM_EFFECT (strong, hasDomApi only) >
+  LIFECYCLE_IMPERATIVE > EXTERNAL_SUBSCRIPTION > NECESSARY
+- `setterMirrorsProp` heuristic for prop-mirror DERIVED_STATE detection,
+  including prefix stripping (initial*, default*, prev*, previous*, old*,
+  cached*)
+- Setter-mirrors-dep heuristic for useMemo-derived-to-state sync
+- `classifyLifecycleImperative`: callback prop with cleanup pattern
 - Async body detection (fetch/then/await patterns) for DERIVED_STATE
 - Config: `astConfig.effects` (effect classification thresholds)
 
 ### Known limitations from calibration
 
-1. **setterMirrorsProp does not handle prefix-in-prop patterns.** When a
-   setter name is a suffix of the prop name (e.g., `setCount` with
-   `initialCount`), the prop-mirror detection fails. The `startsWith`
-   check is directional -- `'initialcount'.startsWith('count')` is false.
-   Effects with this pattern fall through to NECESSARY instead of
-   DERIVED_STATE. Low priority.
+1. **~~setterMirrorsProp does not handle prefix-in-prop patterns.~~**
+   Fixed 2026-03-16. `setterMirrorsProp` now strips common prefixes
+   (initial, default, prev, previous, old, cached) from prop names
+   before comparison. Additionally, a new DERIVED_STATE branch matches
+   setter-mirrors-dep patterns where the dep is a useMemo local rather
+   than a direct prop.
 
 2. **Observation layer does not emit EFFECT_DOM_API for DOM property
    assignments.** Setting `document.title = ...` does not produce an
    observation because the detector looks for method calls only, not
    property assignments. These effects classify as NECESSARY.
 
-3. **Priority cascade: EVENT_HANDLER_DISGUISED wins over DOM_EFFECT.**
+3. **Observation layer does not emit EFFECT_DOM_API for ref.current DOM
+   property access.** `containerRef.current.scrollTop = 0` produces
+   EFFECT_REF_TOUCH but not EFFECT_DOM_API. Without explicit DOM API
+   signals, ref.current access is indistinguishable from value-storage
+   refs (dedup guards, previous-value tracking). As of 2026-03-16, the
+   interpreter no longer classifies ref-only access as DOM_EFFECT.
+   Fix path: enhance the observation layer to emit EFFECT_DOM_API for
+   `ref.current.{domProperty}` patterns (scrollTop, style, focus, etc.).
+   Affects synth-effects-04 line 11 (expected DOM_EFFECT, gets NECESSARY).
+
+4. **Priority cascade: EVENT_HANDLER_DISGUISED wins over DOM_EFFECT.**
    When a useEffect has both a callback prop dependency and a
    `window.addEventListener` call, the cascade picks
    EVENT_HANDLER_DISGUISED because it is checked first.
 
-4. **100% accuracy on synthetic fixtures is expected.** All 14 entries
-   across 5 fixtures use unambiguous signals. Real-world edge cases
-   (effects with mixed intent, barrel re-exports obscuring import paths)
-   would produce lower accuracy.
+5. **EVENT_HANDLER_DISGUISED detection requires `on*` callback prop.**
+   The classifier only detects the event-handler-in-disguise pattern
+   when a prop dependency name starts with `on`. Effects that respond
+   to data changes by calling a setter (e.g., auto-select when data
+   arrives) are conceptually event handlers but are classified as
+   NECESSARY. Affects git-effects-03 (expected EVENT_HANDLER_DISGUISED,
+   gets NECESSARY). Broadening this heuristic requires distinguishing
+   "reactive side effect" from "necessary synchronization," which is
+   a harder problem.
+
+6. **89.5% accuracy (17/19) reflects 2 known observation-layer and
+   heuristic limitations.** Synth and git-history fixtures together cover
+   19 classifications. The 2 remaining misclassifications require either
+   observation-layer enhancement (limitation 3) or broader heuristic
+   development (limitation 5).
 
 ## Hooks Interpreter
 
@@ -525,8 +551,9 @@ React source files
 
 Container signals: service hook calls, context hook calls, router hooks,
 query state hooks, storage access, toast calls. Component signals: prop
-count, callback prop count. Layout detection: name matching against
-`astConfig.ownership.layoutNames`.
+count, callback prop count. Layout detection: suffix matching against
+`astConfig.ownership.layoutExceptions` (e.g., `EightFlowDashboardLayout`
+matches `DashboardLayout`). Exact match is tried first, then suffix match.
 
 ### Known limitations from calibration
 
@@ -541,10 +568,20 @@ count, callback prop count. Layout detection: name matching against
    it as a router signal via `isRouterHook()`. This split classification
    is architecturally intentional.
 
-3. **100% accuracy on synthetic fixtures is expected.** All 12 entries
-   across 4 fixtures use unambiguous signals. Real-world components with
-   mixed signals (barrel re-exports, wrapper hooks) would produce lower
-   accuracy.
+3. **Config-passed hooks are invisible to static analysis.** When service
+   hooks (e.g., `useGetAllQuery`, `useCreateMutation`) are passed via a
+   `config` prop and destructured at runtime, the hooks interpreter
+   classifies them as UNKNOWN_HOOK because they have no import path. This
+   means containers that receive all their service hooks via props (like
+   `SettingsEntityContainer`) get insufficient container signals. A
+   heuristic fix (matching prop names or types against service hook naming
+   patterns) would be fragile and over-engineered. Tracked as
+   git-ownership-05 (pending). Accuracy impact: 1 misclassification.
+
+4. **100% accuracy on synthetic fixtures is expected.** All 12 entries
+   across 4 synthetic fixtures use unambiguous signals. The 5 git-history
+   fixtures introduce real-world edge cases including layout name prefix
+   mismatches and config-passed hooks.
 
 ## Template Interpreter
 
@@ -586,7 +623,9 @@ React source files
 ### Thresholds
 
 - EXTRACTION_CANDIDATE: return block line count > `astConfig.template.extractionThreshold`
-- COMPLEXITY_HOTSPOT: 3+ distinct observation kinds in the same return block
+- COMPLEXITY_HOTSPOT: 4+ distinct observation kinds, OR 3 distinct kinds
+  with at least one substantive instance (above severity floor), OR
+  inline handler with 4+ statements
 
 ### Known limitations from calibration
 
@@ -596,10 +635,18 @@ React source files
    harness matches correctly because EXTRACTION_CANDIDATE is emitted
    first by the interpreter's priority ordering.
 
-2. **100% accuracy on synthetic fixtures is expected.** All 8 entries
-   across 3 fixtures (including 1 negative) use signals well
-   above/below thresholds. Real-world components near threshold
-   boundaries would produce lower accuracy.
+2. **Severity filter on 3-kind boundary.** The original rule fired
+   COMPLEXITY_HOTSPOT on any component with 3+ distinct JSX observation
+   kinds. This produced false positives on clean components where all
+   instances were trivial (depth-1 ternary, 1-statement handler, simple
+   guard). Fixed by requiring at least one substantive instance when
+   exactly 3 kinds are present. Severity floors align with
+   `ast-config.ts` violation thresholds.
+
+3. **100% accuracy on 8 fixtures.** All 14 entries across 8 fixtures
+   (3 synthetic, 5 git-history, including 3 negative) classify
+   correctly. Real-world components near threshold boundaries would
+   produce lower accuracy.
 
 ## Test Quality Interpreter
 
@@ -681,6 +728,35 @@ Test spec files
    across 4 fixtures use unambiguous signals. Real-world test files with
    barrel re-export mocking or wrapper function assertions would produce
    lower accuracy.
+
+### Calibration history
+
+**2026-03-16: git-history fixtures + 3 fixes (accuracy 93.75% -> 100%)**
+
+Added 4 git-history fixtures (git-test-quality-01 through 04) covering
+barrel mock ambiguity, mixed assertion boundaries, strategy with
+providers, and assertion edge cases. 3 misclassifications found:
+
+1. **queryClient.clear() not recognized as cleanup** (git-03): observation
+   layer fix. Added `queryCacheClearPatterns` to `ast-config.ts` and
+   detection loop to `ast-test-analysis.ts` `extractCleanupObservations()`.
+   Patterns: `queryClient.clear`, `queryClient.resetQueries`,
+   `queryClient.removeQueries`.
+
+2. **toThrow not in matcher lists** (git-04 line 22): config fix. Added
+   `toThrow` to `astConfig.testing.userVisibleMatchers`. Rendering
+   without errors is a user-visible outcome.
+
+3. **Variable indirection hides screen query** (git-04 line 28):
+   observation layer fix. Added `isScreenQueryVariable()` heuristic to
+   `ast-test-analysis.ts`. When the expect argument is a bare identifier,
+   walks up to the enclosing block and checks if any `const <name> =
+   screen.<query>(...)` declaration matches. Single-level variable
+   resolution only -- does not trace through function calls, re-assignments,
+   or destructuring.
+
+Result: 48/48 classifications correct across 8 fixtures (4 synth + 4
+git-history). All marked calibrated.
 
 ## Dead Code Interpreter
 
@@ -868,3 +944,6 @@ protocol.
 | 2026-03-16 | template | Initial fixture authoring (3 synthetic fixtures, 8 entries incl. 1 negative) | -- | 100% (8/8) |
 | 2026-03-16 | test-quality | Initial fixture authoring (4 synthetic fixtures, 23 entries) | -- | 100% (23/23) |
 | 2026-03-16 | dead-code | Initial fixture authoring (4 synthetic fixtures, 12 entries) | -- | 100% (12/12) |
+| 2026-03-16 | ownership | Algorithm fix: suffix matching for layout exceptions (5 git-history fixtures added) | 88.9% (16/18) | 94.4% (17/18) |
+| 2026-03-16 | template | Algorithm fix: severity filter on 3-kind COMPLEXITY_HOTSPOT (5 git-history fixtures added) | 92.9% (13/14) | 100% (14/14) |
+| 2026-03-16 | effects | Algorithm fix: ref.current narrowing, setterMirrorsProp prefix stripping, lifecycle imperative detection (5 git-history fixtures added) | 73.7% (14/19) | 89.5% (17/19) |

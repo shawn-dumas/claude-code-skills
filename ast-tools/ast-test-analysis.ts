@@ -1070,6 +1070,50 @@ function extractMockObservations(sf: SourceFile, filePath: string, mocks: MockIn
   return observations;
 }
 
+/**
+ * Check if a bare identifier was assigned from a screen.* query in the
+ * same scope. Handles the pattern: `const x = screen.getByRole(...)` then
+ * `expect(x).toHaveLength(1)`. Returns true when the variable's initializer
+ * references a screen query.
+ */
+function isScreenQueryVariable(expectArg: Node): boolean {
+  if (!Node.isIdentifier(expectArg)) return false;
+
+  const name = expectArg.getText();
+
+  // Walk up to the enclosing block/function to find variable declarations
+  let current: Node | undefined = expectArg.getParent();
+  while (current) {
+    if (
+      Node.isBlock(current) ||
+      Node.isSourceFile(current) ||
+      Node.isArrowFunction(current) ||
+      Node.isFunctionDeclaration(current) ||
+      Node.isFunctionExpression(current)
+    ) {
+      break;
+    }
+    current = current.getParent();
+  }
+  if (!current) return false;
+
+  // Search for const/let/var declarations with the same name
+  let found = false;
+  current.forEachDescendant(node => {
+    if (found) return;
+    if (!Node.isVariableDeclaration(node)) return;
+    if (node.getName() !== name) return;
+    const init = node.getInitializer();
+    if (!init) return;
+    const initText = init.getText();
+    if (initText.includes('screen.')) {
+      found = true;
+    }
+  });
+
+  return found;
+}
+
 function extractAssertionObservations(sf: SourceFile, filePath: string): TestObservation[] {
   const observations: TestObservation[] = [];
   const seen = new Set<number>();
@@ -1092,12 +1136,14 @@ function extractAssertionObservations(sf: SourceFile, filePath: string): TestObs
 
     const expectArgs = expectCall.getArguments();
     const expectArgText = expectArgs.length > 0 ? expectArgs[0].getText() : '';
+    const directScreenQuery = expectArgText.includes('screen.');
+    const indirectScreenQuery = !directScreenQuery && expectArgs.length > 0 && isScreenQueryVariable(expectArgs[0]);
 
     observations.push(
       createObservation('ASSERTION_CALL', filePath, line, node.getStart(), {
         matcherName: methodName,
         expectArgText: truncateText(expectArgText, astConfig.truncation.assertionMaxLength),
-        isScreenQuery: expectArgText.includes('screen.'),
+        isScreenQuery: directScreenQuery || indirectScreenQuery,
         isResultCurrent: expectArgText.includes('result.current'),
       }),
     );
@@ -1189,6 +1235,16 @@ function extractCleanupObservations(sf: SourceFile, filePath: string): TestObser
         }
 
         for (const pattern of astConfig.testing.storageClearPatterns) {
+          if (callbackText.includes(pattern)) {
+            observations.push(
+              createObservation('CLEANUP_CALL', filePath, line, node.getStart(), {
+                cleanupType: pattern,
+              }),
+            );
+          }
+        }
+
+        for (const pattern of astConfig.testing.queryCacheClearPatterns) {
           if (callbackText.includes(pattern)) {
             observations.push(
               createObservation('CLEANUP_CALL', filePath, line, node.getStart(), {

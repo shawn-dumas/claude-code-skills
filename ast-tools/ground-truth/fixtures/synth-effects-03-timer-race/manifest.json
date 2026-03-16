@@ -19,5 +19,5 @@
       "notes": "setInterval + setState with cleanup -- managed but still timer race category"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

@@ -12,5 +12,5 @@
       "notes": "Container suffix + useQueryStates (router hook) = 2 signals. Service hooks come from config props (useKpiQuery, useDetailQuery) so the hooks interpreter classifies them as UNKNOWN_HOOK. Interpreter reaches CONTAINER/medium via the 2 visible signals, which is correct."
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

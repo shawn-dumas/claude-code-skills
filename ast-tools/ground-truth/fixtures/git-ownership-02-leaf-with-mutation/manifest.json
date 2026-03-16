@@ -12,5 +12,5 @@
       "notes": "Leaf component (has props, not named Container, not in containers/) that calls useChangeUserTeamRoleMutation (service hook). Documented exception in AGENTS.md -- mutation tightly coupled to role change UI."
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

@@ -55,5 +55,5 @@
       "notes": "no local afterEach -- global cleanup handles it"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

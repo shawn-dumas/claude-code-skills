@@ -26,5 +26,5 @@
       "notes": "2 signals: service hook (useTeamQuery), router hook (usePathname). Medium confidence."
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

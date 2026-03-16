@@ -34,5 +34,5 @@
       "notes": "afterEach calls queryClient.clear() -- legitimate cleanup. Interpreter emits CLEANUP_INCOMPLETE because it only recognizes mock restoration patterns, not query cache cleanup. This is a known interpreter gap."
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

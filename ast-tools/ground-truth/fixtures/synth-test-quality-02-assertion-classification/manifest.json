@@ -54,5 +54,5 @@
       "notes": "toHaveBeenCalled on useCustomHook -- hook mock pattern triggers implementation"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

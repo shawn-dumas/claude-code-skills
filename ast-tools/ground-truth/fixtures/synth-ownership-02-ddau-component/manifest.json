@@ -26,5 +26,5 @@
       "notes": "Pure presentational with useState/useCallback (React builtins only)"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

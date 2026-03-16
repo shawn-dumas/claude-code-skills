@@ -111,8 +111,16 @@ function buildBasedOn(observations: EffectObservation[], filterKinds?: string[])
 }
 
 /**
+ * Common prefixes on prop names that wrap an underlying value name.
+ * E.g., `initialRowSelection` wraps `RowSelection`, `defaultCount` wraps `Count`.
+ */
+const PROP_VALUE_PREFIXES = ['initial', 'default', 'prev', 'previous', 'old', 'cached'];
+
+/**
  * Check if a setter name mirrors a prop name.
  * E.g., dep 'userId' with setter 'setUser' or 'setUserId' is a mirror.
+ * Also handles prefix-in-prop: 'setRowSelection' mirrors 'initialRowSelection'
+ * by stripping common prefixes (initial, default, prev) from the prop name.
  */
 function setterMirrorsProp(setterName: string, propName: string): boolean {
   // setX mirrors X
@@ -121,12 +129,24 @@ function setterMirrorsProp(setterName: string, propName: string): boolean {
   }
   // setXyz mirrors xyz or Xyz
   const withoutSet = setterName.replace(/^set/, '');
-  if (withoutSet.toLowerCase() === propName.toLowerCase()) {
+  const withoutSetLower = withoutSet.toLowerCase();
+  if (withoutSetLower === propName.toLowerCase()) {
     return true;
   }
-  // setUser mirrors userId (prop is longer)
-  if (propName.toLowerCase().startsWith(withoutSet.toLowerCase())) {
+  // setUser mirrors userId (prop is longer, setter root is a prefix of prop)
+  if (propName.toLowerCase().startsWith(withoutSetLower)) {
     return true;
+  }
+  // setRowSelection mirrors initialRowSelection (prop has a value prefix)
+  // Strip common prefixes from the prop name and re-compare
+  const propLower = propName.toLowerCase();
+  for (const prefix of PROP_VALUE_PREFIXES) {
+    if (propLower.startsWith(prefix)) {
+      const stripped = propLower.slice(prefix.length);
+      if (stripped === withoutSetLower) {
+        return true;
+      }
+    }
   }
   return false;
 }
@@ -169,6 +189,7 @@ function countMatchingClassifications(group: GroupedObservations): string[] {
   if (classifyEventHandlerDisguised(group)) matched.push('EVENT_HANDLER_DISGUISED');
   if (classifyTimerRace(group)) matched.push('TIMER_RACE');
   if (classifyDomEffect(group)) matched.push('DOM_EFFECT');
+  if (classifyLifecycleImperative(group)) matched.push('NECESSARY');
   if (classifyExternalSubscription(group)) matched.push('EXTERNAL_SUBSCRIPTION');
   return matched;
 }
@@ -213,6 +234,27 @@ function classifyDerivedState(group: GroupedObservations): ClassificationResult 
         requiresManualReview: true,
         basedOnKinds: ['EFFECT_STATE_SETTER_CALL', 'EFFECT_PROP_READ', 'EFFECT_DEP_ENTRY'],
       };
+    }
+  }
+
+  // DERIVED_STATE: setter mirrors a dep entry directly (dep may be a useMemo local,
+  // not a prop). E.g., setRowSelection(initialRowSelection) where initialRowSelection
+  // is derived from props via useMemo. Only fires when the prop-mirror check above
+  // did not match (no prop reads or prop name mismatch).
+  if (group.hasStateSetter && group.depEntries.length > 0 && !group.hasFetchCall && !group.hasAsyncCall) {
+    for (const setter of group.stateSetterNames) {
+      for (const dep of group.depEntries) {
+        if (setterMirrorsProp(setter, dep)) {
+          return {
+            kind: 'DERIVED_STATE',
+            confidence: 'low',
+            rationale: [`mirrors dep \`${dep}\` into local state via \`${setter}\` -- likely derived state`],
+            isCandidate: true,
+            requiresManualReview: true,
+            basedOnKinds: ['EFFECT_STATE_SETTER_CALL', 'EFFECT_DEP_ENTRY'],
+          };
+        }
+      }
     }
   }
 
@@ -302,15 +344,12 @@ function classifyTimerRace(group: GroupedObservations): ClassificationResult | n
 }
 
 function classifyDomEffect(group: GroupedObservations): ClassificationResult | null {
-  if (group.hasDomApi || group.hasRefTouch) {
-    // DOM effects are legitimate if no state setter abuse
-    const rationale: string[] = [];
-    const basedOnKinds: string[] = [];
+  // Strong DOM_EFFECT: explicit DOM API access (document.*, window.*)
+  // Ref-only access is handled separately at lower priority by classifyRefOnlyDomEffect
+  if (group.hasDomApi) {
+    const rationale: string[] = ['contains DOM API access'];
+    const basedOnKinds: string[] = ['EFFECT_DOM_API'];
 
-    if (group.hasDomApi) {
-      rationale.push('contains DOM API access');
-      basedOnKinds.push('EFFECT_DOM_API');
-    }
     if (group.hasRefTouch) {
       rationale.push('contains ref.current access');
       basedOnKinds.push('EFFECT_REF_TOUCH');
@@ -327,6 +366,46 @@ function classifyDomEffect(group: GroupedObservations): ClassificationResult | n
       isCandidate: false,
       requiresManualReview: false,
       basedOnKinds,
+    };
+  }
+
+  return null;
+}
+
+// NOTE: ref-only DOM_EFFECT (classifyRefOnlyDomEffect) was removed during
+// calibration 2026-03-16. Ref.current access without explicit DOM API calls
+// (window.*, document.*) is too ambiguous -- many refs store non-DOM values
+// (dedup guards, previous-value tracking, change detection). Without
+// distinguishing DOM property access (ref.current.scrollTop, ref.current.style)
+// from value storage (ref.current = "some string"), ref-only access falls
+// through to NECESSARY. This causes one known false negative on synth-effects-04
+// line 11 (containerRef.current.scrollTop classified as NECESSARY instead of
+// DOM_EFFECT). Fix path: enhance the observation layer to emit EFFECT_DOM_API
+// for ref.current.{domProperty} patterns.
+
+/**
+ * Lifecycle imperative: effect calls a callback prop (often a setter from parent
+ * context) in the body and clears it in cleanup. This is a mount/update push
+ * pattern, not an external subscription.
+ *
+ * Pattern: cleanup + no local state setter + reads a prop that looks like a
+ * setter (starts with "set") or is a callback prop.
+ */
+function classifyLifecycleImperative(group: GroupedObservations): ClassificationResult | null {
+  if (!group.hasCleanup || group.hasStateSetter) return null;
+
+  // Check if any prop read looks like a setter call (e.g., setHeaderMetricsProps)
+  const setterPropReads = group.propReads.filter(p => /^set[A-Z]/.test(p));
+  if (setterPropReads.length > 0) {
+    return {
+      kind: 'NECESSARY',
+      confidence: 'medium',
+      rationale: [
+        `calls prop setter \`${setterPropReads[0]}\` with cleanup -- lifecycle imperative (mount/unmount push)`,
+      ],
+      isCandidate: false,
+      requiresManualReview: false,
+      basedOnKinds: ['EFFECT_CLEANUP_PRESENT', 'EFFECT_PROP_READ'],
     };
   }
 
@@ -394,12 +473,18 @@ export function interpretEffects(
   const file = observations[0].file;
 
   for (const group of groups) {
-    // Try classification rules in priority order
+    // Try classification rules in priority order.
+    // Note: classifyDomEffect only fires for explicit DOM API access (window/document).
+    // Ref-only access (classifyRefOnlyDomEffect) is checked after EXTERNAL_SUBSCRIPTION
+    // because many refs store non-DOM values (dedup guards, previous values).
+    // classifyLifecycleImperative detects callback-prop-with-cleanup patterns
+    // before they fall into EXTERNAL_SUBSCRIPTION.
     const result =
       classifyDerivedState(group) ??
       classifyEventHandlerDisguised(group) ??
       classifyTimerRace(group) ??
       classifyDomEffect(group) ??
+      classifyLifecycleImperative(group) ??
       classifyExternalSubscription(group) ??
       classifyNecessary(group);
 

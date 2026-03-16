@@ -339,8 +339,8 @@ describe('ast-config', () => {
       expect(astConfig.testing.userVisibleMatchers.size).toBeGreaterThan(0);
     });
 
-    it('userVisibleMatchers has 7 entries', () => {
-      expect(astConfig.testing.userVisibleMatchers.size).toBe(7);
+    it('userVisibleMatchers has 8 entries', () => {
+      expect(astConfig.testing.userVisibleMatchers.size).toBe(8);
     });
 
     it('snapshotMatchers is non-empty', () => {
@@ -471,7 +471,7 @@ describe('ast-config', () => {
 
       // Spot-check a few Sets with known sizes
       expect(astConfig.react.builtinHooks.size).toBe(14);
-      expect(astConfig.hooks.ambientLeafHooks.size).toBe(18);
+      expect(astConfig.hooks.ambientLeafHooks.size).toBe(20);
       expect(astConfig.hooks.knownContextHooks.size).toBe(7);
       expect(astConfig.hooks.tanstackQueryHooks.size).toBe(6);
       expect(astConfig.sideEffects.consoleMethods.size).toBe(8);

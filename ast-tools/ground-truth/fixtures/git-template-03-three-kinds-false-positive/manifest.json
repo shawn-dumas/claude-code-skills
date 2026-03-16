@@ -4,5 +4,5 @@
   "source": "git-history",
   "files": ["component.tsx"],
   "expectedClassifications": [],
-  "status": "pending"
+  "status": "calibrated"
 }

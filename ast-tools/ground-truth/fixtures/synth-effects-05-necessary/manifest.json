@@ -26,5 +26,5 @@
       "notes": "multiple dep entries with no state setters or DOM access"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

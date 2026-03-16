@@ -200,12 +200,25 @@ function hasDisallowedHook(ctx: ComponentContext): HookAssessment | null {
 // Classification rules
 // ---------------------------------------------------------------------------
 
+function matchesLayoutException(name: string, exceptions: ReadonlySet<string>): string | null {
+  if (exceptions.has(name)) return name;
+  for (const exception of exceptions) {
+    if (name.endsWith(exception)) return exception;
+  }
+  return null;
+}
+
 function classifyLayoutShell(ctx: ComponentContext, config: AstConfig): ClassificationResult | null {
-  if (config.ownership.layoutExceptions.has(ctx.name)) {
+  const matchedException = matchesLayoutException(ctx.name, config.ownership.layoutExceptions);
+  if (matchedException) {
+    const rationale =
+      matchedException === ctx.name
+        ? `'${ctx.name}' is a documented layout exception`
+        : `'${ctx.name}' matches layout exception '${matchedException}' (suffix match)`;
     return {
       kind: 'LAYOUT_SHELL',
       confidence: 'high',
-      rationale: [`'${ctx.name}' is a documented layout exception`],
+      rationale: [rationale],
       isCandidate: false,
       requiresManualReview: false,
     };
