@@ -221,7 +221,12 @@ function checkVerificationBlock(tree: MdNode, file: string, obs: PlanAuditObserv
   const headings = findAll(tree, 'heading');
   const has = headings.some(h => {
     const t = nodeText(h).toLowerCase();
-    return t.includes('verification checklist') || t.includes('pre-execution verification');
+    return (
+      t.includes('verification checklist') ||
+      t.includes('pre-execution verification') ||
+      t === 'verification' ||
+      t === 'verification checklist'
+    );
   });
   if (!has) {
     emit(obs, 'VERIFICATION_BLOCK_MISSING', file, 1, {});
@@ -339,12 +344,18 @@ function checkPromptFilesExist(
 
 // --- Prompt file checks ---
 
+/**
+ * Check that a prompt file has a verification section with runnable content.
+ * "Runnable" means either a fenced code block or an indented code block
+ * (4-space or tab indent) containing command-like text.
+ */
 function checkPromptVerification(promptPath: string, obs: PlanAuditObservation[]): void {
   const content = fs.readFileSync(promptPath, 'utf-8');
   const relPath = path.relative(process.cwd(), promptPath);
   const lines = content.split('\n');
   let foundVerifyHeading = false;
   let headingDepth = 0;
+  let hasRunnableContent = false;
   let inFence = false;
 
   for (let i = 0; i < lines.length; i++) {
@@ -352,9 +363,7 @@ function checkPromptVerification(promptPath: string, obs: PlanAuditObservation[]
     const isFenceLine = /^```/.test(line);
 
     if (isFenceLine) {
-      if (foundVerifyHeading && !inFence) {
-        return; // code block opens after verification heading -- good
-      }
+      if (foundVerifyHeading) hasRunnableContent = true;
       inFence = !inFence;
       continue;
     }
@@ -364,22 +373,34 @@ function checkPromptVerification(promptPath: string, obs: PlanAuditObservation[]
     if (hm) {
       const depth = hm[1].length;
       const text = hm[2].toLowerCase();
-      if (!foundVerifyHeading && (text.includes('verification') || text.includes('verify'))) {
+      // Match standalone verification headings (## Verification, ## Verify)
+      // but not step headings that mention verification (### Step 5: Verify).
+      // Verification sections are h2; step headings are h3+.
+      const isVerificationHeading =
+        depth <= 2 && (text === 'verification' || text === 'verify' || text === 'verification checklist');
+      if (!foundVerifyHeading && isVerificationHeading) {
         foundVerifyHeading = true;
         headingDepth = depth;
         continue;
       }
       if (foundVerifyHeading && depth <= headingDepth) {
-        emit(obs, 'PROMPT_VERIFICATION_MISSING', relPath, i + 1, { promptFile: relPath });
+        if (!hasRunnableContent) {
+          emit(obs, 'PROMPT_VERIFICATION_MISSING', relPath, i + 1, { promptFile: relPath });
+        }
         return;
       }
+    }
+
+    // Indented code blocks (4 spaces or tab) after the verification heading
+    // count as runnable content
+    if (foundVerifyHeading && /^(?:    |\t)\S/.test(line)) {
+      hasRunnableContent = true;
     }
   }
 
   if (!foundVerifyHeading) {
     emit(obs, 'PROMPT_VERIFICATION_MISSING', relPath, 1, { promptFile: relPath });
-  } else {
-    // Heading found but no code block followed before EOF
+  } else if (!hasRunnableContent) {
     emit(obs, 'PROMPT_VERIFICATION_MISSING', relPath, 1, { promptFile: relPath });
   }
 }
