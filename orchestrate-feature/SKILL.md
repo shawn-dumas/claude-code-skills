@@ -281,6 +281,22 @@ Do not skip this step. A plan that has not been pre-flighted may contain
 structural issues (missing verification commands, dependency cycles,
 convention mismatches) that waste execution time.
 
+**Calibration check.** If this plan's prompts run audit, refactor, or
+build skills that consume AST interpreter output, count pending
+calibration fixtures:
+
+```bash
+for f in scripts/AST/ground-truth/fixtures/*/manifest.json; do
+  status=$(python3 -c "import json; print(json.load(open('$f')).get('status',''))")
+  [ "$status" = "pending" ] && echo "PENDING: $f"
+done
+```
+
+If any tool has 3+ pending fixtures, run `/calibrate-ast-interpreter
+--tool <name>` before proceeding to Step 9. Executing against
+uncalibrated interpreters produces incorrect findings that waste
+execution time and pollute cleanup files.
+
 ## Step 9: Execute the orchestrator loop
 
 Prompts run strictly one at a time. Run one, verify, confirm PASS, then
