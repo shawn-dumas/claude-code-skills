@@ -54,7 +54,9 @@ function walk(node: MdNode, cb: (n: MdNode) => void): void {
 
 function findAll(tree: MdNode, type: string): MdNode[] {
   const result: MdNode[] = [];
-  walk(tree, (n) => { if (n.type === type) result.push(n); });
+  walk(tree, n => {
+    if (n.type === type) result.push(n);
+  });
   return result;
 }
 
@@ -97,6 +99,20 @@ function parseBlockquoteHeader(content: string): HeaderField[] {
   return fields;
 }
 
+// --- Table helpers ---
+
+/** Split a markdown table row on `|`, trimming each cell and dropping
+ *  the leading/trailing empty segments from the outer pipes. Interior
+ *  empty cells are preserved so column indices stay aligned. */
+function splitTableRow(line: string): string[] {
+  const parts = line.split('|').map(c => c.trim());
+  // Drop leading empty string (before first |)
+  if (parts.length > 0 && parts[0] === '') parts.shift();
+  // Drop trailing empty string (after last |)
+  if (parts.length > 0 && parts[parts.length - 1] === '') parts.pop();
+  return parts;
+}
+
 // --- Prompt table parsing (raw text, since tables are GFM and need extensions in MDAST) ---
 
 interface PromptTableRow {
@@ -112,16 +128,24 @@ function parsePromptTable(content: string): PromptTableRow[] | null {
   let i = 0;
 
   while (i < lines.length) {
-    if (!lines[i].trim().startsWith('|')) { i++; continue; }
+    if (!lines[i].trim().startsWith('|')) {
+      i++;
+      continue;
+    }
 
-    // Potential table start
-    const headerCells = lines[i].split('|').map(c => c.trim()).filter(Boolean);
+    // Potential table start -- split on | and drop the leading/trailing
+    // empty cells from the outer pipes, but preserve interior empty cells
+    // so column indices stay aligned.
+    const headerCells = splitTableRow(lines[i]);
     const headerLower = headerCells.map(h => h.toLowerCase());
     const promptIdx = headerLower.findIndex(h => h === 'prompt');
-    if (promptIdx < 0) { i++; continue; }
+    if (promptIdx < 0) {
+      i++;
+      continue;
+    }
 
-    const modeIdx = headerLower.findIndex(h =>
-      h === 'mode' || h === 'auto/manual' || h.includes('auto') || h.includes('manual'),
+    const modeIdx = headerLower.findIndex(
+      h => h === 'mode' || h === 'auto/manual' || h.includes('auto') || h.includes('manual'),
     );
     const numIdx = headerLower.findIndex(h => h === '#');
     const depsIdx = headerLower.findIndex(h => h.includes('depends'));
@@ -132,15 +156,19 @@ function parsePromptTable(content: string): PromptTableRow[] | null {
 
     const rows: PromptTableRow[] = [];
     while (i < lines.length && lines[i].trim().startsWith('|')) {
-      const cells = lines[i].split('|').map(c => c.trim()).filter(Boolean);
+      const cells = splitTableRow(lines[i]);
       const depsRaw = depsIdx >= 0 ? (cells[depsIdx] ?? '') : '';
       rows.push({
         number: numIdx >= 0 ? (cells[numIdx] ?? '') : '',
         name: cells[promptIdx] ?? '',
         mode: modeIdx >= 0 ? (cells[modeIdx] ?? '') : '',
-        dependsOn: depsRaw === '--' || depsRaw === ''
-          ? []
-          : depsRaw.split(/[,\s]+/).map(d => d.trim()).filter(d => d && d !== '--'),
+        dependsOn:
+          depsRaw === '--' || depsRaw === ''
+            ? []
+            : depsRaw
+                .split(/[,\s]+/)
+                .map(d => d.trim())
+                .filter(d => d && d !== '--'),
         line: i + 1,
       });
       i++;
@@ -221,7 +249,9 @@ function checkDependencyCycles(table: PromptTableRow[], file: string, obs: PlanA
     graph.set(row.number || row.name, row.dependsOn);
   }
 
-  const WHITE = 0, GRAY = 1, BLACK = 2;
+  const WHITE = 0,
+    GRAY = 1,
+    BLACK = 2;
   const color = new Map<string, number>();
   for (const id of graph.keys()) color.set(id, WHITE);
 
@@ -378,8 +408,10 @@ const DEFERRED_PATTERNS = [
   /\bhandle\s+in\s+cleanup\b/i,
   /\bcleanup\s+prompt\s+will\b/i,
 ];
-const FILE_PATH_RE = /(?:`([^`]*(?:src\/|\.\/|~\/|\.\.\/)[^`]*)`|(?:^|\s)((?:src\/|\.\/|~\/|\.\.\/)[a-zA-Z0-9_\-.\/]+))/gm;
-const SKILL_RE = /\/(?:build|refactor|audit|orchestrate|extract|flatten|migrate|replace|spawn|iterate|generate|sync|calibrate|visual|document)-[a-z]+(?:-[a-z]+)*/g;
+const FILE_PATH_RE =
+  /(?:`([^`]*(?:src\/|\.\/|~\/|\.\.\/)[^`]*)`|(?:^|\s)((?:src\/|\.\/|~\/|\.\.\/)[a-zA-Z0-9_\-.\/]+))/gm;
+const SKILL_RE =
+  /\/(?:build|refactor|audit|orchestrate|extract|flatten|migrate|replace|spawn|iterate|generate|sync|calibrate|visual|document)-[a-z]+(?:-[a-z]+)*/g;
 
 function extractConventionObservations(filePath: string, obs: PlanAuditObservation[]): void {
   const content = fs.readFileSync(filePath, 'utf-8');
@@ -476,12 +508,12 @@ function main(): void {
   if (args.help) {
     process.stdout.write(
       'Usage: npx tsx scripts/AST/ast-plan-audit.ts <plan-file> [--prompts <glob>] [--pretty] [--kind <KIND>] [--count]\n\n' +
-      'Options:\n' +
-      '  --prompts <glob>  Glob pattern for prompt files (quote if using wildcards)\n' +
-      '  --pretty          Pretty-print JSON output\n' +
-      '  --kind <KIND>     Filter to a single observation kind\n' +
-      '  --count           Output observation kind counts\n' +
-      '  --help            Show this help\n',
+        'Options:\n' +
+        '  --prompts <glob>  Glob pattern for prompt files (quote if using wildcards)\n' +
+        '  --pretty          Pretty-print JSON output\n' +
+        '  --kind <KIND>     Filter to a single observation kind\n' +
+        '  --count           Output observation kind counts\n' +
+        '  --help            Show this help\n',
     );
     process.exit(0);
   }
@@ -509,8 +541,7 @@ function main(): void {
 }
 
 const isDirectRun =
-  process.argv[1] &&
-  (process.argv[1].endsWith('ast-plan-audit.ts') || process.argv[1].endsWith('ast-plan-audit'));
+  process.argv[1] && (process.argv[1].endsWith('ast-plan-audit.ts') || process.argv[1].endsWith('ast-plan-audit'));
 
 if (isDirectRun) {
   main();
