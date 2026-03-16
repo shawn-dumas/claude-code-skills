@@ -160,6 +160,9 @@ function countContainerSignals(signals: ContainerSignals): number {
   if (signals.hasContainerSuffix) count++;
   if (signals.inContainerDirectory) count++;
 
+  // Multiple service hooks indicate orchestration regardless of naming/directory
+  if (signals.serviceHookCount >= 2) count++;
+
   return count;
 }
 
@@ -406,7 +409,8 @@ function classifyAmbiguous(
  *
  * Classification rules:
  * 1. LAYOUT_SHELL: component name in documented exceptions list
- * 2. CONTAINER: 2+ container signals (service hooks, context hooks, router, toast, naming)
+ * 2. CONTAINER: 2+ container signals (service hooks, context hooks, router, toast, naming,
+ *    or multiple service hooks -- 2+ LIKELY_SERVICE_HOOK counts as an additional signal)
  * 3. DDAU_COMPONENT: has props, no service/context hooks, no side effects
  * 4. LEAF_VIOLATION: has leaf evidence AND disallowed hooks (both sides required)
  * 5. AMBIGUOUS: insufficient evidence to commit to any classification

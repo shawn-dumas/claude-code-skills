@@ -9,7 +9,7 @@
       "line": 11,
       "symbol": "DomAndSubscription",
       "expectedKind": "DOM_EFFECT",
-      "notes": "ref.current access to set scrollTop on useRef<HTMLDivElement> -- DOM-typed ref resolved at observation layer"
+      "notes": "ref.current access to set scrollTop on untyped useRef -- DOM property allowlist fallback resolves isDomRef"
     },
     {
       "file": "component.tsx",

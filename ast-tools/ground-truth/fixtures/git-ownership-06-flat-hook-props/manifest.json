@@ -9,8 +9,8 @@
       "line": 15,
       "symbol": "EntityManager",
       "expectedKind": "CONTAINER",
-      "notes": "Receives hooks via flat props (useEntityQuery, useCreateMutation) and calls them. The hooks interpreter classifies these as LIKELY_SERVICE_HOOK via convention (low confidence). Combined with the service hook count, this gives 1 container signal. Without a Container suffix or containers/ directory, this currently classifies as AMBIGUOUS. Marking as pending until DI-via-props detection is refined."
+      "notes": "Receives hooks via flat props (useEntityQuery, useCreateMutation) and calls them. The hooks interpreter classifies these as LIKELY_SERVICE_HOOK via convention (low confidence). The 'multiple service hooks' signal (2+ LIKELY_SERVICE_HOOK) counts as an additional container signal, giving 2 total (has service hooks + multiple service hooks) => CONTAINER medium."
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

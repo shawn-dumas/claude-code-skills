@@ -445,6 +445,35 @@ function analyzeEffectBody(callback: Node, knownSetters: Set<string>): UseEffect
 const DOM_TYPE_PATTERN = /^(HTML\w*Element|SVGElement|SVG\w*Element|Element)$/;
 
 /**
+ * Common DOM properties and methods accessed on ref.current in React effects.
+ * Used as a fallback when useRef has no generic type parameter -- if the
+ * property accessed on ref.current is in this set, the ref is likely a DOM ref.
+ */
+const DOM_PROPERTY_ALLOWLIST = new Set([
+  'scrollTop',
+  'scrollLeft',
+  'scrollHeight',
+  'scrollWidth',
+  'style',
+  'classList',
+  'className',
+  'focus',
+  'blur',
+  'click',
+  'select',
+  'offsetHeight',
+  'offsetWidth',
+  'offsetTop',
+  'offsetLeft',
+  'getBoundingClientRect',
+  'addEventListener',
+  'removeEventListener',
+  'innerHTML',
+  'textContent',
+  'value',
+]);
+
+/**
  * Build a map from ref variable name -> isDomRef for all useRef calls
  * in a function body. Returns undefined for the value when the useRef
  * call has no generic parameter (ambiguous).
@@ -515,6 +544,26 @@ function buildRefDomTypeMap(funcNode: Node): Map<string, boolean | undefined> {
         refMap.set(refName, undefined);
       }
     }
+  }
+
+  // Allowlist fallback: for refs with ambiguous type (undefined), scan
+  // the function body for ref.current.<property> accesses. If any accessed
+  // property is in DOM_PROPERTY_ALLOWLIST, infer isDomRef: true.
+  const ambiguousRefs = [...refMap.entries()].filter(([, v]) => v === undefined).map(([k]) => k);
+  if (ambiguousRefs.length > 0) {
+    body.forEachDescendant(node => {
+      if (!Node.isPropertyAccessExpression(node)) return;
+      const inner = node.getExpression();
+      if (!Node.isPropertyAccessExpression(inner)) return;
+      if (inner.getName() !== 'current') return;
+      const refName = inner.getExpression().getText();
+      if (!ambiguousRefs.includes(refName)) return;
+      if (refMap.get(refName) === true) return; // already resolved
+      const prop = node.getName();
+      if (DOM_PROPERTY_ALLOWLIST.has(prop)) {
+        refMap.set(refName, true);
+      }
+    });
   }
 
   return refMap;

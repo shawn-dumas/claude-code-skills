@@ -5,7 +5,7 @@ interface Props {
 }
 
 export function DomAndSubscription({ channelId }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef(null);
   const [width, setWidth] = useState(0);
 
   useEffect(() => {
