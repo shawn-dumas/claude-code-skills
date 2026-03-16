@@ -1,0 +1,67 @@
+{
+  "tool": "test-quality",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": [
+    "data-sourcing.tsx",
+    "data-sourcing.spec.tsx",
+    "orphaned.spec.ts",
+    "bloated.tsx",
+    "useHelperA.ts",
+    "useHelperB.ts",
+    "useHelperC.ts",
+    "bloated.spec.tsx"
+  ],
+  "expectedClassifications": [
+    {
+      "file": "data-sourcing.spec.tsx",
+      "line": 0,
+      "symbol": "",
+      "expectedKind": "DATA_SOURCING_COMPLIANT",
+      "notes": "imports from @/fixtures/ -- fixtureImportPatterns match"
+    },
+    {
+      "file": "data-sourcing.spec.tsx",
+      "line": 0,
+      "symbol": "",
+      "expectedKind": "DATA_SOURCING_VIOLATION",
+      "notes": "imports from ./__tests__/constants -- sharedMutablePatterns match"
+    },
+    {
+      "file": "orphaned.spec.ts",
+      "line": 0,
+      "symbol": "",
+      "expectedKind": "ORPHANED_TEST",
+      "notes": "subject ./deleted-module does not exist"
+    },
+    {
+      "file": "bloated.spec.tsx",
+      "line": 5,
+      "symbol": "./useHelperA",
+      "expectedKind": "MOCK_INTERNAL_VIOLATION",
+      "notes": "mocking own hook -- same domain"
+    },
+    {
+      "file": "bloated.spec.tsx",
+      "line": 9,
+      "symbol": "./useHelperB",
+      "expectedKind": "MOCK_INTERNAL_VIOLATION",
+      "notes": "mocking own hook -- same domain"
+    },
+    {
+      "file": "bloated.spec.tsx",
+      "line": 13,
+      "symbol": "./useHelperC",
+      "expectedKind": "MOCK_INTERNAL_VIOLATION",
+      "notes": "mocking own hook -- same domain"
+    },
+    {
+      "file": "bloated.spec.tsx",
+      "line": 0,
+      "symbol": "",
+      "expectedKind": "DELETE_CANDIDATE",
+      "notes": "3 internal mock violations >= deleteThresholdInternalMocks (3)"
+    }
+  ],
+  "status": "pending"
+}

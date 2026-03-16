@@ -1,0 +1,37 @@
+{
+  "tool": "dead-code",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["helpers.ts", "utils.ts", "index.ts", "consumer.ts", "consumer2.ts"],
+  "expectedClassifications": [
+    {
+      "file": "helpers.ts",
+      "line": 5,
+      "symbol": "obsoleteUtil",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "function export with no consumers -- name collision enables DEAD_BARREL_REEXPORT on barrel"
+    },
+    {
+      "file": "helpers.ts",
+      "line": 9,
+      "symbol": "deprecatedApi",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "second dead function export -- name collision enables DEAD_BARREL_REEXPORT on barrel"
+    },
+    {
+      "file": "index.ts",
+      "line": 5,
+      "symbol": "obsoleteUtil",
+      "expectedKind": "DEAD_BARREL_REEXPORT",
+      "notes": "barrel re-exports name matching dead export in helpers.ts (line from resolved declaration in utils.ts)"
+    },
+    {
+      "file": "index.ts",
+      "line": 9,
+      "symbol": "deprecatedApi",
+      "expectedKind": "DEAD_BARREL_REEXPORT",
+      "notes": "barrel re-exports name matching dead export in helpers.ts (line from resolved declaration in utils.ts)"
+    }
+  ],
+  "status": "pending"
+}

@@ -1,0 +1,30 @@
+{
+  "tool": "dead-code",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["lib.ts", "pages/api/handler.ts", "server/processor.ts"],
+  "expectedClassifications": [
+    {
+      "file": "handler.ts",
+      "line": 3,
+      "symbol": "handleRequest",
+      "expectedKind": "POSSIBLY_DEAD_EXPORT",
+      "notes": "export in pages/api/ directory -- may have dynamic consumers (fetch calls)"
+    },
+    {
+      "file": "handler.ts",
+      "line": 7,
+      "symbol": "unusedEndpoint",
+      "expectedKind": "POSSIBLY_DEAD_EXPORT",
+      "notes": "second export in pages/api/ directory -- same dynamic consumer pattern"
+    },
+    {
+      "file": "processor.ts",
+      "line": 3,
+      "symbol": "processData",
+      "expectedKind": "POSSIBLY_DEAD_EXPORT",
+      "notes": "export in server/ directory -- may have dynamic consumers"
+    }
+  ],
+  "status": "pending"
+}

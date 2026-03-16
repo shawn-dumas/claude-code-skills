@@ -1,0 +1,23 @@
+{
+  "tool": "ownership",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["DataLoader.tsx", "NavLink.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "DataLoader.tsx",
+      "line": 5,
+      "symbol": "DataLoader",
+      "expectedKind": "AMBIGUOUS",
+      "notes": "1 signal (service hook) but no props, so no leaf evidence. Falls through to AMBIGUOUS."
+    },
+    {
+      "file": "NavLink.tsx",
+      "line": 10,
+      "symbol": "NavLink",
+      "expectedKind": "AMBIGUOUS",
+      "notes": "1 signal (router hook via useRouter) but useRouter is LIKELY_AMBIENT_HOOK, not service/context. Has props but no disallowed hooks -> falls through all classifiers."
+    }
+  ],
+  "status": "pending"
+}

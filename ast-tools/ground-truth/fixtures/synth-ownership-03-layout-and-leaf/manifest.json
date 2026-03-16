@@ -1,0 +1,37 @@
+{
+  "tool": "ownership",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["DashboardLayout.tsx", "Sidebar.tsx", "TeamMemberCard.tsx", "UserBadge.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "DashboardLayout.tsx",
+      "line": 9,
+      "symbol": "DashboardLayout",
+      "expectedKind": "LAYOUT_SHELL",
+      "notes": "Name in documented layout exceptions set"
+    },
+    {
+      "file": "Sidebar.tsx",
+      "line": 10,
+      "symbol": "Sidebar",
+      "expectedKind": "LAYOUT_SHELL",
+      "notes": "Name in documented layout exceptions set"
+    },
+    {
+      "file": "TeamMemberCard.tsx",
+      "line": 10,
+      "symbol": "TeamMemberCard",
+      "expectedKind": "LEAF_VIOLATION",
+      "notes": "Has props (leaf evidence) + useTeamQuery (service hook, high confidence)"
+    },
+    {
+      "file": "UserBadge.tsx",
+      "line": 9,
+      "symbol": "UserBadge",
+      "expectedKind": "LEAF_VIOLATION",
+      "notes": "Has props (leaf evidence) + useAuthState (context hook, high confidence)"
+    }
+  ],
+  "status": "pending"
+}

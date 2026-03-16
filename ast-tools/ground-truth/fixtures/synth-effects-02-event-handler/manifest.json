@@ -1,0 +1,23 @@
+{
+  "tool": "effects",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 13,
+      "symbol": "EventHandlerDisguised",
+      "expectedKind": "EVENT_HANDLER_DISGUISED",
+      "notes": "effect with single callback prop dep -- should be called directly"
+    },
+    {
+      "file": "component.tsx",
+      "line": 17,
+      "symbol": "EventHandlerDisguised",
+      "expectedKind": "EVENT_HANDLER_DISGUISED",
+      "notes": "effect reads onChange callback triggered by state change"
+    }
+  ],
+  "status": "pending"
+}

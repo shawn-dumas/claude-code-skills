@@ -1,0 +1,30 @@
+{
+  "tool": "effects",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 10,
+      "symbol": "NecessaryEffects",
+      "expectedKind": "NECESSARY",
+      "notes": "empty effect body -- no observations beyond EFFECT_LOCATION"
+    },
+    {
+      "file": "component.tsx",
+      "line": 12,
+      "symbol": "NecessaryEffects",
+      "expectedKind": "NECESSARY",
+      "notes": "prop read with no state setter or side effects -- no suspicious patterns"
+    },
+    {
+      "file": "component.tsx",
+      "line": 18,
+      "symbol": "NecessaryEffects",
+      "expectedKind": "NECESSARY",
+      "notes": "multiple dep entries with no state setters or DOM access"
+    }
+  ],
+  "status": "pending"
+}

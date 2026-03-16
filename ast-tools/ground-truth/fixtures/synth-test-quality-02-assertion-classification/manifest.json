@@ -1,0 +1,58 @@
+{
+  "tool": "test-quality",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["component.tsx", "component.spec.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.spec.tsx",
+      "line": 9,
+      "symbol": "",
+      "expectedKind": "ASSERTION_USER_VISIBLE",
+      "notes": "screen.getByText -- isScreenQuery triggers user-visible"
+    },
+    {
+      "file": "component.spec.tsx",
+      "line": 14,
+      "symbol": "",
+      "expectedKind": "ASSERTION_USER_VISIBLE",
+      "notes": "screen.getByRole -- isScreenQuery triggers user-visible"
+    },
+    {
+      "file": "component.spec.tsx",
+      "line": 21,
+      "symbol": "",
+      "expectedKind": "ASSERTION_USER_VISIBLE",
+      "notes": "toHaveBeenCalledTimes on onClick -- prop callback detection"
+    },
+    {
+      "file": "component.spec.tsx",
+      "line": 26,
+      "symbol": "",
+      "expectedKind": "ASSERTION_USER_VISIBLE",
+      "notes": "screen.getByRole + toBeDisabled -- isScreenQuery"
+    },
+    {
+      "file": "component.spec.tsx",
+      "line": 31,
+      "symbol": "",
+      "expectedKind": "ASSERTION_SNAPSHOT",
+      "notes": "toMatchSnapshot -- snapshotMatchers"
+    },
+    {
+      "file": "component.spec.tsx",
+      "line": 36,
+      "symbol": "",
+      "expectedKind": "ASSERTION_IMPLEMENTATION",
+      "notes": "toHaveBeenCalledTimes on handler -- generic called matcher, not prop callback"
+    },
+    {
+      "file": "component.spec.tsx",
+      "line": 40,
+      "symbol": "",
+      "expectedKind": "ASSERTION_IMPLEMENTATION",
+      "notes": "toHaveBeenCalled on useCustomHook -- hook mock pattern triggers implementation"
+    }
+  ],
+  "status": "pending"
+}

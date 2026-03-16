@@ -656,3 +656,204 @@ For each item, if the target file is UNTESTED, prepend: **[UNTESTED -- write tes
 - Templates to flatten (COMPLEXITY_HOTSPOT count): <N>
 - Production files with no test coverage: <N>
 ```
+
+## Interpreter Calibration Feedback
+
+If any interpreter misclassifies during this audit, create a calibration
+fixture to improve future accuracy.
+
+**Important:** Classify ALL observations in the fixture, not just the
+misclassified one. The calibration skill needs the full picture to tune
+weights without regressing other classifications.
+
+### Effects interpreter feedback
+
+If `ast-interpret-effects` misclassifies (e.g., classifies a legitimate
+external subscription as DERIVED_STATE), create a calibration fixture:
+
+a. Create a directory:
+`scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+
+b. Copy the misclassified source file into the directory.
+
+c. Write a `manifest.json` with expected classifications for ALL
+useEffects in the file (not just the misclassified one):
+
+```json
+{
+  "tool": "effects",
+  "created": "<ISO date>",
+  "source": "feedback",
+  "files": ["<filename>"],
+  "expectedClassifications": [
+    {
+      "file": "<filename>",
+      "line": <line>,
+      "symbol": "useEffect",
+      "expectedKind": "<correct-kind>",
+      "notes": "<why the tool was wrong>"
+    }
+  ],
+  "status": "pending"
+}
+```
+
+d. Note in the summary: "Created calibration fixture:
+feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
+effects when 3+ pending fixtures accumulate."
+
+### Hooks interpreter feedback
+
+If `ast-interpret-hooks` misclassifies (e.g., classifies a service hook
+as UNKNOWN_HOOK), create a calibration fixture:
+
+a. Create a directory:
+`scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+
+b. Copy the misclassified source file into the directory. Preserve
+realistic import statements -- the hooks interpreter classifies based on
+import paths (e.g., `services/hooks/` triggers LIKELY_SERVICE_HOOK).
+
+c. Write a `manifest.json` with expected classifications for ALL hook
+calls in the file:
+
+```json
+{
+  "tool": "hooks",
+  "created": "<ISO date>",
+  "source": "feedback",
+  "files": ["<filename>"],
+  "expectedClassifications": [
+    {
+      "file": "<filename>",
+      "line": <line>,
+      "symbol": "<hookName>",
+      "expectedKind": "<correct-kind>",
+      "notes": "<why the tool was wrong>"
+    }
+  ],
+  "status": "pending"
+}
+```
+
+d. Note in the summary: "Created calibration fixture:
+feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
+hooks when 3+ pending fixtures accumulate."
+
+### Ownership interpreter feedback
+
+If `ast-interpret-ownership` misclassifies (e.g., classifies a container
+as DDAU_COMPONENT), create a calibration fixture:
+
+a. Create a directory:
+`scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+
+b. Copy the misclassified source file into the directory. The ownership
+interpreter chains on the hooks interpreter -- it uses hook assessments
+(LIKELY_SERVICE_HOOK, LIKELY_CONTEXT_HOOK, etc.) as container signals.
+Preserve realistic import paths so hook classification feeds correctly
+into ownership.
+
+c. Write a `manifest.json` with expected classifications for ALL
+component declarations in the file:
+
+```json
+{
+  "tool": "ownership",
+  "created": "<ISO date>",
+  "source": "feedback",
+  "files": ["<filename>"],
+  "expectedClassifications": [
+    {
+      "file": "<filename>",
+      "line": <line>,
+      "symbol": "<ComponentName>",
+      "expectedKind": "<correct-kind>",
+      "notes": "<why the tool was wrong>"
+    }
+  ],
+  "status": "pending"
+}
+```
+
+d. Note in the summary: "Created calibration fixture:
+feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
+ownership when 3+ pending fixtures accumulate."
+
+### Template interpreter feedback
+
+If `ast-interpret-template` misclassifies (e.g., emits
+EXTRACTION_CANDIDATE for a clean return, or misses a complexity hotspot),
+create a calibration fixture:
+
+a. Create a directory:
+`scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+
+b. Copy the misclassified source file into the directory.
+
+c. Write a `manifest.json` with expected classifications for ALL
+components in the file. For negative cases (components that should NOT
+trigger any classification), use an empty `expectedClassifications` array.
+
+```json
+{
+  "tool": "template",
+  "created": "<ISO date>",
+  "source": "feedback",
+  "files": ["<filename>"],
+  "expectedClassifications": [
+    {
+      "file": "<filename>",
+      "line": <line>,
+      "symbol": "<ComponentName>",
+      "expectedKind": "<correct-kind>",
+      "notes": "<why the tool was wrong>"
+    }
+  ],
+  "status": "pending"
+}
+```
+
+d. Note in the summary: "Created calibration fixture:
+feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
+template when 3+ pending fixtures accumulate."
+
+### Dead code interpreter feedback
+
+If `ast-interpret-dead-code` misclassifies (e.g., classifies a live
+export as DEAD_EXPORT, or misses a dead barrel re-export), create a
+calibration fixture:
+
+a. Create a directory:
+`scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+
+b. Copy the misclassified source files into the directory. Dead code
+needs an import graph -- include barrel files, consumer files, and any
+other files needed to reproduce the graph structure. The interpreter runs
+on the entire directory, not per-file.
+
+c. Write a `manifest.json` with expected classifications for ALL dead
+exports and circular dependencies in the fixture:
+
+```json
+{
+  "tool": "dead-code",
+  "created": "<ISO date>",
+  "source": "feedback",
+  "files": ["<filename1>", "<filename2>", "..."],
+  "expectedClassifications": [
+    {
+      "file": "<filename>",
+      "line": <line>,
+      "symbol": "<exportName>",
+      "expectedKind": "<correct-kind>",
+      "notes": "<why the tool was wrong>"
+    }
+  ],
+  "status": "pending"
+}
+```
+
+d. Note in the summary: "Created calibration fixture:
+feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
+dead-code when 3+ pending fixtures accumulate."

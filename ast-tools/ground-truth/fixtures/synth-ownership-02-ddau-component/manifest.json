@@ -1,0 +1,30 @@
+{
+  "tool": "ownership",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["UserCard.tsx", "StatusBadge.tsx", "MetricRow.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "UserCard.tsx",
+      "line": 10,
+      "symbol": "UserCard",
+      "expectedKind": "DDAU_COMPONENT",
+      "notes": "Pure presentational: 3 props, no hooks, no side effects"
+    },
+    {
+      "file": "StatusBadge.tsx",
+      "line": 9,
+      "symbol": "StatusBadge",
+      "expectedKind": "DDAU_COMPONENT",
+      "notes": "Pure presentational with useMemo (React builtin, classified as state hook)"
+    },
+    {
+      "file": "MetricRow.tsx",
+      "line": 10,
+      "symbol": "MetricRow",
+      "expectedKind": "DDAU_COMPONENT",
+      "notes": "Pure presentational with useState/useCallback (React builtins only)"
+    }
+  ],
+  "status": "pending"
+}

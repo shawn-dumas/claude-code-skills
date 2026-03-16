@@ -1,0 +1,23 @@
+{
+  "tool": "dead-code",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["serviceA.ts", "serviceB.ts", "helperX.ts", "helperY.ts", "main.ts"],
+  "expectedClassifications": [
+    {
+      "file": "helperX.ts",
+      "line": 1,
+      "symbol": "",
+      "expectedKind": "CIRCULAR_DEPENDENCY",
+      "notes": "helperX -> helperY -> helperX bidirectional import cycle"
+    },
+    {
+      "file": "serviceA.ts",
+      "line": 1,
+      "symbol": "",
+      "expectedKind": "CIRCULAR_DEPENDENCY",
+      "notes": "serviceA -> serviceB -> serviceA bidirectional import cycle"
+    }
+  ],
+  "status": "pending"
+}

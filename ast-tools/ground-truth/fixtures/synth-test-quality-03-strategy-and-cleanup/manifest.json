@@ -1,0 +1,37 @@
+{
+  "tool": "test-quality",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["utils.ts", "utils.spec.ts", "widget.tsx", "widget.spec.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "utils.spec.ts",
+      "line": 0,
+      "symbol": "unit-pure",
+      "expectedKind": "DETECTED_STRATEGY",
+      "notes": "no render, no playwright, no provider -- unit-pure"
+    },
+    {
+      "file": "utils.spec.ts",
+      "line": 0,
+      "symbol": "",
+      "expectedKind": "CLEANUP_COMPLETE",
+      "notes": "no afterEach needed -- global cleanup handles it"
+    },
+    {
+      "file": "widget.spec.tsx",
+      "line": 0,
+      "symbol": "integration-providers",
+      "expectedKind": "DETECTED_STRATEGY",
+      "notes": "render + QueryClientProvider -> integration-providers"
+    },
+    {
+      "file": "widget.spec.tsx",
+      "line": 0,
+      "symbol": "",
+      "expectedKind": "CLEANUP_INCOMPLETE",
+      "notes": "afterEach present but no recognized cleanup patterns"
+    }
+  ],
+  "status": "pending"
+}

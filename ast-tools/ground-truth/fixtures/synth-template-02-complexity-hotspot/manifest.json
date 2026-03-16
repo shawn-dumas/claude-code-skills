@@ -1,0 +1,30 @@
+{
+  "tool": "template",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["distinct-kinds.tsx", "large-handler.tsx", "combined-hotspot.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "distinct-kinds.tsx",
+      "line": 17,
+      "symbol": "ItemList",
+      "expectedKind": "COMPLEXITY_HOTSPOT",
+      "notes": "4 distinct JSX observation kinds: guard, transform, ternary, inline-handler"
+    },
+    {
+      "file": "large-handler.tsx",
+      "line": 15,
+      "symbol": "InlineFormPanel",
+      "expectedKind": "COMPLEXITY_HOTSPOT",
+      "notes": "Inline onClick handler with 7 statements (threshold is 4)"
+    },
+    {
+      "file": "combined-hotspot.tsx",
+      "line": 20,
+      "symbol": "TaskBoard",
+      "expectedKind": "COMPLEXITY_HOTSPOT",
+      "notes": "Both triggers: 4 distinct kinds AND inline handler with 4+ statements"
+    }
+  ],
+  "status": "pending"
+}

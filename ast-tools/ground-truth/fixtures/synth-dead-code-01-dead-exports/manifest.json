@@ -1,0 +1,30 @@
+{
+  "tool": "dead-code",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["moduleA.ts", "moduleB.ts", "moduleC.ts"],
+  "expectedClassifications": [
+    {
+      "file": "moduleA.ts",
+      "line": 5,
+      "symbol": "deadFunction",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "function export with no consumers in the module graph"
+    },
+    {
+      "file": "moduleA.ts",
+      "line": 9,
+      "symbol": "anotherDeadFunction",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "second dead function export, no consumers"
+    },
+    {
+      "file": "moduleA.ts",
+      "line": 13,
+      "symbol": "DeadType",
+      "expectedKind": "DEAD_EXPORT",
+      "notes": "type export with no consumers (exportKind not in observation, classified as high confidence)"
+    }
+  ],
+  "status": "pending"
+}

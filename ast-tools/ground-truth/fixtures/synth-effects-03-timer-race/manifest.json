@@ -1,0 +1,23 @@
+{
+  "tool": "effects",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 12,
+      "symbol": "TimerRace",
+      "expectedKind": "TIMER_RACE",
+      "notes": "setTimeout + setState without cleanup -- race condition on unmount"
+    },
+    {
+      "file": "component.tsx",
+      "line": 18,
+      "symbol": "TimerRace",
+      "expectedKind": "TIMER_RACE",
+      "notes": "setInterval + setState with cleanup -- managed but still timer race category"
+    }
+  ],
+  "status": "pending"
+}

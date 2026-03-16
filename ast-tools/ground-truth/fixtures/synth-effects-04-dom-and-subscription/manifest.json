@@ -1,0 +1,37 @@
+{
+  "tool": "effects",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 11,
+      "symbol": "DomAndSubscription",
+      "expectedKind": "DOM_EFFECT",
+      "notes": "ref.current access to set scrollTop -- legitimate DOM effect"
+    },
+    {
+      "file": "component.tsx",
+      "line": 17,
+      "symbol": "DomAndSubscription",
+      "expectedKind": "DOM_EFFECT",
+      "notes": "window.addEventListener with cleanup -- DOM API access"
+    },
+    {
+      "file": "component.tsx",
+      "line": 23,
+      "symbol": "DomAndSubscription",
+      "expectedKind": "EXTERNAL_SUBSCRIPTION",
+      "notes": "EventSource subscription with cleanup and no state setter"
+    },
+    {
+      "file": "component.tsx",
+      "line": 29,
+      "symbol": "DomAndSubscription",
+      "expectedKind": "NECESSARY",
+      "notes": "document.title assignment -- observation layer does not emit DOM_API for property assignments"
+    }
+  ],
+  "status": "pending"
+}

@@ -665,11 +665,56 @@ violations remain.
     expect.objectContaining({ enabled: true }),
   );
 
-  // RIGHT: use fetchMock at the HTTP boundary
-  fetchMock.mockResponseOnce(JSON.stringify(systemFixtures.buildMany(2)));
-  expect(fetchMock).toHaveBeenCalledWith(
-    expect.stringContaining('/api/systems/overview?teams=1,2'),
-    expect.any(Object),
-  );
-  expect(screen.getByText('System Name')).toBeInTheDocument();
-  ```
+   // RIGHT: use fetchMock at the HTTP boundary
+   fetchMock.mockResponseOnce(JSON.stringify(systemFixtures.buildMany(2)));
+   expect(fetchMock).toHaveBeenCalledWith(
+     expect.stringContaining('/api/systems/overview?teams=1,2'),
+     expect.any(Object),
+   );
+   expect(screen.getByText('System Name')).toBeInTheDocument();
+   ```
+
+## Interpreter Calibration Feedback
+
+If `ast-interpret-ownership` misclassifies during this skill's Step 0b
+(e.g., classifies a container as DDAU_COMPONENT, causing the wrong test
+strategy to be selected), create a calibration fixture.
+
+**Important:** Classify ALL component declarations in the fixture, not
+just the misclassified one. The calibration skill needs the full picture
+to tune weights without regressing other classifications.
+
+a. Create a directory:
+`scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+
+b. Copy the misclassified production file into the directory. The
+ownership interpreter chains on the hooks interpreter -- it uses hook
+assessments (LIKELY_SERVICE_HOOK, LIKELY_CONTEXT_HOOK, etc.) as container
+signals. Preserve realistic import paths so hook classification feeds
+correctly into ownership.
+
+c. Write a `manifest.json` with expected classifications for ALL
+component declarations in the file:
+
+```json
+{
+  "tool": "ownership",
+  "created": "<ISO date>",
+  "source": "feedback",
+  "files": ["<filename>"],
+  "expectedClassifications": [
+    {
+      "file": "<filename>",
+      "line": <line>,
+      "symbol": "<ComponentName>",
+      "expectedKind": "<correct-kind>",
+      "notes": "<why the tool was wrong>"
+    }
+  ],
+  "status": "pending"
+}
+```
+
+d. Note in the summary: "Created calibration fixture:
+feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
+ownership when 3+ pending fixtures accumulate."

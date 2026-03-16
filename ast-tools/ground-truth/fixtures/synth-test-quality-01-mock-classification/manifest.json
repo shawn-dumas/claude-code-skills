@@ -1,0 +1,50 @@
+{
+  "tool": "test-quality",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": [
+    "domain-a/component.tsx",
+    "domain-a/useLocalState.ts",
+    "domain-b/useRemoteData.ts",
+    "domain-b/useExternalConfig.ts",
+    "domain-a/component.spec.tsx"
+  ],
+  "expectedClassifications": [
+    {
+      "file": "component.spec.tsx",
+      "line": 5,
+      "symbol": "next/router",
+      "expectedKind": "MOCK_BOUNDARY_COMPLIANT",
+      "notes": "next/router is in boundaryPackages"
+    },
+    {
+      "file": "component.spec.tsx",
+      "line": 9,
+      "symbol": "firebase/auth",
+      "expectedKind": "MOCK_BOUNDARY_COMPLIANT",
+      "notes": "firebase/auth is in boundaryPackages"
+    },
+    {
+      "file": "component.spec.tsx",
+      "line": 13,
+      "symbol": "./useLocalState",
+      "expectedKind": "MOCK_INTERNAL_VIOLATION",
+      "notes": "mocking own hook in same domain directory"
+    },
+    {
+      "file": "component.spec.tsx",
+      "line": 17,
+      "symbol": "../domain-b/useRemoteData",
+      "expectedKind": "MOCK_DOMAIN_BOUNDARY",
+      "notes": "mocking hook from different domain directory"
+    },
+    {
+      "file": "component.spec.tsx",
+      "line": 21,
+      "symbol": "../domain-b/useExternalConfig",
+      "expectedKind": "MOCK_DOMAIN_BOUNDARY",
+      "notes": "mocking hook from different domain directory (config)"
+    }
+  ],
+  "status": "pending"
+}

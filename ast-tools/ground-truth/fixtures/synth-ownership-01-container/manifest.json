@@ -1,0 +1,30 @@
+{
+  "tool": "ownership",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["containers-TeamContainer.tsx", "DashboardContainer.tsx", "SettingsPanel.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "containers-TeamContainer.tsx",
+      "line": 10,
+      "symbol": "TeamContainer",
+      "expectedKind": "CONTAINER",
+      "notes": "3 signals: service hook (useTeamQuery), context hook (useAuthState), Container suffix"
+    },
+    {
+      "file": "DashboardContainer.tsx",
+      "line": 11,
+      "symbol": "DashboardContainer",
+      "expectedKind": "CONTAINER",
+      "notes": "3 signals: service hook (useUsersQuery), router hook (useRouter), Container suffix"
+    },
+    {
+      "file": "SettingsPanel.tsx",
+      "line": 10,
+      "symbol": "SettingsPanel",
+      "expectedKind": "CONTAINER",
+      "notes": "2 signals: service hook (useTeamQuery), router hook (usePathname). Medium confidence."
+    }
+  ],
+  "status": "pending"
+}

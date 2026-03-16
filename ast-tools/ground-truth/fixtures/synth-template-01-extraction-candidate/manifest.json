@@ -1,0 +1,45 @@
+{
+  "tool": "template",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": [
+    "long-return-medium.tsx",
+    "long-return-high.tsx",
+    "iife-component.tsx",
+    "deep-ternary.tsx",
+    "clean-short.tsx",
+    "shallow-ternary.tsx",
+    "two-kinds-below-threshold.tsx"
+  ],
+  "expectedClassifications": [
+    {
+      "file": "long-return-medium.tsx",
+      "line": 20,
+      "symbol": "TeamDashboardPanel",
+      "expectedKind": "EXTRACTION_CANDIDATE",
+      "notes": "104-line return block triggers medium confidence extraction (also triggers COMPLEXITY_HOTSPOT at same location but harness find() sees EXTRACTION_CANDIDATE first)"
+    },
+    {
+      "file": "long-return-high.tsx",
+      "line": 18,
+      "symbol": "AnalyticsDashboard",
+      "expectedKind": "EXTRACTION_CANDIDATE",
+      "notes": "160-line return block triggers high confidence extraction"
+    },
+    {
+      "file": "iife-component.tsx",
+      "line": 10,
+      "symbol": "StatusDisplay",
+      "expectedKind": "EXTRACTION_CANDIDATE",
+      "notes": "IIFE in JSX always triggers high confidence extraction"
+    },
+    {
+      "file": "deep-ternary.tsx",
+      "line": 15,
+      "symbol": "UserBadge",
+      "expectedKind": "EXTRACTION_CANDIDATE",
+      "notes": "2 deep ternary chains (depth 3 and depth 2) trigger medium confidence extraction"
+    }
+  ],
+  "status": "pending"
+}

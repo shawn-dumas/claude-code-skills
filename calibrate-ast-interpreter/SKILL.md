@@ -3,18 +3,20 @@ name: calibrate-ast-interpreter
 description: Calibrate an AST interpreter's weights/thresholds against the ground-truth fixture corpus. Diagnostic-first approach -- checks for algorithmic defects before tuning weights.
 context: fork
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Task
-argument-hint: --tool <intent|parity|vitest-parity>
+argument-hint: --tool <intent|parity|vitest-parity|effects|hooks|ownership|template|test-quality|dead-code>
 ---
 
 # /calibrate-ast-interpreter
 
 Calibrate an AST interpreter's weights/thresholds against the ground truth
-fixture corpus. Supports the intent matcher (`--tool intent`) and the
-parity tool (`--tool parity`).
+fixture corpus. Supports all 9 interpreter tools.
 
 ## Arguments
 
-`$ARGUMENTS` should contain `--tool <intent|parity>`. Default: `intent`.
+`$ARGUMENTS` should contain `--tool <tool-name>`. Default: `intent`.
+
+Supported tools: `intent`, `parity`, `vitest-parity`, `effects`, `hooks`,
+`ownership`, `template`, `test-quality`, `dead-code`.
 
 ## Step 1: Discover fixtures
 
@@ -61,6 +63,130 @@ For each fixture:
 9. Compare each test match status against `manifest.expectedClassifications`:
    - Match by `testName`
    - Record: correct, incorrect (with actual vs expected), unmatched
+
+### If `--tool effects`
+
+For each fixture:
+1. Copy fixture files to a temp directory
+2. Run `analyzeReactFile()` on each `.tsx` file to collect effect observations
+3. Run `interpretEffects(effectObservations)` on the observations
+4. Compare each assessment against `manifest.expectedClassifications`:
+   - Match by `file` + `line` + `expectedKind`
+   - Record: correct, incorrect, unmatched
+
+Observation chain: `ast-react-inventory` -> `ast-interpret-effects`
+
+Tunable parameters:
+- Priority cascade order in `classifyEffect()` in `ast-interpret-effects.ts`
+- `setterMirrorsProp` heuristic for prop-mirror detection
+- Async body detection patterns (fetch, then, await)
+
+Ground-truth fixture prefix: `synth-effects-*`
+
+### If `--tool hooks`
+
+For each fixture:
+1. Copy fixture files to a temp directory
+2. Run `analyzeReactFile()` on each `.tsx` file to collect hook call observations
+3. Run `interpretHooks(hookCallObservations)` on the observations
+4. Compare each assessment against `manifest.expectedClassifications`:
+   - Match by `file` + `line` + `symbol` + `expectedKind`
+   - Record: correct, incorrect, unmatched
+
+Observation chain: `ast-react-inventory` -> `ast-interpret-hooks`
+
+Tunable parameters:
+- `astConfig.hooks.serviceHookPaths`: import path patterns for service hooks
+- `astConfig.hooks.contextHookPaths`: import path patterns for context hooks
+- `astConfig.hooks.ambientLeafHooks`: name set for ambient leaf hooks
+- `astConfig.hooks.stateHooks`: name set for React builtin hooks
+- Naming convention fallback patterns in `classifyByConvention()`
+
+Ground-truth fixture prefix: `synth-hooks-*`
+
+### If `--tool ownership`
+
+For each fixture:
+1. Copy fixture files to a temp directory
+2. Run `analyzeReactFile()` on each `.tsx` file to collect component and hook observations
+3. Run `interpretOwnership(componentObservations, hookAssessments)` on the observations
+4. Compare each assessment against `manifest.expectedClassifications`:
+   - Match by `file` + `symbol` + `expectedKind`
+   - Record: correct, incorrect, unmatched
+
+Observation chain: `ast-react-inventory` -> `ast-interpret-hooks` -> `ast-interpret-ownership`
+
+Tunable parameters:
+- `astConfig.ownership.routerHooks`: hook names counted as router signals
+- `astConfig.ownership.layoutNames`: component name patterns for LAYOUT_SHELL
+- Container signal weights (service hooks, context hooks, router, query state)
+- Component signal weights (prop count, callback prop count)
+
+Ground-truth fixture prefix: `synth-ownership-*`
+
+### If `--tool template`
+
+For each fixture:
+1. Copy fixture files to a temp directory
+2. Run `analyzeJsxFile()` on each `.tsx` file to collect JSX observations
+3. Run `interpretTemplate(jsxObservations)` on the observations
+4. Compare each assessment against `manifest.expectedClassifications`:
+   - Match by `file` + `line` + `expectedKind`
+   - Negative fixtures (empty `expectedClassifications`): expect zero assessments
+   - Record: correct, incorrect, unmatched
+
+Observation chain: `ast-jsx-analysis` -> `ast-interpret-template`
+
+Tunable parameters:
+- `astConfig.template.extractionThreshold`: return line count for EXTRACTION_CANDIDATE
+- Complexity hotspot: 3+ distinct JSX observation kinds in one return block
+
+Ground-truth fixture prefix: `synth-template-*`
+
+### If `--tool test-quality`
+
+For each fixture:
+1. Copy fixture files (including companion subject files) to a temp directory,
+   creating subdirectories as needed
+2. Run `analyzeTestFile()` on each `.spec.ts`/`.test.ts` file only (skip
+   companion subject files)
+3. Pass `subjectExists` from the analysis and compute `subjectDomainDir`
+   as `path.dirname(subjectPath)`
+4. Run `interpretTestQuality(observations, subjectExists, subjectDomainDir)`
+5. Compare each assessment against `manifest.expectedClassifications`:
+   - Two-pass matching: first exact match including `expectedKind`, then
+     fallback to location-only match for misclassification reporting
+   - Record: correct, incorrect, unmatched
+
+Observation chain: `ast-test-analysis` -> `ast-interpret-test-quality`
+
+Tunable parameters:
+- `astConfig.testing.boundaryPackages`: package patterns for mock boundary compliance
+- `astConfig.testing.deleteThresholdInternalMocks`: internal mock count for DELETE_CANDIDATE
+- `astConfig.testing.userVisibleMatchers`: assertion matchers for user-visible classification
+- `astConfig.testing.implementationMatchers`: assertion matchers for implementation classification
+
+Ground-truth fixture prefix: `synth-test-quality-*`
+
+### If `--tool dead-code`
+
+For each fixture:
+1. Copy all fixture files to a temp directory, creating subdirectories as needed
+2. Run `buildDependencyGraph()` on the entire temp directory with
+   `{ searchDir: fixtureDir }` (not the repo's `src/`)
+3. Run `interpretDeadCode(graph)` once for the entire directory (not per-file)
+4. Compare each assessment against `manifest.expectedClassifications`:
+   - Match by `file` + `symbol` + `expectedKind`
+   - Record: correct, incorrect, unmatched
+
+Observation chain: `ast-imports` -> `ast-interpret-dead-code`
+
+Tunable parameters:
+- Fragile export threshold (1 consumer = low confidence)
+- `isTypeExport` check (currently broken -- `exportKind` always undefined)
+- Name-based DEAD_BARREL_REEXPORT matching heuristic
+
+Ground-truth fixture prefix: `synth-dead-code-*`
 
 ## Step 3: Compute accuracy metrics
 
@@ -181,6 +307,51 @@ For each misclassified test:
 3. Re-run accuracy on all parity fixtures
 4. If accuracy improved: keep. If not: revert.
 
+### If `--tool effects`
+
+Target: `classifyEffect()` priority cascade in `ast-interpret-effects.ts`
+and `astConfig.effects` in `ast-config.ts`.
+
+Tunable: priority order of classification checks, `setterMirrorsProp`
+matching logic, async body detection patterns.
+
+### If `--tool hooks`
+
+Target: `astConfig.hooks` in `ast-config.ts`.
+
+Tunable: `serviceHookPaths`, `contextHookPaths`, `ambientLeafHooks`,
+`stateHooks` name sets. For misclassifications from import path resolution,
+check whether the path pattern is too broad or too narrow.
+
+### If `--tool ownership`
+
+Target: `astConfig.ownership` in `ast-config.ts` and signal scoring in
+`ast-interpret-ownership.ts`.
+
+Tunable: `routerHooks`, `layoutNames`, container/component signal weights.
+
+### If `--tool template`
+
+Target: `astConfig.template` in `ast-config.ts`.
+
+Tunable: `extractionThreshold` (line count for EXTRACTION_CANDIDATE),
+complexity hotspot kind count threshold.
+
+### If `--tool test-quality`
+
+Target: `astConfig.testing` in `ast-config.ts`.
+
+Tunable: `boundaryPackages`, `deleteThresholdInternalMocks`,
+`userVisibleMatchers`, `implementationMatchers`.
+
+### If `--tool dead-code`
+
+Target: `ast-interpret-dead-code.ts` inline thresholds.
+
+Tunable: fragile export threshold, name-based barrel re-export matching.
+
+### General tuning protocol
+
 Stop when:
 - All classifications are correct, OR
 - No single adjustment improves overall accuracy (plateau)
@@ -201,6 +372,38 @@ Write adjusted values to:
 - `classifyTestParity`, `computeMatchScore`, or `computeTestWeight` in
   `ast-interpret-pw-test-parity.ts` (inline constants)
 - Or centralize in `astConfig.testParity` if the values are extracted there
+
+### If `--tool effects`
+
+Write adjusted values to:
+- `classifyEffect()` in `ast-interpret-effects.ts` (priority cascade)
+- `astConfig.effects` in `ast-config.ts` (if thresholds changed)
+
+### If `--tool hooks`
+
+Write adjusted values to:
+- `astConfig.hooks` in `ast-config.ts` (path patterns, name sets)
+
+### If `--tool ownership`
+
+Write adjusted values to:
+- `astConfig.ownership` in `ast-config.ts` (layout names, router hooks)
+- Signal scoring in `ast-interpret-ownership.ts` (if weights changed)
+
+### If `--tool template`
+
+Write adjusted values to:
+- `astConfig.template` in `ast-config.ts` (extraction threshold)
+
+### If `--tool test-quality`
+
+Write adjusted values to:
+- `astConfig.testing` in `ast-config.ts` (boundary packages, matchers, thresholds)
+
+### If `--tool dead-code`
+
+Write adjusted values to:
+- `ast-interpret-dead-code.ts` (fragile threshold, barrel matching logic)
 
 Add a calibration comment block to the updated section:
 

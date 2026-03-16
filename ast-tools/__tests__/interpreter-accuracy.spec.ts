@@ -1,8 +1,13 @@
 /**
- * Regression test for interpreter accuracy (intent matcher + parity tool +
- * vitest parity tool).
+ * Regression test for interpreter accuracy.
  *
- * Loads all fixture pairs from ground-truth/fixtures/, groups by tool,
+ * Covers two fixture formats:
+ * - **Pair-based** (intent, parity, vitest-parity): before/after or
+ *   source/target file pairs.
+ * - **Entry-based** (effects, hooks, ownership, template, test-quality,
+ *   dead-code): single-file classification against ground-truth labels.
+ *
+ * Loads all fixtures from ground-truth/fixtures/, groups by tool,
  * runs each interpreter on its fixtures, and asserts accuracy >= threshold
  * per tool. This is the same test the /calibrate-ast-interpreter skill
  * runs in its Step 8. It exists as a vitest spec so CI catches accuracy
@@ -22,8 +27,19 @@ import { interpretTestParity } from '../ast-interpret-pw-test-parity';
 import { analyzeTestParity, analyzeHelperFile } from '../ast-pw-test-parity';
 import { analyzeVitestParity } from '../ast-vitest-parity';
 import { interpretVitestParity } from '../ast-interpret-vitest-parity';
+import { analyzeReactFile } from '../ast-react-inventory';
+import { interpretEffects } from '../ast-interpret-effects';
+import { interpretHooks } from '../ast-interpret-hooks';
+import { interpretOwnership, type OwnershipInputs } from '../ast-interpret-ownership';
+import { extractJsxObservations } from '../ast-jsx-analysis';
+import { interpretTemplate } from '../ast-interpret-template';
+import { analyzeTestFile } from '../ast-test-analysis';
+import { interpretTestQuality } from '../ast-interpret-test-quality';
+import { buildDependencyGraph, extractImportObservations } from '../ast-imports';
+import { interpretDeadCode } from '../ast-interpret-dead-code';
 import type {
   AnyObservation,
+  Assessment,
   RefactorSignalPair,
   AuditContext,
   PwSpecInventory,
@@ -80,7 +96,26 @@ interface VitestParityManifest {
   status: string;
 }
 
-type Manifest = IntentManifest | ParityManifest | VitestParityManifest;
+type EntryTool = 'effects' | 'hooks' | 'ownership' | 'template' | 'test-quality' | 'dead-code';
+
+interface EntryExpectedClassification {
+  file: string;
+  line: number;
+  symbol: string;
+  expectedKind: string;
+  notes?: string;
+}
+
+interface EntryManifest {
+  tool: EntryTool;
+  created: string;
+  source: string;
+  files: string[];
+  expectedClassifications: EntryExpectedClassification[];
+  status: string;
+}
+
+type Manifest = IntentManifest | ParityManifest | VitestParityManifest | EntryManifest;
 
 // ---------------------------------------------------------------------------
 // Temp directory management
@@ -371,6 +406,177 @@ function evaluateVitestParityFixture(
 }
 
 // ---------------------------------------------------------------------------
+// Entry-based fixture evaluation
+// ---------------------------------------------------------------------------
+
+const LINE_TOLERANCE = 2;
+
+/**
+ * Run the correct interpreter pipeline for a single file and return all
+ * assessments. Each tool has a different observation -> interpretation chain.
+ */
+function runInterpreterForFile(tool: EntryTool, filePath: string, fixtureDir: string): readonly Assessment[] {
+  switch (tool) {
+    case 'effects': {
+      const inventory = analyzeReactFile(filePath);
+      const effectObs = inventory.components.flatMap(c => c.effectObservations);
+      return interpretEffects(effectObs).assessments;
+    }
+    case 'hooks': {
+      const inventory = analyzeReactFile(filePath);
+      return interpretHooks(inventory.hookObservations).assessments;
+    }
+    case 'ownership': {
+      const inventory = analyzeReactFile(filePath);
+      const hookResult = interpretHooks(inventory.hookObservations);
+      const inputs: OwnershipInputs = {
+        hookAssessments: hookResult.assessments,
+        componentObservations: inventory.componentObservations,
+        hookObservations: inventory.hookObservations,
+      };
+      return interpretOwnership(inputs).assessments;
+    }
+    case 'template': {
+      const observations = extractJsxObservations(filePath);
+      return interpretTemplate(observations).assessments;
+    }
+    case 'test-quality': {
+      const analysis = analyzeTestFile(filePath);
+      // subjectPath is relative to PROJECT_ROOT; derive domain dir from it
+      // (same basis as targetResolvedPath in MOCK_TARGET_RESOLVED observations)
+      const subjectDomainDir = analysis.subjectPath ? path.dirname(analysis.subjectPath) : '';
+      return interpretTestQuality(analysis.observations, astConfig, subjectDomainDir, analysis.subjectExists)
+        .assessments;
+    }
+    case 'dead-code': {
+      // Dead-code needs the graph scoped to the fixture directory.
+      // Pass searchDir so findConsumerFiles searches within the temp dir
+      // instead of the repo's src/.
+      const graph = buildDependencyGraph(fixtureDir, { searchDir: fixtureDir });
+      const obsResult = extractImportObservations(graph);
+      return interpretDeadCode(obsResult.observations, graph).assessments;
+    }
+  }
+}
+
+/**
+ * Evaluate a single entry-based fixture against ground-truth classifications.
+ * Matches assessments by file basename + line (within +/- LINE_TOLERANCE) + symbol.
+ */
+function evaluateEntryFixture(
+  fixtureDir: string,
+  manifest: EntryManifest,
+): { correct: number; total: number; details: string[] } {
+  const basePath = path.join(FIXTURES_DIR, fixtureDir);
+  const tmpDir = createTempDir(fixtureDir);
+
+  // Copy fixture files to temp dir (support subdirectory paths)
+  for (const f of manifest.files) {
+    const content = fs.readFileSync(path.join(basePath, f), 'utf-8');
+    const targetPath = path.join(tmpDir, f);
+    const targetDir = path.dirname(targetPath);
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    fs.writeFileSync(targetPath, content);
+  }
+
+  // Run interpreter on each file and collect all assessments.
+  // For test-quality, only analyze test/spec files (companion subject files
+  // are present for subject detection but are not themselves analyzed).
+  // For dead-code, run once for the entire directory (the dependency graph
+  // is directory-scoped, not per-file).
+  const isTestFile = (f: string) => /\.(spec|test)\.(ts|tsx)$/.test(f);
+  const filesToAnalyze = manifest.tool === 'test-quality' ? manifest.files.filter(isTestFile) : manifest.files;
+
+  const allAssessments: Assessment[] = [];
+  if (manifest.tool === 'dead-code') {
+    const assessments = runInterpreterForFile('dead-code', '', tmpDir);
+    allAssessments.push(...assessments);
+  } else {
+    for (const f of filesToAnalyze) {
+      const filePath = path.join(tmpDir, f);
+      const assessments = runInterpreterForFile(manifest.tool, filePath, tmpDir);
+      allAssessments.push(...assessments);
+    }
+  }
+
+  // Negative fixtures: empty expectedClassifications means "expect zero
+  // assessments." Any assessment emitted is a false positive.
+  if (manifest.expectedClassifications.length === 0) {
+    if (allAssessments.length === 0) {
+      return { correct: 1, total: 1, details: [] };
+    }
+    const details = allAssessments.map(
+      a =>
+        `FALSE_POSITIVE: ${a.kind} at ${path.basename(a.subject.file)}:${a.subject.line} ` +
+        `(${a.subject.symbol}) -- expected no assessments`,
+    );
+    return { correct: 0, total: 1, details };
+  }
+
+  // Compare against expected classifications
+  let correct = 0;
+  const total = manifest.expectedClassifications.length;
+  const details: string[] = [];
+
+  for (const expected of manifest.expectedClassifications) {
+    // First try: exact match including expectedKind (avoids ambiguity when
+    // multiple assessments share the same file/line/symbol, e.g. DETECTED_STRATEGY
+    // and CLEANUP_COMPLETE both have line=undefined and no symbol).
+    let matchingAssessment = allAssessments.find(a => {
+      if (a.kind !== expected.expectedKind) return false;
+      const assessmentFile = path.basename(a.subject.file);
+      const expectedFile = path.basename(expected.file);
+      if (assessmentFile !== expectedFile) return false;
+
+      const assessmentLine = a.subject.line ?? 0;
+      if (Math.abs(assessmentLine - expected.line) > LINE_TOLERANCE) return false;
+
+      if (expected.symbol && a.subject.symbol !== expected.symbol) return false;
+
+      return true;
+    });
+
+    // Fallback: location-only match (catches misclassifications so they report
+    // WRONG instead of MISS, which is more informative for calibration).
+    if (!matchingAssessment) {
+      matchingAssessment = allAssessments.find(a => {
+        const assessmentFile = path.basename(a.subject.file);
+        const expectedFile = path.basename(expected.file);
+        if (assessmentFile !== expectedFile) return false;
+
+        const assessmentLine = a.subject.line ?? 0;
+        if (Math.abs(assessmentLine - expected.line) > LINE_TOLERANCE) return false;
+
+        if (expected.symbol && a.subject.symbol !== expected.symbol) return false;
+
+        return true;
+      });
+    }
+
+    if (!matchingAssessment) {
+      details.push(
+        `MISS: ${expected.expectedKind} at ${expected.file}:${expected.line} ` +
+          `(${expected.symbol}) -- no matching assessment found`,
+      );
+      continue;
+    }
+
+    if (matchingAssessment.kind === expected.expectedKind) {
+      correct++;
+    } else {
+      details.push(
+        `WRONG: ${expected.file}:${expected.line} (${expected.symbol}) -- ` +
+          `expected ${expected.expectedKind}, got ${matchingAssessment.kind}`,
+      );
+    }
+  }
+
+  return { correct, total, details };
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -378,6 +584,12 @@ const allFixtures = discoverFixtures();
 const intentFixtures = allFixtures.filter(f => f.manifest.tool === 'intent');
 const parityFixtures = allFixtures.filter(f => f.manifest.tool === 'parity');
 const vitestParityFixtures = allFixtures.filter(f => f.manifest.tool === 'vitest-parity');
+const effectsFixtures = allFixtures.filter(f => f.manifest.tool === 'effects');
+const hooksFixtures = allFixtures.filter(f => f.manifest.tool === 'hooks');
+const ownershipFixtures = allFixtures.filter(f => f.manifest.tool === 'ownership');
+const templateFixtures = allFixtures.filter(f => f.manifest.tool === 'template');
+const testQualityFixtures = allFixtures.filter(f => f.manifest.tool === 'test-quality');
+const deadCodeFixtures = allFixtures.filter(f => f.manifest.tool === 'dead-code');
 
 describe('Intent matcher accuracy', () => {
   it.skipIf(intentFixtures.length === 0)('meets accuracy threshold on all intent fixtures', { timeout: 30_000 }, () => {
@@ -518,5 +730,103 @@ describe('Vitest parity tool accuracy', () => {
           `${totalCorrect}/${totalExpected} classifications correct across ${vitestParityFixtures.length} fixtures.`,
       ).toBeGreaterThanOrEqual(threshold);
     },
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Entry-based interpreter accuracy blocks
+// ---------------------------------------------------------------------------
+
+/**
+ * Shared test body for entry-based interpreter accuracy. Runs evaluateEntryFixture
+ * on each fixture, asserts per-fixture >= 50% and overall >= 60%.
+ */
+function runEntryAccuracyTest(toolName: string, fixtures: Array<{ dir: string; manifest: Manifest }>): void {
+  let totalCorrect = 0;
+  let totalExpected = 0;
+  const fixtureResults: Array<{ dir: string; correct: number; total: number; details: string[] }> = [];
+
+  for (const { dir, manifest } of fixtures) {
+    const result = evaluateEntryFixture(dir, manifest as EntryManifest);
+    totalCorrect += result.correct;
+    totalExpected += result.total;
+    fixtureResults.push({ dir, ...result });
+  }
+
+  const accuracy = totalExpected > 0 ? totalCorrect / totalExpected : 0;
+  const threshold = 0.6;
+
+  // Output per-fixture details for debugging
+  for (const r of fixtureResults) {
+    if (r.details.length > 0) {
+      // eslint-disable-next-line no-console
+      console.error(`\n[${r.dir}] ${r.correct}/${r.total}:`);
+      for (const d of r.details) {
+        // eslint-disable-next-line no-console
+        console.error(`  ${d}`);
+      }
+    }
+  }
+
+  // Per-fixture regression check: no single fixture should score below 50%
+  // Skip fixtures with 0 expected entries (negative-only fixtures).
+  for (const r of fixtureResults) {
+    if (r.total === 0) continue;
+    const fixtureAccuracy = r.correct / r.total;
+    expect(
+      fixtureAccuracy,
+      `Fixture [${r.dir}] accuracy ${(fixtureAccuracy * 100).toFixed(1)}% is below 50%. ` +
+        `${r.correct}/${r.total} correct. Details: ${r.details.join('; ')}`,
+    ).toBeGreaterThanOrEqual(0.5);
+  }
+
+  expect(
+    accuracy,
+    `${toolName} accuracy ${(accuracy * 100).toFixed(1)}% is below threshold ${(threshold * 100).toFixed(1)}%. ` +
+      `${totalCorrect}/${totalExpected} classifications correct across ${fixtures.length} fixtures.`,
+  ).toBeGreaterThanOrEqual(threshold);
+}
+
+describe('Effects interpreter accuracy', () => {
+  it.skipIf(effectsFixtures.length === 0)('meets accuracy threshold on all effects fixtures', { timeout: 30_000 }, () =>
+    runEntryAccuracyTest('Effects', effectsFixtures),
+  );
+});
+
+describe('Hooks interpreter accuracy', () => {
+  it.skipIf(hooksFixtures.length === 0)('meets accuracy threshold on all hooks fixtures', { timeout: 30_000 }, () =>
+    runEntryAccuracyTest('Hooks', hooksFixtures),
+  );
+});
+
+describe('Ownership interpreter accuracy', () => {
+  it.skipIf(ownershipFixtures.length === 0)(
+    'meets accuracy threshold on all ownership fixtures',
+    { timeout: 30_000 },
+    () => runEntryAccuracyTest('Ownership', ownershipFixtures),
+  );
+});
+
+describe('Template interpreter accuracy', () => {
+  it.skipIf(templateFixtures.length === 0)(
+    'meets accuracy threshold on all template fixtures',
+    { timeout: 30_000 },
+    () => runEntryAccuracyTest('Template', templateFixtures),
+  );
+});
+
+describe('Test quality interpreter accuracy', () => {
+  it.skipIf(testQualityFixtures.length === 0)(
+    'meets accuracy threshold on all test-quality fixtures',
+    { timeout: 30_000 },
+    () => runEntryAccuracyTest('Test quality', testQualityFixtures),
+  );
+});
+
+describe('Dead code interpreter accuracy', () => {
+  it.skipIf(deadCodeFixtures.length === 0)(
+    'meets accuracy threshold on all dead-code fixtures',
+    { timeout: 30_000 },
+    () => runEntryAccuracyTest('Dead code', deadCodeFixtures),
   );
 });

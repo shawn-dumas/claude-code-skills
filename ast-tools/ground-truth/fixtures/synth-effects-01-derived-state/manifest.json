@@ -1,0 +1,30 @@
+{
+  "tool": "effects",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "files": ["component.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "component.tsx",
+      "line": 15,
+      "symbol": "DerivedStatePanel",
+      "expectedKind": "DERIVED_STATE",
+      "notes": "fetch + setState -- classic data fetching in effect anti-pattern"
+    },
+    {
+      "file": "component.tsx",
+      "line": 25,
+      "symbol": "DerivedStatePanel",
+      "expectedKind": "DERIVED_STATE",
+      "notes": "async/await fetch + setState -- same pattern with async wrapper"
+    },
+    {
+      "file": "component.tsx",
+      "line": 34,
+      "symbol": "DerivedStatePanel",
+      "expectedKind": "DERIVED_STATE",
+      "notes": "context read + setState -- derives local state from context value"
+    }
+  ],
+  "status": "pending"
+}
