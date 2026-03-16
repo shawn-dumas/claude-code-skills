@@ -1,3 +1,11 @@
+---
+name: calibrate-ast-interpreter
+description: Calibrate an AST interpreter's weights/thresholds against the ground-truth fixture corpus. Diagnostic-first approach -- checks for algorithmic defects before tuning weights.
+context: fork
+allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Task
+argument-hint: --tool <intent|parity|vitest-parity>
+---
+
 # /calibrate-ast-interpreter
 
 Calibrate an AST interpreter's weights/thresholds against the ground truth

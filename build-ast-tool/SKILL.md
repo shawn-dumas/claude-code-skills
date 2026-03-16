@@ -1,3 +1,11 @@
+---
+name: build-ast-tool
+description: Build a new AST analysis tool for scripts/AST/. Use when a pattern class in GAPS.md has 3+ entries and justifies a purpose-built analyzer.
+context: fork
+allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Task
+argument-hint: <pattern-class name from GAPS.md>
+---
+
 # build-ast-tool
 
 Build a new AST analysis tool for `scripts/AST/`. Use this skill when a

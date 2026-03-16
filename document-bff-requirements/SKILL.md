@@ -1,3 +1,11 @@
+---
+name: document-bff-requirements
+description: Generate BFF requirements documentation for a PoC feature branch. Uses ast-bff-gaps to extract endpoint gap data and produces a structured markdown section.
+context: fork
+allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Task
+argument-hint: [branch-name] (defaults to current branch)
+---
+
 # document-bff-requirements
 
 Generate BFF requirements documentation for a PoC feature branch. Uses
