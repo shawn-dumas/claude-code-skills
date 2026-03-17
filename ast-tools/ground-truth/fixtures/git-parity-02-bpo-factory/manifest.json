@@ -26,5 +26,5 @@
       "notes": "Validation test matches factory-generated 'Unable to create blank BPOs' -- case difference in bpos/BPOs resolved by word overlap"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

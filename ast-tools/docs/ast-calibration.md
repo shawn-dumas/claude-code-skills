@@ -58,14 +58,14 @@ skill will address it in batch.
 | Tool | Accuracy | Fixtures | Threshold | Last calibrated |
 |------|----------|----------|-----------|-----------------|
 | Intent matcher | 100% (55/55) | 7 synthetic + 2 git-history | 60% | 2026-03-14 |
-| Parity tool | 100% (26/26) | 3 synthetic + 6 git-history | 60% | 2026-03-14 |
-| Vitest parity tool | 100% (13/13) | 3 synthetic + 4 git-history | 60% | 2026-03-15 |
+| Parity tool | 100% (26/26) | 3 synthetic + 6 git-history | 95% | 2026-03-17 |
+| Vitest parity tool | 100% (36/36) | 3 synthetic + 4 git-history | 95% | 2026-03-17 |
 | Effects | 89.5% (17/19) | 5 synthetic + 5 git-history | 60% | 2026-03-16 |
 | Hooks | 100% (18/18) | 3 synthetic | 60% | 2026-03-16 |
 | Ownership | 94.4% (17/18) | 4 synthetic + 5 git-history | 60% | 2026-03-16 |
-| Template | 100% (14/14) | 3 synthetic + 5 git-history (incl. 3 negative) | 60% | 2026-03-16 |
+| Template | 100% (14/14) | 3 synthetic + 5 git-history (incl. 3 negative) | 95% | 2026-03-17 |
 | Test quality | 100% (48/48) | 4 synthetic + 4 git-history | 60% | 2026-03-16 |
-| Dead code | 100% (12/12) | 4 synthetic | 60% | 2026-03-16 |
+| Dead code | 100% (39/39) | 4 synthetic + 4 git-history | 95% | 2026-03-17 |
 
 ## Intent Matcher
 
@@ -830,10 +830,14 @@ Source directory
    Fixture authors must give each live export 2+ consumers to avoid
    unwanted fragile assessments.
 
-6. **100% accuracy on synthetic fixtures is expected.** All 12 entries
-   across 4 fixtures use unambiguous graph structures. Real-world
-   codebases with barrel chains, tsconfig path aliases, and dynamic
-   imports would produce lower accuracy.
+6. **100% accuracy on 8 fixtures (39 entries).** The 4 synthetic fixtures
+   test core patterns (dead exports, barrel re-exports, circular deps,
+   possibly-dead in server directories). The 4 git-history fixtures
+   validate barrel-internal-only consumers, shared helper sibling graphs,
+   nested barrel chains with mixed dead/fragile exports, and circular
+   dependencies with overlapping fragile exports. Real-world codebases
+   with tsconfig path aliases and dynamic imports may produce lower
+   accuracy.
 
 ## Ground Truth Fixtures
 
@@ -913,6 +917,7 @@ Current test counts: 866 tests across 32 spec files (full AST suite).
 /calibrate-ast-interpreter --tool template
 /calibrate-ast-interpreter --tool test-quality
 /calibrate-ast-interpreter --tool dead-code
+/calibrate-ast-interpreter --tool plan-audit
 ```
 
 The skill follows a diagnostic-first approach:
@@ -946,3 +951,7 @@ protocol.
 | 2026-03-16 | ownership | Algorithm fix: suffix matching for layout exceptions (5 git-history fixtures added) | 88.9% (16/18) | 94.4% (17/18) |
 | 2026-03-16 | template | Algorithm fix: severity filter on 3-kind COMPLEXITY_HOTSPOT (5 git-history fixtures added) | 92.9% (13/14) | 100% (14/14) |
 | 2026-03-16 | effects | Algorithm fix: ref.current narrowing, setterMirrorsProp prefix stripping, lifecycle imperative detection (5 git-history fixtures added) | 73.7% (14/19) | 89.5% (17/19) |
+| 2026-03-17 | dead-code | Calibration: 4 git-history fixtures added (barrel chains, shared helpers, nested types, circular deps). No weight tuning needed -- all 39 classifications correct. | 100% (12/12) | 100% (39/39) |
+| 2026-03-17 | template | Calibration: 7 pending fixtures incorporated (3 synth + 4 git-history). No weight tuning needed -- all 14 classifications correct. Threshold raised to 95%. | 100% (14/14) | 100% (14/14) |
+| 2026-03-17 | parity | Calibration: 6 pending git-history fixtures incorporated. No weight tuning needed -- all 26 classifications correct. Threshold raised to 95%. | 100% (26/26) | 100% (26/26) |
+| 2026-03-17 | vitest-parity | Calibration: 7 pending fixtures incorporated (3 synth + 4 git-history). No weight tuning needed -- all 36 classifications correct. Threshold raised to 95%. | 100% (13/13) | 100% (36/36) |

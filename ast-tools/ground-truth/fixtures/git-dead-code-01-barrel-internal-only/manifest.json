@@ -13,5 +13,5 @@
     }
   ],
   "notes": "Boundary case: fragile export detection in barrel chain. extendColorsSet has only 1 direct consumer edge (barrel) despite being consumed transitively by consumer.ts. The interpreter counts direct edge consumers, not transitive consumers. COLORS/Colors have 2 direct consumers each (sibling + barrel) so are stable.",
-  "status": "pending"
+  "status": "calibrated"
 }

@@ -19,5 +19,5 @@
       "notes": "serviceA -> serviceB -> serviceA bidirectional import cycle"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

@@ -52,5 +52,5 @@
       "notes": "Near-exact match. Source 1 assertion, target 2. Ratio 2.0 > 1.2."
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

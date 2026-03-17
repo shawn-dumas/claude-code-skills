@@ -26,5 +26,5 @@
       "notes": "OneLogin SSO flow -- same mechanism gap as OKTA. The emulator auth tests verify auth boundaries, not provider-specific flows."
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

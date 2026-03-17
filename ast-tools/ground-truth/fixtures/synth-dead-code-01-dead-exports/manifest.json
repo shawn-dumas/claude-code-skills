@@ -26,5 +26,5 @@
       "notes": "type export with no consumers (exportKind not in observation, classified as high confidence)"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

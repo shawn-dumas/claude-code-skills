@@ -16,5 +16,5 @@
       "notes": "Source 1 assertion; matched to target 'handles null and undefined input' (3 assertions)"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

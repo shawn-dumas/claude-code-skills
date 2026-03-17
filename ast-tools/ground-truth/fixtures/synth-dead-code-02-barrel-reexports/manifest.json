@@ -33,5 +33,5 @@
       "notes": "barrel re-exports name matching dead export in helpers.ts (line from resolved declaration in utils.ts)"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

@@ -41,5 +41,5 @@
       "notes": "2 deep ternary chains (depth 3 and depth 2) trigger medium confidence extraction"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

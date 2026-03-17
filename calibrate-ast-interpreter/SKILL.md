@@ -3,20 +3,20 @@ name: calibrate-ast-interpreter
 description: Calibrate an AST interpreter's weights/thresholds against the ground-truth fixture corpus. Diagnostic-first approach -- checks for algorithmic defects before tuning weights.
 context: fork
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Task
-argument-hint: --tool <intent|parity|vitest-parity|effects|hooks|ownership|template|test-quality|dead-code>
+argument-hint: --tool <intent|parity|vitest-parity|effects|hooks|ownership|template|test-quality|dead-code|plan-audit>
 ---
 
 # /calibrate-ast-interpreter
 
 Calibrate an AST interpreter's weights/thresholds against the ground truth
-fixture corpus. Supports all 9 interpreter tools.
+fixture corpus. Supports all 10 interpreter tools.
 
 ## Arguments
 
 `$ARGUMENTS` should contain `--tool <tool-name>`. Default: `intent`.
 
 Supported tools: `intent`, `parity`, `vitest-parity`, `effects`, `hooks`,
-`ownership`, `template`, `test-quality`, `dead-code`.
+`ownership`, `template`, `test-quality`, `dead-code`, `plan-audit`.
 
 ## Step 1: Discover fixtures
 
@@ -188,6 +188,69 @@ Tunable parameters:
 
 Ground-truth fixture prefix: `synth-dead-code-*`
 
+### If `--tool plan-audit`
+
+Plan-audit is fundamentally different from the other tools: it parses
+markdown (MDAST via `unified`/`remark-parse`), not TypeScript AST. The
+observation layer is `ast-plan-audit.ts` and the interpreter is
+`ast-interpret-plan-audit.ts`.
+
+Plan-audit has two fixture types evaluated separately:
+
+**Synthetic fixtures** (`synth-plan-audit-*`):
+
+For each fixture:
+1. Read the `planFile` and `promptFiles` from the fixture directory
+2. Run `analyzePlan(planPath, promptPaths)` to collect observations
+3. Run `interpretPlanAudit(planPath, promptPaths, observations)` to
+   produce the verdict report
+4. Compare against `manifest.expectedClassifications`:
+   - Check verdict matches `manifest.expectedVerdict`
+   - Check score falls within `manifest.expectedScoreRange`
+   - Check each `expectedKind` appears in the report assessments
+   - Check each `unexpectedClassifications` kind is absent
+   - Check each `expectedObservationValues` (kind + evidence key/value)
+   - Record: correct, incorrect, unmatched
+
+**Real-world fixtures** (`real-plan-audit/manifest.json`):
+
+For each plan entry in the manifest:
+1. Resolve the plan file path (relative `.md.gz` paths are decompressed
+   to a temp file; legacy `~/` paths are expanded)
+2. Run `analyzePlan(planPath, [])` (no prompt files for real-world plans)
+3. Run `interpretPlanAudit(planPath, [], observations)`
+4. Compare verdict against `entry.expectedVerdict`
+5. Aggregate accuracy by cohort and friction grade
+6. Record: correct (verdict match), incorrect (verdict mismatch)
+
+Real-world fixtures only check verdict, not individual assessments or
+score ranges -- the plans were not authored with per-check ground truth.
+
+Observation chain: `ast-plan-audit` (MDAST) -> `ast-interpret-plan-audit`
+
+Tunable parameters:
+- `astConfig.planAudit.severityMap`: maps observation kinds to
+  blocker/warning/info severity
+- `astConfig.planAudit.checkWeights`: points subtracted per observation
+  kind (blockers and warnings only)
+- `astConfig.planAudit.verdictThresholds`: score boundaries for
+  CERTIFIED (>= 90) and CONDITIONAL (>= 60)
+
+Ground-truth fixture prefix: `synth-plan-audit-*` (synthetic),
+`real-plan-audit/` (real-world)
+
+**Important differences from other tools:**
+- Fixtures reference `.md` plan files and prompt files, not `.ts` source
+  files. No temp directory file copying is needed -- the observation tool
+  reads markdown directly.
+- Real-world plan files are gzipped (`.md.gz`) and stored in
+  `real-plan-audit/plans/`. The accuracy spec decompresses them via
+  `zlib.gunzipSync`.
+- The `PRE_FLIGHT_MARK_MISSING` penalty (-10) is the expected baseline
+  for fixtures that omit pre-flight marks. This is intentional: pre-flight
+  marks are the tool's own output and should not be fed back as input to
+  avoid circularity.
+
 ## Step 3: Compute accuracy metrics
 
 - Overall accuracy: correct / total
@@ -350,6 +413,38 @@ Target: `ast-interpret-dead-code.ts` inline thresholds.
 
 Tunable: fragile export threshold, name-based barrel re-export matching.
 
+### If `--tool plan-audit`
+
+Target: `astConfig.planAudit` in `ast-config.ts`.
+
+Tunable parameters:
+- `severityMap`: maps observation kinds to blocker/warning/info. Changing
+  a kind from warning to info (or vice versa) shifts its effect on score.
+- `checkWeights`: points deducted per observation kind. Only applied for
+  blocker/warning severity. Adjust weights when the score is on the wrong
+  side of a verdict boundary.
+- `verdictThresholds.certified` (default 90): raise to make CERTIFIED
+  harder to achieve; lower to make it easier.
+- `verdictThresholds.conditional` (default 60): raise to make CONDITIONAL
+  harder; lower to allow more plans to pass.
+
+For each misclassified verdict:
+1. Check the score. Is it near a threshold boundary? If so, small weight
+   adjustments may fix it.
+2. Check which observations fired. Was a blocker incorrectly assigned?
+   Should a warning be downgraded to info (or vice versa)?
+3. Adjust severity or weight by the smallest increment that fixes the
+   misclassification.
+4. Re-run accuracy on all plan-audit fixtures (both synthetic and
+   real-world).
+5. If accuracy improved: keep. If not: revert.
+
+For real-world fixture mismatches:
+- These are verdict-only checks. If the score is close to a boundary,
+  the weight for the dominant observation kind may need adjustment.
+- If the plan genuinely changed quality due to convention evolution,
+  update the `expectedVerdict` in the manifest instead of tuning weights.
+
 ### General tuning protocol
 
 Stop when:
@@ -404,6 +499,13 @@ Write adjusted values to:
 
 Write adjusted values to:
 - `ast-interpret-dead-code.ts` (fragile threshold, barrel matching logic)
+
+### If `--tool plan-audit`
+
+Write adjusted values to:
+- `astConfig.planAudit.severityMap` in `ast-config.ts` (kind -> severity)
+- `astConfig.planAudit.checkWeights` in `ast-config.ts` (kind -> points)
+- `astConfig.planAudit.verdictThresholds` in `ast-config.ts` (certified/conditional boundaries)
 
 Add a calibration comment block to the updated section:
 

@@ -62,5 +62,5 @@
     }
   ],
   "notes": "Mixed dead and fragile exports in a nested barrel chain. 3 exports are truly dead (0 consumers, high confidence). 5 exports are alive but flagged as fragile (1 consumer edge to barrel). Models the src/shared/types/ pattern where source modules are consumed only through a single barrel.",
-  "status": "pending"
+  "status": "calibrated"
 }

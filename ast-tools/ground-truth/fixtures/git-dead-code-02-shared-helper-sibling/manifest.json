@@ -34,5 +34,5 @@
     }
   ],
   "notes": "Boundary case: all exports have exactly 1 direct consumer each, triggering fragile detection. In the real codebase, shared.ts has 7 consumers (all sibling modules) and the barrel-re-exported functions have many external consumers. The fixture's small graph makes every export appear fragile. This tests that the interpreter correctly counts consumers within the analyzed graph scope.",
-  "status": "pending"
+  "status": "calibrated"
 }

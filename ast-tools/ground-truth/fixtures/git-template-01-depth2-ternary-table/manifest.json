@@ -19,5 +19,5 @@
       "notes": "3 distinct observation kinds: JSX_TRANSFORM_CHAIN (headerGroups.map), JSX_TERNARY_CHAIN (multiple), JSX_INLINE_STYLE (cursor style). Boundary case: exactly 3 kinds, the minimum for hotspot. Source: src/ui/components/8flow/Table/TableHead.tsx"
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

@@ -26,5 +26,5 @@
       "notes": "Source has route intercept + column button clicks but no assertions (sorting verification hidden in opaque helpers). Target has route intercepts + POM methods with resolved assertions. Target weight > 2x source weight."
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

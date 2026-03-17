@@ -4,5 +4,5 @@
   "source": "synthetic",
   "files": ["simple-list.tsx", "conditional-render.tsx", "small-handler.tsx"],
   "expectedClassifications": [],
-  "status": "pending"
+  "status": "calibrated"
 }

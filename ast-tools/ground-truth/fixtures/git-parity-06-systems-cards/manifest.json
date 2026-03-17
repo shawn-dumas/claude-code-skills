@@ -26,5 +26,5 @@
       "notes": "Source clicks sort buttons with no assertions. Target 'sorting USERS column' has route intercepts + POM methods with resolved assertions. Target weight > 2x source weight."
     }
   ],
-  "status": "pending"
+  "status": "calibrated"
 }

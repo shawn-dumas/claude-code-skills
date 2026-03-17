@@ -104,5 +104,5 @@
     }
   ],
   "notes": "Circular dependency between withAuth.ts and withRole.ts, plus 5 truly dead exports (high confidence) and 8 fragile exports (low confidence). The most complex fixture: tests CIRCULAR_DEPENDENCY detection, DEAD_EXPORT detection, and fragile export analysis simultaneously. Based on server middleware pattern with artificial circular dep.",
-  "status": "pending"
+  "status": "calibrated"
 }
