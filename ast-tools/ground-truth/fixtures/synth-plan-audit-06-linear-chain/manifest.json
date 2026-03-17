@@ -1,0 +1,28 @@
+{
+  "tool": "plan-audit",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "planFile": "plan.md",
+  "promptFiles": [],
+  "expectedVerdict": "CERTIFIED",
+  "expectedScoreRange": [100, 100],
+  "expectedClassifications": [
+    { "expectedKind": "HEADER_COMPLETE", "notes": "All headers valid" },
+    { "expectedKind": "VERIFICATION_PRESENT", "notes": "Verification section" },
+    { "expectedKind": "CLEANUP_REFERENCED", "notes": "References cleanup file" },
+    { "expectedKind": "CERTIFIED", "notes": "Pre-flight CERTIFIED" }
+  ],
+  "unexpectedClassifications": [
+    "HEADER_DEFICIENCY",
+    "VERIFICATION_ABSENT",
+    "CLEANUP_UNREFERENCED",
+    "CERTIFICATION_MISSING"
+  ],
+  "expectedObservationValues": [
+    { "kind": "PLAN_PROMPT_COUNT", "evidence": { "promptCount": 4 }, "notes": "4 prompts" },
+    { "kind": "PROMPT_DEPENDENCY_EDGE_COUNT", "evidence": { "edgeCount": 3 }, "notes": "01->02->03->04 = 3 edges" },
+    { "kind": "PROMPT_CHAIN_DEPTH", "evidence": { "chainDepth": 3 }, "notes": "depth 3" },
+    { "kind": "PROMPT_FAN_OUT", "evidence": { "fanOut": 1 }, "notes": "max 1 dependent per prompt" }
+  ],
+  "status": "calibrated"
+}

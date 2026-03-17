@@ -1,0 +1,30 @@
+{
+  "tool": "plan-audit",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "planFile": "plan.md",
+  "promptFiles": [],
+  "expectedVerdict": "BLOCKED",
+  "expectedScoreRange": [20, 20],
+  "expectedClassifications": [
+    {
+      "expectedKind": "HEADER_DEFICIENCY",
+      "notes": "All 5 required headers missing (5 * 8 weight = 40)"
+    },
+    {
+      "expectedKind": "CERTIFICATION_MISSING",
+      "notes": "No Pre-flight header (weight 10)"
+    },
+    {
+      "expectedKind": "VERIFICATION_ABSENT",
+      "notes": "No verification section -- blocker (weight 20)"
+    },
+    {
+      "expectedKind": "CLEANUP_UNREFERENCED",
+      "notes": "No cleanup reference (weight 10)"
+    }
+  ],
+  "unexpectedClassifications": ["HEADER_COMPLETE", "VERIFICATION_PRESENT", "CLEANUP_REFERENCED", "CERTIFIED"],
+  "notes": "Tests maximum penalty accumulation: all structural checks fail. Score ~30, BLOCKED by both score and blocker (VERIFICATION_BLOCK_MISSING).",
+  "status": "calibrated"
+}

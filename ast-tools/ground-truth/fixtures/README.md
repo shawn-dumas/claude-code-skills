@@ -16,6 +16,7 @@ tells the calibration skill which interpreter to run:
 - `template` -- runs `extractJsxObservations()` + `interpretTemplate()`
 - `test-quality` -- runs `analyzeTestFile()` + `interpretTestQuality()`
 - `dead-code` -- runs `buildDependencyGraph()` + `extractImportObservations()` + `interpretDeadCode()`
+- `plan-audit` -- runs `analyzePlan()` + `interpretPlanAudit()` (MDAST-based, uses `.md` files not `.ts`)
 
 ## Naming convention
 
@@ -26,6 +27,8 @@ tells the calibration skill which interpreter to run:
 - `synth-hooks-NN-description/` -- synthetic hooks interpreter fixtures
 - `synth-ownership-NN-description/` -- synthetic ownership interpreter fixtures
 - `synth-template-NN-description/` -- synthetic template interpreter fixtures
+- `synth-plan-audit-NN-description/` -- synthetic plan audit fixtures (classification logic validation)
+- `real-plan-audit-NN-description/` -- real-world plan audit fixtures (calibration, from archived plans with friction grades)
 - `git-intent-NN-description/` -- git-history intent fixtures (from real refactoring commits)
 - `git-parity-NN-description/` -- git-history parity fixtures (from real test migration between QA and integration suites)
 - `git-effects-NN-description/` -- git-history effects fixtures (from real useEffect patterns)
@@ -199,6 +202,53 @@ context hooks from `@/providers/`). Assessment kinds: `CONTAINER`,
     }
   ],
   "status": "pending"
+}
+```
+
+### Plan audit manifests
+
+Plan audit fixtures use `.md` files (not `.ts`/`.tsx`). The evaluation
+path chains `analyzePlan()` -> `interpretPlanAudit()`. Synthetic
+fixtures validate internal classification logic (given these
+observations, does the classifier produce the expected assessment
+kind?). Real-world fixtures (from archived plans with friction grades)
+validate weight calibration.
+
+```json
+{
+  "tool": "plan-audit",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "planFile": "plan.md",
+  "promptFiles": ["P01-types.md"],
+  "expectedVerdict": "CERTIFIED",
+  "expectedScoreRange": [95, 100],
+  "expectedClassifications": [
+    {
+      "expectedKind": "HEADER_COMPLETE",
+      "notes": "All 5 required headers present"
+    }
+  ],
+  "unexpectedClassifications": ["HEADER_DEFICIENCY"],
+  "status": "calibrated"
+}
+```
+
+For real-world calibration fixtures, the manifest adds friction metadata:
+
+```json
+{
+  "tool": "plan-audit",
+  "source": "real-world",
+  "planFile": "collocate-tests.md",
+  "frictionGrade": "SMOOTH",
+  "frictionMetrics": {
+    "failedTools": 0,
+    "userMsgs": 3,
+    "compactions": 0,
+    "wallClockHours": 5.7
+  },
+  "cohort": "post-convention"
 }
 ```
 

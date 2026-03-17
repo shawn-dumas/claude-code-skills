@@ -798,8 +798,10 @@ export const astConfig: AstConfig = Object.freeze({
     requiredHeaderFields: ['Complexity', 'Duration', 'Nearest', 'Branch', 'Created'] as const,
 
     headerFormats: Object.freeze({
-      Complexity: String.raw`^D\d+\s+S\d+\s+Z\d+\s*=\s*\d+(\.\d+)?$`,
-      Duration: String.raw`^F\d+\s+C\d+\s*=\s*\d+(\.\d+)?h\s*\(\d+(\.\d+)?-\d+(\.\d+)?h\)$`,
+      // Tolerate trailing annotations after the core pattern (e.g., parenthetical
+      // re-scoring notes, "-- actual:" post-archival annotations)
+      Complexity: String.raw`^D\d+\s+S\d+\s+Z\d+\s*=\s*\d+(\.\d+)?(\s|$)`,
+      Duration: String.raw`^F\d+\s+C\d+\s*=\s*\d+(\.\d+)?h\s*\(\d+(\.\d+)?-\d+(\.\d+)?h\)`,
     } as Record<string, string>),
 
     verificationHeadingPatterns: ['verification checklist', 'pre-execution verification', 'verification'] as const,
@@ -856,6 +858,8 @@ export const astConfig: AstConfig = Object.freeze({
       // Warnings (subtract from score)
       PLAN_HEADER_MISSING: 'warning',
       PLAN_HEADER_INVALID: 'warning',
+      PRE_FLIGHT_CONDITIONAL: 'warning',
+      PRE_FLIGHT_BLOCKED: 'blocker',
       PRE_FLIGHT_MARK_MISSING: 'warning',
       CLEANUP_FILE_MISSING: 'warning',
       PROMPT_VERIFICATION_MISSING: 'warning',
@@ -863,12 +867,17 @@ export const astConfig: AstConfig = Object.freeze({
       PROMPT_MODE_UNSET: 'warning',
       STANDING_ELEMENT_MISSING: 'warning',
       CLIENT_SIDE_AGGREGATION: 'warning',
-      // Informational
+      // Informational (positive pre-flight)
       PRE_FLIGHT_CERTIFIED: 'info',
       NAMING_CONVENTION_INSTRUCTION: 'info',
       DEFERRED_CLEANUP_REFERENCE: 'info',
       FILE_PATH_REFERENCE: 'info',
       SKILL_REFERENCE: 'info',
+      PROMPT_DEPENDENCY_EDGE_COUNT: 'info',
+      PROMPT_CHAIN_DEPTH: 'info',
+      PROMPT_FAN_OUT: 'info',
+      PLAN_PROMPT_COUNT: 'info',
+      PLAN_FILE_REFERENCE_DENSITY: 'info',
     } as Record<string, 'blocker' | 'warning' | 'info'>),
 
     checkWeights: Object.freeze({
@@ -877,8 +886,10 @@ export const astConfig: AstConfig = Object.freeze({
       PROMPT_FILE_MISSING: 20,
       VERIFICATION_BLOCK_MISSING: 20,
       // Warning weights
-      PLAN_HEADER_MISSING: 5,
-      PLAN_HEADER_INVALID: 5,
+      PLAN_HEADER_MISSING: 8,
+      PLAN_HEADER_INVALID: 1,
+      PRE_FLIGHT_CONDITIONAL: 8,
+      PRE_FLIGHT_BLOCKED: 30,
       PRE_FLIGHT_MARK_MISSING: 10,
       CLEANUP_FILE_MISSING: 10,
       PROMPT_VERIFICATION_MISSING: 10,
@@ -892,6 +903,11 @@ export const astConfig: AstConfig = Object.freeze({
       DEFERRED_CLEANUP_REFERENCE: 0,
       FILE_PATH_REFERENCE: 0,
       SKILL_REFERENCE: 0,
+      PROMPT_DEPENDENCY_EDGE_COUNT: 0,
+      PROMPT_CHAIN_DEPTH: 0,
+      PROMPT_FAN_OUT: 0,
+      PLAN_PROMPT_COUNT: 0,
+      PLAN_FILE_REFERENCE_DENSITY: 0,
       _default: 5,
     } as Record<string, number>),
 

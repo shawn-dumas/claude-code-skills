@@ -1,0 +1,30 @@
+{
+  "tool": "plan-audit",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "planFile": "plan.md",
+  "promptFiles": [],
+  "expectedVerdict": "BLOCKED",
+  "expectedScoreRange": [78, 82],
+  "expectedClassifications": [
+    {
+      "expectedKind": "VERIFICATION_ABSENT",
+      "notes": "No verification heading -- VERIFICATION_BLOCK_MISSING is a blocker (weight 20). Score ~80 but blocked by mechanism."
+    },
+    {
+      "expectedKind": "HEADER_COMPLETE",
+      "notes": "All 5 required headers present"
+    },
+    {
+      "expectedKind": "CERTIFIED",
+      "notes": "Pre-flight mark present"
+    },
+    {
+      "expectedKind": "CLEANUP_REFERENCED",
+      "notes": "References api-migration-cleanup.md"
+    }
+  ],
+  "unexpectedClassifications": ["VERIFICATION_PRESENT", "CERTIFICATION_MISSING"],
+  "notes": "Tests the two-mechanism verdict: score alone would be CONDITIONAL (80), but the blocker observation forces BLOCKED regardless of score.",
+  "status": "calibrated"
+}

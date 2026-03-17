@@ -1,0 +1,38 @@
+{
+  "tool": "plan-audit",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "planFile": "plan.md",
+  "promptFiles": ["P01-types.md", "P02-components.md"],
+  "expectedVerdict": "BLOCKED",
+  "expectedScoreRange": [28, 32],
+  "expectedClassifications": [
+    {
+      "expectedKind": "PROMPT_FILE_UNRESOLVED",
+      "notes": "Prompt table references P01/P02 but observation layer cannot resolve from plan directory (2 blocker observations, 2 * 20 weight = 40)"
+    },
+    {
+      "expectedKind": "PROMPT_DEFICIENCY",
+      "notes": "Both prompt files (passed as CLI args) lack verification sections (2 * 10 = 20) and reconciliation templates (2 * 5 = 10)"
+    },
+    {
+      "expectedKind": "HEADER_COMPLETE",
+      "notes": "All required headers present"
+    },
+    {
+      "expectedKind": "VERIFICATION_PRESENT",
+      "notes": "Plan has verification section"
+    },
+    {
+      "expectedKind": "CERTIFIED",
+      "notes": "Pre-flight mark present"
+    },
+    {
+      "expectedKind": "CLEANUP_REFERENCED",
+      "notes": "Cleanup file referenced"
+    }
+  ],
+  "unexpectedClassifications": ["PROMPT_WELL_FORMED", "HEADER_DEFICIENCY", "VERIFICATION_ABSENT"],
+  "notes": "Tests prompt-level classifiers. Prompt table entries cannot be resolved to files (blocker). Prompt files passed as extra CLI args DO get analyzed and lack verification/reconciliation. Exercises both the prompt table parser and the two-mechanism verdict (blockers + score).",
+  "status": "calibrated"
+}

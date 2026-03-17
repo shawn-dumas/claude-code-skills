@@ -517,6 +517,86 @@ npx tsx scripts/AST/ast-interpret-vitest-parity.ts \
 
 ---
 
+### Plan audit (`ast-interpret-plan-audit`)
+
+**Run the observation tool then the interpreter:**
+
+```bash
+npx tsx scripts/AST/ast-interpret-plan-audit.ts <plan-file> \
+  --prompts '<glob>' --pretty --verbose
+```
+
+**Fixture type: synthetic.** Plan-audit fixtures are self-contained
+markdown files (plan.md + optional prompt files), not source code
+snapshots. Create a new fixture directory following the
+`synth-plan-audit-NN-<description>` naming convention.
+
+**Fixture files:**
+
+- `plan.md` -- the plan with headers, prompt table, verification,
+  standing elements, cleanup reference (as needed for the test scenario)
+- `<prompt-name>.md` -- prompt files with verification and reconciliation
+  sections (if testing prompt-level checks)
+- `manifest.json` -- declares expected verdict, score range, and
+  expected/unexpected assessment kinds
+
+**Manifest template:**
+
+```json
+{
+  "tool": "plan-audit",
+  "created": "<YYYY-MM-DD>",
+  "source": "synthetic",
+  "planFile": "plan.md",
+  "promptFiles": ["<prompt-01>.md", "<prompt-02>.md"],
+  "expectedVerdict": "<CERTIFIED|CONDITIONAL|BLOCKED>",
+  "expectedScoreRange": [<lo>, <hi>],
+  "expectedClassifications": [
+    {
+      "expectedKind": "<assessment-kind>",
+      "notes": "<why this assessment is expected>"
+    }
+  ],
+  "unexpectedClassifications": ["<kinds-that-must-NOT-appear>"],
+  "notes": "<description of what this fixture tests>",
+  "status": "pending"
+}
+```
+
+**Assessment kinds:** `HEADER_COMPLETE`, `HEADER_DEFICIENCY`,
+`VERIFICATION_PRESENT`, `VERIFICATION_ABSENT`, `CLEANUP_REFERENCED`,
+`CLEANUP_UNREFERENCED`, `STANDING_ELEMENTS_COMPLETE`,
+`STANDING_ELEMENTS_INCOMPLETE`, `CERTIFIED`, `CONDITIONAL_PREFLIGHT`,
+`BLOCKED_PREFLIGHT`, `CERTIFICATION_MISSING`, `PROMPT_WELL_FORMED`,
+`PROMPT_DEFICIENCY`, `DEPENDENCY_CYCLE_DETECTED`,
+`PROMPT_FILE_UNRESOLVED`, `CONVENTION_REFERENCE`,
+`DEFERRED_CLEANUP_NOTED`, `AGGREGATION_RISK`.
+
+**Real-world calibration.** In addition to synthetic fixtures, the
+real-plan-audit manifest
+(`ground-truth/fixtures/real-plan-audit/manifest.json`) tracks
+verdict accuracy across all archived plans. New entries are added
+during the plan archival step (see `docs/orchestration-protocol.md`,
+"Plan archival and feedback loop"). The accuracy spec tests both
+synthetic fixtures (per-classification accuracy) and real-world
+entries (verdict-only accuracy by cohort).
+
+**Common misclassification causes:**
+
+- Prompt table parser selecting an inventory table instead of the
+  actual prompt/phase table (parser prefers tables with a Mode column)
+- Pre-flight mark tier not parsed correctly (observation layer
+  distinguishes CERTIFIED, CONDITIONAL, BLOCKED tiers)
+- Header format regex too strict for plans with post-archival
+  annotations (regex tolerates trailing text after core pattern)
+
+**Note:** Pre-flight marks are this tool's own output. Calibration
+fixtures should generally omit pre-flight marks to avoid circular
+reasoning. The `PRE_FLIGHT_MARK_MISSING` observation (-10 weight)
+is the expected baseline penalty for uncertified plans.
+
+---
+
 ## Calibration cadence
 
 Feedback fixtures accumulate as `"pending"`. When 3 or more pending

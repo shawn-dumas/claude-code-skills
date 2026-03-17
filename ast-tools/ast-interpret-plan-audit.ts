@@ -35,7 +35,9 @@ import type {
 // ---------------------------------------------------------------------------
 
 /** Group observations by kind for batch classification. */
-function groupByKind(observations: readonly PlanAuditObservation[]): Map<PlanAuditObservationKind, PlanAuditObservation[]> {
+function groupByKind(
+  observations: readonly PlanAuditObservation[],
+): Map<PlanAuditObservationKind, PlanAuditObservation[]> {
   const map = new Map<PlanAuditObservationKind, PlanAuditObservation[]>();
   for (const obs of observations) {
     const group = map.get(obs.kind);
@@ -63,9 +65,7 @@ function toRef(obs: PlanAuditObservation): ObservationRef {
  * assessment kind based on the observation kind.
  */
 
-function classifyHeaders(
-  grouped: Map<PlanAuditObservationKind, PlanAuditObservation[]>,
-): PlanAuditAssessment[] {
+function classifyHeaders(grouped: Map<PlanAuditObservationKind, PlanAuditObservation[]>): PlanAuditAssessment[] {
   const assessments: PlanAuditAssessment[] = [];
   const missing = grouped.get('PLAN_HEADER_MISSING') ?? [];
   const invalid = grouped.get('PLAN_HEADER_INVALID') ?? [];
@@ -83,9 +83,10 @@ function classifyHeaders(
     });
   } else {
     for (const obs of deficiencies) {
-      const detail = obs.kind === 'PLAN_HEADER_MISSING'
-        ? `Required header field '${obs.evidence.field ?? 'unknown'}' is missing.`
-        : `Header field '${obs.evidence.field ?? 'unknown'}' has invalid format: ${obs.evidence.value ?? ''}.`;
+      const detail =
+        obs.kind === 'PLAN_HEADER_MISSING'
+          ? `Required header field '${obs.evidence.field ?? 'unknown'}' is missing.`
+          : `Header field '${obs.evidence.field ?? 'unknown'}' has invalid format: ${obs.evidence.value ?? ''}.`;
 
       assessments.push({
         kind: 'HEADER_DEFICIENCY',
@@ -102,20 +103,20 @@ function classifyHeaders(
   return assessments;
 }
 
-function classifyVerification(
-  grouped: Map<PlanAuditObservationKind, PlanAuditObservation[]>,
-): PlanAuditAssessment[] {
+function classifyVerification(grouped: Map<PlanAuditObservationKind, PlanAuditObservation[]>): PlanAuditAssessment[] {
   const missing = grouped.get('VERIFICATION_BLOCK_MISSING') ?? [];
   if (missing.length === 0) {
-    return [{
-      kind: 'VERIFICATION_PRESENT',
-      subject: { file: '', symbol: 'verification-block' },
-      confidence: 'high',
-      rationale: ['Plan contains a verification section.'],
-      basedOn: [],
-      isCandidate: false,
-      requiresManualReview: false,
-    }];
+    return [
+      {
+        kind: 'VERIFICATION_PRESENT',
+        subject: { file: '', symbol: 'verification-block' },
+        confidence: 'high',
+        rationale: ['Plan contains a verification section.'],
+        basedOn: [],
+        isCandidate: false,
+        requiresManualReview: false,
+      },
+    ];
   }
 
   return missing.map(obs => ({
@@ -129,20 +130,20 @@ function classifyVerification(
   }));
 }
 
-function classifyCleanup(
-  grouped: Map<PlanAuditObservationKind, PlanAuditObservation[]>,
-): PlanAuditAssessment[] {
+function classifyCleanup(grouped: Map<PlanAuditObservationKind, PlanAuditObservation[]>): PlanAuditAssessment[] {
   const missing = grouped.get('CLEANUP_FILE_MISSING') ?? [];
   if (missing.length === 0) {
-    return [{
-      kind: 'CLEANUP_REFERENCED',
-      subject: { file: '', symbol: 'cleanup-reference' },
-      confidence: 'high',
-      rationale: ['Plan references a cleanup file.'],
-      basedOn: [],
-      isCandidate: false,
-      requiresManualReview: false,
-    }];
+    return [
+      {
+        kind: 'CLEANUP_REFERENCED',
+        subject: { file: '', symbol: 'cleanup-reference' },
+        confidence: 'high',
+        rationale: ['Plan references a cleanup file.'],
+        basedOn: [],
+        isCandidate: false,
+        requiresManualReview: false,
+      },
+    ];
   }
 
   return missing.map(obs => ({
@@ -161,66 +162,108 @@ function classifyStandingElements(
 ): PlanAuditAssessment[] {
   const missing = grouped.get('STANDING_ELEMENT_MISSING') ?? [];
   if (missing.length === 0) {
-    return [{
-      kind: 'STANDING_ELEMENTS_COMPLETE',
-      subject: { file: '', symbol: 'standing-elements' },
-      confidence: 'high',
-      rationale: ['All standing elements have answers.'],
-      basedOn: [],
-      isCandidate: false,
-      requiresManualReview: false,
-    }];
+    return [
+      {
+        kind: 'STANDING_ELEMENTS_COMPLETE',
+        subject: { file: '', symbol: 'standing-elements' },
+        confidence: 'high',
+        rationale: ['All standing elements have answers.'],
+        basedOn: [],
+        isCandidate: false,
+        requiresManualReview: false,
+      },
+    ];
   }
 
   const names = missing.map(obs => obs.evidence.elementName ?? 'unknown');
-  return [{
-    kind: 'STANDING_ELEMENTS_INCOMPLETE',
-    subject: { file: missing[0].file, symbol: 'standing-elements' },
-    confidence: 'high',
-    rationale: [`${missing.length} standing element(s) unanswered: ${names.join(', ')}.`],
-    basedOn: missing.map(toRef),
-    isCandidate: false,
-    requiresManualReview: missing.length >= 3,
-  }];
+  return [
+    {
+      kind: 'STANDING_ELEMENTS_INCOMPLETE',
+      subject: { file: missing[0].file, symbol: 'standing-elements' },
+      confidence: 'high',
+      rationale: [`${missing.length} standing element(s) unanswered: ${names.join(', ')}.`],
+      basedOn: missing.map(toRef),
+      isCandidate: false,
+      requiresManualReview: missing.length >= 3,
+    },
+  ];
 }
 
-function classifyPreFlight(
-  grouped: Map<PlanAuditObservationKind, PlanAuditObservation[]>,
-): PlanAuditAssessment[] {
+function classifyPreFlight(grouped: Map<PlanAuditObservationKind, PlanAuditObservation[]>): PlanAuditAssessment[] {
   const certified = grouped.get('PRE_FLIGHT_CERTIFIED') ?? [];
+  const conditional = grouped.get('PRE_FLIGHT_CONDITIONAL') ?? [];
+  const blocked = grouped.get('PRE_FLIGHT_BLOCKED') ?? [];
   const missingMark = grouped.get('PRE_FLIGHT_MARK_MISSING') ?? [];
 
   if (certified.length > 0) {
     const obs = certified[0];
-    return [{
-      kind: 'CERTIFIED',
-      subject: { file: obs.file, line: obs.line, symbol: 'pre-flight' },
-      confidence: 'high',
-      rationale: [`Pre-flight mark: ${obs.evidence.certificationTier ?? 'present'} ${obs.evidence.certificationDate ?? ''}.`],
-      basedOn: [toRef(obs)],
-      isCandidate: false,
-      requiresManualReview: false,
-    }];
+    return [
+      {
+        kind: 'CERTIFIED',
+        subject: { file: obs.file, line: obs.line, symbol: 'pre-flight' },
+        confidence: 'high',
+        rationale: [
+          `Pre-flight mark: ${obs.evidence.certificationTier ?? 'present'} ${obs.evidence.certificationDate ?? ''}.`,
+        ],
+        basedOn: [toRef(obs)],
+        isCandidate: false,
+        requiresManualReview: false,
+      },
+    ];
+  }
+
+  if (conditional.length > 0) {
+    const obs = conditional[0];
+    return [
+      {
+        kind: 'CONDITIONAL_PREFLIGHT',
+        subject: { file: obs.file, line: obs.line, symbol: 'pre-flight' },
+        confidence: 'high',
+        rationale: [
+          `Pre-flight mark: ${obs.evidence.certificationTier} ${obs.evidence.certificationDate ?? ''}. Plan was not fully certified at pre-flight.`,
+        ],
+        basedOn: [toRef(obs)],
+        isCandidate: false,
+        requiresManualReview: true,
+      },
+    ];
+  }
+
+  if (blocked.length > 0) {
+    const obs = blocked[0];
+    return [
+      {
+        kind: 'BLOCKED_PREFLIGHT',
+        subject: { file: obs.file, line: obs.line, symbol: 'pre-flight' },
+        confidence: 'high',
+        rationale: [
+          `Pre-flight mark: ${obs.evidence.certificationTier} ${obs.evidence.certificationDate ?? ''}. Plan was blocked at pre-flight.`,
+        ],
+        basedOn: [toRef(obs)],
+        isCandidate: false,
+        requiresManualReview: true,
+      },
+    ];
   }
 
   if (missingMark.length > 0) {
-    return [{
-      kind: 'CERTIFICATION_MISSING',
-      subject: { file: missingMark[0].file, symbol: 'pre-flight' },
-      confidence: 'high',
-      rationale: ['No pre-flight certification mark. Plan has not been audited.'],
-      basedOn: missingMark.map(toRef),
-      isCandidate: false,
-      requiresManualReview: true,
-    }];
+    return [
+      {
+        kind: 'CERTIFICATION_MISSING',
+        subject: { file: missingMark[0].file, symbol: 'pre-flight' },
+        confidence: 'high',
+        rationale: ['No pre-flight certification mark. Plan has not been audited.'],
+        basedOn: missingMark.map(toRef),
+        isCandidate: false,
+        requiresManualReview: true,
+      },
+    ];
   }
 
   return [];
 }
 
-function classifyPrompts(
-  grouped: Map<PlanAuditObservationKind, PlanAuditObservation[]>,
-): PlanAuditAssessment[] {
+function classifyPrompts(grouped: Map<PlanAuditObservationKind, PlanAuditObservation[]>): PlanAuditAssessment[] {
   const assessments: PlanAuditAssessment[] = [];
 
   // Dependency cycles
@@ -258,7 +301,9 @@ function classifyPrompts(
       kind: 'PROMPT_DEFICIENCY',
       subject: { file: obs.file, line: obs.line, symbol: 'verification' },
       confidence: 'high',
-      rationale: [`Prompt file '${obs.evidence.promptFile ?? obs.file}' has no verification section with runnable commands.`],
+      rationale: [
+        `Prompt file '${obs.evidence.promptFile ?? obs.file}' has no verification section with runnable commands.`,
+      ],
       basedOn: [toRef(obs)],
       isCandidate: false,
       requiresManualReview: false,
@@ -294,7 +339,8 @@ function classifyPrompts(
   }
 
   // If no prompt issues found, emit a positive signal
-  const totalIssues = cycles.length + missingFiles.length + missingVerification.length + missingRecon.length + unsetModes.length;
+  const totalIssues =
+    cycles.length + missingFiles.length + missingVerification.length + missingRecon.length + unsetModes.length;
   if (totalIssues === 0) {
     assessments.push({
       kind: 'PROMPT_WELL_FORMED',
@@ -310,9 +356,7 @@ function classifyPrompts(
   return assessments;
 }
 
-function classifyConventions(
-  grouped: Map<PlanAuditObservationKind, PlanAuditObservation[]>,
-): PlanAuditAssessment[] {
+function classifyConventions(grouped: Map<PlanAuditObservationKind, PlanAuditObservation[]>): PlanAuditAssessment[] {
   const assessments: PlanAuditAssessment[] = [];
 
   // Client-side aggregation is a risk signal
@@ -399,7 +443,11 @@ function computeVerdict(score: number, blocked: boolean): PlanAuditVerdict {
   return 'BLOCKED';
 }
 
-function countBySeverity(observations: readonly PlanAuditObservation[]): { blockers: number; warnings: number; info: number } {
+function countBySeverity(observations: readonly PlanAuditObservation[]): {
+  blockers: number;
+  warnings: number;
+  info: number;
+} {
   const config = resolveConfig();
   const { severityMap } = config.planAudit;
   let blockers = 0;
@@ -487,9 +535,7 @@ const POSITIVE_KINDS = new Set<PlanAuditAssessmentKind>([
 function formatAssessment(a: PlanAuditAssessment): string {
   const isPositive = POSITIVE_KINDS.has(a.kind);
   const marker = isPositive ? 'ok' : '!!';
-  const subject = a.subject.symbol
-    ? `${a.subject.file || 'plan'}:${a.subject.symbol}`
-    : a.subject.file || 'plan';
+  const subject = a.subject.symbol ? `${a.subject.file || 'plan'}:${a.subject.symbol}` : a.subject.file || 'plan';
   const confidence = a.confidence === 'high' ? '' : ` [${a.confidence} confidence]`;
   const review = a.requiresManualReview ? ' [needs manual review]' : '';
   return `  ${marker} ${a.kind}  ${subject}${confidence}${review}\n     ${a.rationale.join(' ')}`;
@@ -599,8 +645,7 @@ function main(): void {
 
 const isDirectRun =
   process.argv[1] &&
-  (process.argv[1].endsWith('ast-interpret-plan-audit.ts') ||
-    process.argv[1].endsWith('ast-interpret-plan-audit'));
+  (process.argv[1].endsWith('ast-interpret-plan-audit.ts') || process.argv[1].endsWith('ast-interpret-plan-audit'));
 
 if (isDirectRun) {
   main();

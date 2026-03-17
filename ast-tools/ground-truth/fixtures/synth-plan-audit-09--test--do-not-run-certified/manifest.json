@@ -1,0 +1,50 @@
+{
+  "tool": "plan-audit",
+  "created": "2026-03-17",
+  "source": "synthetic",
+  "planFile": "plan.md",
+  "promptFiles": ["test-do-not-run-01-setup.md", "test-do-not-run-02-implement.md", "test-do-not-run-03-verify.md"],
+  "expectedVerdict": "CERTIFIED",
+  "expectedScoreRange": [90, 90],
+  "expectedClassifications": [
+    {
+      "expectedKind": "HEADER_COMPLETE",
+      "notes": "All 5 required headers present and valid"
+    },
+    {
+      "expectedKind": "VERIFICATION_PRESENT",
+      "notes": "Verification Checklist heading with bash commands"
+    },
+    {
+      "expectedKind": "CLEANUP_REFERENCED",
+      "notes": "References test-do-not-run-certified-cleanup.md"
+    },
+    {
+      "expectedKind": "STANDING_ELEMENTS_COMPLETE",
+      "notes": "All 3 standing elements have answers"
+    },
+    {
+      "expectedKind": "CERTIFICATION_MISSING",
+      "notes": "No pre-flight mark (intentionally omitted -- pre-flight is this tool's output)"
+    },
+    {
+      "expectedKind": "PROMPT_WELL_FORMED",
+      "notes": "3 prompts with modes, verification, reconciliation, no cycles"
+    },
+    {
+      "expectedKind": "CONVENTION_REFERENCE",
+      "notes": "File path references found in prompt files"
+    }
+  ],
+  "unexpectedClassifications": [
+    "HEADER_DEFICIENCY",
+    "VERIFICATION_ABSENT",
+    "CLEANUP_UNREFERENCED",
+    "STANDING_ELEMENTS_INCOMPLETE",
+    "PROMPT_DEFICIENCY",
+    "DEPENDENCY_CYCLE_DETECTED",
+    "PROMPT_FILE_UNRESOLVED"
+  ],
+  "notes": "Full-exercise CERTIFIED fixture. Tests that a structurally complete plan with prompt files (containing verification + reconciliation), cleanup reference, and standing elements scores exactly 90 (only penalty: no pre-flight mark, -10). Pre-flight intentionally omitted because it is this tool's output -- including it would be circular.",
+  "status": "calibrated"
+}

@@ -1,0 +1,50 @@
+{
+  "tool": "plan-audit",
+  "created": "2026-03-17",
+  "source": "synthetic",
+  "planFile": "plan.md",
+  "promptFiles": ["test-do-not-run-01-scaffold.md", "test-do-not-run-02-migrate.md", "test-do-not-run-03-validate.md"],
+  "expectedVerdict": "CONDITIONAL",
+  "expectedScoreRange": [75, 75],
+  "expectedClassifications": [
+    {
+      "expectedKind": "HEADER_COMPLETE",
+      "notes": "All 5 required headers present and valid"
+    },
+    {
+      "expectedKind": "VERIFICATION_PRESENT",
+      "notes": "Verification Checklist heading with bash commands"
+    },
+    {
+      "expectedKind": "CLEANUP_UNREFERENCED",
+      "notes": "No cleanup file referenced anywhere in the plan"
+    },
+    {
+      "expectedKind": "STANDING_ELEMENTS_COMPLETE",
+      "notes": "All 3 standing elements have answers"
+    },
+    {
+      "expectedKind": "CERTIFICATION_MISSING",
+      "notes": "No pre-flight mark (intentionally omitted)"
+    },
+    {
+      "expectedKind": "PROMPT_DEFICIENCY",
+      "notes": "Prompt 02 has no mode set"
+    },
+    {
+      "expectedKind": "CONVENTION_REFERENCE",
+      "notes": "File path references found in prompt files"
+    }
+  ],
+  "unexpectedClassifications": [
+    "HEADER_DEFICIENCY",
+    "VERIFICATION_ABSENT",
+    "CLEANUP_REFERENCED",
+    "CERTIFIED",
+    "PROMPT_WELL_FORMED",
+    "DEPENDENCY_CYCLE_DETECTED",
+    "PROMPT_FILE_UNRESOLVED"
+  ],
+  "notes": "CONDITIONAL fixture with intentional gaps: no pre-flight (-10), no cleanup reference (-10), one prompt mode missing (-5). Score 75 = CONDITIONAL. Tests that the tool correctly classifies plans with moderate structural deficiencies.",
+  "status": "calibrated"
+}

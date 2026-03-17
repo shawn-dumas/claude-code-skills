@@ -987,12 +987,19 @@ export type PlanAuditObservationKind =
   | 'STANDING_ELEMENT_MISSING'
   | 'RECONCILIATION_TEMPLATE_MISSING'
   | 'PRE_FLIGHT_CERTIFIED'
+  | 'PRE_FLIGHT_CONDITIONAL'
+  | 'PRE_FLIGHT_BLOCKED'
   | 'PRE_FLIGHT_MARK_MISSING'
   | 'NAMING_CONVENTION_INSTRUCTION'
   | 'CLIENT_SIDE_AGGREGATION'
   | 'DEFERRED_CLEANUP_REFERENCE'
   | 'FILE_PATH_REFERENCE'
-  | 'SKILL_REFERENCE';
+  | 'SKILL_REFERENCE'
+  | 'PROMPT_DEPENDENCY_EDGE_COUNT'
+  | 'PROMPT_CHAIN_DEPTH'
+  | 'PROMPT_FAN_OUT'
+  | 'PLAN_PROMPT_COUNT'
+  | 'PLAN_FILE_REFERENCE_DENSITY';
 
 export type PlanAuditObservationEvidence = {
   /** Field name (PLAN_HEADER_MISSING, PLAN_HEADER_INVALID) */
@@ -1017,10 +1024,15 @@ export type PlanAuditObservationEvidence = {
   referencedPath?: string;
   /** Skill name (SKILL_REFERENCE) */
   skillName?: string;
-  /** Certification date (PRE_FLIGHT_CERTIFIED) */
+  /** Certification date (PRE_FLIGHT_CERTIFIED, PRE_FLIGHT_CONDITIONAL, PRE_FLIGHT_BLOCKED) */
   certificationDate?: string;
-  /** Certification tier (PRE_FLIGHT_CERTIFIED) */
+  /** Certification tier (PRE_FLIGHT_CERTIFIED, PRE_FLIGHT_CONDITIONAL, PRE_FLIGHT_BLOCKED) */
   certificationTier?: string;
+  edgeCount?: number;
+  chainDepth?: number;
+  fanOut?: number;
+  promptCount?: number;
+  fileRefDensity?: number;
 };
 
 export type PlanAuditObservation = Observation<PlanAuditObservationKind, PlanAuditObservationEvidence>;
@@ -1039,6 +1051,8 @@ export type PlanAuditAssessmentKind =
   | 'CLEANUP_REFERENCED'
   | 'STANDING_ELEMENTS_COMPLETE'
   | 'CERTIFIED'
+  | 'CONDITIONAL_PREFLIGHT'
+  | 'BLOCKED_PREFLIGHT'
   // Structural - negative
   | 'HEADER_DEFICIENCY'
   | 'VERIFICATION_ABSENT'

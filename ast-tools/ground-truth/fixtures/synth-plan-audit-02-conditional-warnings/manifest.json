@@ -1,0 +1,29 @@
+{
+  "tool": "plan-audit",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "planFile": "plan.md",
+  "promptFiles": [],
+  "expectedVerdict": "CONDITIONAL",
+  "expectedScoreRange": [66, 66],
+  "expectedClassifications": [
+    {
+      "expectedKind": "HEADER_DEFICIENCY",
+      "notes": "Missing Complexity, Duration, Nearest headers (3 fields * 8 weight = 24)"
+    },
+    {
+      "expectedKind": "CERTIFICATION_MISSING",
+      "notes": "No Pre-flight header (weight 10)"
+    },
+    {
+      "expectedKind": "VERIFICATION_PRESENT",
+      "notes": "Verification heading present with bash commands"
+    },
+    {
+      "expectedKind": "CLEANUP_REFERENCED",
+      "notes": "References rename-utils-cleanup.md"
+    }
+  ],
+  "unexpectedClassifications": ["VERIFICATION_ABSENT", "HEADER_COMPLETE", "CLEANUP_UNREFERENCED"],
+  "status": "calibrated"
+}

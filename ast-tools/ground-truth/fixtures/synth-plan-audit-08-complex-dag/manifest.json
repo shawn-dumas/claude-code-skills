@@ -1,0 +1,29 @@
+{
+  "tool": "plan-audit",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "planFile": "plan.md",
+  "promptFiles": [],
+  "expectedVerdict": "CERTIFIED",
+  "expectedScoreRange": [100, 100],
+  "expectedClassifications": [
+    { "expectedKind": "HEADER_COMPLETE", "notes": "All headers valid" },
+    { "expectedKind": "VERIFICATION_PRESENT", "notes": "Verification section" },
+    { "expectedKind": "CLEANUP_REFERENCED", "notes": "References cleanup file" },
+    { "expectedKind": "CERTIFIED", "notes": "Pre-flight CERTIFIED" }
+  ],
+  "unexpectedClassifications": [
+    "HEADER_DEFICIENCY",
+    "VERIFICATION_ABSENT",
+    "CLEANUP_UNREFERENCED",
+    "CERTIFICATION_MISSING",
+    "DEPENDENCY_CYCLE_DETECTED"
+  ],
+  "expectedObservationValues": [
+    { "kind": "PLAN_PROMPT_COUNT", "evidence": { "promptCount": 10 }, "notes": "10 prompts" },
+    { "kind": "PROMPT_DEPENDENCY_EDGE_COUNT", "evidence": { "edgeCount": 15 }, "notes": "complex DAG" },
+    { "kind": "PROMPT_CHAIN_DEPTH", "evidence": { "chainDepth": 7 }, "notes": "01->02->03->05->06->08->09->10" },
+    { "kind": "PROMPT_FAN_OUT", "evidence": { "fanOut": 6 }, "notes": "01 feeds 02,03,04,05,06,07" }
+  ],
+  "status": "calibrated"
+}

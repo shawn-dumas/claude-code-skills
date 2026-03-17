@@ -1,0 +1,34 @@
+{
+  "tool": "plan-audit",
+  "created": "2026-03-16",
+  "source": "synthetic",
+  "planFile": "plan.md",
+  "promptFiles": [],
+  "expectedVerdict": "CERTIFIED",
+  "expectedScoreRange": [100, 100],
+  "expectedClassifications": [
+    {
+      "expectedKind": "HEADER_COMPLETE",
+      "notes": "All 5 required headers present and valid"
+    },
+    {
+      "expectedKind": "VERIFICATION_PRESENT",
+      "notes": "Verification Checklist heading with bash commands"
+    },
+    {
+      "expectedKind": "CLEANUP_REFERENCED",
+      "notes": "References widget-refactor-cleanup.md"
+    },
+    {
+      "expectedKind": "CERTIFIED",
+      "notes": "Pre-flight: CERTIFIED 2026-03-15 header present"
+    }
+  ],
+  "unexpectedClassifications": [
+    "HEADER_DEFICIENCY",
+    "VERIFICATION_ABSENT",
+    "CLEANUP_UNREFERENCED",
+    "CERTIFICATION_MISSING"
+  ],
+  "status": "calibrated"
+}

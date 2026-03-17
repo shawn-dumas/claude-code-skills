@@ -18,6 +18,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import zlib from 'zlib';
 import { runAllObservers } from '../tool-registry';
 import { createVirtualProject } from '../git-source';
 import { astConfig } from '../ast-config';
@@ -37,7 +38,10 @@ import { analyzeTestFile } from '../ast-test-analysis';
 import { interpretTestQuality } from '../ast-interpret-test-quality';
 import { buildDependencyGraph, extractImportObservations } from '../ast-imports';
 import { interpretDeadCode } from '../ast-interpret-dead-code';
+import { analyzePlan } from '../ast-plan-audit';
+import { interpretPlanAudit } from '../ast-interpret-plan-audit';
 import type {
+  PlanAuditVerdictReport,
   AnyObservation,
   Assessment,
   RefactorSignalPair,
@@ -115,7 +119,56 @@ interface EntryManifest {
   status: string;
 }
 
-type Manifest = IntentManifest | ParityManifest | VitestParityManifest | EntryManifest;
+interface PlanAuditExpectedClassification {
+  expectedKind: string;
+  notes: string;
+}
+
+interface PlanAuditExpectedObservation {
+  kind: string;
+  evidence: Record<string, unknown>;
+  notes?: string;
+}
+
+interface SyntheticPlanAuditManifest {
+  tool: 'plan-audit';
+  source: 'synthetic';
+  planFile: string;
+  promptFiles: string[];
+  expectedVerdict: string;
+  expectedScoreRange: [number, number];
+  expectedClassifications: PlanAuditExpectedClassification[];
+  unexpectedClassifications?: string[];
+  expectedObservationValues?: PlanAuditExpectedObservation[];
+  status: string;
+}
+
+interface RealPlanAuditEntry {
+  planFile: string;
+  frictionGrade: string;
+  expectedVerdict: string;
+  cohort: string;
+  currentScore: number;
+  currentVerdict: string;
+  rank: number | null;
+  notes: string;
+}
+
+interface RealPlanAuditManifest {
+  tool: 'plan-audit';
+  source: 'real-world';
+  conventionBoundary: string;
+  plans: RealPlanAuditEntry[];
+  status: string;
+}
+
+type Manifest =
+  | IntentManifest
+  | ParityManifest
+  | VitestParityManifest
+  | EntryManifest
+  | SyntheticPlanAuditManifest
+  | RealPlanAuditManifest;
 
 // ---------------------------------------------------------------------------
 // Temp directory management
@@ -593,6 +646,174 @@ function evaluateEntryFixture(
 }
 
 // ---------------------------------------------------------------------------
+// Plan audit fixture evaluation
+// ---------------------------------------------------------------------------
+
+const REAL_PLAN_AUDIT_DIR = path.join(FIXTURES_DIR, 'real-plan-audit');
+
+/**
+ * Resolve a plan file path from the real-plan-audit manifest.
+ * - Relative paths (e.g., "plans/foo.md.gz") resolve relative to the
+ *   real-plan-audit fixture directory. If .gz, decompress to a temp file.
+ * - Legacy absolute paths starting with ~ resolve via homedir expansion.
+ */
+function resolvePlanPath(p: string): string {
+  // Legacy: ~/plans/archive/foo.md
+  if (p.startsWith('~')) return p.replace(/^~/, os.homedir());
+
+  // Relative path (new convention): plans/foo.md.gz
+  const resolved = path.join(REAL_PLAN_AUDIT_DIR, p);
+  if (!p.endsWith('.gz')) return resolved;
+
+  // Decompress .gz to a temp file
+  if (!fs.existsSync(resolved)) return resolved;
+  const compressed = fs.readFileSync(resolved);
+  const decompressed = zlib.gunzipSync(compressed);
+  const tmpDir = createTempDir('plan-gz');
+  const basename = path.basename(p, '.gz');
+  const tmpPath = path.join(tmpDir, basename);
+  fs.writeFileSync(tmpPath, decompressed);
+  return tmpPath;
+}
+
+function evaluateSyntheticPlanAuditFixture(
+  fixtureDir: string,
+  manifest: SyntheticPlanAuditManifest,
+): { correct: number; total: number; details: string[] } {
+  const basePath = path.join(FIXTURES_DIR, fixtureDir);
+  const planPath = path.join(basePath, manifest.planFile);
+  const promptPaths = manifest.promptFiles.map(f => path.join(basePath, f));
+
+  const result = analyzePlan(planPath, promptPaths);
+  const report = interpretPlanAudit(
+    path.relative(process.cwd(), planPath),
+    promptPaths.map(p => path.relative(process.cwd(), p)),
+    result.observations,
+  );
+
+  const details: string[] = [];
+  let correct = 0;
+  let total = 0;
+
+  // Check verdict
+  total++;
+  if (report.verdict === manifest.expectedVerdict) {
+    correct++;
+  } else {
+    details.push(`VERDICT: expected ${manifest.expectedVerdict}, got ${report.verdict}`);
+  }
+
+  // Check score range
+  total++;
+  const [lo, hi] = manifest.expectedScoreRange;
+  if (report.score >= lo && report.score <= hi) {
+    correct++;
+  } else {
+    details.push(`SCORE: expected ${lo}-${hi}, got ${report.score}`);
+  }
+
+  // Check expected assessment kinds are present
+  for (const expected of manifest.expectedClassifications) {
+    total++;
+    const found = report.assessments.some(a => a.kind === expected.expectedKind);
+    if (found) {
+      correct++;
+    } else {
+      details.push(`MISS: expected assessment kind ${expected.expectedKind} not found`);
+    }
+  }
+
+  // Check unexpected assessment kinds are absent
+  if (manifest.unexpectedClassifications) {
+    for (const unexpected of manifest.unexpectedClassifications) {
+      total++;
+      const found = report.assessments.some(a => a.kind === unexpected);
+      if (!found) {
+        correct++;
+      } else {
+        details.push(`UNEXPECTED: assessment kind ${unexpected} should not appear`);
+      }
+    }
+  }
+
+  // Check expected observation evidence values
+  if (manifest.expectedObservationValues) {
+    for (const expected of manifest.expectedObservationValues) {
+      total++;
+      const obs = result.observations.find(o => o.kind === expected.kind);
+      if (!obs) {
+        details.push(`OBS_MISS: expected observation ${expected.kind} not found`);
+      } else {
+        let match = true;
+        for (const [key, expectedValue] of Object.entries(expected.evidence)) {
+          const actualValue = (obs.evidence as Record<string, unknown>)[key];
+          if (actualValue !== expectedValue) {
+            match = false;
+            details.push(
+              `OBS_VALUE: ${expected.kind}.${key} expected ${JSON.stringify(expectedValue)}, got ${JSON.stringify(actualValue)}`,
+            );
+          }
+        }
+        if (match) correct++;
+      }
+    }
+  }
+
+  return { correct, total, details };
+}
+
+function evaluateRealPlanAuditFixtures(manifest: RealPlanAuditManifest): {
+  overall: { correct: number; total: number };
+  byCohort: Record<string, { correct: number; total: number }>;
+  byGrade: Record<string, { correct: number; total: number }>;
+  details: string[];
+} {
+  let totalCorrect = 0;
+  let totalPlans = 0;
+  const byCohort: Record<string, { correct: number; total: number }> = {};
+  const byGrade: Record<string, { correct: number; total: number }> = {};
+  const details: string[] = [];
+
+  for (const entry of manifest.plans) {
+    const planPath = resolvePlanPath(entry.planFile);
+    if (!fs.existsSync(planPath)) {
+      details.push(`SKIP: ${entry.planFile} (file not found)`);
+      continue;
+    }
+
+    const result = analyzePlan(planPath, []);
+    const report = interpretPlanAudit(planPath, [], result.observations);
+
+    totalPlans++;
+    const match = report.verdict === entry.expectedVerdict;
+    if (match) totalCorrect++;
+    else {
+      details.push(
+        `${entry.frictionGrade} ${entry.cohort}: ${path.basename(entry.planFile)} -- ` +
+          `expected ${entry.expectedVerdict}, got ${report.verdict} (score ${report.score})`,
+      );
+    }
+
+    // Aggregate by cohort
+    if (!byCohort[entry.cohort]) byCohort[entry.cohort] = { correct: 0, total: 0 };
+    byCohort[entry.cohort].total++;
+    if (match) byCohort[entry.cohort].correct++;
+
+    // Aggregate by grade
+    if (!byGrade[entry.frictionGrade]) byGrade[entry.frictionGrade] = { correct: 0, total: 0 };
+    byGrade[entry.frictionGrade].total++;
+    if (match) byGrade[entry.frictionGrade].correct++;
+  }
+
+  return {
+    overall: { correct: totalCorrect, total: totalPlans },
+    byCohort,
+    byGrade,
+    details,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -606,6 +827,16 @@ const ownershipFixtures = allFixtures.filter(f => f.manifest.tool === 'ownership
 const templateFixtures = allFixtures.filter(f => f.manifest.tool === 'template');
 const testQualityFixtures = allFixtures.filter(f => f.manifest.tool === 'test-quality');
 const deadCodeFixtures = allFixtures.filter(f => f.manifest.tool === 'dead-code');
+const syntheticPlanAuditFixtures = allFixtures.filter(
+  f =>
+    f.manifest.tool === 'plan-audit' &&
+    (f.manifest as SyntheticPlanAuditManifest | RealPlanAuditManifest).source === 'synthetic',
+);
+const realPlanAuditFixtures = allFixtures.filter(
+  f =>
+    f.manifest.tool === 'plan-audit' &&
+    (f.manifest as SyntheticPlanAuditManifest | RealPlanAuditManifest).source === 'real-world',
+);
 
 describe('Intent matcher accuracy', () => {
   it.skipIf(intentFixtures.length === 0)('meets accuracy threshold on all intent fixtures', { timeout: 30_000 }, () => {
@@ -888,5 +1119,158 @@ describe('Dead code interpreter accuracy', () => {
     'meets accuracy threshold on all dead-code fixtures',
     { timeout: 30_000 },
     () => runEntryAccuracyTest('Dead code', deadCodeFixtures),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Plan audit interpreter accuracy
+// ---------------------------------------------------------------------------
+
+describe('Plan audit interpreter accuracy (synthetic)', () => {
+  it.skipIf(syntheticPlanAuditFixtures.length === 0)(
+    'meets accuracy threshold on all synthetic plan-audit fixtures',
+    { timeout: 30_000 },
+    () => {
+      let totalCorrect = 0;
+      let totalExpected = 0;
+      const fixtureResults: Array<{ dir: string; correct: number; total: number; details: string[] }> = [];
+
+      for (const { dir, manifest } of syntheticPlanAuditFixtures) {
+        const result = evaluateSyntheticPlanAuditFixture(dir, manifest as SyntheticPlanAuditManifest);
+        totalCorrect += result.correct;
+        totalExpected += result.total;
+        fixtureResults.push({ dir, ...result });
+      }
+
+      const accuracy = totalExpected > 0 ? totalCorrect / totalExpected : 0;
+      const threshold = 0.9; // synthetic fixtures should be nearly perfect
+
+      for (const r of fixtureResults) {
+        if (r.details.length > 0) {
+          // eslint-disable-next-line no-console
+          console.error(`\n[${r.dir}] ${r.correct}/${r.total}:`);
+          for (const d of r.details) {
+            // eslint-disable-next-line no-console
+            console.error(`  ${d}`);
+          }
+        }
+      }
+
+      // Per-fixture check: each synthetic fixture should be 100%
+      for (const r of fixtureResults) {
+        const fixtureAccuracy = r.total > 0 ? r.correct / r.total : 0;
+        expect(
+          fixtureAccuracy,
+          `Fixture [${r.dir}] accuracy ${(fixtureAccuracy * 100).toFixed(1)}% is below 100%. ` +
+            `${r.correct}/${r.total} correct. Details: ${r.details.join('; ')}`,
+        ).toBe(1);
+      }
+
+      expect(
+        accuracy,
+        `Plan audit (synthetic) accuracy ${(accuracy * 100).toFixed(1)}% is below ${(threshold * 100).toFixed(1)}%. ` +
+          `${totalCorrect}/${totalExpected} checks correct across ${syntheticPlanAuditFixtures.length} fixtures.`,
+      ).toBeGreaterThanOrEqual(threshold);
+    },
+  );
+});
+
+describe('Plan audit interpreter accuracy (real-world calibration)', () => {
+  it.skipIf(realPlanAuditFixtures.length === 0)(
+    'reports calibration accuracy by cohort and friction grade',
+    { timeout: 120_000 },
+    () => {
+      for (const { dir, manifest } of realPlanAuditFixtures) {
+        const result = evaluateRealPlanAuditFixtures(manifest as RealPlanAuditManifest);
+
+        // Report per-cohort accuracy
+        // eslint-disable-next-line no-console
+        console.error(`\n[${dir}] Overall: ${result.overall.correct}/${result.overall.total}`);
+        for (const [cohort, stats] of Object.entries(result.byCohort)) {
+          const pct = stats.total > 0 ? ((stats.correct / stats.total) * 100).toFixed(1) : '0';
+          // eslint-disable-next-line no-console
+          console.error(`  ${cohort}: ${stats.correct}/${stats.total} (${pct}%)`);
+        }
+        for (const [grade, stats] of Object.entries(result.byGrade)) {
+          const pct = stats.total > 0 ? ((stats.correct / stats.total) * 100).toFixed(1) : '0';
+          // eslint-disable-next-line no-console
+          console.error(`  ${grade}: ${stats.correct}/${stats.total} (${pct}%)`);
+        }
+
+        if (result.details.length > 0) {
+          // eslint-disable-next-line no-console
+          console.error(`  Mismatches:`);
+          for (const d of result.details.slice(0, 10)) {
+            // eslint-disable-next-line no-console
+            console.error(`    ${d}`);
+          }
+          if (result.details.length > 10) {
+            // eslint-disable-next-line no-console
+            console.error(`    ... and ${result.details.length - 10} more`);
+          }
+        }
+
+        // --- Gated assertions ---
+
+        // 1. HELLACIOUS plans should all be BLOCKED (100%).
+        // This is the only grade the interpreter reliably classifies
+        // across both cohorts. A regression here indicates a real problem.
+        const hellacious = result.byGrade['HELLACIOUS'];
+        if (hellacious && hellacious.total > 0) {
+          const hellaciousAccuracy = hellacious.correct / hellacious.total;
+          expect(
+            hellaciousAccuracy,
+            `HELLACIOUS->BLOCKED accuracy ${(hellaciousAccuracy * 100).toFixed(1)}% dropped below 100%. ` +
+              `${hellacious.correct}/${hellacious.total} correct.`,
+          ).toBe(1);
+        }
+
+        // 2. Post-convention accuracy is the primary calibration target.
+        // The interpreter measures structural quality against conventions
+        // that only exist in post-convention plans. Pre-convention plans
+        // fail structural checks for reasons unrelated to plan quality
+        // (the checks didn't exist when the plans were written). Per
+        // dialectic 2026-03-16: calibrate against post-convention only,
+        // report pre-convention as monitoring.
+        //
+        // Current baseline: 38% (5/13 post-convention).
+        // Achievable ceiling with threshold tuning: 69% (9/13) but
+        // requires cert=60 which collapses SMOOTH/ROUGH distinction.
+        // Threshold is set low (25%) to catch regressions without
+        // blocking on the known SMOOTH/ROUGH overlap. Will rise as
+        // corpus grows and complexity metrics are added.
+        const postConv = result.byCohort['post-convention'];
+        if (postConv && postConv.total > 0) {
+          const postConvAccuracy = postConv.correct / postConv.total;
+          // eslint-disable-next-line no-console
+          console.error(
+            `\n  POST-CONVENTION ACCURACY: ${(postConvAccuracy * 100).toFixed(1)}% (${postConv.correct}/${postConv.total})`,
+          );
+          expect(
+            postConvAccuracy,
+            `Post-convention accuracy ${(postConvAccuracy * 100).toFixed(1)}% dropped below 25%. ` +
+              `${postConv.correct}/${postConv.total} correct. ` +
+              `This is the primary calibration target for plan-audit.`,
+          ).toBeGreaterThanOrEqual(0.25);
+        }
+
+        // 3. Pre-convention: monitoring only, no gated threshold.
+        // These plans predate structural conventions and are expected
+        // to score poorly. Tracked for corpus-level visibility.
+        const preConv = result.byCohort['pre-convention'];
+        if (preConv && preConv.total > 0) {
+          const preConvAccuracy = preConv.correct / preConv.total;
+          // eslint-disable-next-line no-console
+          console.error(
+            `  PRE-CONVENTION ACCURACY: ${(preConvAccuracy * 100).toFixed(1)}% (${preConv.correct}/${preConv.total}) [monitoring only]`,
+          );
+        }
+
+        // 4. Overall accuracy: monitoring only.
+        const overallAccuracy = result.overall.total > 0 ? result.overall.correct / result.overall.total : 0;
+        // eslint-disable-next-line no-console
+        console.error(`  OVERALL BASELINE: ${(overallAccuracy * 100).toFixed(1)}%`);
+      }
+    },
   );
 });

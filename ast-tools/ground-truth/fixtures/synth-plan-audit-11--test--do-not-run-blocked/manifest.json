@@ -1,0 +1,44 @@
+{
+  "tool": "plan-audit",
+  "created": "2026-03-17",
+  "source": "synthetic",
+  "planFile": "plan.md",
+  "promptFiles": ["test-do-not-run-01-foundation.md", "test-do-not-run-02-refactor.md", "test-do-not-run-03-tests.md"],
+  "expectedVerdict": "BLOCKED",
+  "expectedScoreRange": [60, 60],
+  "expectedClassifications": [
+    {
+      "expectedKind": "HEADER_COMPLETE",
+      "notes": "All 5 required headers present and valid"
+    },
+    {
+      "expectedKind": "VERIFICATION_PRESENT",
+      "notes": "Verification Checklist heading with bash commands"
+    },
+    {
+      "expectedKind": "CLEANUP_REFERENCED",
+      "notes": "References test-do-not-run-blocked-cleanup.md"
+    },
+    {
+      "expectedKind": "STANDING_ELEMENTS_COMPLETE",
+      "notes": "All 3 standing elements have answers"
+    },
+    {
+      "expectedKind": "CERTIFICATION_MISSING",
+      "notes": "No pre-flight mark (intentionally omitted)"
+    },
+    {
+      "expectedKind": "DEPENDENCY_CYCLE_DETECTED",
+      "notes": "Prompts 2 and 3 form a cycle (2->3, 3->2)"
+    }
+  ],
+  "unexpectedClassifications": [
+    "HEADER_DEFICIENCY",
+    "VERIFICATION_ABSENT",
+    "CLEANUP_UNREFERENCED",
+    "CERTIFIED",
+    "PROMPT_WELL_FORMED"
+  ],
+  "notes": "BLOCKED fixture with dependency cycle. Score 60 (only penalties: no pre-flight -10, cycle -30) but verdict BLOCKED because cycle is a blocker. Tests the two-mechanism verdict: score alone would be CONDITIONAL, but blocker flag forces BLOCKED.",
+  "status": "calibrated"
+}

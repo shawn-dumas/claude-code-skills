@@ -128,6 +128,12 @@ interface PromptTableRow {
 
 function parsePromptTable(content: string): PromptTableRow[] | null {
   const lines = content.split('\n');
+
+  // Collect all candidate tables that have a "prompt" column.
+  // Prefer the table that also has a "mode" column (the actual prompt/phase
+  // table), falling back to the first candidate if none has mode.
+  type Candidate = { rows: PromptTableRow[]; hasMode: boolean };
+  const candidates: Candidate[] = [];
   let i = 0;
 
   while (i < lines.length) {
@@ -173,9 +179,15 @@ function parsePromptTable(content: string): PromptTableRow[] | null {
       i++;
     }
 
-    if (rows.length > 0) return rows;
+    if (rows.length > 0) {
+      candidates.push({ rows, hasMode: modeIdx >= 0 });
+    }
   }
-  return null;
+
+  // Prefer a table with a Mode column (the actual prompt/phase table)
+  const preferred = candidates.find(c => c.hasMode);
+  if (preferred) return preferred.rows;
+  return candidates.length > 0 ? candidates[0].rows : null;
 }
 
 // --- Structural checks (all patterns from config) ---
@@ -204,7 +216,14 @@ function checkPreFlightMark(headers: HeaderField[], file: string, obs: PlanAudit
   const pf = headers.find(h => h.name === 'Pre-flight');
   if (pf) {
     const m = pf.value.match(/^(CERTIFIED|CONDITIONAL|BLOCKED)\s+(\S+)/);
-    emit(obs, 'PRE_FLIGHT_CERTIFIED', file, pf.line, {
+    const tier = m?.[1] ?? 'CERTIFIED';
+    const kind =
+      tier === 'CONDITIONAL'
+        ? ('PRE_FLIGHT_CONDITIONAL' as const)
+        : tier === 'BLOCKED'
+          ? ('PRE_FLIGHT_BLOCKED' as const)
+          : ('PRE_FLIGHT_CERTIFIED' as const);
+    emit(obs, kind, file, pf.line, {
       certificationTier: m?.[1] ?? pf.value,
       certificationDate: m?.[2] ?? '',
     });
@@ -346,6 +365,68 @@ function checkPromptFilesExist(
       emit(obs, 'PROMPT_FILE_MISSING', file, row.line, { promptFile: `prompt ${padded}: ${row.name}` });
     }
   }
+}
+
+// --- Complexity metrics ---
+
+function computeComplexityMetrics(
+  table: PromptTableRow[],
+  filePathObsCount: number,
+  file: string,
+  obs: PlanAuditObservation[],
+): void {
+  const promptCount = table.length;
+  emit(obs, 'PLAN_PROMPT_COUNT', file, 1, { promptCount });
+  const graph = new Map<string, string[]>();
+  const reverseGraph = new Map<string, string[]>();
+  for (const row of table) {
+    const id = row.number || row.name;
+    graph.set(id, row.dependsOn);
+    if (!reverseGraph.has(id)) reverseGraph.set(id, []);
+    for (const dep of row.dependsOn) {
+      if (!reverseGraph.has(dep)) reverseGraph.set(dep, []);
+      reverseGraph.get(dep)!.push(id);
+    }
+  }
+  let edgeCount = 0;
+  for (const deps of graph.values()) edgeCount += deps.length;
+  emit(obs, 'PROMPT_DEPENDENCY_EDGE_COUNT', file, 1, { edgeCount });
+  let maxFanOut = 0;
+  for (const dependents of reverseGraph.values()) {
+    if (dependents.length > maxFanOut) maxFanOut = dependents.length;
+  }
+  emit(obs, 'PROMPT_FAN_OUT', file, 1, { fanOut: maxFanOut });
+  const depth = new Map<string, number>();
+  const queue: string[] = [];
+  const queued = new Set<string>();
+  for (const [id, deps] of graph.entries()) {
+    if (deps.length === 0) {
+      depth.set(id, 0);
+      queue.push(id);
+      queued.add(id);
+    }
+  }
+  let maxDepth = 0;
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+    const nodeDepth = depth.get(node) ?? 0;
+    if (nodeDepth > maxDepth) maxDepth = nodeDepth;
+    for (const dependent of reverseGraph.get(node) ?? []) {
+      const newDepth = nodeDepth + 1;
+      if (newDepth > (depth.get(dependent) ?? -1)) depth.set(dependent, newDepth);
+      const allDeps = graph.get(dependent) ?? [];
+      if (allDeps.every(d => depth.has(d)) && !queued.has(dependent)) {
+        queue.push(dependent);
+        queued.add(dependent);
+      }
+    }
+  }
+  for (const d of depth.values()) {
+    if (d > maxDepth) maxDepth = d;
+  }
+  emit(obs, 'PROMPT_CHAIN_DEPTH', file, 1, { chainDepth: maxDepth });
+  const density = promptCount > 0 ? Math.round((filePathObsCount / promptCount) * 100) / 100 : 0;
+  emit(obs, 'PLAN_FILE_REFERENCE_DENSITY', file, 1, { fileRefDensity: density });
 }
 
 // --- Prompt file checks ---
@@ -503,6 +584,13 @@ export function analyzePlan(planPath: string, promptPaths: string[] = []): PlanA
   extractConventionObservations(planPath, obs);
   for (const pf of promptPaths) {
     extractConventionObservations(pf, obs);
+  }
+
+  // Complexity metrics (skip if cycles detected -- graph metrics are meaningless on cyclic graphs)
+  const hasCycles = obs.some(o => o.kind === 'PROMPT_DEPENDENCY_CYCLE');
+  if (table && !hasCycles) {
+    const fileRefCount = obs.filter(o => o.kind === 'FILE_PATH_REFERENCE').length;
+    computeComplexityMetrics(table, fileRefCount, relPath, obs);
   }
 
   return { filePath: relPath, observations: obs };
