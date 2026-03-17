@@ -311,14 +311,14 @@ Score = number of principles with zero violations (0-10, higher is better).
 | 2 | ... | 3 | P10 (2), P9 (1) | Fix in place |
 ```
 
-## Interpreter Calibration Feedback
+## Interpreter Calibration Gate
 
-If `ast-interpret-test-quality` misclassifies during this audit (e.g.,
-classifies a boundary-compliant mock as MOCK_INTERNAL_VIOLATION, or
-classifies a return-value assertion as ASSERTION_IMPLEMENTATION), create
-a calibration fixture following the **test-quality** template in
-`scripts/AST/docs/ast-feedback-loop.md`.
+If any interpreter classification is wrong and the misclassification
+affected a decision in this skill's workflow:
 
-Note the fixture in the summary: "Created calibration fixture:
-`feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
---tool test-quality` when 3+ pending fixtures accumulate."
+1. Confirm you investigated and the interpreter is genuinely wrong.
+2. Run `/create-feedback-fixture --tool <name> --file <path> --expected <correct-kind> --actual <wrong-kind>`.
+3. Note the fixture in the summary output.
+
+Do NOT create a fixture if you are unsure or the error did not affect
+a decision.

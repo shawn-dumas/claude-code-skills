@@ -225,16 +225,6 @@ Check the output:
 - **Any UNMATCHED**: investigate. Unmatched signals mean test coverage
   was lost during the refactor.
 
-If the intention matcher flags a signal as ACCIDENTALLY_DROPPED and
-investigation confirms it was actually intentional (e.g., removing a
-redundant assertion, cleaning up a stale mock), create a calibration
-fixture following the **intent** template in
-`scripts/AST/docs/ast-feedback-loop.md` (use `refactorType: "test"`).
-
-Note the fixture in the summary: "Created calibration fixture:
-`feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
---tool intent` when 3+ pending fixtures accumulate."
-
 ### Step 6c: Vitest parity check (MANDATORY for spec file refactors)
 
 Run vitest parity to verify the refactored spec preserves test coverage
@@ -253,14 +243,18 @@ Check the output:
 - **Any REDUCED**: investigate. Fewer assertions in matched tests.
 - **Any NOT_PORTED**: investigate. Source tests with no target match.
 
-If the parity tool misclassifies a test, create a calibration fixture
-following the **vitest-parity** template in
-`scripts/AST/docs/ast-feedback-loop.md`.
-
-Note the fixture in the summary: "Created calibration fixture:
-`feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
---tool vitest-parity` when 3+ pending fixtures accumulate."
-
 Report: original score, new score, changes made, tests passing, intention
 matcher results (matched/unmatched/novel counts), parity results
 (matched/reduced/not-ported counts).
+
+## Interpreter Calibration Gate
+
+If any interpreter classification is wrong and the misclassification
+affected a decision in this skill's workflow:
+
+1. Confirm you investigated and the interpreter is genuinely wrong.
+2. Run `/create-feedback-fixture --tool <name> --file <path> --expected <correct-kind> --actual <wrong-kind>`.
+3. Note the fixture in the summary output.
+
+Do NOT create a fixture if you are unsure or the error did not affect
+a decision.

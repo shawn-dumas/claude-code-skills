@@ -415,13 +415,14 @@ Refactor risk: HIGH/MEDIUM/LOW (based on coverage level + complexity)
 3. [ ] ...
 ```
 
-## Interpreter Calibration Feedback
+## Interpreter Calibration Gate
 
-If `ast-interpret-dead-code` misclassifies during this audit (e.g.,
-classifies a live export as DEAD_EXPORT, or misses a dead barrel
-re-export), create a calibration fixture following the **dead-code**
-template in `scripts/AST/docs/ast-feedback-loop.md`.
+If any interpreter classification is wrong and the misclassification
+affected a decision in this skill's workflow:
 
-Note the fixture in the summary: "Created calibration fixture:
-`feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
---tool dead-code` when 3+ pending fixtures accumulate."
+1. Confirm you investigated and the interpreter is genuinely wrong.
+2. Run `/create-feedback-fixture --tool <name> --file <path> --expected <correct-kind> --actual <wrong-kind>`.
+3. Note the fixture in the summary output.
+
+Do NOT create a fixture if you are unsure or the error did not affect
+a decision.

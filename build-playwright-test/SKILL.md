@@ -389,15 +389,10 @@ history of every command run in every session.
 
    Review the parity report. Tests classified as NOT_PORTED or REDUCED
    should be investigated -- either add the missing coverage or document
-   why the gap is acceptable. If the parity tool misclassifies a test,
-   create a calibration fixture:
-
-   Create a calibration fixture following the **parity** template in
-   `scripts/AST/docs/ast-feedback-loop.md`.
-
-   Note the fixture in the summary output: "Created calibration fixture:
-   `feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
-   --tool parity` when 3+ pending fixtures accumulate."
+   why the gap is acceptable. If any interpreter classification is wrong
+   and affected a decision, run `/create-feedback-fixture --tool <name>
+   --file <path> --expected <correct-kind> --actual <wrong-kind>`. See
+   the skill's pre-conditions before creating a fixture.
 
 5. Run ONLY the new spec -- never the full suite:
    `bash scripts/run-integration.sh spec integration/tests/<new-file>.spec.ts`

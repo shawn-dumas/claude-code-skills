@@ -226,22 +226,17 @@ skill as a sub-agent before proceeding.
 
 ---
 
-## Feedback on misclassifications
+## Interpreter Calibration Gate
 
-If the `ast-interpret-plan-audit` verdict or any specific assessment is
-wrong (you investigated and confirmed the tool is incorrect), create a
-feedback fixture following the plan-audit template in
-`scripts/AST/docs/ast-feedback-loop.md`:
+If the verdict or any assessment is wrong and the misclassification
+affected a decision (e.g., you would have certified a plan the tool
+blocked, or vice versa):
 
-1. Create `scripts/AST/ground-truth/fixtures/feedback-<YYYY-MM-DD>-<description>/`
-2. Add `plan.md`, prompt files, and `manifest.json` with `"status": "pending"`
-3. Set `expectedVerdict`, `expectedScoreRange`, and
-   `expectedClassifications` to the CORRECT values (what the tool should
-   have produced)
+1. Confirm you investigated and the tool is genuinely wrong.
+2. Run `/create-feedback-fixture --tool plan-audit --file <plan-file> --expected <correct-kind> --actual <wrong-kind>`.
+3. Note the fixture in the summary output.
 
-Do NOT create a fixture if you are unsure whether the tool is wrong.
-Only create one when the misclassification affected a decision (e.g.,
-you would have certified a plan the tool blocked, or vice versa).
+Do NOT create a fixture if you are unsure.
 
 ---
 

@@ -258,19 +258,17 @@ Check the output:
    the pass/fail result with counts (not "not run"), and intention
    matcher results (matched/unmatched/novel counts).
 
-## Step 6: Parity feedback loop
+## Interpreter Calibration Gate
 
-If the parity tool (`ast-interpret-pw-test-parity`) was run in Step 0 and it
-misclassifies a test (e.g., reports REDUCED when the port is actually PARITY
-because POM delegation inflated target weight, or reports NOT_PORTED when the
-test was restructured with a different mechanism), create a calibration fixture:
+If any interpreter classification is wrong and the misclassification
+affected a decision in this skill's workflow:
 
-   Create a calibration fixture following the **parity** template in
-   `scripts/AST/docs/ast-feedback-loop.md`.
+1. Confirm you investigated and the interpreter is genuinely wrong.
+2. Run `/create-feedback-fixture --tool <name> --file <path> --expected <correct-kind> --actual <wrong-kind>`.
+3. Note the fixture in the summary output.
 
-   Note the fixture in the summary output: "Created calibration fixture:
-   `feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
-   --tool parity` when 3+ pending fixtures accumulate."
+Do NOT create a fixture if you are unsure or the error did not affect
+a decision.
 
 ## What NOT to do
 

@@ -674,13 +674,14 @@ violations remain.
    expect(screen.getByText('System Name')).toBeInTheDocument();
    ```
 
-## Interpreter Calibration Feedback
+## Interpreter Calibration Gate
 
-If `ast-interpret-ownership` misclassifies during this skill's Step 0b
-(e.g., classifies a container as DDAU_COMPONENT, causing the wrong test
-strategy to be selected), create a calibration fixture following the
-**ownership** template in `scripts/AST/docs/ast-feedback-loop.md`.
+If any interpreter classification is wrong and the misclassification
+affected a decision in this skill's workflow:
 
-Note the fixture in the summary: "Created calibration fixture:
-`feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
---tool ownership` when 3+ pending fixtures accumulate."
+1. Confirm you investigated and the interpreter is genuinely wrong.
+2. Run `/create-feedback-fixture --tool <name> --file <path> --expected <correct-kind> --actual <wrong-kind>`.
+3. Note the fixture in the summary output.
+
+Do NOT create a fixture if you are unsure or the error did not affect
+a decision.

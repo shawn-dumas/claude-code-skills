@@ -5,7 +5,12 @@ and disagrees with a classification, it creates a **feedback fixture** --
 a ground-truth entry that the calibration skill uses to improve the
 interpreter. This guide is the single source of truth for that procedure.
 
-Skills reference this doc instead of duplicating instructions inline.
+The `/create-feedback-fixture` skill automates this procedure. Consuming
+skills point to it via their "Interpreter Calibration Gate" sections.
+Use the skill for standard cases (one misclassified assessment). For
+edge cases the skill does not handle (negative fixtures, complex
+multi-file setups), follow the manual procedure below.
+
 The accuracy spec (`interpreter-accuracy.spec.ts`) enforces completeness
 for feedback fixtures in CI -- see [Coverage enforcement](#coverage-enforcement).
 

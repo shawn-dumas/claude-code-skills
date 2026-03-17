@@ -313,13 +313,8 @@ as INTENTIONALLY_REMOVED rather than ACCIDENTALLY_DROPPED.
    - **Exit 2** (score < 70): stop and investigate. Something went wrong.
 
 5. If a signal is flagged `ACCIDENTALLY_DROPPED` but investigation
-   confirms it was intentional, create a calibration fixture. Follow
-   the **intent** template in `scripts/AST/docs/ast-feedback-loop.md`.
-   Use `refactorType: "service-hook"`.
-
-   Note the fixture in the summary output: "Created calibration fixture:
-   `feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
-   --tool intent` when 3+ pending fixtures accumulate."
+   confirms it was intentional, run
+   `/create-feedback-fixture --tool intent --file <before-file> --files <after-files> --expected INTENTIONALLY_REMOVED --actual ACCIDENTALLY_DROPPED`.
 
 ## Step 6: Summary
 

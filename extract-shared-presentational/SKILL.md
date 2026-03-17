@@ -161,15 +161,10 @@ Check the output:
   extraction introduced new behavior.
 
 If the intention matcher flags a signal as ACCIDENTALLY_DROPPED and
-investigation confirms it was actually intentional, create a calibration
-fixture:
-
-   Create a calibration fixture following the **intent** template in
-   `scripts/AST/docs/ast-feedback-loop.md`. Use `refactorType: "component"`.
-
-   Note the fixture in the summary output: "Created calibration fixture:
-   `feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
-   --tool intent` when 3+ pending fixtures accumulate."
+investigation confirms it was actually intentional, run
+`/create-feedback-fixture --tool <name> --file <path>
+--expected <correct-kind> --actual <wrong-kind>` and note the fixture
+in the summary output.
 
 Output a summary:
 

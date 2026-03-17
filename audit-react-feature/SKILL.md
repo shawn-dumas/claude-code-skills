@@ -657,71 +657,15 @@ For each item, if the target file is UNTESTED, prepend: **[UNTESTED -- write tes
 - Production files with no test coverage: <N>
 ```
 
-## Interpreter Calibration Feedback
+## Interpreter Calibration Gate
 
-If any interpreter misclassifies during this audit, create a calibration
-fixture to improve future accuracy. Follow the per-tool templates in
-`scripts/AST/docs/ast-feedback-loop.md` -- each fixture must classify
-ALL signals, not just the misclassified one.
+If any interpreter classification is wrong and the misclassification
+affected a decision in this audit:
 
-### Effects interpreter feedback
+1. Confirm you investigated and the interpreter is genuinely wrong
+   (not just an ambiguous case).
+2. Run `/create-feedback-fixture --tool <name> --file <path> --expected <correct-kind> --actual <wrong-kind>`.
+3. Note the fixture in the summary output.
 
-If `ast-interpret-effects` misclassifies (e.g., classifies a legitimate
-external subscription as DERIVED_STATE), create a calibration fixture:
-
-create a calibration fixture following the **effects** template in
-`scripts/AST/docs/ast-feedback-loop.md`.
-
-Note the fixture in the summary: "Created calibration fixture:
-`feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
---tool effects` when 3+ pending fixtures accumulate."
-
-### Hooks interpreter feedback
-
-If `ast-interpret-hooks` misclassifies (e.g., classifies a service hook
-as UNKNOWN_HOOK), create a calibration fixture:
-
-create a calibration fixture following the **hooks** template in
-`scripts/AST/docs/ast-feedback-loop.md`.
-
-Note the fixture in the summary: "Created calibration fixture:
-`feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
---tool hooks` when 3+ pending fixtures accumulate."
-
-### Ownership interpreter feedback
-
-If `ast-interpret-ownership` misclassifies (e.g., classifies a container
-as DDAU_COMPONENT), create a calibration fixture:
-
-create a calibration fixture following the **ownership** template in
-`scripts/AST/docs/ast-feedback-loop.md`.
-
-Note the fixture in the summary: "Created calibration fixture:
-`feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
---tool ownership` when 3+ pending fixtures accumulate."
-
-### Template interpreter feedback
-
-If `ast-interpret-template` misclassifies (e.g., emits
-EXTRACTION_CANDIDATE for a clean return, or misses a complexity hotspot),
-create a calibration fixture:
-
-create a calibration fixture following the **template** template in
-`scripts/AST/docs/ast-feedback-loop.md`.
-
-Note the fixture in the summary: "Created calibration fixture:
-`feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
---tool template` when 3+ pending fixtures accumulate."
-
-### Dead code interpreter feedback
-
-If `ast-interpret-dead-code` misclassifies (e.g., classifies a live
-export as DEAD_EXPORT, or misses a dead barrel re-export), create a
-calibration fixture:
-
-create a calibration fixture following the **dead-code** template in
-`scripts/AST/docs/ast-feedback-loop.md`.
-
-Note the fixture in the summary: "Created calibration fixture:
-`feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
---tool dead-code` when 3+ pending fixtures accumulate."
+Do NOT create a fixture if you are unsure or the error did not affect
+a decision. See the skill for the full pre-conditions.

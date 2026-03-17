@@ -253,15 +253,8 @@ investigated and resolved.
    - **Exit 2** (score < 70): stop and investigate. Something went wrong.
 
 5. If the intention matcher flags a signal as ACCIDENTALLY_DROPPED and
-   investigation confirms it was actually intentional (e.g., removing dead
-   code, cleaning up an unused side effect that the audit did not explicitly
-   flag), create a calibration fixture following the **intent** template
-   in `scripts/AST/docs/ast-feedback-loop.md` (use
-   `refactorType: "module"`).
-
-   Note the fixture in the summary: "Created calibration fixture:
-   `feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
-   --tool intent` when 3+ pending fixtures accumulate."
+   investigation confirms it was actually intentional, run
+   `/create-feedback-fixture --tool intent --file <before-file> --files <after-files> --expected INTENTIONALLY_REMOVED --actual ACCIDENTALLY_DROPPED`.
 
 ## Step 6: Summary
 

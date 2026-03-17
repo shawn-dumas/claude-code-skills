@@ -405,15 +405,8 @@ Before defining any new type:
     - **Exit 2** (score < 70): stop and investigate. Something went wrong.
 
     e. If the intention matcher flags a signal as ACCIDENTALLY_DROPPED and
-    investigation confirms it was actually intentional (e.g., removing dead
-    code, cleaning up an unused side effect that the audit did not explicitly
-    flag), create a calibration fixture following the **intent** template
-    in `scripts/AST/docs/ast-feedback-loop.md` (use
-    `refactorType: "api-handler"`).
-
-    Note the fixture in the summary: "Created calibration fixture:
-    `feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
-    --tool intent` when 3+ pending fixtures accumulate."
+    investigation confirms it was actually intentional, run
+    `/create-feedback-fixture --tool intent --file <before-file> --files <after-files> --expected INTENTIONALLY_REMOVED --actual ACCIDENTALLY_DROPPED`.
 
 3.  **Complexity (mandatory before/after):** Run `npx tsx scripts/AST/ast-complexity.ts <all-changed-files> --pretty`.
     Every function must have CC <= 10. Compare against the baseline recorded in Step 0.
