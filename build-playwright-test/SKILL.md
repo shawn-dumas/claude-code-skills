@@ -392,40 +392,12 @@ history of every command run in every session.
    why the gap is acceptable. If the parity tool misclassifies a test,
    create a calibration fixture:
 
-   a. Create a directory:
-      `scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+   Create a calibration fixture following the **parity** template in
+   `scripts/AST/docs/ast-feedback-loop.md`.
 
-   b. Copy the source e2e spec with a "source-" prefix. Copy the new
-      integration spec with a "target-" prefix. If the target uses POM
-      helpers, copy those with a "target-helper-" prefix.
-
-   c. Write a `manifest.json`:
-
-      ```json
-      {
-        "tool": "parity",
-        "created": "<ISO date>",
-        "source": "feedback",
-        "sourceFiles": ["source-<filename>.spec.ts"],
-        "targetFiles": ["target-<filename>.spec.ts"],
-        "helperFiles": ["target-helper-<filename>.ts"],
-        "expectedClassifications": [
-          {
-            "testName": "<test name that was misclassified>",
-            "expectedStatus": "PARITY",
-            "actualStatus": "REDUCED",
-            "notes": "<why the tool was wrong>"
-          }
-        ],
-        "status": "pending"
-      }
-      ```
-
-      Classify ALL tests in the fixture pair, not just the misclassified one.
-
-   d. Note in the summary: "Created calibration fixture:
-      feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
-       parity when 3+ pending fixtures accumulate. See scripts/AST/docs/ast-calibration.md for current accuracy baselines."
+   Note the fixture in the summary output: "Created calibration fixture:
+   `feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
+   --tool parity` when 3+ pending fixtures accumulate."
 
 5. Run ONLY the new spec -- never the full suite:
    `bash scripts/run-integration.sh spec integration/tests/<new-file>.spec.ts`

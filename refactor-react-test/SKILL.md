@@ -240,44 +240,12 @@ investigation confirms it was actually intentional (e.g., removing a
 redundant assertion, cleaning up a stale mock), create a calibration
 fixture:
 
-a. Create a directory:
-`scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+   Create a calibration fixture following the **intent** template in
+   `scripts/AST/docs/ast-feedback-loop.md`. Use `refactorType: "test"`.
 
-b. Copy the before-file(s) into the directory with a "before-" prefix.
-Copy the after-file(s) with an "after-" prefix. These are snapshots
-of the actual code at this moment -- not references to live files.
-
-c. Write a `manifest.json`:
-
-```json
-{
-  "tool": "intent",
-  "created": "<ISO date>",
-  "source": "feedback",
-  "refactorType": "test",
-  "beforeFiles": ["before-<filename>"],
-  "afterFiles": ["after-<filename>"],
-  "expectedClassifications": [
-    {
-      "kind": "<observation kind that was misclassified>",
-      "functionContext": "<containing function name>",
-      "expectedClassification": "INTENTIONALLY_REMOVED",
-      "actualClassification": "ACCIDENTALLY_DROPPED",
-      "notes": "<why this was actually intentional>"
-    }
-  ],
-  "status": "pending"
-}
-```
-
-Classify ALL signals in the fixture, not just the misclassified one.
-The calibration skill needs the full picture to tune weights without
-regressing other classifications.
-
-d. Note in the summary output: "Created calibration fixture:
-feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
-intent when 3+ pending fixtures accumulate. See
-scripts/AST/docs/ast-calibration.md for current accuracy baselines."
+   Note the fixture in the summary output: "Created calibration fixture:
+   `feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
+   --tool intent` when 3+ pending fixtures accumulate."
 
 ### Step 6c: Vitest parity check (MANDATORY for spec file refactors)
 
@@ -307,36 +275,12 @@ If the parity tool misclassifies a test (e.g., reports REDUCED for a
 test where assertions were intentionally consolidated), create a
 calibration fixture:
 
-a. Create a directory:
-`scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+   Create a calibration fixture following the **vitest-parity** template
+   in `scripts/AST/docs/ast-feedback-loop.md`.
 
-b. Copy the before spec as `source-<filename>` and the after spec as
-`target-<filename>`.
-
-c. Write a `manifest.json`:
-
-```json
-{
-  "tool": "vitest-parity",
-  "created": "<ISO date>",
-  "source": "feedback",
-  "sourceFiles": ["source-<filename>"],
-  "targetFiles": ["target-<filename>"],
-  "expectedClassifications": [
-    {
-      "testName": "<test that was misclassified>",
-      "expectedStatus": "PARITY",
-      "targetTestName": "<matched target test>",
-      "notes": "<why the tool's classification was wrong>"
-    }
-  ],
-  "status": "pending"
-}
-```
-
-d. Note in the summary: "Created calibration fixture:
-feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
-vitest-parity when 3+ pending fixtures accumulate."
+   Note the fixture in the summary output: "Created calibration fixture:
+   `feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
+   --tool vitest-parity` when 3+ pending fixtures accumulate."
 
 Report: original score, new score, changes made, tests passing, intention
 matcher results (matched/unmatched/novel counts), parity results

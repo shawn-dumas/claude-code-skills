@@ -312,53 +312,14 @@ as INTENTIONALLY_REMOVED rather than ACCIDENTALLY_DROPPED.
      If any are genuine drops, fix them before proceeding.
    - **Exit 2** (score < 70): stop and investigate. Something went wrong.
 
-5. If the intention matcher flags a signal as ACCIDENTALLY_DROPPED and
-   investigation confirms it was actually intentional (e.g., removing dead
-   code, cleaning up an unused side effect that the audit did not explicitly
-   flag), create a calibration fixture:
+5. If a signal is flagged `ACCIDENTALLY_DROPPED` but investigation
+   confirms it was intentional, create a calibration fixture. Follow
+   the **intent** template in `scripts/AST/docs/ast-feedback-loop.md`.
+   Use `refactorType: "service-hook"`.
 
-   a. Create a directory:
-   `scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
-
-   b. Copy the before-file(s) into the directory with a "before-" prefix.
-   Copy the after-file(s) with an "after-" prefix. These are snapshots
-   of the actual code at this moment -- not references to live files.
-
-   c. Write a `manifest.json`:
-
-   ```json
-   {
-     "tool": "intent",
-     "created": "<ISO date>",
-     "source": "feedback",
-     "refactorType": "service-hook",
-     "beforeFiles": ["before-<filename>"],
-     "afterFiles": ["after-<filename>"],
-     "expectedClassifications": [
-       {
-         "kind": "<observation kind that was misclassified>",
-         "functionContext": "<containing function name>",
-         "expectedClassification": "INTENTIONALLY_REMOVED",
-         "actualClassification": "ACCIDENTALLY_DROPPED",
-         "notes": "<why this was actually intentional>"
-       }
-     ],
-     "status": "pending"
-   }
-   ```
-
-   Classify ALL signals in the fixture, not just the misclassified one.
-   The calibration skill needs the full picture to tune weights without
-   regressing other classifications.
-
-   The calibration skill follows a diagnostic-first approach: it checks
-   for algorithmic defects before tuning weights. See
-   `scripts/AST/docs/ast-calibration.md`.
-
-   d. Note in the summary output: "Created calibration fixture:
-   feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
-   intent when 3+ pending fixtures accumulate. See
-   scripts/AST/docs/ast-calibration.md for current accuracy baselines."
+   Note the fixture in the summary output: "Created calibration fixture:
+   `feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
+   --tool intent` when 3+ pending fixtures accumulate."
 
 ## Step 6: Summary
 

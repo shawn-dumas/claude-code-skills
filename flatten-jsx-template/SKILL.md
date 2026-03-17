@@ -262,40 +262,12 @@ If the intention matcher flags a signal as ACCIDENTALLY_DROPPED and
 investigation confirms it was actually intentional, create a calibration
 fixture:
 
-a. Create a directory:
-`scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
+   Create a calibration fixture following the **intent** template in
+   `scripts/AST/docs/ast-feedback-loop.md`. Use `refactorType: "component"`.
 
-b. Copy the before-file(s) into the directory with a "before-" prefix.
-Copy the after-file(s) with an "after-" prefix.
-
-c. Write a `manifest.json`:
-
-```json
-{
-  "tool": "intent",
-  "created": "<ISO date>",
-  "source": "feedback",
-  "refactorType": "component",
-  "beforeFiles": ["before-<filename>"],
-  "afterFiles": ["after-<filename>"],
-  "expectedClassifications": [
-    {
-      "kind": "<observation kind that was misclassified>",
-      "functionContext": "<containing function name>",
-      "expectedClassification": "INTENTIONALLY_REMOVED",
-      "actualClassification": "ACCIDENTALLY_DROPPED",
-      "notes": "<why this was actually intentional>"
-    }
-  ],
-  "status": "pending"
-}
-```
-
-Classify ALL signals in the fixture, not just the misclassified one.
-
-d. Note in the summary: "Created calibration fixture:
-feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
-intent when 3+ pending fixtures accumulate."
+   Note the fixture in the summary output: "Created calibration fixture:
+   `feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
+   --tool intent` when 3+ pending fixtures accumulate."
 
 Output a summary: violations found, what was extracted, lines before/after in the
 return statement, type-checking results, test results, and intention matcher results

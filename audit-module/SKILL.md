@@ -419,42 +419,9 @@ Refactor risk: HIGH/MEDIUM/LOW (based on coverage level + complexity)
 
 If `ast-interpret-dead-code` misclassifies during this audit (e.g.,
 classifies a live export as DEAD_EXPORT, or misses a dead barrel
-re-export), create a calibration fixture.
+re-export), create a calibration fixture following the **dead-code**
+template in `scripts/AST/docs/ast-feedback-loop.md`.
 
-**Important:** Classify ALL dead exports and circular dependencies in the
-fixture, not just the misclassified one. The calibration skill needs the
-full picture to tune weights without regressing other classifications.
-
-a. Create a directory:
-`scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
-
-b. Copy the misclassified source files into the directory. Dead code needs
-an import graph -- include barrel files, consumer files, and any other
-files needed to reproduce the graph structure. The interpreter runs on the
-entire directory, not per-file.
-
-c. Write a `manifest.json` with expected classifications for ALL dead
-exports and circular dependencies in the fixture:
-
-```json
-{
-  "tool": "dead-code",
-  "created": "<ISO date>",
-  "source": "feedback",
-  "files": ["<filename1>", "<filename2>", "..."],
-  "expectedClassifications": [
-    {
-      "file": "<filename>",
-      "line": <line>,
-      "symbol": "<exportName>",
-      "expectedKind": "<correct-kind>",
-      "notes": "<why the tool was wrong>"
-    }
-  ],
-  "status": "pending"
-}
-```
-
-d. Note in the summary: "Created calibration fixture:
-feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
-dead-code when 3+ pending fixtures accumulate."
+Note the fixture in the summary: "Created calibration fixture:
+`feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
+--tool dead-code` when 3+ pending fixtures accumulate."

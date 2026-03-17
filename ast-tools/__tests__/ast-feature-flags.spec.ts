@@ -60,10 +60,10 @@ describe('ast-feature-flags', () => {
     it('detects flag reads in separate containers', () => {
       const result = analyzeFixture('feature-flag-samples.tsx');
       const flagReads = usagesOfType(result, 'FLAG_READ');
-      const analyzerRead = flagReads.find(u => u.flagName === 'analyzer_insights_enabled');
+      const systemsRead = flagReads.find(u => u.flagName === 'systems_insights_enabled');
 
-      expect(analyzerRead).toBeDefined();
-      expect(analyzerRead!.containingFunction).toBe('SettingsContainer');
+      expect(systemsRead).toBeDefined();
+      expect(systemsRead!.containingFunction).toBe('SettingsContainer');
     });
   });
 
@@ -136,7 +136,6 @@ describe('ast-feature-flags', () => {
       const result = analyzeFixture('feature-flag-samples.tsx');
       expect(result.flagsReferenced).toEqual(
         expect.arrayContaining([
-          'analyzer_insights_enabled',
           'enable_details',
           'enable_realtime_insights',
           'insights_chat_enabled',

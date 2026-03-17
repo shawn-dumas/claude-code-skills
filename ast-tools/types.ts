@@ -1030,6 +1030,48 @@ export interface PlanAuditResult {
   observations: PlanAuditObservation[];
 }
 
+// --- Plan audit assessments (ast-interpret-plan-audit) ---
+
+export type PlanAuditAssessmentKind =
+  // Structural - positive
+  | 'HEADER_COMPLETE'
+  | 'VERIFICATION_PRESENT'
+  | 'CLEANUP_REFERENCED'
+  | 'STANDING_ELEMENTS_COMPLETE'
+  | 'CERTIFIED'
+  // Structural - negative
+  | 'HEADER_DEFICIENCY'
+  | 'VERIFICATION_ABSENT'
+  | 'CLEANUP_UNREFERENCED'
+  | 'STANDING_ELEMENTS_INCOMPLETE'
+  | 'CERTIFICATION_MISSING'
+  // Prompt - positive
+  | 'PROMPT_WELL_FORMED'
+  // Prompt - negative
+  | 'PROMPT_DEFICIENCY'
+  | 'DEPENDENCY_CYCLE_DETECTED'
+  | 'PROMPT_FILE_UNRESOLVED'
+  // Risk signals
+  | 'AGGREGATION_RISK'
+  | 'DEFERRED_CLEANUP_NOTED'
+  // Informational
+  | 'CONVENTION_REFERENCE';
+
+export type PlanAuditAssessment = Assessment<PlanAuditAssessmentKind>;
+
+export type PlanAuditVerdict = 'CERTIFIED' | 'CONDITIONAL' | 'BLOCKED';
+
+export interface PlanAuditVerdictReport {
+  readonly verdict: PlanAuditVerdict;
+  readonly score: number;
+  readonly blockerCount: number;
+  readonly warningCount: number;
+  readonly infoCount: number;
+  readonly assessments: readonly PlanAuditAssessment[];
+  readonly planFile: string;
+  readonly promptFiles: readonly string[];
+}
+
 // ============================================================
 // Unified observation types
 // ============================================================

@@ -486,43 +486,9 @@ Score = number of principles with zero violations (0-10, higher is better).
 If `ast-interpret-test-quality` misclassifies during this audit (e.g.,
 classifies a boundary-compliant mock as MOCK_INTERNAL_VIOLATION, or
 classifies a user-visible assertion as ASSERTION_IMPLEMENTATION), create
-a calibration fixture.
+a calibration fixture following the **test-quality** template in
+`scripts/AST/docs/ast-feedback-loop.md`.
 
-**Important:** Classify ALL observations in the fixture, not just the
-misclassified one. The calibration skill needs the full picture to tune
-weights without regressing other classifications.
-
-a. Create a directory:
-`scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
-
-b. Copy the misclassified test file and its companion subject file (if
-needed for ORPHANED_TEST or MOCK_DOMAIN_BOUNDARY classification) into
-the directory. Use subdirectories if domain boundary testing is needed
-(e.g., `domain-a/`, `domain-b/`).
-
-c. Write a `manifest.json` with expected classifications for ALL
-assessable observations in the file (all mocks, all assertions, strategy,
-cleanup, data sourcing):
-
-```json
-{
-  "tool": "test-quality",
-  "created": "<ISO date>",
-  "source": "feedback",
-  "files": ["<spec-filename>", "<companion-subject-if-needed>"],
-  "expectedClassifications": [
-    {
-      "file": "<spec-filename>",
-      "line": <line>,
-      "symbol": "<symbol>",
-      "expectedKind": "<correct-kind>",
-      "notes": "<why the tool was wrong>"
-    }
-  ],
-  "status": "pending"
-}
-```
-
-d. Note in the summary: "Created calibration fixture:
-feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
-test-quality when 3+ pending fixtures accumulate."
+Note the fixture in the summary: "Created calibration fixture:
+`feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
+--tool test-quality` when 3+ pending fixtures accumulate."

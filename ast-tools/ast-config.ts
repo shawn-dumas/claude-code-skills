@@ -200,6 +200,51 @@ interface AstConfig {
     readonly excludeTypeNamePatterns: readonly string[];
   };
 
+  readonly planAudit: {
+    // --- Observation layer ---
+    /** Header fields that must appear in the plan blockquote header. */
+    readonly requiredHeaderFields: readonly string[];
+    /** Regex patterns (as strings) for specific header field formats. Keyed by field name. */
+    readonly headerFormats: Readonly<Record<string, string>>;
+    /** Heading text patterns that identify a verification section. */
+    readonly verificationHeadingPatterns: readonly string[];
+    /** Maximum heading depth (h1=1, h2=2, ...) to search for verification headings. */
+    readonly verificationMaxDepth: number;
+    /** Patterns that identify a cleanup file reference in plan text. */
+    readonly cleanupPatterns: readonly string[];
+    /** Patterns that count as a filled standing element value (yes, no, n/a, etc.). */
+    readonly standingElementAnswerPatterns: readonly string[];
+    /** Strings that count as a valid prompt mode value. */
+    readonly validPromptModes: readonly string[];
+    /** Regex patterns for naming convention references. */
+    readonly namingConventionPatterns: readonly string[];
+    /** Regex patterns for client-side aggregation signals. */
+    readonly aggregationPatterns: readonly string[];
+    /** Regex patterns for deferred-to-cleanup references. */
+    readonly deferredCleanupPatterns: readonly string[];
+    /** Regex pattern for file path references in plan text. */
+    readonly filePathPattern: string;
+    /** Regex pattern for skill references in plan text. */
+    readonly skillReferencePattern: string;
+    // --- Interpreter ---
+    /**
+     * Severity assigned to each observation kind.
+     * 'blocker' forces BLOCKED regardless of score.
+     * 'warning' subtracts from score.
+     * 'info' is noted but does not affect verdict.
+     */
+    readonly severityMap: Readonly<Record<string, 'blocker' | 'warning' | 'info'>>;
+    /** Points subtracted per observation kind. Only applied for blocker/warning severity. */
+    readonly checkWeights: Readonly<Record<string, number>>;
+    /** Score thresholds for the rollup verdict. Score starts at 100. */
+    readonly verdictThresholds: Readonly<{
+      /** Score >= this -> CERTIFIED */
+      certified: number;
+      /** Score >= this -> CONDITIONAL; below -> BLOCKED */
+      conditional: number;
+    }>;
+  };
+
   readonly bffGaps: {
     /** Text patterns that identify a BFF stub (searched in file content) */
     readonly stubPatterns: readonly string[];
@@ -631,7 +676,6 @@ export const astConfig: AstConfig = Object.freeze({
       'mockDataRealTime.spec.ts': 'realtime.spec.ts',
       'mockDataRelays.spec.ts': 'relays.spec.ts',
       'mockDataSystems.spec.ts': 'systems.spec.ts',
-      'mockDataSystemLatency.spec.ts': 'system-latency.spec.ts',
       'mockDataTeamProductivity.spec.ts': 'team-productivity.spec.ts',
       'mockDataUserProductivity.spec.ts': 'user-productivity.spec.ts',
       'mockDataWorkstreams.spec.ts': 'analyzer.spec.ts',
@@ -747,6 +791,114 @@ export const astConfig: AstConfig = Object.freeze({
       'DTO',
       'Payload',
     ] as const,
+  }),
+
+  planAudit: Object.freeze({
+    // --- Observation layer ---
+    requiredHeaderFields: ['Complexity', 'Duration', 'Nearest', 'Branch', 'Created'] as const,
+
+    headerFormats: Object.freeze({
+      Complexity: String.raw`^D\d+\s+S\d+\s+Z\d+\s*=\s*\d+(\.\d+)?$`,
+      Duration: String.raw`^F\d+\s+C\d+\s*=\s*\d+(\.\d+)?h\s*\(\d+(\.\d+)?-\d+(\.\d+)?h\)$`,
+    } as Record<string, string>),
+
+    verificationHeadingPatterns: ['verification checklist', 'pre-execution verification', 'verification'] as const,
+
+    verificationMaxDepth: 2,
+
+    cleanupPatterns: [String.raw`-cleanup\.md\b`, String.raw`\bcleanup\s+file\b`] as const,
+
+    standingElementAnswerPatterns: [String.raw`\b(yes|no|n\/a|not needed|not applicable)\b`] as const,
+
+    validPromptModes: ['auto', 'manual'] as const,
+
+    namingConventionPatterns: [
+      String.raw`\bcamelCase\b`,
+      String.raw`\bsnake_case\b`,
+      String.raw`\bPascalCase\b`,
+      String.raw`\bkebab-case\b`,
+    ] as const,
+
+    aggregationPatterns: [
+      String.raw`\bmerge\s+(data|results|responses)\b`,
+      String.raw`\bcombine\s+(data|results|responses|queries)\b`,
+      String.raw`\bparallel\s+fetch`,
+      String.raw`\bdual\s+path`,
+      String.raw`\bfan[- ]?out\b`,
+      String.raw`\bclient[- ]?side\s+(aggregat|merg|combin)`,
+    ] as const,
+
+    deferredCleanupPatterns: [
+      String.raw`\bdefer(?:red)?\s+to\s+cleanup\b`,
+      String.raw`\bhandle\s+in\s+cleanup\b`,
+      String.raw`\bcleanup\s+prompt\s+will\b`,
+    ] as const,
+
+    filePathPattern:
+      String.raw`(?:` +
+      '`' +
+      String.raw`([^` +
+      '`' +
+      String.raw`]*(?:src\/|\.\/|~\/|\.\.\/)[^` +
+      '`' +
+      String.raw`]*)` +
+      '`' +
+      String.raw`|(?:^|\s)((?:src\/|\.\/|~\/|\.\.\/)[a-zA-Z0-9_\-.\/]+))`,
+
+    skillReferencePattern: String.raw`\/(?:build|refactor|audit|orchestrate|extract|flatten|migrate|replace|spawn|iterate|generate|sync|calibrate|visual|document)-[a-z]+(?:-[a-z]+)*`,
+
+    // --- Interpreter ---
+    severityMap: Object.freeze({
+      // Hard blockers
+      PROMPT_DEPENDENCY_CYCLE: 'blocker',
+      PROMPT_FILE_MISSING: 'blocker',
+      VERIFICATION_BLOCK_MISSING: 'blocker',
+      // Warnings (subtract from score)
+      PLAN_HEADER_MISSING: 'warning',
+      PLAN_HEADER_INVALID: 'warning',
+      PRE_FLIGHT_MARK_MISSING: 'warning',
+      CLEANUP_FILE_MISSING: 'warning',
+      PROMPT_VERIFICATION_MISSING: 'warning',
+      RECONCILIATION_TEMPLATE_MISSING: 'warning',
+      PROMPT_MODE_UNSET: 'warning',
+      STANDING_ELEMENT_MISSING: 'warning',
+      CLIENT_SIDE_AGGREGATION: 'warning',
+      // Informational
+      PRE_FLIGHT_CERTIFIED: 'info',
+      NAMING_CONVENTION_INSTRUCTION: 'info',
+      DEFERRED_CLEANUP_REFERENCE: 'info',
+      FILE_PATH_REFERENCE: 'info',
+      SKILL_REFERENCE: 'info',
+    } as Record<string, 'blocker' | 'warning' | 'info'>),
+
+    checkWeights: Object.freeze({
+      // Blockers still carry weight for the score (a blocked plan at 20 is worse than at 60)
+      PROMPT_DEPENDENCY_CYCLE: 30,
+      PROMPT_FILE_MISSING: 20,
+      VERIFICATION_BLOCK_MISSING: 20,
+      // Warning weights
+      PLAN_HEADER_MISSING: 5,
+      PLAN_HEADER_INVALID: 5,
+      PRE_FLIGHT_MARK_MISSING: 10,
+      CLEANUP_FILE_MISSING: 10,
+      PROMPT_VERIFICATION_MISSING: 10,
+      RECONCILIATION_TEMPLATE_MISSING: 5,
+      PROMPT_MODE_UNSET: 5,
+      STANDING_ELEMENT_MISSING: 3,
+      CLIENT_SIDE_AGGREGATION: 5,
+      // Info kinds have 0 weight
+      PRE_FLIGHT_CERTIFIED: 0,
+      NAMING_CONVENTION_INSTRUCTION: 0,
+      DEFERRED_CLEANUP_REFERENCE: 0,
+      FILE_PATH_REFERENCE: 0,
+      SKILL_REFERENCE: 0,
+      _default: 5,
+    } as Record<string, number>),
+
+    verdictThresholds: Object.freeze({
+      certified: 90,
+      conditional: 60,
+    }),
   }),
 
   bffGaps: Object.freeze({

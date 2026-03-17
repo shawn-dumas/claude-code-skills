@@ -407,50 +407,13 @@ Before defining any new type:
     e. If the intention matcher flags a signal as ACCIDENTALLY_DROPPED and
     investigation confirms it was actually intentional (e.g., removing dead
     code, cleaning up an unused side effect that the audit did not explicitly
-    flag), create a calibration fixture:
+    flag), create a calibration fixture following the **intent** template
+    in `scripts/AST/docs/ast-feedback-loop.md` (use
+    `refactorType: "api-handler"`).
 
-    i. Create a directory:
-    `scripts/AST/ground-truth/fixtures/feedback-<date>-<brief-description>/`
-
-    ii. Copy the before-file(s) with a "before-" prefix. Copy the
-    after-file(s) with an "after-" prefix. These are snapshots of the
-    actual code at this moment -- not references to live files.
-
-    iii. Write a `manifest.json`:
-
-            ```json
-            {
-              "tool": "intent",
-              "created": "<ISO date>",
-              "source": "feedback",
-              "refactorType": "api-handler",
-              "beforeFiles": ["before-<filename>"],
-              "afterFiles": ["after-<filename>"],
-              "expectedClassifications": [
-                {
-                  "kind": "<observation kind that was misclassified>",
-                  "functionContext": "<containing function name>",
-                  "expectedClassification": "INTENTIONALLY_REMOVED",
-                  "actualClassification": "ACCIDENTALLY_DROPPED",
-                  "notes": "<why this was actually intentional>"
-                }
-              ],
-              "status": "pending"
-            }
-            ```
-
-             Classify ALL signals in the fixture, not just the misclassified one.
-             The calibration skill needs the full picture to tune weights without
-             regressing other classifications.
-
-             The calibration skill follows a diagnostic-first approach: it checks
-             for algorithmic defects before tuning weights. See
-             `scripts/AST/docs/ast-calibration.md`.
-
-    iv. Note in the summary output: "Created calibration fixture:
-    feedback-<date>-<description>. Run /calibrate-ast-interpreter --tool
-    intent when 3+ pending fixtures accumulate. See
-    scripts/AST/docs/ast-calibration.md for current accuracy baselines."
+    Note the fixture in the summary: "Created calibration fixture:
+    `feedback-<date>-<description>`. Run `/calibrate-ast-interpreter
+    --tool intent` when 3+ pending fixtures accumulate."
 
 3.  **Complexity (mandatory before/after):** Run `npx tsx scripts/AST/ast-complexity.ts <all-changed-files> --pretty`.
     Every function must have CC <= 10. Compare against the baseline recorded in Step 0.

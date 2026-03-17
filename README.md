@@ -832,15 +832,15 @@ The full Playwright suite (~178 tests) takes ~20 minutes without coverage
 (~25 minutes with V8 coverage). Never run the full suite as a verification
 step. Always run the minimum set of tests that covers the changed code:
 
-| What changed                                                                                                | What to run                                                             |
-| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| A single spec file                                                                                          | `bash scripts/run-integration.sh spec integration/tests/<file>.spec.ts` |
-| Tests matching a name                                                                                       | `bash scripts/run-integration.sh grep "<pattern>"`                      |
-| CRUD specs (users+teams, assignments+url-classification+bpo+projects)                                       | `bash scripts/run-integration.sh crud`                                  |
-| Insight specs in batch A (systems + microworkflows, then analyzer + user-productivity with server restart)  | `bash scripts/run-integration.sh insights-a`                            |
-| Insight specs in batch B (relays, favorites, navigation, usage)                                             | `bash scripts/run-integration.sh insights-b`                            |
-| Insight specs in batch C (realtime, auth, team-productivity, system-latency, components, operational-hours) | `bash scripts/run-integration.sh insights-c`                            |
-| Cross-cutting change (mock handler, fixture system, POM, config)                                            | `bash scripts/run-integration.sh` (full suite, only when necessary)     |
+| What changed                                                                                | What to run                                                             |
+| ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| A single spec file                                                                          | `bash scripts/run-integration.sh spec integration/tests/<file>.spec.ts` |
+| Tests matching a name                                                                       | `bash scripts/run-integration.sh grep "<pattern>"`                      |
+| CRUD specs (users+teams, assignments+url-classification+bpo+projects)                       | `bash scripts/run-integration.sh crud`                                  |
+| Insight specs in batch A (systems, microworkflows, user-productivity with server restarts)  | `bash scripts/run-integration.sh insights-a`                            |
+| Insight specs in batch B (relays, favorites, navigation, usage)                             | `bash scripts/run-integration.sh insights-b`                            |
+| Insight specs in batch C (realtime, auth, team-productivity, components, operational-hours) | `bash scripts/run-integration.sh insights-c`                            |
+| Cross-cutting change (mock handler, fixture system, POM, config)                            | `bash scripts/run-integration.sh` (full suite, only when necessary)     |
 
 The chunked runner (`scripts/run-integration.sh`) restarts the Next.js
 server between chunks to prevent server degradation. CRUD is split into

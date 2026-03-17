@@ -4,6 +4,8 @@
  * MDAST-based tool that parses orchestration plan and prompt markdown files
  * and emits structural and convention observations.
  *
+ * All patterns, field names, and regexes are sourced from astConfig.planAudit.
+ *
  * Usage:
  *   npx tsx scripts/AST/ast-plan-audit.ts <plan-file> [--prompts '<glob>'] [--pretty] [--kind <KIND>] [--count]
  */
@@ -14,6 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import fg from 'fast-glob';
 import { parseArgs, outputFiltered, fatal } from './cli';
+import { resolveConfig } from './ast-config';
 import type {
   PlanAuditObservation,
   PlanAuditObservationKind,
@@ -70,6 +73,11 @@ function emit(
   obs.push({ kind, file, line, evidence });
 }
 
+/** Compile a pattern string into a case-insensitive RegExp. */
+function toRegex(pattern: string, flags = 'i'): RegExp {
+  return new RegExp(pattern, flags);
+}
+
 // --- Header parsing (raw text, simpler than navigating MDAST blockquote nodes) ---
 
 interface HeaderField {
@@ -101,14 +109,9 @@ function parseBlockquoteHeader(content: string): HeaderField[] {
 
 // --- Table helpers ---
 
-/** Split a markdown table row on `|`, trimming each cell and dropping
- *  the leading/trailing empty segments from the outer pipes. Interior
- *  empty cells are preserved so column indices stay aligned. */
 function splitTableRow(line: string): string[] {
   const parts = line.split('|').map(c => c.trim());
-  // Drop leading empty string (before first |)
   if (parts.length > 0 && parts[0] === '') parts.shift();
-  // Drop trailing empty string (after last |)
   if (parts.length > 0 && parts[parts.length - 1] === '') parts.pop();
   return parts;
 }
@@ -133,9 +136,6 @@ function parsePromptTable(content: string): PromptTableRow[] | null {
       continue;
     }
 
-    // Potential table start -- split on | and drop the leading/trailing
-    // empty cells from the outer pipes, but preserve interior empty cells
-    // so column indices stay aligned.
     const headerCells = splitTableRow(lines[i]);
     const headerLower = headerCells.map(h => h.toLowerCase());
     const promptIdx = headerLower.findIndex(h => h === 'prompt');
@@ -151,7 +151,6 @@ function parsePromptTable(content: string): PromptTableRow[] | null {
     const depsIdx = headerLower.findIndex(h => h.includes('depends'));
 
     i++; // skip header
-    // skip separator row (|---|---|)
     if (i < lines.length && lines[i].includes('---')) i++;
 
     const rows: PromptTableRow[] = [];
@@ -175,18 +174,16 @@ function parsePromptTable(content: string): PromptTableRow[] | null {
     }
 
     if (rows.length > 0) return rows;
-    // else keep scanning
   }
   return null;
 }
 
-// --- Structural checks ---
-
-const REQUIRED_HEADER_FIELDS = ['Complexity', 'Duration', 'Nearest', 'Branch', 'Created'];
+// --- Structural checks (all patterns from config) ---
 
 function checkRequiredHeaders(headers: HeaderField[], file: string, obs: PlanAuditObservation[]): void {
+  const config = resolveConfig();
   const names = new Set(headers.map(h => h.name));
-  for (const field of REQUIRED_HEADER_FIELDS) {
+  for (const field of config.planAudit.requiredHeaderFields) {
     if (!names.has(field)) {
       emit(obs, 'PLAN_HEADER_MISSING', file, 1, { field });
     }
@@ -194,12 +191,11 @@ function checkRequiredHeaders(headers: HeaderField[], file: string, obs: PlanAud
 }
 
 function checkHeaderFormats(headers: HeaderField[], file: string, obs: PlanAuditObservation[]): void {
+  const config = resolveConfig();
   for (const h of headers) {
-    if (h.name === 'Complexity' && !/^D\d+\s+S\d+\s+Z\d+\s*=\s*\d+(\.\d+)?$/.test(h.value)) {
-      emit(obs, 'PLAN_HEADER_INVALID', file, h.line, { field: 'Complexity', value: h.value });
-    }
-    if (h.name === 'Duration' && !/^F\d+\s+C\d+\s*=\s*\d+(\.\d+)?h\s*\(\d+(\.\d+)?-\d+(\.\d+)?h\)$/.test(h.value)) {
-      emit(obs, 'PLAN_HEADER_INVALID', file, h.line, { field: 'Duration', value: h.value });
+    const pattern = config.planAudit.headerFormats[h.name];
+    if (pattern && !toRegex(pattern, '').test(h.value)) {
+      emit(obs, 'PLAN_HEADER_INVALID', file, h.line, { field: h.name, value: h.value });
     }
   }
 }
@@ -218,15 +214,15 @@ function checkPreFlightMark(headers: HeaderField[], file: string, obs: PlanAudit
 }
 
 function checkVerificationBlock(tree: MdNode, file: string, obs: PlanAuditObservation[]): void {
+  const config = resolveConfig();
+  const patterns = config.planAudit.verificationHeadingPatterns;
+  const maxDepth = config.planAudit.verificationMaxDepth;
+
   const headings = findAll(tree, 'heading');
   const has = headings.some(h => {
+    if (h.depth !== undefined && h.depth > maxDepth) return false;
     const t = nodeText(h).toLowerCase();
-    return (
-      t.includes('verification checklist') ||
-      t.includes('pre-execution verification') ||
-      t === 'verification' ||
-      t === 'verification checklist'
-    );
+    return patterns.some(p => t.includes(p) || t === p);
   });
   if (!has) {
     emit(obs, 'VERIFICATION_BLOCK_MISSING', file, 1, {});
@@ -234,15 +230,21 @@ function checkVerificationBlock(tree: MdNode, file: string, obs: PlanAuditObserv
 }
 
 function checkCleanupReference(content: string, file: string, obs: PlanAuditObservation[]): void {
-  if (!/-cleanup\.md\b/.test(content) && !/\bcleanup\s+file\b/i.test(content)) {
+  const config = resolveConfig();
+  const found = config.planAudit.cleanupPatterns.some(p => toRegex(p).test(content));
+  if (!found) {
     emit(obs, 'CLEANUP_FILE_MISSING', file, 1, {});
   }
 }
 
 function checkPromptModes(table: PromptTableRow[], file: string, obs: PlanAuditObservation[]): void {
+  const config = resolveConfig();
+  const validModes = config.planAudit.validPromptModes;
+
   for (const row of table) {
     const m = row.mode.toLowerCase();
-    if (!m.includes('auto') && !m.includes('manual')) {
+    const isValid = validModes.some(v => m.includes(v));
+    if (!isValid) {
       emit(obs, 'PROMPT_MODE_UNSET', file, row.line, { promptName: row.name || row.number });
     }
   }
@@ -291,6 +293,9 @@ function checkDependencyCycles(table: PromptTableRow[], file: string, obs: PlanA
 }
 
 function checkStandingElements(tree: MdNode, file: string, obs: PlanAuditObservation[]): void {
+  const config = resolveConfig();
+  const answerPatterns = config.planAudit.standingElementAnswerPatterns.map(p => toRegex(p));
+
   const children = tree.children ?? [];
   for (let i = 0; i < children.length; i++) {
     const child = children[i];
@@ -312,7 +317,8 @@ function checkStandingElements(tree: MdNode, file: string, obs: PlanAuditObserva
           if (m) {
             const name = m[1].trim();
             const val = m[2].trim();
-            if (!/\b(yes|no|n\/a|not needed|not applicable)\b/i.test(val)) {
+            const isFilled = answerPatterns.some(p => p.test(val));
+            if (!isFilled) {
               emit(obs, 'STANDING_ELEMENT_MISSING', file, line, { elementName: name });
             }
           }
@@ -332,7 +338,7 @@ function checkPromptFilesExist(
 ): void {
   const basenames = promptFiles.map(p => path.basename(p));
   for (const row of table) {
-    if (!row.number) continue; // skip rows without a prompt number -- cannot match to files
+    if (!row.number) continue;
     const padded = row.number.padStart(2, '0');
     const num = row.number.replace(/^0+/, '') || '0';
     const found = basenames.some(bn => bn.includes(`-${padded}-`) || bn.includes(`-${num}-`));
@@ -344,12 +350,11 @@ function checkPromptFilesExist(
 
 // --- Prompt file checks ---
 
-/**
- * Check that a prompt file has a verification section with runnable content.
- * "Runnable" means either a fenced code block or an indented code block
- * (4-space or tab indent) containing command-like text.
- */
 function checkPromptVerification(promptPath: string, obs: PlanAuditObservation[]): void {
+  const config = resolveConfig();
+  const verifyPatterns = config.planAudit.verificationHeadingPatterns;
+  const maxDepth = config.planAudit.verificationMaxDepth;
+
   const content = fs.readFileSync(promptPath, 'utf-8');
   const relPath = path.relative(process.cwd(), promptPath);
   const lines = content.split('\n');
@@ -373,11 +378,9 @@ function checkPromptVerification(promptPath: string, obs: PlanAuditObservation[]
     if (hm) {
       const depth = hm[1].length;
       const text = hm[2].toLowerCase();
-      // Match standalone verification headings (## Verification, ## Verify)
-      // but not step headings that mention verification (### Step 5: Verify).
-      // Verification sections are h2; step headings are h3+.
-      const isVerificationHeading =
-        depth <= 2 && (text === 'verification' || text === 'verify' || text === 'verification checklist');
+
+      const isVerificationHeading = depth <= maxDepth && verifyPatterns.some(p => text === p || text.includes(p));
+
       if (!foundVerifyHeading && isVerificationHeading) {
         foundVerifyHeading = true;
         headingDepth = depth;
@@ -391,16 +394,12 @@ function checkPromptVerification(promptPath: string, obs: PlanAuditObservation[]
       }
     }
 
-    // Indented code blocks (4 spaces or tab) after the verification heading
-    // count as runnable content
     if (foundVerifyHeading && /^(?:    |\t)\S/.test(line)) {
       hasRunnableContent = true;
     }
   }
 
-  if (!foundVerifyHeading) {
-    emit(obs, 'PROMPT_VERIFICATION_MISSING', relPath, 1, { promptFile: relPath });
-  } else if (!hasRunnableContent) {
+  if (!foundVerifyHeading || !hasRunnableContent) {
     emit(obs, 'PROMPT_VERIFICATION_MISSING', relPath, 1, { promptFile: relPath });
   }
 }
@@ -413,28 +412,16 @@ function checkReconciliationTemplate(promptPath: string, obs: PlanAuditObservati
   }
 }
 
-// --- Convention observations (line-by-line text scan) ---
-
-const NAMING_PATTERNS = [/\bcamelCase\b/i, /\bsnake_case\b/i, /\bPascalCase\b/i, /\bkebab-case\b/i];
-const AGGREGATION_PATTERNS = [
-  /\bmerge\s+(data|results|responses)\b/i,
-  /\bcombine\s+(data|results|responses|queries)\b/i,
-  /\bparallel\s+fetch/i,
-  /\bdual\s+path/i,
-  /\bfan[- ]?out\b/i,
-  /\bclient[- ]?side\s+(aggregat|merg|combin)/i,
-];
-const DEFERRED_PATTERNS = [
-  /\bdefer(?:red)?\s+to\s+cleanup\b/i,
-  /\bhandle\s+in\s+cleanup\b/i,
-  /\bcleanup\s+prompt\s+will\b/i,
-];
-const FILE_PATH_RE =
-  /(?:`([^`]*(?:src\/|\.\/|~\/|\.\.\/)[^`]*)`|(?:^|\s)((?:src\/|\.\/|~\/|\.\.\/)[a-zA-Z0-9_\-.\/]+))/gm;
-const SKILL_RE =
-  /\/(?:build|refactor|audit|orchestrate|extract|flatten|migrate|replace|spawn|iterate|generate|sync|calibrate|visual|document)-[a-z]+(?:-[a-z]+)*/g;
+// --- Convention observations (line-by-line text scan, all patterns from config) ---
 
 function extractConventionObservations(filePath: string, obs: PlanAuditObservation[]): void {
+  const config = resolveConfig();
+  const namingRegexes = config.planAudit.namingConventionPatterns.map(p => toRegex(p));
+  const aggregationRegexes = config.planAudit.aggregationPatterns.map(p => toRegex(p));
+  const deferredRegexes = config.planAudit.deferredCleanupPatterns.map(p => toRegex(p));
+  const filePathRegex = toRegex(config.planAudit.filePathPattern, 'gm');
+  const skillRegex = toRegex(config.planAudit.skillReferencePattern, 'g');
+
   const content = fs.readFileSync(filePath, 'utf-8');
   const relPath = path.relative(process.cwd(), filePath);
   const lines = content.split('\n');
@@ -443,33 +430,33 @@ function extractConventionObservations(filePath: string, obs: PlanAuditObservati
     const line = lines[i];
     const ln = i + 1;
 
-    for (const p of NAMING_PATTERNS) {
+    for (const p of namingRegexes) {
       if (p.test(line)) {
         emit(obs, 'NAMING_CONVENTION_INSTRUCTION', relPath, ln, { instruction: line.trim().substring(0, 200) });
         break;
       }
     }
-    for (const p of AGGREGATION_PATTERNS) {
+    for (const p of aggregationRegexes) {
       if (p.test(line)) {
         emit(obs, 'CLIENT_SIDE_AGGREGATION', relPath, ln, { matchedText: line.trim().substring(0, 200) });
         break;
       }
     }
-    for (const p of DEFERRED_PATTERNS) {
+    for (const p of deferredRegexes) {
       if (p.test(line)) {
         emit(obs, 'DEFERRED_CLEANUP_REFERENCE', relPath, ln, { deferredItem: line.trim().substring(0, 200) });
         break;
       }
     }
 
-    FILE_PATH_RE.lastIndex = 0;
+    filePathRegex.lastIndex = 0;
     let m;
-    while ((m = FILE_PATH_RE.exec(line)) !== null) {
+    while ((m = filePathRegex.exec(line)) !== null) {
       emit(obs, 'FILE_PATH_REFERENCE', relPath, ln, { referencedPath: m[1] ?? m[2] });
     }
 
-    SKILL_RE.lastIndex = 0;
-    while ((m = SKILL_RE.exec(line)) !== null) {
+    skillRegex.lastIndex = 0;
+    while ((m = skillRegex.exec(line)) !== null) {
       emit(obs, 'SKILL_REFERENCE', relPath, ln, { skillName: m[0] });
     }
   }

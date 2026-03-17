@@ -143,7 +143,6 @@ The mapping uses basenames:
 | `generalComponents.spec.ts`          | `components.spec.ts`       |
 | `mockDataAnalyzer.spec.ts`           | `analyzer.spec.ts`         |
 | `mockDataRealTime.spec.ts`           | `realtime.spec.ts`         |
-| `mockDataSystemLatency.spec.ts`      | `system-latency.spec.ts`   |
 | `mockDataTeamProductivity.spec.ts`   | `team-productivity.spec.ts`|
 | `mockDataUserProductivity.spec.ts`   | `user-productivity.spec.ts`|
 | `projects.spec.ts`                   | `projects.spec.ts`         |

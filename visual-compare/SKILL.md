@@ -269,3 +269,4 @@ expand a panel) before taking a comparison screenshot.
 - Do not take screenshots before navigation has settled — always wait after navigating.
 - Do not append to a prior session's docs file — each invocation creates a new timestamped file.
 - Do not include static resource requests (images, fonts, JS bundles) in the API request tables — set `includeStatic: false`.
+- Do NOT CHANGE ANY DATA (do NOT manipulate users, teams, or URL classifications)

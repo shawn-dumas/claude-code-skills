@@ -641,7 +641,7 @@ questions branch based on answers.
 Question: Where does this feature live?
 Header: Feature location
 Options:
-  - "New dashboard tab (Recommended)" -- A new tab in the Insights navigation (like Realtime, System Latency, etc.)
+  - "New dashboard tab (Recommended)" -- A new tab in the Insights navigation (like Realtime, Systems, etc.)
   - "New sub-view in existing tab" -- Adding a new view or section to an existing dashboard tab
   - "Modification to existing tab" -- Changing or enhancing what an existing tab already shows
   - "New non-dashboard page" -- A new page outside the Insights dashboard (like Users, Teams, Settings)
@@ -657,7 +657,7 @@ Question: Which navigation group should this tab belong to?
 Header: Navigation group
 Options:
   - "People" -- User-focused insights. Current tabs: Realtime, User Productivity, Team Productivity
-  - "Process" -- Workflow insights. Current tabs: System Latency, Workstream Analysis, Systems, Microworkflows, Workstreams
+  - "Process" -- Workflow insights. Current tabs: Workstream Analysis, Systems, Microworkflows
   - "Platform" -- Integration insights. Current tabs: Relays, Favorites, Details, Intelligence
 ```
 
@@ -672,11 +672,9 @@ Options:
   - "Realtime" -- Real-time activity dashboard. No filters. Cards + status indicators. Live-updating data.
   - "User Productivity" -- Table of users with productivity metrics. Date/team/timezone filters. CSV export. Row drill-down.
   - "Team Productivity" -- Aggregated team metrics. Date/team filters. Charts + summary cards.
-  - "System Latency" -- Per-system load time analysis. Date/team filters. Table + charts.
   - "Workstream Analysis" -- Workstream timing and flow analysis. Workstream-specific filters. Charts + timeline.
   - "Systems" -- System overview with drill-down to pages and activities. Opportunity filters. Nested tables.
   - "Microworkflows" -- Aggregated microworkflow patterns. Opportunity filters. Table with expandable rows.
-  - "Workstreams" -- Workstream analyzer with activity timeline. Workstream filters. Split-panel detail view.
   - "Relays" -- Relay usage KPIs + user detail table. Date/team filters. KPI cards + table.
   - "Favorites" -- Favorite usage KPIs + user detail table. Date/team filters. KPI cards + table.
   - "Details" -- Detailed per-user productivity breakdown. Date/team filters. Table with many columns.
@@ -688,7 +686,7 @@ Options:
 
 Ask as free text:
 > What should the tab label say in the navigation menu? Keep it short
-> (1-2 words). Examples from existing tabs: "Realtime", "System Latency",
+> (1-2 words). Examples from existing tabs: "Realtime", "Systems",
 > "Microworkflows", "Intelligence".
 
 **Q9: Filters**
@@ -845,8 +843,7 @@ Options:
   - "WorkstreamData" -- Workstream timing and load info. Available via /api/mock/users/data-api/workstream-analysis/*
   - "RelayUsage" -- Relay system usage KPIs + per-user breakdown. Available via /api/mock/users/data-api/relay-usage/*
   - "FavoriteUsage" -- Favorite system usage KPIs + per-user breakdown. Available via /api/mock/users/data-api/favorite-usage/*
-  - "SystemLatency" -- Per-host load times and usage frequency. Available via /api/mock/users/data-api/system-latency/*
-  - "AnalyzerWorkstream" -- Workstream instances with activity timeline. Available via /api/mock/users/data-api/analyzer/*
+
   - "URL Classification" -- Per-URL categorization (productive, unproductive, neutral). Available via /api/mock/users/classification/site-urls/*
   - "Group (BPO/Project)" -- BPO or Project entity with user assignments. Available via /api/mock/users/groups/*
   - "Existing data, new aggregation/projection" -- The source data exists in the system, but needs a new transformation: different grouping, new aggregation, additional derived fields, or a reshaped response. The BFF team extends an existing endpoint or adds a thin new one.
@@ -986,8 +983,8 @@ Header: Primary display
 Options:
   - "Data table" -- A table with sortable columns, pagination, and optional row expansion (like User Productivity, Microworkflows)
   - "KPI cards + table" -- Summary metric cards at the top with a detail table below (like Relays, Favorites)
-  - "Charts + table" -- Visualization charts (bar, line, area) with a supporting data table (like Team Productivity, System Latency)
-  - "Split panel" -- A list/table on one side with a detail panel that opens on selection (like Workstreams analyzer)
+  - "Charts + table" -- Visualization charts (bar, line, area) with a supporting data table (like Team Productivity, Operational Hours)
+  - "Split panel" -- A list/table on one side with a detail panel that opens on selection
   - "Cards/tiles" -- Grid of cards showing entity summaries (not currently used but valid for PoC)
   - "Conversational/chat" -- Chat-style interface (like Intelligence)
   - "Status dashboard" -- Real-time status indicators and counters (like Realtime)
@@ -1712,7 +1709,7 @@ Screenshots: [path to screenshot, or "TODO -- add before handoff"]
 
 ### 3.1 Entry Points
 
-- [Exact navigation path: e.g., Sidebar > Insights > Process > click "System Latency" tab]
+- [Exact navigation path: e.g., Sidebar > Insights > Process > click "Systems" tab]
 
 ### 3.2 Primary User Flow (Happy Path)
 
@@ -1845,11 +1842,9 @@ Sidebar
   |     |     |-- User Productivity        (always visible)
   |     |     |-- Team Productivity        (always visible)
   |     |-- Process group
-  |     |     |-- System Latency           flag: system_latency_insights_enabled
   |     |     |-- Workstream Analysis      flag: workstream_analysis_insights_enabled
   |     |     |-- Systems                  flag: systems_insights_enabled
   |     |     |-- Microworkflows           flag: opportunities_insights_enabled
-  |     |     |-- Workstreams              flag: analyzer_insights_enabled
   |     |-- Platform group
   |           |-- Relays                   flag: relay_usage_insights_enabled
   |           |-- Favorites                flag: favorite_usage_insights_enabled
@@ -1896,11 +1891,9 @@ _app.tsx > Providers > getLayout
 | Realtime | operational-status/ | RealtimeActivityContainer | null |
 | User Productivity | team/ | ProductivityBlock (variant='basic') | userProductivity |
 | Team Productivity | operational-hours/ | TeamProductivityContainer | teamProductivity |
-| System Latency | system-latency/ | SystemLatencyContainer | systemLatency |
 | Workstream Analysis | workstream-analysis/ | WorkstreamAnalysisContainer | workstreamAnalysis |
 | Systems | systems/ | SystemsContainer | systems |
 | Microworkflows | opportunities/ | OpportunityBlock | opportunities |
-| Workstreams | workstream-analysis/ | WorkstreamsAnalyzerBlock | workstreamAnalyzer |
 | Relays | usage/ | RelayUsageBlock | relayUsage |
 | Favorites | usage/ | FavoriteUsageBlock | favoriteUsage |
 | Details | team/ | ProductivityBlock (variant='detailed') | userProductivity |
@@ -1933,9 +1926,6 @@ _app.tsx > Providers > getLayout
 | Productivity | /users/data-api/productivity/getHostTime | UserStats[] | Per-host time breakdown |
 | Productivity | /users/data-api/productivity/getOperationalAnalysis | OperationalHoursData | Team operational hours analysis |
 | Productivity | /users/data-api/productivity/getTtmForDays | TTM data | Time-to-first-action metrics |
-| System Latency | /users/data-api/system-latency/getAvgLoadTimesByHost | SystemLatencyData[] | Average load times per host |
-| System Latency | /users/data-api/system-latency/getTopUsed | TopUsedData[] | Most-used systems by load time |
-| System Latency | /users/data-api/system-latency/getUserLoadTimeByHost | UserLoadTimeData[] | Per-user load times |
 | Workstreams | /users/data-api/workstream-analysis/getWorkstreamList | WorkstreamData[] | Workstream listing |
 | Workstreams | /users/data-api/workstream-analysis/getTimingInfo | TimingInfo | Workstream timing analysis |
 | Microworkflows | /users/data-api/opportunities/microworkflows | AggregatedMicroworkflow[] | Aggregated workflow patterns |
@@ -1943,8 +1933,6 @@ _app.tsx > Providers > getLayout
 | Microworkflows | /users/data-api/opportunities/microworkflows/by-user | MicroworkflowByUser[] | Per-user workflow breakdown |
 | Systems | /users/data-api/systems/overview | SystemData[] | System overview with KPIs |
 | Systems | /users/data-api/systems/[systemId]/pages | SystemPage[] | Pages within a system |
-| Analyzer | /users/data-api/analyzer/workstreams | AnalyzerWorkstream[] | Workstream analyzer data |
-| Analyzer | /users/data-api/analyzer/activity-timeline | ActivityTimeline[] | Activity timeline for workstreams |
 | Relay | /users/data-api/relay-usage/kpis | RelayKPIs | Relay usage summary KPIs |
 | Relay | /users/data-api/relay-usage/user-details | RelayUserDetail[] | Per-user relay usage |
 | Relay | /users/data-api/relay-usage/system-aggregate | RelaySystemAggregate[] | Relay usage by system |

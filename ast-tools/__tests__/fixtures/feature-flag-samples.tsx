@@ -25,9 +25,9 @@ function SettingsContainer() {
   const featureFlags = useFeatureFlags();
 
   // --- FLAG_READ: another property access ---
-  const showAnalyzer = featureFlags.analyzer_insights_enabled;
+  const showSystems = featureFlags.systems_insights_enabled;
 
-  return <div>{showAnalyzer && <AnalyzerPanel />}</div>;
+  return <div>{showSystems && <SystemsPanel2 />}</div>;
 }
 
 // --- NAV_TAB_GATE: object literal with featureFlag property ---

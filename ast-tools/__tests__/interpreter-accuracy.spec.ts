@@ -505,26 +505,28 @@ function evaluateEntryFixture(
   // assessments." Any assessment emitted is a false positive.
   if (manifest.expectedClassifications.length === 0) {
     if (allAssessments.length === 0) {
-      return { correct: 1, total: 1, details: [] };
+      return { correct: 1, total: 1, details: [], uncoveredCount: 0, uncoveredDetails: [] };
     }
     const details = allAssessments.map(
       a =>
         `FALSE_POSITIVE: ${a.kind} at ${path.basename(a.subject.file)}:${a.subject.line} ` +
         `(${a.subject.symbol}) -- expected no assessments`,
     );
-    return { correct: 0, total: 1, details };
+    return { correct: 0, total: 1, details, uncoveredCount: 0, uncoveredDetails: [] };
   }
 
-  // Compare against expected classifications
+  // Compare against expected classifications, tracking which assessments
+  // are matched for coverage analysis.
   let correct = 0;
   const total = manifest.expectedClassifications.length;
   const details: string[] = [];
+  const matchedIndices = new Set<number>();
 
   for (const expected of manifest.expectedClassifications) {
     // First try: exact match including expectedKind (avoids ambiguity when
     // multiple assessments share the same file/line/symbol, e.g. DETECTED_STRATEGY
     // and CLEANUP_COMPLETE both have line=undefined and no symbol).
-    let matchingAssessment = allAssessments.find(a => {
+    let matchIndex = allAssessments.findIndex(a => {
       if (a.kind !== expected.expectedKind) return false;
       const assessmentFile = path.basename(a.subject.file);
       const expectedFile = path.basename(expected.file);
@@ -540,8 +542,8 @@ function evaluateEntryFixture(
 
     // Fallback: location-only match (catches misclassifications so they report
     // WRONG instead of MISS, which is more informative for calibration).
-    if (!matchingAssessment) {
-      matchingAssessment = allAssessments.find(a => {
+    if (matchIndex < 0) {
+      matchIndex = allAssessments.findIndex(a => {
         const assessmentFile = path.basename(a.subject.file);
         const expectedFile = path.basename(expected.file);
         if (assessmentFile !== expectedFile) return false;
@@ -555,13 +557,16 @@ function evaluateEntryFixture(
       });
     }
 
-    if (!matchingAssessment) {
+    if (matchIndex < 0) {
       details.push(
         `MISS: ${expected.expectedKind} at ${expected.file}:${expected.line} ` +
           `(${expected.symbol}) -- no matching assessment found`,
       );
       continue;
     }
+
+    matchedIndices.add(matchIndex);
+    const matchingAssessment = allAssessments[matchIndex];
 
     if (matchingAssessment.kind === expected.expectedKind) {
       correct++;
@@ -573,7 +578,18 @@ function evaluateEntryFixture(
     }
   }
 
-  return { correct, total, details };
+  // Coverage analysis: identify assessments not matched by any expected
+  // classification. For feedback fixtures, these represent signals the
+  // fixture author failed to classify -- the "Classify ALL" instruction
+  // exists to prevent this.
+  const uncoveredAssessments = allAssessments.filter((_, i) => !matchedIndices.has(i));
+  const uncoveredDetails = uncoveredAssessments.map(
+    a =>
+      `UNCOVERED: ${a.kind} at ${path.basename(a.subject.file)}:${a.subject.line} ` +
+      `(${a.subject.symbol}) -- assessment produced by interpreter but not in expectedClassifications`,
+  );
+
+  return { correct, total, details, uncoveredCount: uncoveredAssessments.length, uncoveredDetails };
 }
 
 // ---------------------------------------------------------------------------
@@ -744,13 +760,27 @@ describe('Vitest parity tool accuracy', () => {
 function runEntryAccuracyTest(toolName: string, fixtures: Array<{ dir: string; manifest: Manifest }>): void {
   let totalCorrect = 0;
   let totalExpected = 0;
-  const fixtureResults: Array<{ dir: string; correct: number; total: number; details: string[]; status: string }> = [];
+  const fixtureResults: Array<{
+    dir: string;
+    correct: number;
+    total: number;
+    details: string[];
+    status: string;
+    source: string;
+    uncoveredCount: number;
+    uncoveredDetails: string[];
+  }> = [];
 
   for (const { dir, manifest } of fixtures) {
     const result = evaluateEntryFixture(dir, manifest as EntryManifest);
     totalCorrect += result.correct;
     totalExpected += result.total;
-    fixtureResults.push({ dir, ...result, status: manifest.status ?? 'calibrated' });
+    fixtureResults.push({
+      dir,
+      ...result,
+      status: manifest.status ?? 'calibrated',
+      source: (manifest as EntryManifest).source ?? '',
+    });
   }
 
   const accuracy = totalExpected > 0 ? totalCorrect / totalExpected : 0;
@@ -788,6 +818,33 @@ function runEntryAccuracyTest(toolName: string, fixtures: Array<{ dir: string; m
     `${toolName} accuracy ${(accuracy * 100).toFixed(1)}% is below threshold ${(threshold * 100).toFixed(1)}%. ` +
       `${totalCorrect}/${totalExpected} classifications correct across ${fixtures.length} fixtures.`,
   ).toBeGreaterThanOrEqual(threshold);
+
+  // Coverage enforcement for feedback fixtures. Feedback fixtures must
+  // classify ALL signals the interpreter produces, not just the
+  // misclassified one. This is the machine-enforced counterpart of the
+  // "Classify ALL" instruction in skill prose. Without this check,
+  // agents reliably create fixtures with only the misclassified entry,
+  // making the ground truth incomplete for calibration.
+  for (const r of fixtureResults) {
+    if (r.source !== 'feedback') continue;
+    if (r.uncoveredCount === 0) continue;
+
+    // eslint-disable-next-line no-console
+    console.error(`\n[${r.dir}] INCOMPLETE COVERAGE (${r.uncoveredCount} uncovered):`);
+    for (const d of r.uncoveredDetails) {
+      // eslint-disable-next-line no-console
+      console.error(`  ${d}`);
+    }
+
+    expect(
+      r.uncoveredCount,
+      `Feedback fixture [${r.dir}] has ${r.uncoveredCount} uncovered assessment(s). ` +
+        `Feedback fixtures must classify ALL signals -- the calibration skill needs ` +
+        `the full picture to tune weights without regressing other classifications. ` +
+        `Add the missing assessments to expectedClassifications. ` +
+        `See scripts/AST/docs/ast-feedback-loop.md for the fixture authoring guide.`,
+    ).toBe(0);
+  }
 }
 
 describe('Effects interpreter accuracy', () => {

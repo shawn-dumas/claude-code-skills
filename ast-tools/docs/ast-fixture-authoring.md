@@ -13,7 +13,8 @@ intent interpreters. All fixtures live in `scripts/AST/ground-truth/fixtures/`.
 
 Format: `{source}-{tool}-{NN}-{description}/`
 
-- `tool` is `intent` or `parity`
+- `tool` is one of: `intent`, `parity`, `vitest-parity`, `effects`,
+  `hooks`, `ownership`, `template`, `test-quality`, `dead-code`
 - `NN` is a zero-padded sequence number within its source+tool group
 
 ## Directory contents
