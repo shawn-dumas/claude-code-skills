@@ -15,6 +15,47 @@ gives the "go" signal. It replaces the conditional adversarial review
 (old Step 8) with a mandatory multi-layer validation that catches
 prompt-level bugs the structural pre-flight audit cannot detect.
 
+### Why this skill exists alongside /pre-flight-plan-audit
+
+The two skills have different scopes, different inputs, and catch
+different classes of problems.
+
+`/pre-flight-plan-audit` is a **structural** check. It runs
+`ast-plan-audit` (an AST tool that parses markdown) and answers: "Is
+this plan well-formed?" It checks that headers exist, prompts are
+linked, verification blocks are present, dependencies don't cycle,
+reconciliation templates exist, standing elements are triaged. It
+cannot tell you whether the content of a prompt is correct -- only
+whether the required sections are present.
+
+`/validate-plan` is a **content** check. It reads every prompt and
+asks: "Will this actually work when a work agent tries to execute it?"
+It verifies import paths resolve, file paths exist, line numbers match,
+API signatures are current, constants have the right values, and risky
+approaches are PoC'd. It also runs the adversarial review that tries
+to find logical errors in the proposed transformations.
+
+Concrete example: during the authz-enforcement plan (2026-03-18),
+pre-flight CERTIFIED the plan (structurally complete). The deep review
+then found that P03 used the wrong import path (`@/shared/utils/user/
+roleChecks` instead of the barrel `@/shared/utils`), P04 had no
+guidance on the `@/pages/*` test-only alias, and P04's server module
+mocks would crash because `serverEnv` throws at import time. Pre-flight
+could never catch any of those -- they are semantic errors in
+structurally valid prompts.
+
+The relationship is sequential:
+
+- Pre-flight is fast, mechanical, pass/fail. Runs first (Step 7).
+  No point validating content if the plan is missing a verification
+  block.
+- Validate is slow, judgment-heavy, produces findings. Runs second
+  (Step 8). Catches the bugs that structural checks cannot see.
+
+If you collapsed them into one skill, you would either make the
+structural check slow or make the content check unreliable by masking
+content failures with a false "CERTIFIED" signal.
+
 ### Resolve paths
 
 ```bash
