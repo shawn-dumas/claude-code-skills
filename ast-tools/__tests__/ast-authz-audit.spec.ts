@@ -15,9 +15,9 @@ function analyzeFixture(name: string): AuthZAnalysis {
 
 describe('ast-authz-audit', () => {
   describe('positive fixture (should flag)', () => {
-    it('produces 6 observations from authz-positive.tsx', () => {
+    it('produces 9 observations from authz-positive.tsx', () => {
       const result = analyzeFixture('authz-positive.tsx');
-      expect(result.observations).toHaveLength(6);
+      expect(result.observations).toHaveLength(9);
     });
 
     it('detects includes method', () => {
@@ -53,6 +53,7 @@ describe('ast-authz-audit', () => {
       const functions = result.observations.map(o => o.evidence.containingFunction).filter(Boolean);
       expect(functions).toContain('CorePatterns');
       expect(functions).toContain('EdgeCases');
+      expect(functions).toContain('EqualityPatterns');
     });
 
     it('includes expression text', () => {
@@ -73,6 +74,43 @@ describe('ast-authz-audit', () => {
       const result = analyzeFixture('authz-positive.tsx');
       const internalObs = result.observations.find(o => o.evidence.roleMember === 'INTERNAL_ADMIN');
       expect(internalObs).toBeDefined();
+    });
+  });
+
+  describe('RAW_ROLE_EQUALITY observations', () => {
+    it('produces 3 equality observations from authz-positive.tsx', () => {
+      const result = analyzeFixture('authz-positive.tsx');
+      const equalityObs = result.observations.filter(o => o.kind === 'RAW_ROLE_EQUALITY');
+      expect(equalityObs).toHaveLength(3);
+    });
+
+    it('detects === operator', () => {
+      const result = analyzeFixture('authz-positive.tsx');
+      const strictEq = result.observations.filter(o => o.kind === 'RAW_ROLE_EQUALITY' && o.evidence.method === '===');
+      expect(strictEq).toHaveLength(2);
+    });
+
+    it('detects !== operator', () => {
+      const result = analyzeFixture('authz-positive.tsx');
+      const notEq = result.observations.filter(o => o.kind === 'RAW_ROLE_EQUALITY' && o.evidence.method === '!==');
+      expect(notEq).toHaveLength(1);
+    });
+
+    it('extracts correct roleMember for equality checks', () => {
+      const result = analyzeFixture('authz-positive.tsx');
+      const equalityObs = result.observations.filter(o => o.kind === 'RAW_ROLE_EQUALITY');
+      const members = equalityObs.map(o => o.evidence.roleMember);
+      expect(members).toContain('ADMIN');
+      expect(members).toContain('MEMBER');
+      expect(members).toContain('TEAM_OWNER');
+    });
+
+    it('populates containingFunction for equality checks', () => {
+      const result = analyzeFixture('authz-positive.tsx');
+      const equalityObs = result.observations.filter(o => o.kind === 'RAW_ROLE_EQUALITY');
+      for (const obs of equalityObs) {
+        expect(obs.evidence.containingFunction).toBe('EqualityPatterns');
+      }
     });
   });
 
@@ -115,10 +153,11 @@ describe('ast-authz-audit', () => {
   });
 
   describe('output modes', () => {
-    it('all observations have kind RAW_ROLE_CHECK', () => {
+    it('all observations have a valid authz kind', () => {
       const result = analyzeFixture('authz-positive.tsx');
+      const validKinds = new Set(['RAW_ROLE_CHECK', 'RAW_ROLE_EQUALITY']);
       for (const obs of result.observations) {
-        expect(obs.kind).toBe('RAW_ROLE_CHECK');
+        expect(validKinds.has(obs.kind)).toBe(true);
       }
     });
   });

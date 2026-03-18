@@ -29,4 +29,17 @@ function TypeOnlyPattern(props: { roles: Role[] }) {
   return <div>{props.roles.length}</div>;
 }
 
-export { UtilityPatterns, NonRolePatterns, TypeOnlyPattern };
+// Non-role equality checks
+function NonRoleEquality() {
+  enum Status {
+    ACTIVE = 'active',
+    INACTIVE = 'inactive',
+  }
+  const status = Status.ACTIVE;
+  const isActive = status === Status.ACTIVE;
+  const flag = 'admin';
+  const isFlag = flag === 'admin';
+  return <div>{isActive ? 'yes' : 'no'}</div>;
+}
+
+export { UtilityPatterns, NonRolePatterns, TypeOnlyPattern, NonRoleEquality };

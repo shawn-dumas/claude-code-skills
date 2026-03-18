@@ -975,7 +975,7 @@ export interface BrandedCheckAnalysis {
 
 // --- ast-authz-audit output ---
 
-export type AuthZObservationKind = 'RAW_ROLE_CHECK';
+export type AuthZObservationKind = 'RAW_ROLE_CHECK' | 'RAW_ROLE_EQUALITY';
 
 export interface AuthZObservationEvidence {
   /** The expression used: 'includes', 'indexOf', 'some' */

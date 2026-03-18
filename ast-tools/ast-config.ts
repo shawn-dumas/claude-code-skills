@@ -265,6 +265,7 @@ interface AstConfig {
   readonly authz: {
     readonly canonicalFiles: ReadonlySet<string>;
     readonly rawCheckMethods: ReadonlySet<string>;
+    readonly equalityOperators: ReadonlySet<string>;
   };
 }
 
@@ -948,6 +949,7 @@ export const astConfig: AstConfig = Object.freeze({
       'src/server/handlers/users/user-data.logic.ts',
     ]) as ReadonlySet<string>,
     rawCheckMethods: new Set(['includes', 'indexOf', 'some', 'find', 'filter', 'every']) as ReadonlySet<string>,
+    equalityOperators: new Set(['===', '!==']) as ReadonlySet<string>,
   }),
 }) satisfies AstConfig;
 

@@ -28,4 +28,14 @@ function EdgeCases({ user }: { user: { roles: Role[] } }) {
   );
 }
 
-export { CorePatterns, EdgeCases };
+// --- Equality patterns (3) ---
+function EqualityPatterns({ user }: { user: { role: Role } }) {
+  // 7. Direct equality check
+  const isAdmin = user.role === Role.ADMIN;
+  // 8. Inequality check
+  const isNotMember = user.role !== Role.MEMBER;
+  // 9. Inline in conditional
+  return <div>{user.role === Role.TEAM_OWNER ? 'owner' : 'other'}</div>;
+}
+
+export { CorePatterns, EdgeCases, EqualityPatterns };

@@ -78,47 +78,86 @@ export function analyzeAuthZ(filePath: string): AuthZAnalysis {
   const sourceFile = getSourceFile(absolute);
   const observations: AuthZObservation[] = [];
 
-  sourceFile.forEachDescendant(node => {
-    if (!Node.isCallExpression(node)) return;
+  sourceFile.forEachDescendant((node, traversal) => {
+    // --- Branch 1: CallExpression (array method patterns) ---
+    if (Node.isCallExpression(node)) {
+      const expression = node.getExpression();
+      if (!Node.isPropertyAccessExpression(expression)) return;
 
-    const expression = node.getExpression();
-    if (!Node.isPropertyAccessExpression(expression)) return;
+      const methodName = expression.getName();
+      if (!astConfig.authz.rawCheckMethods.has(methodName)) return;
 
-    const methodName = expression.getName();
-    if (!astConfig.authz.rawCheckMethods.has(methodName)) return;
+      const callArgs = node.getArguments();
 
-    const callArgs = node.getArguments();
+      if (methodName === 'includes' || methodName === 'indexOf') {
+        const roleMember = findRoleMemberInArgs(callArgs);
+        if (!roleMember) return;
 
-    if (methodName === 'includes' || methodName === 'indexOf') {
-      const roleMember = findRoleMemberInArgs(callArgs);
+        observations.push({
+          kind: 'RAW_ROLE_CHECK',
+          file: relativePath,
+          line: node.getStartLineNumber(),
+          evidence: {
+            method: methodName,
+            roleMember,
+            expression: truncateText(node.getText(), 80),
+            containingFunction: getContainingFunctionName(node),
+          },
+        });
+      } else if (methodName === 'some' || methodName === 'find' || methodName === 'filter' || methodName === 'every') {
+        const callback = callArgs[0];
+        if (!callback) return;
+        if (!Node.isArrowFunction(callback) && !Node.isFunctionExpression(callback)) return;
+
+        const roleMember = findRoleMemberInTree(callback);
+        if (!roleMember) return;
+
+        observations.push({
+          kind: 'RAW_ROLE_CHECK',
+          file: relativePath,
+          line: node.getStartLineNumber(),
+          evidence: {
+            method: methodName,
+            roleMember,
+            expression: truncateText(node.getText(), 80),
+            containingFunction: getContainingFunctionName(node),
+          },
+        });
+
+        // Skip descendants to avoid double-counting BinaryExpressions
+        // inside the callback (e.g., `r === Role.ADMIN` inside `some()`)
+        traversal.skip();
+      }
+      return;
+    }
+
+    // --- Branch 2: BinaryExpression (equality patterns: === Role.X, !== Role.X) ---
+    if (Node.isBinaryExpression(node)) {
+      const operator = node.getOperatorToken().getText();
+      if (!astConfig.authz.equalityOperators.has(operator)) return;
+
+      const left = node.getLeft();
+      const right = node.getRight();
+
+      // Check if either operand is a Role.MEMBER property access
+      let roleMember: string | null = null;
+      for (const operand of [left, right]) {
+        if (Node.isPropertyAccessExpression(operand)) {
+          const expr = operand.getExpression();
+          if (Node.isIdentifier(expr) && expr.getText() === 'Role') {
+            roleMember = operand.getName();
+            break;
+          }
+        }
+      }
       if (!roleMember) return;
 
       observations.push({
-        kind: 'RAW_ROLE_CHECK',
+        kind: 'RAW_ROLE_EQUALITY',
         file: relativePath,
         line: node.getStartLineNumber(),
         evidence: {
-          method: methodName,
-          roleMember,
-          expression: truncateText(node.getText(), 80),
-          containingFunction: getContainingFunctionName(node),
-        },
-      });
-    } else if (methodName === 'some' || methodName === 'find' || methodName === 'filter' || methodName === 'every') {
-      // The first argument should be an arrow function or function expression
-      const callback = callArgs[0];
-      if (!callback) return;
-      if (!Node.isArrowFunction(callback) && !Node.isFunctionExpression(callback)) return;
-
-      const roleMember = findRoleMemberInTree(callback);
-      if (!roleMember) return;
-
-      observations.push({
-        kind: 'RAW_ROLE_CHECK',
-        file: relativePath,
-        line: node.getStartLineNumber(),
-        evidence: {
-          method: methodName,
+          method: operator,
           roleMember,
           expression: truncateText(node.getText(), 80),
           containingFunction: getContainingFunctionName(node),
@@ -181,7 +220,8 @@ function main(): void {
         '  --count       Output observation kind counts instead of full data\n' +
         '\n' +
         'Observation kinds:\n' +
-        '  RAW_ROLE_CHECK    Raw role array method call with Role.MEMBER argument\n',
+        '  RAW_ROLE_CHECK      Raw role array method call with Role.MEMBER argument\n' +
+        '  RAW_ROLE_EQUALITY   Equality comparison (=== or !==) with Role.MEMBER\n',
     );
     process.exit(0);
   }
