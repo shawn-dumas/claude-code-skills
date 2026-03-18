@@ -402,29 +402,25 @@ done
 If any tool has 3+ pending fixtures, run `/calibrate-ast-interpreter
 --tool <name>` before proceeding.
 
-## Step 8: Adversarial plan review (conditional)
+## Step 8: Validate the plan (MANDATORY)
 
-**Gate:** Run this step only if the plan's blended complexity >= 5.0.
-Plans below 5.0 are simple enough that pre-flight structural checks are
-sufficient. Skip to Step 9 for low-complexity plans.
+Launch `/validate-plan` on the plan file. This replaces the previous
+conditional adversarial review with a mandatory multi-layer validation:
 
-Launch a single Task sub-agent (type: `general`) to review the plan and
-all prompt files adversarially. Use the plan-review critic prompt from
-`.claude/skills/spawn-satan/plan-review-prompt.md`, substituting the
-actual plan file path and prompt glob.
+1. Conditional dialectic check (blended >= 5.0 or new architecture)
+2. Adversarial plan review (always runs, not conditional on score)
+3. Deep review (verify import paths, file paths, API signatures, and
+   constants in every prompt against the actual codebase)
+4. PoC gate (adversarial review surfaces risky approaches; user decides
+   whether to validate with a throwaway test)
+5. Prework checklist (calibration fixtures, debt file, branch creation,
+   baseline tsc + tests)
 
-The critic focuses on: correctness of proposed code transformations,
-completeness of inventory (missed files/patterns), dependency ordering
-validity, API contract consistency, risk of silent data bugs, and
-verification command sufficiency.
+The skill produces a verdict: READY FOR EXECUTION or BLOCKED. Do not
+proceed to Step 9 until the verdict is READY.
 
-For each finding the critic returns:
-- **Accept**: fix the issue in the plan/prompt file immediately.
-- **Reject**: state concretely why the criticism is incorrect or out of
-  scope.
-
-Do not skip any finding. After addressing all findings, the plan is ready
-to present.
+If /validate-plan modifies any prompt files (fixing accepted findings),
+it re-runs pre-flight automatically to maintain structural certification.
 
 ## Step 9: Present the plan to the user
 
@@ -557,3 +553,22 @@ references to the old pattern, API, or library (text search -- docs are
 not code). Update any documentation that now describes the pre-migration
 state. Stale docs are a recurring source of agent confusion in subsequent
 work sessions.
+
+## Step 12: Archive the plan
+
+After the user confirms the plan is complete, launch `/archive-plan`
+on the plan file. This skill handles all post-plan protocol steps:
+
+1. Collect execution metrics (git + session DB)
+2. Post-execution calibration (compare predicted F/C against actuals)
+3. Handle cleanup file items (move to backlog or KNOWN-DEBT)
+4. Archive files (move plan + cleanup, gzip prompts)
+5. Update historical-reference.md (scoring table, execution metrics,
+   reasoning entry, F/C anchor tables)
+6. Update active plans table
+7. Cross-repo updates (if applicable)
+8. Commit and push
+
+Do not skip this step. Do not perform these steps manually. The skill
+exists to prevent the protocol drift that occurs when agents do archival
+from memory instead of following the documented procedure.

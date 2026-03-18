@@ -982,6 +982,48 @@ Generates BFF requirements documentation for a PoC feature branch. Uses `ast-bff
 /document-bff-requirements sd/nga-systems-port "NGA Systems Port" src/pages/api/users/data-api/systems/
 ```
 
+### validate-plan
+
+Validates an orchestration plan after pre-flight certification but before
+execution. Auto-invoked by all orchestrate-\* skills at Step 8. Runs a
+mandatory multi-layer validation:
+
+1. Conditional dialectic check (blended >= 5.0 or new architecture)
+2. Adversarial plan review (always, not conditional on score)
+3. Deep review (verify import paths, file paths, API signatures, and
+   constants in every prompt against the actual codebase using AST tools)
+4. PoC gate (adversarial review surfaces risky approaches; user decides
+   whether to validate with a throwaway test)
+5. Prework checklist (calibration fixtures, debt file, branch, baseline)
+
+Produces a verdict: READY FOR EXECUTION or BLOCKED.
+
+```
+/validate-plan ~/plans/authz-enforcement.md
+```
+
+### archive-plan
+
+Archives a completed orchestration plan. Auto-invoked by all orchestrate-\*
+skills at Step 12. Handles all post-plan protocol steps that were previously
+documented as prose in `plans/CLAUDE.md` and relied on agent memory:
+
+1. Collect execution metrics (git + session DB)
+2. Post-execution calibration (compare predicted F/C against actuals,
+   adjust and tag if divergent, create feedback fixture if plan audit
+   interpreter was wrong)
+3. Handle cleanup file items (move to backlog or KNOWN-DEBT)
+4. Archive files (move plan + cleanup, gzip prompts into tarball)
+5. Update historical-reference.md (scoring table, execution metrics,
+   reasoning entry, F/C anchor tables)
+6. Update active plans table
+7. Cross-repo updates
+8. Commit and push
+
+```
+/archive-plan authz-enforcement
+```
+
 ## Decision Skills
 
 These skills help with thinking, not coding. They do not write files or
