@@ -29,13 +29,15 @@ function EdgeCases({ user }: { user: { roles: Role[] } }) {
 }
 
 // --- Equality patterns (3) ---
+// Note: TEAM_OWNER and MEMBER are singleton roles (no broader family) and
+// are excluded from RAW_ROLE_EQUALITY detection by ast-config.singletonRoles.
 function EqualityPatterns({ user }: { user: { role: Role } }) {
   // 7. Direct equality check
   const isAdmin = user.role === Role.ADMIN;
   // 8. Inequality check
-  const isNotMember = user.role !== Role.MEMBER;
+  const isNotSuperAdmin = user.role !== Role.SUPER_ADMIN;
   // 9. Inline in conditional
-  return <div>{user.role === Role.TEAM_OWNER ? 'owner' : 'other'}</div>;
+  return <div>{user.role === Role.INTERNAL_ADMIN ? 'internal' : 'other'}</div>;
 }
 
 export { CorePatterns, EdgeCases, EqualityPatterns };

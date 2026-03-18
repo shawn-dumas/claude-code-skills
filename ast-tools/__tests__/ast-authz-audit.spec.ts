@@ -101,8 +101,8 @@ describe('ast-authz-audit', () => {
       const equalityObs = result.observations.filter(o => o.kind === 'RAW_ROLE_EQUALITY');
       const members = equalityObs.map(o => o.evidence.roleMember);
       expect(members).toContain('ADMIN');
-      expect(members).toContain('MEMBER');
-      expect(members).toContain('TEAM_OWNER');
+      expect(members).toContain('SUPER_ADMIN');
+      expect(members).toContain('INTERNAL_ADMIN');
     });
 
     it('populates containingFunction for equality checks', () => {

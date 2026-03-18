@@ -1,5 +1,5 @@
 import { isAdmin, isTeamOwner } from '@/shared/utils/user/roleChecks';
-import type { Role } from '@/types';
+import { Role } from '@/types';
 
 // Approved utility functions
 function UtilityPatterns({ roles }: { roles: Role[] }) {
@@ -29,6 +29,13 @@ function TypeOnlyPattern(props: { roles: Role[] }) {
   return <div>{props.roles.length}</div>;
 }
 
+// Singleton role equality checks (expected, not violations)
+function SingletonRoleEquality({ user }: { user: { role: Role } }) {
+  const isTeamOwner = user.role === Role.TEAM_OWNER;
+  const isNotMember = user.role !== Role.MEMBER;
+  return <div>{isTeamOwner ? 'owner' : isNotMember ? 'not member' : 'member'}</div>;
+}
+
 // Non-role equality checks
 function NonRoleEquality() {
   enum Status {
@@ -42,4 +49,4 @@ function NonRoleEquality() {
   return <div>{isActive ? 'yes' : 'no'}</div>;
 }
 
-export { UtilityPatterns, NonRolePatterns, TypeOnlyPattern, NonRoleEquality };
+export { UtilityPatterns, NonRolePatterns, TypeOnlyPattern, SingletonRoleEquality, NonRoleEquality };

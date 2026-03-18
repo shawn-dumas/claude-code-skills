@@ -152,6 +152,10 @@ export function analyzeAuthZ(filePath: string): AuthZAnalysis {
       }
       if (!roleMember) return;
 
+      // Singleton roles (e.g., TEAM_OWNER, MEMBER) have no broader family --
+      // equality checks against them are expected and not violations.
+      if (astConfig.authz.singletonRoles.has(roleMember)) return;
+
       observations.push({
         kind: 'RAW_ROLE_EQUALITY',
         file: relativePath,

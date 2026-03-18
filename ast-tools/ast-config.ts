@@ -266,6 +266,8 @@ interface AstConfig {
     readonly canonicalFiles: ReadonlySet<string>;
     readonly rawCheckMethods: ReadonlySet<string>;
     readonly equalityOperators: ReadonlySet<string>;
+    /** Roles with no broader family -- equality checks against these are expected. */
+    readonly singletonRoles: ReadonlySet<string>;
   };
 }
 
@@ -950,6 +952,7 @@ export const astConfig: AstConfig = Object.freeze({
     ]) as ReadonlySet<string>,
     rawCheckMethods: new Set(['includes', 'indexOf', 'some', 'find', 'filter', 'every']) as ReadonlySet<string>,
     equalityOperators: new Set(['===', '!==']) as ReadonlySet<string>,
+    singletonRoles: new Set(['TEAM_OWNER', 'MEMBER']) as ReadonlySet<string>,
   }),
 }) satisfies AstConfig;
 
