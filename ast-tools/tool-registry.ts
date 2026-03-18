@@ -25,6 +25,8 @@ import { analyzeTestParity, extractTestParityObservations } from './ast-pw-test-
 import { analyzeVitestParity, extractVitestParityObservations } from './ast-vitest-parity';
 import { extractTypeSafetyObservations } from './ast-type-safety';
 
+import { analyzeAuthZ } from './ast-authz-audit';
+
 // ast-imports: SourceFile-based extraction for virtual/HEAD content
 import { extractImportObservationsFromSource } from './ast-imports';
 
@@ -56,6 +58,11 @@ export interface ToolEntry {
 // ---------------------------------------------------------------------------
 // Tool adapters
 // ---------------------------------------------------------------------------
+
+function authzAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
+  const analysis = analyzeAuthZ(filePath);
+  return [...analysis.observations];
+}
 
 function complexityAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
   const analysis = analyzeComplexity(filePath);
@@ -131,6 +138,7 @@ function typeSafetyAdapter(_sf: SourceFile, filePath: string): AnyObservation[] 
 // ---------------------------------------------------------------------------
 
 const entries: ToolEntry[] = [
+  { name: 'authz-audit', analyze: authzAdapter },
   { name: 'complexity', analyze: complexityAdapter },
   { name: 'data-layer', analyze: dataLayerAdapter },
   { name: 'env-access', analyze: envAccessAdapter },

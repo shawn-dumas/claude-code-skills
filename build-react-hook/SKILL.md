@@ -160,16 +160,20 @@ Before defining any new type or interface inline, check first:
 1. Run `pnpm tsc --noEmit` scoped to the new files (or the whole project if scoping
    is not practical). If TypeScript errors appear, fix them before finishing.
 
-2. Run `npx tsx scripts/AST/ast-complexity.ts <generated-files> --pretty`.
+2. Run `npx tsx scripts/AST/ast-authz-audit.ts <generated-files> --pretty`.
+   Flag any `RAW_ROLE_CHECK` observations -- new hooks must use the canonical
+   authorization utilities, not inline role checks.
+
+3. Run `npx tsx scripts/AST/ast-complexity.ts <generated-files> --pretty`.
    Every function must have cyclomatic complexity <= 10. If any function
    exceeds 10, decompose it before proceeding.
 
-3. Run `npx tsx scripts/AST/ast-type-safety.ts <generated-files> --pretty`.
+4. Run `npx tsx scripts/AST/ast-type-safety.ts <generated-files> --pretty`.
    Zero `as any` casts. Zero bare `as T` at trust boundaries (use Zod
    `.parse()` instead). Non-null assertions are acceptable only with a
    comment explaining why the value is guaranteed non-null.
 
-4. Run the new test file with `pnpm vitest run <path>`. All tests must pass.
+5. Run the new test file with `pnpm vitest run <path>`. All tests must pass.
 
 After generating, output a short summary of what was created (file paths) and
 whether type-checking and tests passed.

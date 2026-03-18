@@ -18,6 +18,7 @@ isolation.
 ## Step 0: Run AST analysis tools
 
 ```bash
+npx tsx scripts/AST/ast-authz-audit.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty

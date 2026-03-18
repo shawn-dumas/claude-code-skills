@@ -973,6 +973,28 @@ export interface BrandedCheckAnalysis {
   observations: BrandedCheckObservation[];
 }
 
+// --- ast-authz-audit output ---
+
+export type AuthZObservationKind = 'RAW_ROLE_CHECK';
+
+export interface AuthZObservationEvidence {
+  /** The expression used: 'includes', 'indexOf', 'some' */
+  readonly method: string;
+  /** The Role member accessed: 'ADMIN', 'TEAM_OWNER', etc. */
+  readonly roleMember: string;
+  /** The full expression text (truncated to 80 chars) */
+  readonly expression: string;
+  /** The containing function name, if any */
+  readonly containingFunction?: string;
+}
+
+export type AuthZObservation = Observation<AuthZObservationKind, AuthZObservationEvidence>;
+
+export interface AuthZAnalysis {
+  readonly filePath: string;
+  readonly observations: readonly AuthZObservation[];
+}
+
 // --- Plan audit observations (ast-plan-audit, MDAST-based) ---
 
 export type PlanAuditObservationKind =
@@ -1111,7 +1133,8 @@ export type AnyObservation =
   | PwParityObservation
   | BffGapObservation
   | VtParityObservation
-  | BrandedCheckObservation;
+  | BrandedCheckObservation
+  | AuthZObservation;
 
 /**
  * Unified result from running one or more observation tools on a single file.

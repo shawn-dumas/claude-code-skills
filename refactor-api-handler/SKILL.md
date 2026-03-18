@@ -17,6 +17,9 @@ If no audit exists, this skill runs the audit internally in Step 2.
 ## Step 0: Run AST analysis tools
 
 ```bash
+# Authorization patterns (emits RAW_ROLE_CHECK observations)
+npx tsx scripts/AST/ast-authz-audit.ts $ARGUMENTS --pretty
+
 # Complexity hotspots (emits FUNCTION_COMPLEXITY observations)
 npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
 

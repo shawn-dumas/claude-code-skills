@@ -261,6 +261,11 @@ interface AstConfig {
     readonly assertionMaxLength: number;
     readonly mockFactoryMaxLength: number;
   };
+
+  readonly authz: {
+    readonly canonicalFiles: ReadonlySet<string>;
+    readonly rawCheckMethods: ReadonlySet<string>;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -930,6 +935,19 @@ export const astConfig: AstConfig = Object.freeze({
     defaultMaxLength: 80,
     assertionMaxLength: 120,
     mockFactoryMaxLength: 200,
+  }),
+
+  authz: Object.freeze({
+    canonicalFiles: new Set([
+      'src/shared/utils/user/roleChecks.ts',
+      'src/ui/components/8flow/RequireRoles.tsx',
+      'src/ui/components/8flow/DevPanel/RolesSection.tsx',
+      'src/server/middleware/withRole.ts',
+      'src/server/lib/resolveRole.ts',
+      'src/server/handlers/users/auth/roles.logic.ts',
+      'src/server/handlers/users/user-data.logic.ts',
+    ]) as ReadonlySet<string>,
+    rawCheckMethods: new Set(['includes', 'indexOf', 'some', 'find', 'filter', 'every']) as ReadonlySet<string>,
   }),
 }) satisfies AstConfig;
 

@@ -13,6 +13,7 @@ Use the `/build-ast-tool` skill to fill gaps from this list.
 | 2026-03-15 | Branded type field detection (property using primitive where branded type expected) | `sg -p 'userId: string'` | ast-branded-check | build-react-component, build-react-route, build-react-service-hook, build-module | filled (ast-branded-check) |
 | 2026-03-15 | Hook consumer reverse lookup (find all files importing a given hook) | `sg -p 'useHookName($$$)' src/` | ast-imports --consumers | refactor-react-hook, refactor-react-provider, refactor-react-service-hook | filled (ast-imports --consumers) |
 | 2026-03-15 | User-defined type guard detection | `sg -p '$_($$$): $_ is $_' src/` | ast-type-safety TYPE_GUARD_DECLARATION | audit-type-errors | open |
+| 2026-03-18 | Raw role check detection (roles.includes/indexOf/some with Role member access outside canonical files) | `rg 'roles\.(includes\|indexOf)\(Role\.'` | ast-authz-audit RAW_ROLE_CHECK | authz-enforcement plan verification | filled (ast-authz-audit) |
 
 ## Rules
 

@@ -14,6 +14,9 @@ any files. Produce a complete violation report.
 ```bash
 # --- Observation-producing tools ---
 
+# Authorization patterns (emits RAW_ROLE_CHECK observations)
+npx tsx scripts/AST/ast-authz-audit.ts $ARGUMENTS --pretty
+
 # Dependency graph (emits STATIC_IMPORT, DEAD_EXPORT_CANDIDATE observations)
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
 

@@ -17,6 +17,9 @@ interpreters. All tools accept glob patterns and multiple paths natively.
 ```bash
 # --- Observation-producing tools ---
 
+# Authorization patterns (emits RAW_ROLE_CHECK observations)
+npx tsx scripts/AST/ast-authz-audit.ts $ARGUMENTS --pretty
+
 # Dependency graph (emits STATIC_IMPORT, CIRCULAR_DEPENDENCY, DEAD_EXPORT_CANDIDATE observations)
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
 

@@ -845,8 +845,8 @@ step. Always run the minimum set of tests that covers the changed code:
 The chunked runner (`scripts/run-integration.sh`) restarts the Next.js
 server between chunks to prevent server degradation. CRUD is split into
 two sub-chunks (CRUD-1: users+teams, CRUD-2: assignments+url-classification+bpo+projects)
-with a server restart between them. Insights-A is split into three
-sub-chunks (A1/A2/A3) with server restarts between them. Insights chunks
+with a server restart between them. Insights-A is split into four
+sub-chunks (A1/A2/A3a/A3b) with server restarts between them. Insights chunks
 run with parallel workers (3 normal, 2 in coverage mode); CRUD runs
 serial due to shared mock state. See the script header for full usage.
 

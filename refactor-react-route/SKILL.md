@@ -20,6 +20,7 @@ isolation.
 Run the inventory on the page file AND its children (2-3 levels deep):
 
 ```bash
+npx tsx scripts/AST/ast-authz-audit.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
 npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
 # Also run on direct child components (from the imports output)

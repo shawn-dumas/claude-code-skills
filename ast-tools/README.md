@@ -213,6 +213,7 @@ These emit structural facts with no classifications.
 
 | Tool                  | Observations Emitted                                                                                                                  | Purpose                            |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `ast-authz-audit`     | RAW_ROLE_CHECK                                                                                                                        | Authorization pattern detection    |
 | `ast-imports`         | STATIC_IMPORT, DYNAMIC_IMPORT, EXPORT_DECLARATION, CIRCULAR_DEPENDENCY, DEAD_EXPORT_CANDIDATE                                         | Import graph analysis              |
 | `ast-react-inventory` | HOOK*CALL, EFFECT_LOCATION, EFFECT*\*, COMPONENT_DECLARATION, PROP_FIELD                                                              | React component/hook structure     |
 | `ast-jsx-analysis`    | JSX_TERNARY_CHAIN, JSX_GUARD_CHAIN, JSX_TRANSFORM_CHAIN, JSX_IIFE, JSX_INLINE_HANDLER, JSX_RETURN_BLOCK                               | JSX complexity                     |

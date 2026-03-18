@@ -398,21 +398,25 @@ Before defining any new type:
 
 1. **TypeScript:** Run `pnpm tsc --noEmit`. Fix any type errors in generated files.
 
-2. **Complexity:** Run `npx tsx scripts/AST/ast-complexity.ts <generated-files> --pretty`.
+2. **Authorization patterns:** Run `npx tsx scripts/AST/ast-authz-audit.ts <generated-files> --pretty`.
+   Flag any `RAW_ROLE_CHECK` observations -- new handlers must use the canonical
+   authorization utilities, not inline role checks.
+
+3. **Complexity:** Run `npx tsx scripts/AST/ast-complexity.ts <generated-files> --pretty`.
    Every function must have cyclomatic complexity <= 10. Target CC <= 5 for each
    function. If any function exceeds 10, decompose it (extract per-method handlers,
    split complex queries into separate functions, use lookup maps instead of branching).
 
-3. **Type safety:** Run `npx tsx scripts/AST/ast-type-safety.ts <generated-files> --pretty`.
+4. **Type safety:** Run `npx tsx scripts/AST/ast-type-safety.ts <generated-files> --pretty`.
    Zero `as any` casts. Zero bare `as T` casts at trust boundaries. The only acceptable
    casts are `as const` and type narrowing after runtime checks.
 
-4. **Tests:** Run `pnpm vitest run <test-file>`. All tests must pass.
+5. **Tests:** Run `pnpm vitest run <test-file>`. All tests must pass.
 
-5. **Lint:** Run `npx eslint <generated-files> --max-warnings 0`. Zero errors, zero
+6. **Lint:** Run `npx eslint <generated-files> --max-warnings 0`. Zero errors, zero
    warnings.
 
-6. **BFF gap closure** (if replacing a 501 stub): Run
+7. **BFF gap closure** (if replacing a 501 stub): Run
    `npx tsx scripts/AST/ast-bff-gaps.ts <api-directory> --kind BFF_STUB_ROUTE --no-cache`
    and verify the endpoint no longer appears as a stub.
 
