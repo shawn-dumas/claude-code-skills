@@ -363,7 +363,7 @@ history of every command run in every session.
 
 ## Step 6: Verify
 
-1. Run `npx tsc --noEmit` on the new spec (it imports from `@/fixtures`
+1. Run `npx tsc --noEmit -p tsconfig.check.json` on the new spec (it imports from `@/fixtures`
    which resolves via vitest aliases -- check if Playwright config also
    resolves these, and add a `tsconfig` path if needed).
 2. Run `npx tsx scripts/AST/ast-complexity.ts <new-spec-file> --pretty`.

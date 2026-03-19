@@ -94,7 +94,7 @@ Rules:
 - Do not silently skip any finding.
 - Do not batch multiple findings into a vague "addressed several items."
 - If a fix introduces a new concern, note it.
-- After all findings are addressed, run `pnpm tsc --noEmit` and
+- After all findings are addressed, run `pnpm tsc --noEmit -p tsconfig.check.json` and
   `pnpm test --run` to verify nothing broke. Report the results.
 
 ## Output format

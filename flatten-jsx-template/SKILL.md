@@ -235,7 +235,7 @@ Rewrite the component. Rules:
 
 ## Step 5: Verify
 
-Run `npx tsc --noEmit` scoped to the changed file. Fix any type errors. If tests
+Run `npx tsc --noEmit -p tsconfig.check.json` scoped to the changed file. Fix any type errors. If tests
 exist for this component, run them. The template flatten must not break anything.
 
 ### Step 5b: Intention matcher (MANDATORY -- do not skip)

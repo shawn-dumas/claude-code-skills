@@ -310,7 +310,7 @@ the commit message.
 ### 6a. Type check
 
 ```bash
-pnpm tsc --noEmit
+pnpm tsc --noEmit -p tsconfig.check.json
 ```
 
 Zero errors in changed files. The new server fetcher functions must have fully
@@ -474,7 +474,7 @@ token refresh as well.
 ### Step C: Verify
 
 ```bash
-pnpm tsc --noEmit
+pnpm tsc --noEmit -p tsconfig.check.json
 ```
 
 Test by adding a temporary `getServerSideProps` to any page that logs
@@ -495,7 +495,7 @@ Remove the temporary code after confirming.
 - [ ] `HydrationBoundary` added to `_app.tsx` (first migration only)
 - [ ] No `initialData` added to client hooks (dehydrate handles it)
 - [ ] Page shows `ƒ` (dynamic) in build output
-- [ ] `pnpm tsc --noEmit` passes
+- [ ] `pnpm tsc --noEmit -p tsconfig.check.json` passes
 - [ ] `pnpm build` passes
 - [ ] Existing tests pass unchanged
 - [ ] Client hooks unchanged (same queryKey, queryFn, options)

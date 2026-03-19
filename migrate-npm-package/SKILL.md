@@ -120,7 +120,7 @@ If other packages have peerDependency conflicts with the new version:
 
 ```bash
 # Type check
-npx tsc --noEmit
+npx tsc --noEmit -p tsconfig.check.json
 
 # Tests
 pnpm test 2>&1 || true

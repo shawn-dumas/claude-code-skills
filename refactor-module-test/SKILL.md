@@ -203,7 +203,7 @@ After applying fixes, check file structure:
 
 ## Step 6: Verify
 
-1. Run `npx tsc --noEmit` -- fix type errors in the spec.
+1. Run `npx tsc --noEmit -p tsconfig.check.json` -- fix type errors in the spec.
 2. Run `pnpm vitest run <path-to-spec>` -- all tests must pass.
 3. Re-score against the 10 principles. Must be 10/10.
 4. If any principle still has violations after fixes, report which ones

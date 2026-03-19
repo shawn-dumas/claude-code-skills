@@ -235,7 +235,7 @@ type definitions.
 
 ## Step 5: Verify
 
-1. Run `pnpm tsc --noEmit` scoped to the new files (or the whole project if scoping
+1. Run `pnpm tsc --noEmit -p tsconfig.check.json` scoped to the new files (or the whole project if scoping
    is not practical). If TypeScript errors appear, fix them before finishing.
 
 2. Run `npx tsx scripts/AST/ast-complexity.ts <generated-files> --pretty`.

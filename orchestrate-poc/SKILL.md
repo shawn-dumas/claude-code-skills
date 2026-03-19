@@ -1555,7 +1555,7 @@ Follow the IDENTICAL orchestrator loop from `orchestrate-feature`:
     git log --oneline -10
     # Verify commit message format (last N commits from this prompt)
     git log -5 --format="%s%n%b" | grep -c "^PoC: " || echo "WARNING: recent commits missing PoC trailer"
-    pnpm tsc --noEmit
+    pnpm tsc --noEmit -p tsconfig.check.json
     pnpm test --run 2>&1 | tail -5
     pnpm build 2>&1 | tail -5
     npx eslint . --max-warnings 0 2>&1 | tail -3

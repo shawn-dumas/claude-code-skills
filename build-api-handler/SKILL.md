@@ -396,7 +396,7 @@ Before defining any new type:
 
 ## Step 5: Verify
 
-1. **TypeScript:** Run `pnpm tsc --noEmit`. Fix any type errors in generated files.
+1. **TypeScript:** Run `pnpm tsc --noEmit -p tsconfig.check.json`. Fix any type errors in generated files.
 
 2. **Authorization patterns:** Run `npx tsx scripts/AST/ast-authz-audit.ts <generated-files> --pretty`.
    Flag any `RAW_ROLE_CHECK` observations -- new handlers must use the canonical

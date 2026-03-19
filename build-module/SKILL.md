@@ -274,7 +274,7 @@ describe('<moduleName>', () => {
 ### 5a. TypeScript
 
 ```bash
-pnpm tsc --noEmit
+pnpm tsc --noEmit -p tsconfig.check.json
 ```
 
 Fix any errors in the generated files before proceeding.

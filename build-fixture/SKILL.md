@@ -185,7 +185,7 @@ individual tests without needing scenario integration.
 
 ## Step 7: Verify
 
-1. Run `npx tsc --noEmit` — fix any type errors in the new file.
+1. Run `npx tsc --noEmit -p tsconfig.check.json` — fix any type errors in the new file.
 2. Run `npx tsx scripts/AST/ast-complexity.ts <generated-file> --pretty`.
    Every builder function must have cyclomatic complexity <= 10. If any
    builder exceeds 10, decompose it before proceeding.

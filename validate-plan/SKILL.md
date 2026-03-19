@@ -269,7 +269,7 @@ git checkout -b <branch-name>
 ### 6d. Baseline verification
 
 ```bash
-pnpm tsc --noEmit
+pnpm tsc --noEmit -p tsconfig.check.json
 pnpm test --run
 ```
 

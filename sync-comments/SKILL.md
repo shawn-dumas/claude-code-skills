@@ -169,7 +169,7 @@ Rules during application:
 
 ## Step 5: Verify
 
-1. Run `npx tsc --noEmit` -- comment changes should never break types, but
+1. Run `npx tsc --noEmit -p tsconfig.check.json` -- comment changes should never break types, but
    verify. Fix any errors.
 2. Run `pnpm test --run` -- comment changes should never break tests, but
    verify. Fix any errors.

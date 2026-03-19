@@ -138,7 +138,7 @@ The extracted component's props should reference shared types, not redefine them
 
 ## Step 7: Verify
 
-Run `npx tsc --noEmit` on all changed files. Fix type errors. Run tests for
+Run `npx tsc --noEmit -p tsconfig.check.json` on all changed files. Fix type errors. Run tests for
 every file that was modified. Run the new component's tests.
 
 ### Step 7b: Intention matcher (MANDATORY -- do not skip)

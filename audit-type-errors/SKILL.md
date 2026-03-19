@@ -86,7 +86,7 @@ The skill applies thresholds to those counts for presentation.
 ## Step 1: Run tsc and capture structured output
 
 ```bash
-npx tsc --noEmit --pretty false 2>&1 || true
+npx tsc --noEmit -p tsconfig.check.json -p tsconfig.check.json --pretty false 2>&1 || true
 ```
 
 Parse each error line. The format is:

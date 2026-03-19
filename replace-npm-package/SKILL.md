@@ -108,7 +108,7 @@ pnpm list <new-package>
 
 ```bash
 # Type check
-npx tsc --noEmit
+npx tsc --noEmit -p tsconfig.check.json
 
 # Tests
 pnpm test 2>&1 || true

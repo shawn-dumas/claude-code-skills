@@ -319,7 +319,7 @@ own judgment policies.
 
 ```bash
 # Type check
-pnpm tsc --noEmit
+pnpm tsc --noEmit -p tsconfig.check.json
 
 # Run the new tool on a sample directory
 npx tsx scripts/AST/ast-<name>.ts src/<relevant-dir>/ --pretty
@@ -357,5 +357,5 @@ All four commands must pass before the tool is complete.
 - [ ] `tool-registry.ts` registration added
 - [ ] CLAUDE.md tool inventory updated
 - [ ] Skills README.md updated (if interpreter added)
-- [ ] `pnpm tsc --noEmit` passes
+- [ ] `pnpm tsc --noEmit -p tsconfig.check.json` passes
 - [ ] Tool produces correct output on real codebase files

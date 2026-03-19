@@ -239,7 +239,7 @@ engineering gate before the feature enters the release pipeline.
 - [ ] PR reviewed: feature flag wired correctly and gating all new UI
 - [ ] PR reviewed: branded types used for all IDs
 - [ ] PR reviewed: no new ESLint warnings or errors
-- [ ] tsc --noEmit passes with 0 errors
+- [ ] tsc --noEmit -p tsconfig.check.json passes with 0 errors
 - [ ] pnpm build passes cleanly
 - [ ] Unit test coverage exists for all new components, containers,
       hooks, and utilities
@@ -541,7 +541,7 @@ least one release cycle, remove the feature flag and all gating code.
 - [ ] useFeatureFlagPageGuard call removed from container
 - [ ] featureFlag property removed from navigation tab definition
 - [ ] Any conditional rendering based on flag simplified
-- [ ] tsc --noEmit passes
+- [ ] tsc --noEmit -p tsconfig.check.json passes
 - [ ] pnpm build passes
 
 ## Engineering Notes

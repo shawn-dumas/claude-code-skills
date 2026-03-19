@@ -495,7 +495,7 @@ When you encounter inline types during the refactor, check whether they belong i
 
 ## Step 5: Verify
 
-Run `npx tsc --noEmit` scoped to the changed files (or the whole project if scoping
+Run `npx tsc --noEmit -p tsconfig.check.json` scoped to the changed files (or the whole project if scoping
 is not practical). If TypeScript errors appear in files you touched, fix them before
 finishing. If existing tests cover the refactored component, run them with the
 project's test runner. Report the results in the summary.

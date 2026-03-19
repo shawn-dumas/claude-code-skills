@@ -541,7 +541,7 @@ degrades the other.
 ## Step 9: Verify and commit
 
 ```bash
-pnpm tsc --noEmit
+pnpm tsc --noEmit -p tsconfig.check.json
 pnpm build
 npx eslint . --max-warnings 0
 ```

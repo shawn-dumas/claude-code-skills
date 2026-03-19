@@ -344,7 +344,7 @@ describe('buildSystemsOverviewFast', () => {
 
 ## Step 7: Verify
 
-1. Run `npx tsc --noEmit` -- fix any type errors in the new spec file.
+1. Run `npx tsc --noEmit -p tsconfig.check.json` -- fix any type errors in the new spec file.
 2. Run `npx tsx scripts/AST/ast-complexity.ts <path-to-new-spec> --pretty`.
    Every function must have cyclomatic complexity <= 10. Test setup
    functions can be complex -- if any exceed 10, decompose them before

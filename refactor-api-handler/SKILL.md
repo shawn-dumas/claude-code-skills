@@ -365,7 +365,7 @@ Before defining any new type:
 
 ## Step 5: Verify
 
-1.  **TypeScript:** Run `pnpm tsc --noEmit`. Fix any type errors in changed files.
+1.  **TypeScript:** Run `pnpm tsc --noEmit -p tsconfig.check.json`. Fix any type errors in changed files.
 
 2.  **Intention matcher (MANDATORY -- do not skip):** After tsc and tests pass,
     run the intention matcher to verify the refactor preserved the handler's

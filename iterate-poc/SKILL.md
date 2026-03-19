@@ -393,7 +393,7 @@ and `~/.claude/CLAUDE.md` (Orchestration Protocol):
    git log --oneline -10
    # Verify commit message format (last N commits from this prompt)
    git log -5 --format="%s%n%b" | grep -c "^PoC: " || echo "WARNING: recent commits missing PoC trailer"
-   pnpm tsc --noEmit
+   pnpm tsc --noEmit -p tsconfig.check.json
    pnpm test --run 2>&1 | tail -5
    pnpm build 2>&1 | tail -5
    npx eslint . --max-warnings 0 2>&1 | tail -3
@@ -476,7 +476,7 @@ response shapes) and a BFF handoff document exists at
 1. Run the full verification suite:
 
    ```
-   pnpm tsc --noEmit
+   pnpm tsc --noEmit -p tsconfig.check.json
    pnpm build
    npx eslint . --max-warnings 0
    ```

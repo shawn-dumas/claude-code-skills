@@ -205,7 +205,7 @@ Read ~/github/user-frontend/CLAUDE.md before starting.
 Run ALL of the following in ~/github/user-frontend:
 
 \`\`\`bash
-pnpm tsc --noEmit
+pnpm tsc --noEmit -p tsconfig.check.json
 pnpm test --run
 pnpm build
 npx eslint . --max-warnings 0
@@ -344,7 +344,7 @@ For each prompt:
 4. **Verify independently.** Run in `~/github/user-frontend`:
     ```
     git log --oneline -10
-    pnpm tsc --noEmit
+    pnpm tsc --noEmit -p tsconfig.check.json
     pnpm test --run 2>&1 | tail -5
     pnpm build 2>&1 | tail -5
     npx eslint . --max-warnings 0 2>&1 | tail -3
