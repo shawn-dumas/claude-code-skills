@@ -22,6 +22,8 @@ import type {
 // ---------------------------------------------------------------------------
 
 const LOADING_DESTRUCTURED = new Set(['isLoading', 'isPending', 'isFetching']);
+const LOADING_JSX_NAMES = new Set(['LoadingContainer', 'Spinner', 'LoadingOverlay', 'LoadingSkeleton']);
+const LOADING_STATE_PATTERN = /^(is(Loading|Updating|Submitting|Saving|Processing|Fetching)|loading|pending)/;
 const ERROR_DESTRUCTURED = new Set(['isError', 'error']);
 const ERROR_JSX_NAMES = new Set(['QueryErrorFallback', 'ErrorBoundary']);
 const EMPTY_JSX_NAMES = new Set(['PlaceholderContainer']);
@@ -148,6 +150,39 @@ function findLoadingSignals(comp: ComponentInfo, filePath: string): string[] {
       }
     }
   }
+  return signals;
+}
+
+function findLoadingSignalsFromAst(filePath: string, range: LineRange): string[] {
+  const sf = getSourceFile(filePath);
+  const signals: string[] = [];
+
+  sf.forEachDescendant(node => {
+    if (!isInRange(node, range)) return;
+
+    if (Node.isJsxOpeningElement(node) || Node.isJsxSelfClosingElement(node)) {
+      const tagName = node.getTagNameNode().getText();
+      if (LOADING_JSX_NAMES.has(tagName)) {
+        signals.push(`JSX:${tagName}`);
+      }
+    }
+  });
+
+  return signals;
+}
+
+function findLoadingSignalsFromUseState(comp: ComponentInfo): string[] {
+  const signals: string[] = [];
+
+  for (const hook of comp.hookCalls) {
+    if (hook.name !== 'useState') continue;
+    for (const name of hook.destructuredNames) {
+      if (LOADING_STATE_PATTERN.test(name)) {
+        signals.push(`useState:${name}`);
+      }
+    }
+  }
+
   return signals;
 }
 
@@ -317,8 +352,14 @@ function analyzeComponent(
     endLine: comp.returnStatementEndLine,
   };
 
+  const isMutationOnly = queryHookCount === 0 && mutationHookCount > 0;
+
   // Collect signals (pass absolutePath for renamed-destructuring resolution)
-  const loadingSignals = findLoadingSignals(comp, absolutePath);
+  const loadingSignals = [
+    ...findLoadingSignals(comp, absolutePath),
+    ...findLoadingSignalsFromAst(absolutePath, range),
+    ...findLoadingSignalsFromUseState(comp),
+  ];
   const errorSignals = [
     ...findErrorSignalsFromHooks(comp, absolutePath),
     ...findErrorSignalsFromAst(absolutePath, range),
@@ -352,10 +393,13 @@ function analyzeComponent(
 
   const observations: ConcernMatrixObservation[] = [];
 
-  // Emit handles/missing observations for loading
+  // Emit handles/missing observations for loading.
+  // Mutation-only containers (no queries) are not expected to handle loading at
+  // the container level -- mutation loading feedback is owned by the UI that
+  // triggers the mutation (form isSubmitting, button spinner, etc.).
   if (handlesLoading) {
     observations.push({ kind: 'CONTAINER_HANDLES_LOADING', file: relativePath, line: comp.line, evidence });
-  } else {
+  } else if (!isMutationOnly) {
     observations.push({ kind: 'CONTAINER_MISSING_LOADING', file: relativePath, line: comp.line, evidence });
   }
 

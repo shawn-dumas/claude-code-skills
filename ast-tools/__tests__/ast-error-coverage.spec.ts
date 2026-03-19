@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import path from 'path';
-import { analyzeErrorCoverage, extractErrorCoverageObservations } from '../ast-error-coverage';
+import {
+  analyzeErrorCoverage,
+  extractErrorCoverageObservations,
+  _resetProjectGlobalMutationHandlerCache,
+} from '../ast-error-coverage';
 import type { ErrorCoverageAnalysis } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -14,6 +18,15 @@ function analyzeFixture(name: string): ErrorCoverageAnalysis {
 }
 
 describe('ast-error-coverage', () => {
+  // Isolate from the real project's global MutationCache.onError configuration
+  // so unit tests verify per-hook classification in isolation.
+  beforeEach(() => {
+    _resetProjectGlobalMutationHandlerCache(false);
+  });
+  afterEach(() => {
+    _resetProjectGlobalMutationHandlerCache();
+  });
+
   describe('fixture: error-coverage-samples.tsx', () => {
     it('produces observations for query and mutation hooks', () => {
       const result = analyzeFixture('error-coverage-samples.tsx');
@@ -119,6 +132,28 @@ describe('ast-error-coverage', () => {
       expect(result.summary.mutationsUnhandled).toBeGreaterThanOrEqual(1);
       expect(result.summary.queriesTotal).toBe(result.summary.queriesHandled + result.summary.queriesUnhandled);
       expect(result.summary.mutationsTotal).toBe(result.summary.mutationsHandled + result.summary.mutationsUnhandled);
+    });
+  });
+
+  describe('project-level global mutation handler', () => {
+    it('classifies all mutations as HANDLED when project has global MutationCache.onError', () => {
+      _resetProjectGlobalMutationHandlerCache(true);
+      const result = analyzeFixture('error-coverage-samples.tsx');
+      const unhandled = result.observations.filter(o => o.kind === 'MUTATION_ERROR_UNHANDLED');
+      expect(unhandled).toHaveLength(0);
+
+      const handled = result.observations.filter(o => o.kind === 'MUTATION_ERROR_HANDLED');
+      expect(handled.length).toBeGreaterThanOrEqual(1);
+
+      const globalHandled = handled.filter(o => o.evidence.hasGlobalMutationHandler);
+      expect(globalHandled.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('sets hasGlobalHandler in summary when project has global handler', () => {
+      _resetProjectGlobalMutationHandlerCache(true);
+      const result = analyzeFixture('error-coverage-samples.tsx');
+      expect(result.summary.hasGlobalHandler).toBe(true);
+      expect(result.summary.mutationsUnhandled).toBe(0);
     });
   });
 

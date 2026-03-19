@@ -1125,6 +1125,7 @@ export type ErrorCoverageObservationEvidence = {
   hasOnError: boolean;
   hasThrowOnError: boolean;
   hasTryCatch: boolean;
+  hasGlobalMutationHandler: boolean;
 };
 
 export type ErrorCoverageObservation = Observation<ErrorCoverageObservationKind, ErrorCoverageObservationEvidence>;

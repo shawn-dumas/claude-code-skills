@@ -234,6 +234,46 @@ function detectGlobalErrorHandler(filePath: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Project-level global mutation error handler detection
+// ---------------------------------------------------------------------------
+
+let _projectGlobalMutationHandler: boolean | null = null;
+
+/**
+ * Reset the cached project-level mutation handler flag. Used by tests to
+ * isolate from the real project configuration.
+ */
+export function _resetProjectGlobalMutationHandlerCache(overrideValue?: boolean): void {
+  _projectGlobalMutationHandler = overrideValue ?? null;
+}
+
+/**
+ * Scan known configuration directories for a global MutationCache.onError handler.
+ * A project-level handler (e.g., in reactQueryIntegration.ts) means every mutation
+ * has error feedback globally, so individual containers are not required to handle
+ * mutation errors themselves.
+ */
+function hasProjectGlobalMutationHandler(): boolean {
+  if (_projectGlobalMutationHandler !== null) return _projectGlobalMutationHandler;
+
+  const configDirs = [path.join(PROJECT_ROOT, 'src/shared'), path.join(PROJECT_ROOT, 'src/ui/providers')];
+
+  for (const dir of configDirs) {
+    if (!fs.existsSync(dir)) continue;
+    const files = getFilesInDirectory(dir, 'production');
+    for (const file of files) {
+      if (detectGlobalErrorHandler(file)) {
+        _projectGlobalMutationHandler = true;
+        return true;
+      }
+    }
+  }
+
+  _projectGlobalMutationHandler = false;
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // Import resolution for hook source detection
 // ---------------------------------------------------------------------------
 
@@ -276,6 +316,7 @@ function classifyHookCall(
   importSource: string | undefined,
   componentStartLine: number,
   componentEndLine: number,
+  projectHasGlobalMutationHandler: boolean,
 ): ErrorCoverageObservation | null {
   const { name: hookName, destructuredNames, line } = hookCall;
 
@@ -307,6 +348,7 @@ function classifyHookCall(
         hasOnError,
         hasThrowOnError,
         hasTryCatch: false,
+        hasGlobalMutationHandler: false,
       },
     };
   }
@@ -316,7 +358,9 @@ function classifyHookCall(
   const mutationNamesToCheck = mutationOriginalNames.length > 0 ? mutationOriginalNames : destructuredNames;
   const hasTryCatch = hasTryCatchWrapper(filePath, mutationNamesToCheck, componentStartLine, componentEndLine);
   const kind: ErrorCoverageObservationKind =
-    hasOnError || hasThrowOnError || hasTryCatch ? 'MUTATION_ERROR_HANDLED' : 'MUTATION_ERROR_UNHANDLED';
+    hasOnError || hasThrowOnError || hasTryCatch || projectHasGlobalMutationHandler
+      ? 'MUTATION_ERROR_HANDLED'
+      : 'MUTATION_ERROR_UNHANDLED';
 
   return {
     kind,
@@ -330,6 +374,7 @@ function classifyHookCall(
       hasOnError,
       hasThrowOnError,
       hasTryCatch,
+      hasGlobalMutationHandler: projectHasGlobalMutationHandler,
     },
   };
 }
@@ -345,9 +390,12 @@ export function analyzeErrorCoverage(filePath: string): ErrorCoverageAnalysis {
   const inventory: ReactInventory = analyzeReactFile(filePath);
   const observations: ErrorCoverageObservation[] = [];
 
-  // Check for global error handlers
-  const hasGlobalHandler = detectGlobalErrorHandler(filePath);
-  if (hasGlobalHandler) {
+  // Check for global error handlers -- both file-local and project-wide
+  const fileHasGlobalHandler = detectGlobalErrorHandler(filePath);
+  const projectHasGlobalHandler = hasProjectGlobalMutationHandler();
+  const hasGlobalHandler = fileHasGlobalHandler || projectHasGlobalHandler;
+
+  if (fileHasGlobalHandler) {
     observations.push({
       kind: 'GLOBAL_ERROR_HANDLER',
       file: relativePath,
@@ -360,6 +408,7 @@ export function analyzeErrorCoverage(filePath: string): ErrorCoverageAnalysis {
         hasOnError: true,
         hasThrowOnError: false,
         hasTryCatch: false,
+        hasGlobalMutationHandler: true,
       },
     });
   }
@@ -374,6 +423,7 @@ export function analyzeErrorCoverage(filePath: string): ErrorCoverageAnalysis {
         importSource,
         component.line,
         component.returnStatementEndLine,
+        projectHasGlobalHandler,
       );
       if (obs) {
         observations.push(obs);
