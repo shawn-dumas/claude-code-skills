@@ -75,13 +75,13 @@ describe('ast-plan-audit', () => {
       expect(certified[0].evidence.certificationDate).toBe('2026-03-15');
     });
 
-    it('emits PRE_FLIGHT_CERTIFIED with CONDITIONAL tier', () => {
+    it('emits PRE_FLIGHT_CONDITIONAL for CONDITIONAL tier', () => {
       const result = analyzePlan(fixturePath('plan-conditional.md'));
-      const certified = findByKind(result.observations, 'PRE_FLIGHT_CERTIFIED');
+      const conditional = findByKind(result.observations, 'PRE_FLIGHT_CONDITIONAL');
 
-      expect(certified).toHaveLength(1);
-      expect(certified[0].evidence.certificationTier).toBe('CONDITIONAL');
-      expect(certified[0].evidence.certificationDate).toBe('2026-03-14');
+      expect(conditional).toHaveLength(1);
+      expect(conditional[0].evidence.certificationTier).toBe('CONDITIONAL');
+      expect(conditional[0].evidence.certificationDate).toBe('2026-03-14');
     });
 
     it('emits PRE_FLIGHT_MARK_MISSING when no mark', () => {

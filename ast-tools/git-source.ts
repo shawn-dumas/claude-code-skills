@@ -7,6 +7,9 @@
  */
 
 import { execFileSync } from 'child_process';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { Project } from 'ts-morph';
 import { PROJECT_ROOT } from './project';
 
@@ -73,6 +76,31 @@ export function createVirtualProject(): Project {
       skipLibCheck: true,
     },
   });
+}
+
+/**
+ * Read a file's content from a git ref. Throws on failure (unlike gitShowFile which returns null).
+ */
+export function readFileFromGit(ref: string, filePath: string): string {
+  return execFileSync('git', ['show', `${ref}:${filePath}`], {
+    encoding: 'utf-8',
+    cwd: PROJECT_ROOT,
+    maxBuffer: 1024 * 1024,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+}
+
+/**
+ * Read a file from a git ref and write it to a temp file for ts-morph parsing.
+ * Returns the temp file path. Caller is responsible for cleanup.
+ */
+export function writeGitFileToTemp(ref: string, filePath: string): string {
+  const content = readFileFromGit(ref, filePath);
+  const ext = path.extname(filePath);
+  const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const tmpPath = path.join(os.tmpdir(), `ast-git-${uniqueSuffix}${ext}`);
+  fs.writeFileSync(tmpPath, content);
+  return tmpPath;
 }
 
 /**

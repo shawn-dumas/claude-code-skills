@@ -5,13 +5,16 @@ import { getSourceFile, PROJECT_ROOT } from '../project';
 
 describe('tool-registry', () => {
   describe('getToolNames', () => {
-    it('returns all 14 tool names', () => {
+    it('returns all 17 tool names', () => {
       const names = getToolNames();
-      expect(names).toHaveLength(14);
+      expect(names).toHaveLength(17);
       expect(names).toContain('authz-audit');
       expect(names).toContain('complexity');
+      expect(names).toContain('concern-matrix');
       expect(names).toContain('data-layer');
       expect(names).toContain('env-access');
+      expect(names).toContain('error-coverage');
+      expect(names).toContain('export-surface');
       expect(names).toContain('feature-flags');
       expect(names).toContain('imports');
       expect(names).toContain('jsx-analysis');

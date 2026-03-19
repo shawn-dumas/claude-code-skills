@@ -26,6 +26,9 @@ import { analyzeVitestParity, extractVitestParityObservations } from './ast-vite
 import { extractTypeSafetyObservations } from './ast-type-safety';
 
 import { analyzeAuthZ } from './ast-authz-audit';
+import { analyzeConcernMatrix, extractConcernMatrixObservations } from './ast-concern-matrix';
+import { analyzeErrorCoverage, extractErrorCoverageObservations } from './ast-error-coverage';
+import { analyzeExportSurface, extractExportSurfaceObservations } from './ast-export-surface';
 
 // ast-imports: SourceFile-based extraction for virtual/HEAD content
 import { extractImportObservationsFromSource } from './ast-imports';
@@ -62,6 +65,24 @@ export interface ToolEntry {
 function authzAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
   const analysis = analyzeAuthZ(filePath);
   return [...analysis.observations];
+}
+
+function concernMatrixAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
+  const analysis = analyzeConcernMatrix(filePath);
+  const result = extractConcernMatrixObservations(analysis);
+  return [...result.observations];
+}
+
+function errorCoverageAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
+  const analysis = analyzeErrorCoverage(filePath);
+  const result = extractErrorCoverageObservations(analysis);
+  return [...result.observations];
+}
+
+function exportSurfaceAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
+  const analysis = analyzeExportSurface(filePath);
+  const result = extractExportSurfaceObservations(analysis);
+  return [...result.observations];
 }
 
 function complexityAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
@@ -140,6 +161,9 @@ function typeSafetyAdapter(_sf: SourceFile, filePath: string): AnyObservation[] 
 const entries: ToolEntry[] = [
   { name: 'authz-audit', analyze: authzAdapter },
   { name: 'complexity', analyze: complexityAdapter },
+  { name: 'concern-matrix', analyze: concernMatrixAdapter },
+  { name: 'error-coverage', analyze: errorCoverageAdapter },
+  { name: 'export-surface', analyze: exportSurfaceAdapter },
   { name: 'data-layer', analyze: dataLayerAdapter },
   { name: 'env-access', analyze: envAccessAdapter },
   { name: 'feature-flags', analyze: featureFlagsAdapter },

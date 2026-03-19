@@ -15,6 +15,9 @@ Use the `/build-ast-tool` skill to fill gaps from this list.
 | 2026-03-15 | User-defined type guard detection | `sg -p '$_($$$): $_ is $_' src/` | ast-type-safety TYPE_GUARD_DECLARATION | audit-type-errors | open |
 | 2026-03-18 | Raw role check detection (roles.includes/indexOf/some with Role member access outside canonical files) | `rg 'roles\.(includes\|indexOf)\(Role\.'` | ast-authz-audit RAW_ROLE_CHECK | authz-enforcement plan verification | filled (ast-authz-audit) |
 | 2026-03-18 | Role equality check detection (=== Role.X, !== Role.X outside canonical files) | `rg '=== Role\.\|!== Role\.'` | ast-authz-audit RAW_ROLE_EQUALITY | authz-enforcement equality check cleanup | filled (ast-authz-audit) |
+| 2026-03-18 | Query/mutation error handling coverage (is isError destructured and used per hook call?) | `rg 'isError' + manual inspection` | ast-error-coverage QUERY_ERROR_HANDLED/UNHANDLED | rewrite verification cross-cutting concern tracing | filled (ast-error-coverage) |
+| 2026-03-18 | Container behavioral concern checklist (loading/error/empty/permission per container) | `rg 'isLoading\|isPending\|isError\|PlaceholderContainer' + manual counting` | ast-concern-matrix CONTAINER_HANDLES_*/MISSING_* | rewrite verification behavioral dimension tracing | filled (ast-concern-matrix) |
+| 2026-03-18 | Export surface extraction from isolated files (no import resolution, works on git refs) | `git show <ref>:<path> \| grep '^export '` | ast-export-surface EXPORT_SURFACE | rewrite verification provenance audit (202 deleted files) | filled (ast-export-surface) |
 
 ## Rules
 

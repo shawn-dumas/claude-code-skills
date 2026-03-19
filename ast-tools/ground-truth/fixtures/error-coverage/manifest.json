@@ -1,0 +1,134 @@
+{
+  "tool": "error-coverage",
+  "created": "2026-03-18",
+  "source": "real-world",
+  "status": "verified",
+  "notes": "Ground-truth fixtures for ast-error-coverage observation tool. Files reference real source paths (no copies). Two tool misclassifications found: useWorkstreamsQuery and useKpiQuery are both HANDLED (isError destructured with rename) but the tool reports UNHANDLED because hasIsError checks for the literal property name 'isError' and misses renamed destructuring like 'isError: isWorkstreamsError'.",
+  "fixtures": [
+    {
+      "file": "src/ui/page_blocks/dashboard/team/ProductivityContainer.tsx",
+      "expected": [
+        {
+          "hookName": "useTeamsHostTimeQuery",
+          "expectedKind": "QUERY_ERROR_UNHANDLED",
+          "line": 82,
+          "notes": "Destructures data/isLoading/isFetching/isFetched only. No isError. TODO(production-bug) comment confirms this is a known gap."
+        }
+      ]
+    },
+    {
+      "file": "src/ui/page_blocks/teams/TeamsListContainer.tsx",
+      "expected": [
+        {
+          "hookName": "useTeamsListQuery",
+          "expectedKind": "QUERY_ERROR_HANDLED",
+          "line": 25,
+          "notes": "Destructures isError directly (no rename). Early return with QueryErrorFallback on line 65."
+        },
+        {
+          "hookName": "useRemoveTeamsMutation",
+          "expectedKind": "MUTATION_ERROR_HANDLED",
+          "line": 40,
+          "notes": "Passes onError callback in mutation options (line 46)."
+        }
+      ]
+    },
+    {
+      "file": "src/ui/page_blocks/dashboard/operational-status/RealtimeActivityContainer.tsx",
+      "expected": [
+        {
+          "hookName": "useTeamRealtimeStatsQuery",
+          "expectedKind": "QUERY_ERROR_HANDLED",
+          "line": 37,
+          "notes": "Destructures isError and refetch. Early return with QueryErrorFallback on line 92."
+        }
+      ]
+    },
+    {
+      "file": "src/ui/page_blocks/dashboard/workstream-analysis/WorkstreamAnalysisContainer.tsx",
+      "expected": [
+        {
+          "hookName": "useWorkstreamsQuery",
+          "expectedKind": "QUERY_ERROR_HANDLED",
+          "line": 97,
+          "notes": "TOOL DISAGREES (reports UNHANDLED). Destructures 'isError: isWorkstreamsError' (renamed). Used in early return with QueryErrorFallback on line 171. Tool misses renamed isError destructuring."
+        },
+        {
+          "hookName": "useUserLoadTimeByHostQuery",
+          "expectedKind": "QUERY_ERROR_UNHANDLED",
+          "line": 146,
+          "notes": "Destructures only data/isLoading/isFetching. No error handling."
+        },
+        {
+          "hookName": "useUsersListQuery",
+          "expectedKind": "QUERY_ERROR_UNHANDLED",
+          "line": 151,
+          "notes": "Destructures only data/isFetching/isFetched. No error handling."
+        },
+        {
+          "hookName": "useWorkstreamsTimingInfoQuery",
+          "expectedKind": "QUERY_ERROR_UNHANDLED",
+          "line": 161,
+          "notes": "Destructures only data/isFetching/isFetched. No error handling."
+        }
+      ]
+    },
+    {
+      "file": "src/ui/page_blocks/dashboard/usage/shared/UsageContainer.tsx",
+      "expected": [
+        {
+          "hookName": "useKpiQuery",
+          "expectedKind": "QUERY_ERROR_HANDLED",
+          "line": 59,
+          "notes": "TOOL DISAGREES (reports UNHANDLED). Destructures 'isError: kpiIsError' (renamed). Used in early return with QueryErrorFallback on line 71. Tool misses renamed isError destructuring."
+        },
+        {
+          "hookName": "useSystemAggregateQuery",
+          "expectedKind": "QUERY_ERROR_UNHANDLED",
+          "line": 64,
+          "notes": "Destructures only data/isLoading/isFetching. No error handling."
+        },
+        {
+          "hookName": "useUserDetailsQuery",
+          "expectedKind": "QUERY_ERROR_UNHANDLED",
+          "line": 69,
+          "notes": "Destructures only data/isLoading/isFetching. No error handling."
+        }
+      ]
+    },
+    {
+      "file": "src/ui/page_blocks/teams/AddTeamForm/AddTeamFormContainer.tsx",
+      "expected": [
+        {
+          "hookName": "useAssignableUsersQuery",
+          "expectedKind": "QUERY_ERROR_UNHANDLED",
+          "line": 18,
+          "notes": "Destructures only data/isFetching. No error handling."
+        },
+        {
+          "hookName": "useCreateTeamMutation",
+          "expectedKind": "MUTATION_ERROR_UNHANDLED",
+          "line": 19,
+          "notes": "Destructures only mutateAsync. Error handling delegated to handleTeamSubmit utility (not visible to tool)."
+        },
+        {
+          "hookName": "useAddTeamOwnersMutation",
+          "expectedKind": "MUTATION_ERROR_UNHANDLED",
+          "line": 20,
+          "notes": "Destructures only mutateAsync. No local error handling."
+        },
+        {
+          "hookName": "useAddUsersToTeamMutation",
+          "expectedKind": "MUTATION_ERROR_UNHANDLED",
+          "line": 21,
+          "notes": "Destructures only mutateAsync. No local error handling."
+        }
+      ]
+    },
+    {
+      "file": "src/shared/hooks/useCustomQueryClient/useCustomQueryClient.ts",
+      "expected": [],
+      "notes": "No query/mutation hooks called. Creates a QueryClient with caches from getNewRelicQueryOptions(). Global error handler is configured in the imported utility, not in this file's AST scope."
+    }
+  ]
+}

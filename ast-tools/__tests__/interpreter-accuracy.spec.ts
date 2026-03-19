@@ -133,6 +133,7 @@ afterAll(() => {
   for (const dir of tmpDirs) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+  deadCodeGraphCache.clear();
 });
 
 // ---------------------------------------------------------------------------
@@ -434,6 +435,9 @@ function getTestQualityDomainDir(subjectPath: string): string {
   return path.dirname(subjectPath);
 }
 
+/** Cache dependency graphs per fixture dir to avoid redundant rebuilds. */
+const deadCodeGraphCache = new Map<string, ReturnType<typeof buildDependencyGraph>>();
+
 /**
  * Run the correct interpreter pipeline for a single file and return all
  * assessments. Each tool has a different observation -> interpretation chain.
@@ -475,7 +479,12 @@ function runInterpreterForFile(tool: EntryTool, filePath: string, fixtureDir: st
       ).assessments;
     }
     case 'dead-code': {
-      const graph = buildDependencyGraph(fixtureDir);
+      // Scope consumer search to the fixture directory (not all of src/)
+      // and cache the graph per fixture to avoid redundant rebuilds.
+      if (!deadCodeGraphCache.has(fixtureDir)) {
+        deadCodeGraphCache.set(fixtureDir, buildDependencyGraph(fixtureDir, { searchDir: fixtureDir }));
+      }
+      const graph = deadCodeGraphCache.get(fixtureDir)!;
       const obsResult = extractImportObservations(graph);
       return interpretDeadCode(obsResult.observations, graph).assessments;
     }
@@ -537,6 +546,11 @@ function evaluateEntryFixture(
   const details: string[] = [];
 
   for (const expected of manifest.expectedClassifications) {
+    // Match by file + line + symbol + kind. Multiple assessment kinds can
+    // share the same file/line/symbol coordinates (e.g., DETECTED_STRATEGY
+    // and CLEANUP_COMPLETE are both file-level with line=0 and no symbol).
+    // Including kind in the predicate prevents Array.find() ordering from
+    // causing false mismatches.
     const matchingAssessment = allAssessments.find(a => {
       const assessmentFile = path.basename(a.subject.file);
       const expectedFile = path.basename(expected.file);
@@ -547,24 +561,38 @@ function evaluateEntryFixture(
 
       if (expected.symbol && a.subject.symbol !== expected.symbol) return false;
 
+      if (a.kind !== expected.expectedKind) return false;
+
       return true;
     });
 
-    if (!matchingAssessment) {
-      details.push(
-        `MISS: ${expected.expectedKind} at ${expected.file}:${expected.line} ` +
-          `(${expected.symbol}) -- no matching assessment found`,
-      );
-      continue;
-    }
-
-    if (matchingAssessment.kind === expected.expectedKind) {
+    if (matchingAssessment) {
       correct++;
     } else {
-      details.push(
-        `WRONG: ${expected.file}:${expected.line} (${expected.symbol}) -- ` +
-          `expected ${expected.expectedKind}, got ${matchingAssessment.kind}`,
-      );
+      // Find what was produced at this location for diagnostic context
+      const atLocation = allAssessments
+        .filter(a => {
+          const assessmentFile = path.basename(a.subject.file);
+          const expectedFile = path.basename(expected.file);
+          if (assessmentFile !== expectedFile) return false;
+          const assessmentLine = a.subject.line ?? 0;
+          if (Math.abs(assessmentLine - expected.line) > LINE_TOLERANCE) return false;
+          if (expected.symbol && a.subject.symbol !== expected.symbol) return false;
+          return true;
+        })
+        .map(a => a.kind);
+
+      if (atLocation.length > 0) {
+        details.push(
+          `WRONG: ${expected.file}:${expected.line} (${expected.symbol}) -- ` +
+            `expected ${expected.expectedKind}, got [${atLocation.join(', ')}]`,
+        );
+      } else {
+        details.push(
+          `MISS: ${expected.expectedKind} at ${expected.file}:${expected.line} ` +
+            `(${expected.symbol}) -- no matching assessment found`,
+        );
+      }
     }
   }
 

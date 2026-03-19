@@ -63,7 +63,27 @@ npx tsx scripts/AST/ast-interpret-template.ts $ARGUMENTS/**/*.tsx --pretty
 
 # Dead code detection (emits DEAD_EXPORT, POSSIBLY_DEAD_EXPORT, CIRCULAR_DEPENDENCY assessments)
 npx tsx scripts/AST/ast-interpret-dead-code.ts $ARGUMENTS --pretty
+
+# Error handling coverage (emits QUERY_ERROR_UNHANDLED, MUTATION_ERROR_UNHANDLED observations)
+npx tsx scripts/AST/ast-error-coverage.ts $ARGUMENTS --count
+npx tsx scripts/AST/ast-error-coverage.ts $ARGUMENTS --kind QUERY_ERROR_UNHANDLED --pretty
+
+# Behavioral concern matrix (emits CONTAINER_MISSING_LOADING, CONTAINER_MISSING_ERROR, etc.)
+npx tsx scripts/AST/ast-concern-matrix.ts $ARGUMENTS --count
 ```
+
+### Error handling coverage
+
+Use `QUERY_ERROR_UNHANDLED` and `MUTATION_ERROR_UNHANDLED` observations to
+identify containers with unhandled query/mutation errors. These are
+`[AST-confirmed]` findings (structural facts). Include in the migration
+checklist: containers must handle error states for every query/mutation.
+
+### Behavioral concern matrix
+
+Use `CONTAINER_MISSING_*` observations to identify containers that lack
+loading, error, or empty state handling. Containers scoring below 2/3
+(missing 2+ of loading/error/empty) should be flagged in the audit findings.
 
 ### Using observations and assessments
 

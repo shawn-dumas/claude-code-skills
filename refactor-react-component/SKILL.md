@@ -548,6 +548,15 @@ investigated and resolved.
    confirms it was intentional, run:
    `/create-feedback-fixture --tool intent --file <before-file> --files <after-files> --expected INTENTIONALLY_REMOVED --actual ACCIDENTALLY_DROPPED`.
 
+### Step 5c: Container error coverage check
+
+If the component is a container (owns query/mutation hooks), verify
+error handling coverage is preserved:
+
+```bash
+npx tsx scripts/AST/ast-error-coverage.ts <refactored-file> --count
+```
+
 ## Step 6: Summary
 
 Output a short summary of what changed, what files were created or

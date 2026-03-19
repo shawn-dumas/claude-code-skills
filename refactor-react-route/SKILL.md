@@ -345,6 +345,18 @@ investigated and resolved.
    confirms it was intentional, run
    `/create-feedback-fixture --tool intent --file <before-file> --files <after-files> --expected INTENTIONALLY_REMOVED --actual ACCIDENTALLY_DROPPED`.
 
+### Step 5c: Behavioral concern regression check
+
+After refactoring, verify no behavioral concerns were dropped:
+
+```bash
+npx tsx scripts/AST/ast-error-coverage.ts <refactored-container> --count
+# Expect: QUERY_ERROR_UNHANDLED count not increased vs. pre-refactor
+
+npx tsx scripts/AST/ast-concern-matrix.ts <refactored-container> --pretty
+# Expect: score not decreased vs. pre-refactor
+```
+
 ## Step 6: Summary
 
 Output a short summary of what changed, what files were created or

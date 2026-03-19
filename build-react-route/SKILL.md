@@ -292,6 +292,16 @@ type definitions.
 
 5. Run the new test files with `pnpm vitest run <path>`. All tests must pass.
 
+6. Verify the container handles all behavioral concerns:
+
+   ```bash
+   npx tsx scripts/AST/ast-error-coverage.ts <new-container-file> --pretty
+   # Expect: 0 QUERY_ERROR_UNHANDLED, 0 MUTATION_ERROR_UNHANDLED
+
+   npx tsx scripts/AST/ast-concern-matrix.ts <new-container-file> --pretty
+   # Expect: score 3/3 or higher (loading + error + empty all handled)
+   ```
+
 After generating, output a short summary of what was created (file paths), any
 prerequisite service hooks or child components that need to be created separately,
 and whether type-checking and tests passed.

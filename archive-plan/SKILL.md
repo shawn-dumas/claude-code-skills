@@ -10,6 +10,15 @@ argument-hint: "The plan file name (e.g., 'authz-enforcement' or 'authz-enforcem
 
 Archive a completed orchestration plan. `$ARGUMENTS`
 
+**Execute this skill yourself. Do NOT delegate to a sub-agent via Task.**
+The archiving agent needs the full session context: which findings were
+deferred then resolved, which cleanup items map to which backlog numbers,
+what the actual execution metrics were, and what the adversarial review
+found. A sub-agent starts with none of this context and will produce
+inaccurate cleanup dispositions, wrong backlog item numbers, stale
+finding statuses, and incorrect verification counts -- all of which the
+orchestrator then has to review and fix, doubling the work.
+
 ### Resolve paths
 
 ```bash

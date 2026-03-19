@@ -1108,6 +1108,41 @@ export interface PlanAuditVerdictReport {
   readonly promptFiles: readonly string[];
 }
 
+// --- ast-error-coverage output ---
+
+export type ErrorCoverageObservationKind =
+  | 'QUERY_ERROR_HANDLED'
+  | 'QUERY_ERROR_UNHANDLED'
+  | 'MUTATION_ERROR_HANDLED'
+  | 'MUTATION_ERROR_UNHANDLED'
+  | 'GLOBAL_ERROR_HANDLER';
+
+export type ErrorCoverageObservationEvidence = {
+  hookName: string;
+  componentName: string;
+  destructuredNames: string[];
+  hasIsError: boolean;
+  hasOnError: boolean;
+  hasThrowOnError: boolean;
+  hasTryCatch: boolean;
+};
+
+export type ErrorCoverageObservation = Observation<ErrorCoverageObservationKind, ErrorCoverageObservationEvidence>;
+
+export interface ErrorCoverageAnalysis {
+  filePath: string;
+  observations: ErrorCoverageObservation[];
+  summary: {
+    queriesTotal: number;
+    queriesHandled: number;
+    queriesUnhandled: number;
+    mutationsTotal: number;
+    mutationsHandled: number;
+    mutationsUnhandled: number;
+    hasGlobalHandler: boolean;
+  };
+}
+
 // ============================================================
 // Unified observation types
 // ============================================================
@@ -1134,7 +1169,10 @@ export type AnyObservation =
   | BffGapObservation
   | VtParityObservation
   | BrandedCheckObservation
-  | AuthZObservation;
+  | AuthZObservation
+  | ErrorCoverageObservation
+  | ConcernMatrixObservation
+  | ExportSurfaceObservation;
 
 /**
  * Unified result from running one or more observation tools on a single file.
@@ -1337,4 +1375,65 @@ export interface VtParityReport {
   readonly score: VtParityScore;
   readonly sourceFiles: readonly string[];
   readonly targetFiles: readonly string[];
+}
+
+// ============================================================
+// ast-concern-matrix output (behavioral concern checklist)
+// ============================================================
+
+export type ConcernMatrixObservationKind =
+  | 'CONTAINER_HANDLES_LOADING'
+  | 'CONTAINER_HANDLES_ERROR'
+  | 'CONTAINER_HANDLES_EMPTY'
+  | 'CONTAINER_HANDLES_PERMISSION'
+  | 'CONTAINER_MISSING_LOADING'
+  | 'CONTAINER_MISSING_ERROR'
+  | 'CONTAINER_MISSING_EMPTY'
+  | 'CONTAINER_MISSING_PERMISSION';
+
+export type ConcernMatrixObservationEvidence = {
+  componentName: string;
+  queryHookCount: number;
+  mutationHookCount: number;
+  loadingSignals: string[];
+  errorSignals: string[];
+  emptySignals: string[];
+  permissionSignals: string[];
+};
+
+export type ConcernMatrixObservation = Observation<ConcernMatrixObservationKind, ConcernMatrixObservationEvidence>;
+
+export interface ConcernMatrixAnalysis {
+  filePath: string;
+  observations: ConcernMatrixObservation[];
+  summary: {
+    componentName: string;
+    handlesLoading: boolean;
+    handlesError: boolean;
+    handlesEmpty: boolean;
+    handlesPermission: boolean;
+    /** e.g. "3/4" or "2/3" (permission excluded if not applicable) */
+    score: string;
+  };
+}
+
+// ============================================================
+// ast-export-surface output (isolated export extraction)
+// ============================================================
+
+export type ExportSurfaceObservationKind = 'EXPORT_SURFACE';
+
+export type ExportSurfaceObservationEvidence = {
+  name: string;
+  exportKind: 'function' | 'class' | 'type' | 'interface' | 'const' | 'enum' | 'default' | 'reexport';
+  isTypeOnly: boolean;
+  /** For reexports: the module specifier */
+  source?: string;
+};
+
+export type ExportSurfaceObservation = Observation<ExportSurfaceObservationKind, ExportSurfaceObservationEvidence>;
+
+export interface ExportSurfaceAnalysis {
+  filePath: string;
+  observations: ExportSurfaceObservation[];
 }

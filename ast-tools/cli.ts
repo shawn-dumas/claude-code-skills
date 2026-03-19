@@ -15,7 +15,7 @@ interface ParseArgsOptions {
   extraBooleanFlags?: readonly string[];
 }
 
-const DEFAULT_NAMED_OPTIONS = ['--kind'] as const;
+const DEFAULT_NAMED_OPTIONS = ['--kind', '--source-branch'] as const;
 const DEFAULT_BOOLEAN_FLAGS = ['--pretty', '--help', '--no-cache', '--test-files', '--count'] as const;
 
 /**

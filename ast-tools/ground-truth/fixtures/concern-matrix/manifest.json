@@ -1,0 +1,133 @@
+{
+  "tool": "concern-matrix",
+  "created": "2026-03-18",
+  "source": "real-world",
+  "status": "verified",
+  "notes": "Ground-truth fixtures for ast-concern-matrix observation tool. Files reference real source paths (no copies). Two tool misclassifications found: WorkstreamAnalysisContainer and OpportunitiesFiltersContainer both have loading signals (renamed isLoading/isFetching destructured from query hooks and passed as props) but the tool reports MISSING_LOADING. The tool fails to detect renamed loading destructured properties.",
+  "fixtures": [
+    {
+      "file": "src/ui/page_blocks/dashboard/team/ProductivityContainer.tsx",
+      "expected": {
+        "componentName": "ProductivityContainer",
+        "handlesLoading": true,
+        "handlesError": false,
+        "handlesEmpty": false,
+        "handlesPermission": false,
+        "observations": [
+          {
+            "expectedKind": "CONTAINER_HANDLES_LOADING",
+            "notes": "isLoading and isFetching destructured from useTeamsHostTimeQuery and passed to ProductivityBlock."
+          },
+          {
+            "expectedKind": "CONTAINER_MISSING_ERROR",
+            "notes": "No isError destructured. TODO(production-bug) on line 81 confirms known gap."
+          },
+          {
+            "expectedKind": "CONTAINER_MISSING_EMPTY",
+            "notes": "No empty-state component or check."
+          }
+        ]
+      }
+    },
+    {
+      "file": "src/ui/page_blocks/teams/TeamsListContainer.tsx",
+      "expected": {
+        "componentName": "TeamsListContainer",
+        "handlesLoading": true,
+        "handlesError": true,
+        "handlesEmpty": false,
+        "handlesPermission": false,
+        "observations": [
+          {
+            "expectedKind": "CONTAINER_HANDLES_LOADING",
+            "notes": "isFetching destructured from useTeamsListQuery and passed to TeamsBlock."
+          },
+          {
+            "expectedKind": "CONTAINER_HANDLES_ERROR",
+            "notes": "isError destructured, early return with QueryErrorFallback on line 65."
+          },
+          {
+            "expectedKind": "CONTAINER_MISSING_EMPTY",
+            "notes": "No empty state UI component. Teams array passed directly to block."
+          }
+        ]
+      }
+    },
+    {
+      "file": "src/ui/page_blocks/dashboard/operational-status/RealtimeActivityContainer.tsx",
+      "expected": {
+        "componentName": "RealtimeActivityContainer",
+        "handlesLoading": true,
+        "handlesError": true,
+        "handlesEmpty": false,
+        "handlesPermission": false,
+        "observations": [
+          {
+            "expectedKind": "CONTAINER_HANDLES_LOADING",
+            "notes": "isLoading and isFetching destructured. Combined as 'isLoading || isFetching' and passed to block."
+          },
+          {
+            "expectedKind": "CONTAINER_HANDLES_ERROR",
+            "notes": "isError destructured, early return with QueryErrorFallback on line 92."
+          },
+          {
+            "expectedKind": "CONTAINER_MISSING_EMPTY",
+            "notes": "No dedicated empty state UI. filteredData defaults to empty array but no empty-state component."
+          }
+        ]
+      }
+    },
+    {
+      "file": "src/ui/page_blocks/dashboard/workstream-analysis/WorkstreamAnalysisContainer.tsx",
+      "expected": {
+        "componentName": "WorkstreamAnalysisContainer",
+        "handlesLoading": true,
+        "handlesError": true,
+        "handlesEmpty": true,
+        "handlesPermission": false,
+        "observations": [
+          {
+            "expectedKind": "CONTAINER_HANDLES_LOADING",
+            "notes": "TOOL DISAGREES (reports MISSING_LOADING). isWorkstreamsLoading, isWorkstreamsFetching, isHostLoading, isHostFetching all destructured with renames and passed as props. Tool misses renamed loading properties."
+          },
+          {
+            "expectedKind": "CONTAINER_HANDLES_ERROR",
+            "notes": "isWorkstreamsError destructured (renamed from isError), early return with QueryErrorFallback on line 171."
+          },
+          {
+            "expectedKind": "CONTAINER_HANDLES_EMPTY",
+            "notes": "PlaceholderContainer wraps content, gated by 'enabled' flag (line 174)."
+          }
+        ]
+      }
+    },
+    {
+      "file": "src/ui/page_blocks/dashboard/opportunities/OpportunityFilters/OpportunitiesFiltersContainer.tsx",
+      "expected": {
+        "componentName": "OpportunitiesFiltersContainer",
+        "handlesLoading": true,
+        "handlesError": false,
+        "handlesEmpty": false,
+        "handlesPermission": true,
+        "observations": [
+          {
+            "expectedKind": "CONTAINER_HANDLES_LOADING",
+            "notes": "TOOL DISAGREES (reports MISSING_LOADING). isTeamsLoading and isTeamsFetching destructured (renamed from isLoading/isFetching) and passed as props to OpportunitiesFilters. Tool misses renamed loading properties."
+          },
+          {
+            "expectedKind": "CONTAINER_MISSING_ERROR",
+            "notes": "No isError destructured from useTeamsListQuery. No error fallback UI."
+          },
+          {
+            "expectedKind": "CONTAINER_MISSING_EMPTY",
+            "notes": "No empty state handling. Filter container may not need one (data presence is not its concern)."
+          },
+          {
+            "expectedKind": "CONTAINER_HANDLES_PERMISSION",
+            "notes": "useAuthState for roles, isAdmin(roles) check gates team visibility."
+          }
+        ]
+      }
+    }
+  ]
+}
