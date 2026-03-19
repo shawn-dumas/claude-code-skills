@@ -124,6 +124,52 @@ describe('ast-interpret-skill-quality (synthetic fixtures)', () => {
     });
   });
 
+  describe('synthetic build-complete fixture (SECTION_COMPLETE)', () => {
+    const obs = analyzeSkillFile(path.join(FIXTURES_DIR, 'build-synthetic-complete', 'SKILL.md'), MOCK_SKILL_DIRS);
+    const report = interpretSkillQuality(obs);
+
+    it('has category build', () => {
+      expect(report.category).toBe('build');
+    });
+
+    it('produces SECTION_COMPLETE for build category', () => {
+      const complete = findByKind(report.assessments, 'SECTION_COMPLETE');
+      expect(complete).toHaveLength(1);
+      expect(complete[0].rationale[0]).toContain('build');
+    });
+
+    it('produces no MISSING_SECTION', () => {
+      expect(findByKind(report.assessments, 'MISSING_SECTION')).toHaveLength(0);
+    });
+
+    it('has score 100', () => {
+      expect(report.score).toBe(100);
+    });
+  });
+
+  describe('synthetic build-missing fixture (MISSING_SECTION)', () => {
+    const obs = analyzeSkillFile(path.join(FIXTURES_DIR, 'build-synthetic-missing', 'SKILL.md'), MOCK_SKILL_DIRS);
+    const report = interpretSkillQuality(obs);
+
+    it('has category build', () => {
+      expect(report.category).toBe('build');
+    });
+
+    it('detects MISSING_SECTION for Verify section', () => {
+      const missing = findByKind(report.assessments, 'MISSING_SECTION');
+      expect(missing).toHaveLength(1);
+      expect(missing[0].subject.symbol).toBe('Verify section');
+    });
+
+    it('produces no SECTION_COMPLETE', () => {
+      expect(findByKind(report.assessments, 'SECTION_COMPLETE')).toHaveLength(0);
+    });
+
+    it('has score 97', () => {
+      expect(report.score).toBe(97);
+    });
+  });
+
   describe('minimal fixture', () => {
     const obs = analyzeSkillFile(fixturePath('skill-minimal.md'), MOCK_SKILL_DIRS);
     const report = interpretSkillQuality(obs);
