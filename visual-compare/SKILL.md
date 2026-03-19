@@ -48,11 +48,11 @@ Create the session docs file at `docs/compare-<timestamp>.md` with this header:
 ```markdown
 # Visual Comparison: <REMOTE_ENV> — <YYYY-MM-DD HH:MM>
 
-| | Local | Remote |
-|---|---|---|
-| Base URL | http://localhost:3001 | https://<REMOTE_ENV>.8flow.com |
-| Environment | local | <REMOTE_ENV> |
-| Session started | <YYYY-MM-DD HH:MM> | |
+|                 | Local                 | Remote                         |
+| --------------- | --------------------- | ------------------------------ |
+| Base URL        | http://localhost:3001 | https://<REMOTE_ENV>.8flow.com |
+| Environment     | local                 | <REMOTE_ENV>                   |
+| Session started | <YYYY-MM-DD HH:MM>    |                                |
 
 ---
 ```
@@ -79,6 +79,7 @@ Append to the docs file:
 ## Sign-in — <timestamp>
 
 ### Screenshots
+
 - Local: `screenshots/local-signin.png`
 - Remote: `screenshots/remote-signin.png`
 
@@ -118,6 +119,7 @@ If the user selects "Done — finish session", skip to Phase 3.
 ### Step 2b: Navigate both browsers
 
 Derive a URL path from the user's input:
+
 - If it starts with `/`, use it directly as the path.
 - Otherwise, treat it as a screen name and navigate to the closest matching path (use your knowledge of the app's route structure). If uncertain, ask: "What is the URL path for <screen>? (e.g. /dashboard)"
 
@@ -147,6 +149,7 @@ Take accessibility snapshots from both browsers for structural comparison:
 - `mcp_dashboard-remote_browser_snapshot`
 
 Compare the two snapshots. Look for:
+
 - **Structural differences**: elements present in one but absent in the other (buttons, panels, table columns, navigation items)
 - **Text/data differences**: same element with different text content, different counts, different labels
 - **State differences**: loading states, empty states, error states in one but not the other
@@ -160,6 +163,7 @@ Capture API requests from both browsers:
 - `mcp_dashboard-remote_browser_network_requests` with `includeStatic: false`
 
 For each browser's request list:
+
 - Filter to requests whose URL contains `/api/`
 - Record: HTTP method, path (strip base URL), status code, and a brief response summary (record count if JSON array, key fields if JSON object, or status if non-200)
 
@@ -171,24 +175,29 @@ Append the following to `docs/compare-<timestamp>.md`:
 ## <Screen Name> — <HH:MM>
 
 ### Screenshots
+
 - Local: `screenshots/local-<slug>.png`
 - Remote: `screenshots/remote-<slug>.png`
 
 ### Visual discrepancies
+
 <List each discrepancy observed from comparing snapshots and screenshots, or "None observed">
 
 ### Data discrepancies
+
 <List any differences in displayed values, counts, or data between the two environments, or "None observed">
 
 ### API Requests — Local
-| Method | Path | Status | Summary |
-|--------|------|--------|---------|
-| GET | /api/example | 200 | 42 records |
+
+| Method | Path         | Status | Summary    |
+| ------ | ------------ | ------ | ---------- |
+| GET    | /api/example | 200    | 42 records |
 
 ### API Requests — Remote
-| Method | Path | Status | Summary |
-|--------|------|--------|---------|
-| GET | /api/example | 200 | 38 records |
+
+| Method | Path         | Status | Summary    |
+| ------ | ------------ | ------ | ---------- |
+| GET    | /api/example | 200    | 38 records |
 
 ---
 ```
@@ -206,16 +215,18 @@ Append a summary section to the docs file:
 ```markdown
 ## Session Summary
 
-| | |
-|---|---|
-| Screens compared | <N> |
+|                     |                     |
+| ------------------- | ------------------- |
+| Screens compared    | <N>                 |
 | Total discrepancies | <N visual + N data> |
-| Session ended | <HH:MM> |
+| Session ended       | <HH:MM>             |
 
 ### All screenshots taken
+
 <list each file, one per line, with local/remote pairs grouped>
 
 ### Discrepancy index
+
 <bulleted list of every discrepancy found across all screens, referencing the screen section where it was recorded. If none, write "No discrepancies found.">
 ```
 
@@ -233,27 +244,27 @@ Discrepancies found: <N>
 
 ## Naming conventions
 
-| Item | Convention | Example |
-|------|-----------|---------|
-| Session docs file | `docs/compare-<YYYY-MM-DD-HHmm>.md` | `docs/compare-2026-03-13-1432.md` |
-| Local screenshot | `screenshots/local-<slug>.png` | `screenshots/local-dashboard.png` |
-| Remote screenshot | `screenshots/remote-<slug>.png` | `screenshots/remote-dashboard.png` |
-| Slug | lowercase, hyphens, no special chars | `team-settings`, `insights-productivity` |
-| Sign-in screenshots | `local-signin.png` / `remote-signin.png` | (fixed names, taken at session start) |
+| Item                | Convention                               | Example                                  |
+| ------------------- | ---------------------------------------- | ---------------------------------------- |
+| Session docs file   | `docs/compare-<YYYY-MM-DD-HHmm>.md`      | `docs/compare-2026-03-13-1021.md`        |
+| Local screenshot    | `screenshots/local-<slug>.png`           | `screenshots/local-dashboard.png`        |
+| Remote screenshot   | `screenshots/remote-<slug>.png`          | `screenshots/remote-dashboard.png`       |
+| Slug                | lowercase, hyphens, no special chars     | `team-settings`, `insights-productivity` |
+| Sign-in screenshots | `local-signin.png` / `remote-signin.png` | (fixed names, taken at session start)    |
 
 ---
 
 ## Tool reference
 
-| Action | Local browser | Remote browser |
-|--------|--------------|----------------|
-| Navigate | `mcp_dashboard-local_browser_navigate` | `mcp_dashboard-remote_browser_navigate` |
-| Screenshot | `mcp_dashboard-local_browser_take_screenshot` | `mcp_dashboard-remote_browser_take_screenshot` |
-| Accessibility snapshot | `mcp_dashboard-local_browser_snapshot` | `mcp_dashboard-remote_browser_snapshot` |
-| Network requests | `mcp_dashboard-local_browser_network_requests` | `mcp_dashboard-remote_browser_network_requests` |
-| Wait | `mcp_dashboard-local_browser_wait_for` | `mcp_dashboard-remote_browser_wait_for` |
-| Click | `mcp_dashboard-local_browser_click` | `mcp_dashboard-remote_browser_click` |
-| Type | `mcp_dashboard-local_browser_type` | `mcp_dashboard-remote_browser_type` |
+| Action                 | Local browser                                  | Remote browser                                  |
+| ---------------------- | ---------------------------------------------- | ----------------------------------------------- |
+| Navigate               | `mcp_dashboard-local_browser_navigate`         | `mcp_dashboard-remote_browser_navigate`         |
+| Screenshot             | `mcp_dashboard-local_browser_take_screenshot`  | `mcp_dashboard-remote_browser_take_screenshot`  |
+| Accessibility snapshot | `mcp_dashboard-local_browser_snapshot`         | `mcp_dashboard-remote_browser_snapshot`         |
+| Network requests       | `mcp_dashboard-local_browser_network_requests` | `mcp_dashboard-remote_browser_network_requests` |
+| Wait                   | `mcp_dashboard-local_browser_wait_for`         | `mcp_dashboard-remote_browser_wait_for`         |
+| Click                  | `mcp_dashboard-local_browser_click`            | `mcp_dashboard-remote_browser_click`            |
+| Type                   | `mcp_dashboard-local_browser_type`             | `mcp_dashboard-remote_browser_type`             |
 
 Both browsers support the full set of Playwright MCP tools. Use them freely when
 the user asks you to interact with the app (e.g., click a filter, fill a form,

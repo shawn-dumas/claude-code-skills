@@ -188,12 +188,12 @@ Based on the change request and current code, determine:
 List every file that needs modification, creation, or deletion.
 Classify each:
 
-| File                                     | Action | What Changes            |
-| ---------------------------------------- | ------ | ----------------------- |
-| `path/to/file.tsx`                       | modify | Add new column to table |
-| `src/shared/types/<domain>/index.ts`     | modify | Add new field to type   |
-| `src/fixtures/domains/domain.fixture.ts` | modify | Generate new field      |
-| ...                                      | ...    | ...                     |
+| File                                       | Action | What Changes            |
+| ------------------------------------------ | ------ | ----------------------- |
+| `path/to/file.tsx`                         | modify | Add new column to table |
+| `src/shared/types/<domain>/index.ts`       | modify | Add new field to type   |
+| `src/fixtures/domains/<domain>.fixture.ts` | modify | Generate new field      |
+| ...                                        | ...    | ...                     |
 
 ### 3.2 Scope Classification
 

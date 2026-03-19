@@ -245,6 +245,15 @@ interface AstConfig {
     }>;
   };
 
+  readonly skillQuality: {
+    /** Category-specific required sections. Key is the category, value is heading text patterns. */
+    readonly requiredSections: Readonly<
+      Record<string, readonly { readonly pattern: string; readonly label: string }[]>
+    >;
+    /** Deprecated command patterns (regex strings). Commands matching these are flagged. */
+    readonly deprecatedCommandPatterns: readonly { readonly pattern: string; readonly replacement: string }[];
+  };
+
   readonly bffGaps: {
     /** Text patterns that identify a BFF stub (searched in file content) */
     readonly stubPatterns: readonly string[];
@@ -923,6 +932,33 @@ export const astConfig: AstConfig = Object.freeze({
       certified: 90,
       conditional: 60,
     }),
+  }),
+
+  skillQuality: Object.freeze({
+    requiredSections: Object.freeze({
+      build: [
+        { pattern: 'step\\s+\\d', label: 'Step headings' },
+        { pattern: 'verif', label: 'Verify section' },
+      ],
+      refactor: [
+        { pattern: 'prerequisite', label: 'Prerequisite section' },
+        { pattern: 'step\\s+0', label: 'Step 0 (AST analysis)' },
+        { pattern: 'verif', label: 'Verify section' },
+        { pattern: 'intention\\s+matcher', label: 'Intention matcher' },
+      ],
+      audit: [
+        { pattern: 'step\\s+0', label: 'Step 0 (AST analysis)' },
+        { pattern: 'report\\s+policy|ast-confirmed', label: 'Report policy / AST-confirmed' },
+      ],
+      orchestrate: [
+        { pattern: 'reconciliation', label: 'Reconciliation section' },
+        { pattern: 'verification\\s+checklist|pre-execution\\s+verification', label: 'Verification checklist' },
+      ],
+    } as Record<string, readonly { readonly pattern: string; readonly label: string }[]>),
+    deprecatedCommandPatterns: [
+      { pattern: 'pnpm\\s+tsc\\s+--noEmit(?!\\s+-p)', replacement: 'pnpm tsc --noEmit -p tsconfig.check.json' },
+      { pattern: 'pnpm\\s+build-types', replacement: 'pnpm tsc --noEmit -p tsconfig.check.json' },
+    ] as { readonly pattern: string; readonly replacement: string }[],
   }),
 
   bffGaps: Object.freeze({

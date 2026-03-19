@@ -173,9 +173,9 @@ Group cascading errors into chains:
 
 ```
 ROOT: src/shared/types/users/index.ts:15 -- User interface missing `email` property
-  CASCADE: src/containers/UserContainer.tsx:42 -- Property 'email' does not exist
-  CASCADE: src/components/UserCard.tsx:18 -- Type 'User' is not assignable
-  CASCADE: src/components/UserList.tsx:30 -- Property 'email' does not exist
+  CASCADE: src/ui/page_blocks/dashboard/team/ProductivityContainer.tsx:42 -- Property 'email' does not exist
+  CASCADE: src/ui/page_blocks/dashboard/team/ProductivityBlock.tsx:18 -- Type 'User' is not assignable
+  CASCADE: src/ui/page_blocks/dashboard/team/ProductivityTable.tsx:30 -- Property 'email' does not exist
 ```
 
 Count how many errors each root cause produces. Sort root causes by cascade
@@ -275,7 +275,7 @@ the developer: "Fix these 10 root causes and 150 of your 244 errors disappear."
 | Root cause | File:Line | Cascade count | Fix |
 |-----------|-----------|--------------|-----|
 | User interface missing `email` | src/shared/types/users/index.ts:15 | 23 | Add email: Email to User |
-| Missing export from insightsContext | src/providers/...:42 | 18 | Add export |
+| Missing export from insightsContext | src/ui/providers/context/auth/AuthStateProvider.tsx:42 | 18 | Add export |
 | ... | ... | ... | ... |
 
 ### `any` concentration (files with 5+ occurrences)

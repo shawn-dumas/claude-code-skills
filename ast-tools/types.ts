@@ -1438,3 +1438,85 @@ export interface ExportSurfaceAnalysis {
   filePath: string;
   observations: ExportSurfaceObservation[];
 }
+
+// ============================================================
+// ast-skill-analysis output (MDAST-based skill file analysis)
+// ============================================================
+
+export type SkillAnalysisObservationKind =
+  | 'SKILL_SECTION' // heading with depth, text, line
+  | 'SKILL_STEP' // numbered step heading (## Step N: ...)
+  | 'SKILL_CODE_BLOCK' // fenced code block (lang, content, line)
+  | 'SKILL_COMMAND_REF' // shell command in code block or inline code
+  | 'SKILL_FILE_PATH_REF' // file path reference with exists-on-disk check
+  | 'SKILL_CROSS_REF' // reference to another skill (by name)
+  | 'SKILL_DOC_REF' // reference to a docs/ file
+  | 'SKILL_TABLE' // parsed pipe table (headers + row count)
+  | 'SKILL_CHECKLIST_ITEM'; // checklist entry (checked/unchecked)
+
+export type SkillAnalysisObservationEvidence = {
+  /** Heading text (SKILL_SECTION, SKILL_STEP) */
+  text?: string;
+  /** Heading depth 1-6 (SKILL_SECTION, SKILL_STEP) */
+  depth?: number;
+  /** Step number extracted from "Step N" pattern (SKILL_STEP) */
+  stepNumber?: number;
+  /** Code block language (SKILL_CODE_BLOCK) */
+  lang?: string;
+  /** Code block or command content, truncated (SKILL_CODE_BLOCK, SKILL_COMMAND_REF) */
+  content?: string;
+  /** Command classification (SKILL_COMMAND_REF) */
+  commandType?: 'typecheck' | 'test' | 'build' | 'lint' | 'git' | 'npm' | 'ast-tool' | 'other';
+  /** Whether the referenced path exists on disk (SKILL_FILE_PATH_REF) */
+  exists?: boolean;
+  /** The referenced path string (SKILL_FILE_PATH_REF, SKILL_DOC_REF) */
+  referencedPath?: string;
+  /** Context where the path was found (SKILL_FILE_PATH_REF) */
+  pathContext?: 'code-block' | 'inline-code' | 'table' | 'text';
+  /** Skill name (SKILL_CROSS_REF) */
+  skillName?: string;
+  /** Whether the referenced skill exists (SKILL_CROSS_REF, SKILL_DOC_REF) */
+  refExists?: boolean;
+  /** Table headers (SKILL_TABLE) */
+  tableHeaders?: string[];
+  /** Table row count (SKILL_TABLE) */
+  tableRowCount?: number;
+  /** Whether the checklist item is checked (SKILL_CHECKLIST_ITEM) */
+  checked?: boolean;
+  /** Checklist item text (SKILL_CHECKLIST_ITEM) */
+  itemText?: string;
+};
+
+export type SkillAnalysisObservation = Observation<SkillAnalysisObservationKind, SkillAnalysisObservationEvidence>;
+
+export interface SkillAnalysisResult {
+  filePath: string;
+  /** Skill name derived from parent directory name */
+  skillName: string;
+  /** Skill category derived from name prefix (build, refactor, audit, orchestrate, other) */
+  category: 'build' | 'refactor' | 'audit' | 'orchestrate' | 'other';
+  observations: SkillAnalysisObservation[];
+}
+
+// --- ast-interpret-skill-quality assessments ---
+
+export type SkillQualityAssessmentKind =
+  | 'STALE_FILE_PATH' // referenced path does not exist on disk
+  | 'STALE_COMMAND' // command references nonexistent script or uses deprecated pattern
+  | 'BROKEN_CROSS_REF' // skill reference points to nonexistent skill
+  | 'BROKEN_DOC_REF' // doc reference points to nonexistent file
+  | 'MISSING_SECTION' // category-required section not found
+  | 'SECTION_COMPLETE' // all category-required sections present
+  | 'PATH_VALID' // neutral: file path verified as existing
+  | 'CROSS_REF_VALID'; // neutral: skill cross-ref verified as existing
+
+export type SkillQualityAssessment = Assessment<SkillQualityAssessmentKind>;
+
+export interface SkillQualityReport {
+  readonly skillName: string;
+  readonly category: 'build' | 'refactor' | 'audit' | 'orchestrate' | 'other';
+  readonly assessments: readonly SkillQualityAssessment[];
+  readonly score: number;
+  readonly staleCount: number;
+  readonly missingCount: number;
+}

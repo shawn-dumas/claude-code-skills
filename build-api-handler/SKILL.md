@@ -21,8 +21,8 @@ The argument format is: `<endpoint-path> <HTTP-methods> [description]`
 Extract:
 
 - **Route path** -- determines the file location under `src/pages/api/`. A path like
-  `/api/users/teams` maps to `src/pages/api/users/teams/index.ts`. A path like
-  `/api/users/teams/[id]` maps to `src/pages/api/users/teams/[id].ts`.
+  `/api/users/teams` maps to `src/pages/api/users/teams/getByOrgId.ts`. A path like
+  `/api/users/teams/[id]` maps to `src/pages/api/users/teams/update.ts`.
 - **HTTP methods** -- determines the `withMethod` allowlist and how many per-method
   branches the handler needs.
 - **Dynamic segments** -- any `[param]` in the path requires a Zod param schema.
@@ -176,7 +176,7 @@ export const RouteParamsSchema = z.object({
 
 // Response schemas -- import from shared types when possible
 // If the response matches a shared type, re-export:
-export { GroupSchema, GroupArraySchema } from '@/shared/types/bpo-projects.schema';
+export { GroupSchema, GroupArraySchema } from '@/shared/types/bpo-projects';
 
 // If the response needs endpoint-specific fields:
 export const EndpointResponseSchema = z.object({
@@ -208,7 +208,7 @@ import { db } from '@/server/db/postgres';
 import { someTable } from '@/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { NotFoundError, ConflictError } from '@/server/errors/ApiErrorResponse';
-import type { CreateBody, QueryParams } from './index.schema';
+import type { CreateBody, QueryParams } from './handler-name.schema';
 
 /**
  * Fetches groups for an organization, including user counts.
@@ -254,8 +254,8 @@ import { db } from '@/server/db/postgres';
 import { someTable } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { NotFoundError } from '@/server/errors/ApiErrorResponse';
-import { ResponseSchema } from '@/shared/types/domain.schema';
-import { BodySchema, ParamSchema } from './handler.schema';
+import { ResponseSchema } from '@/shared/types/<domain>';
+import { BodySchema, ParamSchema } from './handler-name.schema';
 
 async function handler(ctx: AuthedContext, req: NextApiRequest, res: NextApiResponse) {
   // 1. Parse -- trust boundary

@@ -273,7 +273,7 @@ export const RouteParamsSchema = z.object({
 });
 
 // Response schema -- import from shared types when possible
-export { SomeDomainSchema } from '@/shared/types/domain.schema';
+export { SomeDomainSchema } from '@/shared/types/<domain>';
 
 // Derive types
 export type QueryParams = z.infer<typeof QueryParamsSchema>;

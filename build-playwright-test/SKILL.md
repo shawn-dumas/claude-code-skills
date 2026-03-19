@@ -9,7 +9,7 @@ argument-hint: <route-path-or-page-file> [description]
 Generate a Playwright integration test for the route or page at `$ARGUMENTS`.
 
 The first token is the route path (e.g., `/insights/productivity`) or the
-page file path (e.g., `src/pages/insights/productivity.tsx`). Everything
+page file path (e.g., `src/pages/insights/user-productivity.tsx`). Everything
 after the first whitespace is an optional description of what interactions
 to test.
 
@@ -63,14 +63,14 @@ Read the container to understand:
 
 Read 1-2 existing integration specs to match conventions:
 
-- `integration/tests/mockDataRealTime.spec.ts` -- mock-data pattern with `page.route()`
-- `integration/tests/screenshot-tripwire.spec.ts` -- simple smoke test pattern
+- `integration/tests/realtime.spec.ts` -- mock-data pattern with `page.route()`
+- `integration/tests/components.spec.ts` -- simple smoke test pattern
 
 Also read:
 
 - `integration/fixture.ts` -- the custom test fixture (stealth chromium, auth setup)
 - `integration/constants.ts` -- shared test ID constants
-- `integration/config.ts` -- environment config
+- `integration/constants.ts` -- shared constants
 
 Match the existing import style, test structure, and helper patterns.
 
@@ -97,9 +97,8 @@ List the primary user interactions for this page:
 
 - **Mock-data** (preferred for new tests): Uses `page.route()` to intercept
   API calls and return fixture data. No real auth needed. Deterministic.
-  Skip in production with `if (BUILD_ENV === 'production') { test.skip(true, '...'); }`.
 - **Real-auth**: Tests SSO flow through the full auth boundary. Only for auth-specific tests.
-  Uses `signInAs*` helpers from `integration/utils/authUtils.ts`.
+  Uses `signInAs*` helpers from `integration/utils/auth.ts`.
 
 New tests should prefer mock-data unless explicitly testing auth flows.
 
@@ -115,7 +114,7 @@ const mockProductivity = productivityFixtures.buildMany(10);
 ```
 
 If no fixture builder exists for a needed type, create inline typed data.
-Do NOT import from `integration/utils/mockData.ts` -- that file uses hardcoded
+Do NOT import from `integration/utils/mockDataUtils.ts` -- that file uses hardcoded
 objects with magic UIDs. New tests use the centralized fixture system.
 
 ## Step 5: Generate the spec file
@@ -127,14 +126,9 @@ Create `integration/tests/<route-name>.spec.ts`.
 ```typescript
 import { test } from '../fixture';
 import { expect } from '@playwright/test';
-import { BUILD_ENV } from 'integration/config';
-import { signInAsONELOGINAdmin } from 'integration/utils/authUtils';
+import { signInAsONELOGINAdmin } from 'integration/utils/auth';
 // Import from centralized fixtures for mock data
 import { teamFixtures, productivityFixtures } from '@/fixtures';
-
-if (BUILD_ENV === 'production') {
-  test.skip(true, 'Mock-data tests do not run in production');
-}
 
 // ── Mock data ──────────────────────────────────────────────────────────
 
@@ -391,7 +385,7 @@ history of every command run in every session.
    should be investigated -- either add the missing coverage or document
    why the gap is acceptable. If any interpreter classification is wrong
    and affected a decision, run `/create-feedback-fixture --tool <name>
-   --file <path> --expected <correct-kind> --actual <wrong-kind>`. See
+--file <path> --expected <correct-kind> --actual <wrong-kind>`. See
    the skill's pre-conditions before creating a fixture.
 
 5. Run ONLY the new spec -- never the full suite:
@@ -411,7 +405,7 @@ history of every command run in every session.
 - Do not test auth flows in mock-data specs. Auth tests are separate.
 - Do not use `page.evaluate()` to read React state or context — that is
   implementation detail testing.
-- Do not import from `integration/utils/mockData.ts` for new tests -- use
+- Do not import from `integration/utils/mockDataUtils.ts` for new tests -- use
   `src/fixtures/` builders instead.
 - Do not use `page.waitForTimeout()` for anything.
 - Do not hardcode Firebase UIDs as object keys in mock data.

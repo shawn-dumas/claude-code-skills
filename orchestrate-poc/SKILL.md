@@ -238,20 +238,20 @@ Build a complete inventory of what was built:
 
 2. **Classify each file** into categories:
 
-   | Category       | Pattern                                   | Example                              |
-   | -------------- | ----------------------------------------- | ------------------------------------ |
-   | Page file      | `src/pages/**/*.tsx`                      | `src/pages/insights/utilization.tsx` |
-   | Container      | `**/containers/**/*.tsx`                  | `TeamUtilizationContainer.tsx`       |
-   | Component      | `**/page_blocks/**/*.tsx` (non-container) | `UtilizationChart.tsx`               |
-   | Service hook   | `**/services/hooks/**/*.ts`               | `useTeamUtilization.ts`              |
-   | Shared type    | `src/shared/types/<domain>/index.ts`      | `utilization/index.ts`               |
-   | Zod schema     | `src/shared/types/<domain>/schemas.ts`    | `utilization/schemas.ts`             |
-   | Fixture        | `src/fixtures/domains/**/*.ts`            | `utilization.fixture.ts`             |
-   | Mock route     | `src/pages/api/mock/**/*.ts`              | `getUtilization.ts`                  |
-   | Real API route | `src/pages/api/**/*.ts` (non-mock)        | `utilization.ts`                     |
-   | Test           | `**/*.spec.ts` or `**/*.test.ts`          | `UtilizationChart.spec.tsx`          |
-   | Config/wiring  | Feature flags, nav constants, etc.        | `types.ts`, `constants.ts`           |
-   | Other          | Anything else                             | docs, scripts, etc.                  |
+   | Category       | Pattern                                   | Example                                    |
+   | -------------- | ----------------------------------------- | ------------------------------------------ |
+   | Page file      | `src/pages/**/*.tsx`                      | `src/pages/insights/user-productivity.tsx` |
+   | Container      | `**/containers/**/*.tsx`                  | `TeamUtilizationContainer.tsx`             |
+   | Component      | `**/page_blocks/**/*.tsx` (non-container) | `UtilizationChart.tsx`                     |
+   | Service hook   | `**/services/hooks/**/*.ts`               | `useTeamUtilization.ts`                    |
+   | Shared type    | `src/shared/types/<domain>/index.ts`      | `utilization/index.ts`                     |
+   | Zod schema     | `src/shared/types/<domain>/schemas.ts`    | `utilization/schemas.ts`                   |
+   | Fixture        | `src/fixtures/domains/**/*.ts`            | `utilization.fixture.ts`                   |
+   | Mock route     | `src/pages/api/mock/**/*.ts`              | `getUtilization.ts`                        |
+   | Real API route | `src/pages/api/**/*.ts` (non-mock)        | `utilization.ts`                           |
+   | Test           | `**/*.spec.ts` or `**/*.test.ts`          | `UtilizationChart.spec.tsx`                |
+   | Config/wiring  | Feature flags, nav constants, etc.        | `types.ts`, `constants.ts`                 |
+   | Other          | Anything else                             | docs, scripts, etc.                        |
 
 3. **Report the inventory** to the PM:
    > I found N files on this branch:

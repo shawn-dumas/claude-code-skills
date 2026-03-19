@@ -1,0 +1,82 @@
+{
+  "tool": "skill-quality",
+  "created": "2026-03-18",
+  "source": "real-world",
+  "status": "verified",
+  "notes": "Ground-truth fixtures for ast-interpret-skill-quality interpreter. Uses real .claude/skills/ SKILL.md files as sources. Assessments verified by running the interpreter and manually confirming each classification.",
+  "fixtures": [
+    {
+      "file": ".claude/skills/spawn-satan/SKILL.md",
+      "expected": {
+        "skillName": "spawn-satan",
+        "category": "other",
+        "assessments": [
+          {
+            "expectedKind": "no-issues",
+            "notes": "Clean skill. No stale paths, no broken refs, no missing sections. Category 'other' has no required sections. Score should be 100."
+          }
+        ]
+      }
+    },
+    {
+      "file": ".claude/skills/build-playwright-test/SKILL.md",
+      "expected": {
+        "skillName": "build-playwright-test",
+        "category": "build",
+        "assessments": [
+          {
+            "expectedKind": "STALE_FILE_PATH",
+            "notes": "Multiple stale file paths detected. This skill has the lowest score (55) across all skills. Several referenced paths in code blocks and inline code no longer exist on disk."
+          },
+          {
+            "expectedKind": "SECTION_COMPLETE",
+            "notes": "All build-category required sections (Step headings, Verify section) are present."
+          }
+        ]
+      }
+    },
+    {
+      "file": ".claude/skills/orchestrate-poc/SKILL.md",
+      "expected": {
+        "skillName": "orchestrate-poc",
+        "category": "orchestrate",
+        "assessments": [
+          {
+            "expectedKind": "STALE_FILE_PATH",
+            "notes": "Several stale file paths from outdated type path references."
+          },
+          {
+            "expectedKind": "MISSING_SECTION",
+            "notes": "orchestrate-poc uses Phase headings, not 'Reconciliation' or 'Verification Checklist' headings. The category-aware check correctly flags these as missing for the orchestrate category."
+          }
+        ]
+      }
+    },
+    {
+      "file": ".claude/skills/audit-npm-deps/SKILL.md",
+      "expected": {
+        "skillName": "audit-npm-deps",
+        "category": "audit",
+        "assessments": [
+          {
+            "expectedKind": "MISSING_SECTION",
+            "notes": "Missing 'Report Policy / AST-confirmed' section. audit-npm-deps is a non-AST audit skill so it legitimately does not have AST-confirmed tagging, but the category check flags it. This is a known false positive for non-AST audit skills."
+          }
+        ]
+      }
+    },
+    {
+      "file": ".claude/skills/build-fixture/SKILL.md",
+      "expected": {
+        "skillName": "build-fixture",
+        "category": "build",
+        "assessments": [
+          {
+            "expectedKind": "SECTION_COMPLETE",
+            "notes": "Clean build skill. All required sections present (Step headings, Verify). Score should be 100."
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -169,7 +169,7 @@ queries the database, and replicate that query in the server fetcher.
 ```typescript
 import type { GetServerSideProps, InferGetServerSidePropsType } from 'next';
 import { dehydrate, QueryClient } from '@tanstack/react-query';
-import { getServerSession } from '@/server/auth';
+import { getServerSession } from '@/server/middleware/withAuth';
 ```
 
 ### 3b. Write `getServerSideProps`
@@ -408,7 +408,7 @@ headers).
 To make the ID token available in `getServerSideProps`, you need a cookie-based
 delivery mechanism. This is a one-time setup:
 
-### Step A: Create `src/server/auth.ts`
+### Step A: Create `src/server/middleware/withAuth.ts` (or extend the existing module)
 
 ```typescript
 import type { IncomingMessage } from 'http';

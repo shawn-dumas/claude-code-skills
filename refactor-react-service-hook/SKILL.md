@@ -123,7 +123,7 @@ The hook's onSuccess/onError callbacks should only handle same-domain cache upda
 ### 2e. Mutation options forwarding
 
 For mutation hooks: verify the hook accepts an optional `options` parameter
-(typed as `MutationOpts` from `src/ui/services/hooks/types`) that forwards
+(typed as `MutationOpts` from `src/ui/services/hooks/mutations/types.ts`) that forwards
 caller-provided `onSuccess`/`onError` callbacks. The hook's own `onSuccess`
 (cache invalidation) runs first, then the caller's. If the mutation does not
 accept options, add it. See `build-react-service-hook` for the pattern.

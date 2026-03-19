@@ -95,7 +95,7 @@ Use this to populate the G5 violations table.
 Given the handler path (e.g., `src/pages/api/users/user-data.ts`), find:
 
 - The handler file itself
-- The companion schema file (e.g., `src/pages/api/users/user-data.schema.ts`)
+- The companion schema file (e.g., `src/server/handlers/users/user-data.schema.ts`)
 - The mock handler (if it exists) in `src/pages/api/mock/`
 
 If no schema file exists, that is itself a violation (G5 -- no parsing at the boundary).

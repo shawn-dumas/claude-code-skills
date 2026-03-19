@@ -14,7 +14,7 @@ against the current page structure and testing philosophy, then fix it.
 This project uses Playwright with:
 
 - Custom `test` fixture from `integration/fixture.ts` (stealth chromium, persistent context)
-- Test IDs from `integration/constants.ts` and `src/constants/testIds.ts`
+- Test IDs from `integration/constants.ts`
 - Helper functions in `integration/utils/` (auth, insights, general, mock data)
 - `page.route()` for network interception in mock-data tests
 - Config: Chromium only, 180s timeout, monocart reporter, `integration/tests/` dir

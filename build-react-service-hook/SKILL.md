@@ -88,7 +88,7 @@ Create the target directory with `mkdir -p` if it does not exist.
     });
   }
   ```
-  Import `MutationOpts` from the shared types in `src/ui/services/hooks/types`.
+  Import `MutationOpts` from `src/ui/services/hooks/mutations/types.ts`.
 - The hook must NOT:
   - Call toastSuccess/toastError/toastWarning
   - Call useRouter or navigate

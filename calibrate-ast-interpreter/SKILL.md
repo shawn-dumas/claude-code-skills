@@ -25,6 +25,7 @@ Filter to fixtures matching the `--tool` value (the `tool` field in each
 manifest).
 
 Report:
+
 - Tool: `<intent | parity>`
 - Total fixtures for this tool: N (S synthetic, F feedback, G git-history)
 - Pending calibration: N
@@ -36,6 +37,7 @@ Report:
 ### If `--tool intent`
 
 For each fixture:
+
 1. Read `beforeFiles` from the fixture directory
 2. Read `afterFiles` from the fixture directory
 3. Write files to a temp directory so observation tools can access them
@@ -52,6 +54,7 @@ For each fixture:
 ### If `--tool parity`
 
 For each fixture:
+
 1. Read `sourceFiles` from the fixture directory
 2. Read `targetFiles` from the fixture directory
 3. Read `helperFiles` from the fixture directory (if present)
@@ -67,6 +70,7 @@ For each fixture:
 ### If `--tool effects`
 
 For each fixture:
+
 1. Copy fixture files to a temp directory
 2. Run `analyzeReactFile()` on each `.tsx` file to collect effect observations
 3. Run `interpretEffects(effectObservations)` on the observations
@@ -77,6 +81,7 @@ For each fixture:
 Observation chain: `ast-react-inventory` -> `ast-interpret-effects`
 
 Tunable parameters:
+
 - Priority cascade order in `classifyEffect()` in `ast-interpret-effects.ts`
 - `setterMirrorsProp` heuristic for prop-mirror detection
 - Async body detection patterns (fetch, then, await)
@@ -86,6 +91,7 @@ Ground-truth fixture prefix: `synth-effects-*`
 ### If `--tool hooks`
 
 For each fixture:
+
 1. Copy fixture files to a temp directory
 2. Run `analyzeReactFile()` on each `.tsx` file to collect hook call observations
 3. Run `interpretHooks(hookCallObservations)` on the observations
@@ -96,6 +102,7 @@ For each fixture:
 Observation chain: `ast-react-inventory` -> `ast-interpret-hooks`
 
 Tunable parameters:
+
 - `astConfig.hooks.serviceHookPaths`: import path patterns for service hooks
 - `astConfig.hooks.contextHookPaths`: import path patterns for context hooks
 - `astConfig.hooks.ambientLeafHooks`: name set for ambient leaf hooks
@@ -107,6 +114,7 @@ Ground-truth fixture prefix: `synth-hooks-*`
 ### If `--tool ownership`
 
 For each fixture:
+
 1. Copy fixture files to a temp directory
 2. Run `analyzeReactFile()` on each `.tsx` file to collect component and hook observations
 3. Run `interpretOwnership(componentObservations, hookAssessments)` on the observations
@@ -117,6 +125,7 @@ For each fixture:
 Observation chain: `ast-react-inventory` -> `ast-interpret-hooks` -> `ast-interpret-ownership`
 
 Tunable parameters:
+
 - `astConfig.ownership.routerHooks`: hook names counted as router signals
 - `astConfig.ownership.layoutNames`: component name patterns for LAYOUT_SHELL
 - Container signal weights (service hooks, context hooks, router, query state)
@@ -127,6 +136,7 @@ Ground-truth fixture prefix: `synth-ownership-*`
 ### If `--tool template`
 
 For each fixture:
+
 1. Copy fixture files to a temp directory
 2. Run `analyzeJsxFile()` on each `.tsx` file to collect JSX observations
 3. Run `interpretTemplate(jsxObservations)` on the observations
@@ -138,6 +148,7 @@ For each fixture:
 Observation chain: `ast-jsx-analysis` -> `ast-interpret-template`
 
 Tunable parameters:
+
 - `astConfig.template.extractionThreshold`: return line count for EXTRACTION_CANDIDATE
 - Complexity hotspot: 3+ distinct JSX observation kinds in one return block
 
@@ -146,6 +157,7 @@ Ground-truth fixture prefix: `synth-template-*`
 ### If `--tool test-quality`
 
 For each fixture:
+
 1. Copy fixture files (including companion subject files) to a temp directory,
    creating subdirectories as needed
 2. Run `analyzeTestFile()` on each `.spec.ts`/`.test.ts` file only (skip
@@ -161,6 +173,7 @@ For each fixture:
 Observation chain: `ast-test-analysis` -> `ast-interpret-test-quality`
 
 Tunable parameters:
+
 - `astConfig.testing.boundaryPackages`: package patterns for mock boundary compliance
 - `astConfig.testing.deleteThresholdInternalMocks`: internal mock count for DELETE_CANDIDATE
 - `astConfig.testing.userVisibleMatchers`: assertion matchers for user-visible classification
@@ -171,6 +184,7 @@ Ground-truth fixture prefix: `synth-test-quality-*`
 ### If `--tool dead-code`
 
 For each fixture:
+
 1. Copy all fixture files to a temp directory, creating subdirectories as needed
 2. Run `buildDependencyGraph()` on the entire temp directory with
    `{ searchDir: fixtureDir }` (not the repo's `src/`)
@@ -182,6 +196,7 @@ For each fixture:
 Observation chain: `ast-imports` -> `ast-interpret-dead-code`
 
 Tunable parameters:
+
 - Fragile export threshold (1 consumer = low confidence)
 - `isTypeExport` check (currently broken -- `exportKind` always undefined)
 - Name-based DEAD_BARREL_REEXPORT matching heuristic
@@ -200,6 +215,7 @@ Plan-audit has two fixture types evaluated separately:
 **Synthetic fixtures** (`synth-plan-audit-*`):
 
 For each fixture:
+
 1. Read the `planFile` and `promptFiles` from the fixture directory
 2. Run `analyzePlan(planPath, promptPaths)` to collect observations
 3. Run `interpretPlanAudit(planPath, promptPaths, observations)` to
@@ -215,6 +231,7 @@ For each fixture:
 **Real-world fixtures** (`real-plan-audit/manifest.json`):
 
 For each plan entry in the manifest:
+
 1. Resolve the plan file path (relative `.md.gz` paths are decompressed
    to a temp file; legacy `~/` paths are expanded)
 2. Run `analyzePlan(planPath, [])` (no prompt files for real-world plans)
@@ -229,6 +246,7 @@ score ranges -- the plans were not authored with per-check ground truth.
 Observation chain: `ast-plan-audit` (MDAST) -> `ast-interpret-plan-audit`
 
 Tunable parameters:
+
 - `astConfig.planAudit.severityMap`: maps observation kinds to
   blocker/warning/info severity
 - `astConfig.planAudit.checkWeights`: points subtracted per observation
@@ -240,6 +258,7 @@ Ground-truth fixture prefix: `synth-plan-audit-*` (synthetic),
 `real-plan-audit/` (real-world)
 
 **Important differences from other tools:**
+
 - Fixtures reference `.md` plan files and prompt files, not `.ts` source
   files. No temp directory file copying is needed -- the observation tool
   reads markdown directly.
@@ -250,6 +269,36 @@ Ground-truth fixture prefix: `synth-plan-audit-*` (synthetic),
   for fixtures that omit pre-flight marks. This is intentional: pre-flight
   marks are the tool's own output and should not be fed back as input to
   avoid circularity.
+
+### If `--tool skill-quality`
+
+For each fixture:
+
+1. Read the SKILL.md file referenced in the manifest
+2. Run `analyzeSkillFile()` to collect skill analysis observations
+3. Run `interpretSkillQuality(result)` on the observations
+4. Compare each assessment against `manifest.expectedClassifications`:
+   - Match by `expectedKind`
+   - Record: correct, incorrect, unmatched
+
+Observation chain: `ast-skill-analysis` (MDAST) -> `ast-interpret-skill-quality`
+
+Tunable parameters:
+
+- `astConfig.skillQuality.requiredSections`: per-category required heading
+  patterns (build, refactor, audit, orchestrate)
+- `astConfig.skillQuality.deprecatedCommandPatterns`: regex patterns for
+  stale command detection with replacement suggestions
+
+Ground-truth fixture prefix: `skill-quality/`
+
+**Important differences from other tools:**
+
+- Fixtures reference `.md` skill files, not `.ts` source files. No temp
+  directory file copying is needed -- the observation tool reads markdown
+  directly.
+- The `skillDirs` set for cross-ref validation is built by scanning the
+  actual `.claude/skills/` directory, not from the fixture manifest.
 
 ## Step 3: Compute accuracy metrics
 
@@ -287,6 +336,7 @@ For each misclassified observation:
    structural limitation.
 
    Common ceiling patterns:
+
    - **Cross-file context mismatch:** `functionContextScore` returns 0
      when `parentFunction` differs across files, capping similarity at
      `WEIGHT_EVIDENCE + WEIGHT_POSITION` (currently 0.50). This makes
@@ -302,6 +352,7 @@ For each misclassified observation:
      that does not exist. Fix the manifest expectation, not the code.
 
 3. **Classify the fix type:**
+
    - **Algorithm fix needed:** Hard ceiling, double-counting, missing
      tie-breaking, observer gap. Proceed to Step 4c.
    - **Weight tuning sufficient:** The similarity is in range but on the
@@ -316,6 +367,7 @@ Apply targeted fixes to the matching or classification algorithm in
 `ast-refactor-intent.ts` or `ast-interpret-refactor-intent.ts`.
 
 After each fix:
+
 1. Re-run accuracy on all fixtures for this tool
 2. Verify the fix resolved the targeted misclassifications
 3. Verify no regressions on previously-correct fixtures
@@ -335,6 +387,7 @@ Target: `REFACTOR_TYPE_EXPECTED_REMOVALS` in `ast-interpret-refactor-intent.ts`
 and `astConfig.intentMatcher.signalWeights` in `ast-config.ts`.
 
 For each misclassified observation:
+
 1. Identify the dominant misclassification direction:
    - False ACCIDENTALLY_DROPPED (should be PRESERVED or INTENTIONALLY_REMOVED):
      - If the kind should be in the expected removals for the refactorType,
@@ -356,6 +409,7 @@ For each misclassified observation:
 Target: `astConfig.testParity` (weight thresholds and match scoring).
 
 Tunable parameters:
+
 - REDUCED threshold (default 0.4 in `classifyTestParity`)
 - EXPANDED threshold (default 2.0 in `classifyTestParity`)
 - Match score component weights (name: 0.5, routes: 0.2, nav: 0.15, pom: 0.15
@@ -364,6 +418,7 @@ Tunable parameters:
 - Helper delegation fallback weight (default 3 in `computeTestWeight`)
 
 For each misclassified test:
+
 1. Identify which parameter caused the error (threshold too strict?
    match weight too low for a signal type?)
 2. Adjust by small increment
@@ -418,6 +473,7 @@ Tunable: fragile export threshold, name-based barrel re-export matching.
 Target: `astConfig.planAudit` in `ast-config.ts`.
 
 Tunable parameters:
+
 - `severityMap`: maps observation kinds to blocker/warning/info. Changing
   a kind from warning to info (or vice versa) shifts its effect on score.
 - `checkWeights`: points deducted per observation kind. Only applied for
@@ -429,6 +485,7 @@ Tunable parameters:
   harder; lower to allow more plans to pass.
 
 For each misclassified verdict:
+
 1. Check the score. Is it near a threshold boundary? If so, small weight
    adjustments may fix it.
 2. Check which observations fired. Was a blocker incorrectly assigned?
@@ -440,6 +497,7 @@ For each misclassified verdict:
 5. If accuracy improved: keep. If not: revert.
 
 For real-world fixture mismatches:
+
 - These are verdict-only checks. If the score is close to a boundary,
   the weight for the dominant observation kind may need adjustment.
 - If the plan genuinely changed quality due to convention evolution,
@@ -448,6 +506,7 @@ For real-world fixture mismatches:
 ### General tuning protocol
 
 Stop when:
+
 - All classifications are correct, OR
 - No single adjustment improves overall accuracy (plateau)
 
@@ -458,12 +517,14 @@ Document each adjustment: parameter, old value, new value, accuracy delta.
 ### If `--tool intent`
 
 Write adjusted values to:
+
 - `REFACTOR_TYPE_EXPECTED_REMOVALS` in `ast-interpret-refactor-intent.ts`
 - `astConfig.intentMatcher.signalWeights` in `ast-config.ts` (if weights changed)
 
 ### If `--tool parity`
 
 Write adjusted values to:
+
 - `classifyTestParity`, `computeMatchScore`, or `computeTestWeight` in
   `ast-interpret-pw-test-parity.ts` (inline constants)
 - Or centralize in `astConfig.testParity` if the values are extracted there
@@ -471,38 +532,45 @@ Write adjusted values to:
 ### If `--tool effects`
 
 Write adjusted values to:
+
 - `classifyEffect()` in `ast-interpret-effects.ts` (priority cascade)
 - `astConfig.effects` in `ast-config.ts` (if thresholds changed)
 
 ### If `--tool hooks`
 
 Write adjusted values to:
+
 - `astConfig.hooks` in `ast-config.ts` (path patterns, name sets)
 
 ### If `--tool ownership`
 
 Write adjusted values to:
+
 - `astConfig.ownership` in `ast-config.ts` (layout names, router hooks)
 - Signal scoring in `ast-interpret-ownership.ts` (if weights changed)
 
 ### If `--tool template`
 
 Write adjusted values to:
+
 - `astConfig.template` in `ast-config.ts` (extraction threshold)
 
 ### If `--tool test-quality`
 
 Write adjusted values to:
+
 - `astConfig.testing` in `ast-config.ts` (boundary packages, matchers, thresholds)
 
 ### If `--tool dead-code`
 
 Write adjusted values to:
+
 - `ast-interpret-dead-code.ts` (fragile threshold, barrel matching logic)
 
 ### If `--tool plan-audit`
 
 Write adjusted values to:
+
 - `astConfig.planAudit.severityMap` in `ast-config.ts` (kind -> severity)
 - `astConfig.planAudit.checkWeights` in `ast-config.ts` (kind -> points)
 - `astConfig.planAudit.verdictThresholds` in `ast-config.ts` (certified/conditional boundaries)
@@ -547,6 +615,7 @@ npx eslint . --max-warnings 0
 ```
 
 Commit:
+
 ```
 calibrate(ast): tune <tool> weights (accuracy N% on M fixtures)
 ```
@@ -554,6 +623,7 @@ calibrate(ast): tune <tool> weights (accuracy N% on M fixtures)
 ## Step 10: Report
 
 Output:
+
 - Tool: `<intent | parity>`
 - Fixtures processed: N (N pending, N previously calibrated)
 - Accuracy before: N%

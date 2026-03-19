@@ -124,7 +124,7 @@ Determine what kind of module this is:
 | **Type module**      | Type definitions, branded types, or `as const` enums. Lives in `src/shared/types/`.                                                                                   |
 | **Fixture**          | Test data builders. Lives in `src/fixtures/`.                                                                                                                         |
 | **Script**           | One-off or periodic Node.js script. Lives in `scripts/`.                                                                                                              |
-| **Constant**         | Static configuration values, lookup tables, test IDs. Lives in `src/constants/`.                                                                                      |
+| **Constant**         | Static configuration values, lookup tables, test IDs. Lives in `src/shared/constants/`.                                                                               |
 | **Infrastructure**   | fetchApi, storage wrappers, analytics, auth utilities. Lives in `src/shared/lib/`.                                                                                    |
 
 ## Step 3: Audit against G1-G10
