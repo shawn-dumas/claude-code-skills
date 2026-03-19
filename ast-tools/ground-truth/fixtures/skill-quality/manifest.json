@@ -168,8 +168,8 @@
     "STALE_COMMAND": { "synthetic": true, "realWorld": true, "source": "pre-fix snapshot (commit 57cd7e5f^)" },
     "BROKEN_CROSS_REF": { "synthetic": true, "realWorld": true },
     "BROKEN_DOC_REF": { "synthetic": true, "realWorld": true, "source": "pre-fix snapshot (commit f1c9849c^)" },
-    "MISSING_SECTION": { "synthetic": false, "realWorld": true, "source": "derived" },
-    "SECTION_COMPLETE": { "synthetic": false, "realWorld": true },
+    "MISSING_SECTION": { "synthetic": true, "realWorld": true, "source": "derived" },
+    "SECTION_COMPLETE": { "synthetic": true, "realWorld": true },
     "PATH_VALID": { "synthetic": true, "realWorld": true },
     "CROSS_REF_VALID": { "synthetic": true, "realWorld": true }
   }
