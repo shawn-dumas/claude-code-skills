@@ -489,9 +489,9 @@ describe('role annotation assessments', () => {
       expect(invalid).toHaveLength(2);
     });
 
-    it('has correct score (100 - 10 invalid - 2 missing role = 88)', () => {
-      // 2 invalid roles (-10) + 2 headings without valid annotations
-      // are flagged as MISSING_SECTION_ROLE (-2 each = -4)
+    it('has correct score (100 - 10 invalid - 4 missing roles = 86)', () => {
+      // 2 invalid roles at -5 each = -10
+      // 2 headings without valid annotations at -2 each = -4
       // Total: 100 - 10 - 4 = 86
       expect(report.score).toBeLessThan(100);
       const invalid = findByKind(report.assessments, 'INVALID_ROLE_ANNOTATION');

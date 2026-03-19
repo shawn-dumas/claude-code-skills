@@ -91,6 +91,8 @@ npx tsx scripts/AST/ast-interpret-skill-quality.ts .claude/skills/ --pretty \
 | `SKILL_CHECKLIST_ITEM`     | `checked`, `itemText`                                       | Checklist structure             |
 | `SKILL_SUPERSEDED_PATTERN` | `conventionId`, `conventionMessage`, `matchedPattern`       | Convention drift (code block)   |
 | `SKILL_MISSING_CONVENTION` | `conventionId`, `conventionMessage`                         | Convention drift (missing ref)  |
+| `SKILL_CONVENTION_ALIGNED` | `conventionId`, `conventionMessage`                         | Convention aligned (positive)   |
+| `SKILL_INVALID_ROLE`       | `invalidRoleName`                                           | Typo in role annotation         |
 
 **Assessments** from `ast-interpret-skill-quality`:
 

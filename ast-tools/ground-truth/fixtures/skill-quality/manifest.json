@@ -3,7 +3,7 @@
   "created": "2026-03-19",
   "source": "mixed",
   "status": "verified",
-  "notes": "Ground-truth fixtures for ast-interpret-skill-quality interpreter. 16 assessment kinds total. 13 have real-world grounding; MISSING_SECTION_ROLE, ROLE_REQUIREMENT_MISSING, and INVALID_ROLE_ANNOTATION have synthetic or no fixture coverage only. Real-world negative-path fixtures use pre-fix git snapshots of skill files that had the defects before they were fixed.",
+  "notes": "Ground-truth fixtures for ast-interpret-skill-quality interpreter. 15 assessment kinds total. 12 have real-world fixture grounding; CONVENTION_ALIGNED, MISSING_SECTION_ROLE, and ROLE_REQUIREMENT_MISSING have synthetic-only coverage. INVALID_ROLE_ANNOTATION has no fixture (verified manually). Real-world negative-path fixtures use pre-fix git snapshots.",
   "fixtures": [
     {
       "file": ".claude/skills/spawn-satan/SKILL.md",
@@ -283,8 +283,8 @@
     "CONVENTION_DRIFT": { "synthetic": true, "realWorld": true, "source": "pre-fix snapshot of build-api-handler" },
     "CONVENTION_ALIGNED": {
       "synthetic": true,
-      "realWorld": true,
-      "notes": "Emitted by classifyConventions() when a skill is in scope, references the current convention pattern, and has no superseded patterns. Real-world: any skill in scope for a convention that passes (e.g., build-api-handler for parse-input)."
+      "realWorld": false,
+      "notes": "Emitted by classifyConventions() when a skill is in scope, references the current convention pattern, and has no superseded patterns. No real-world fixture in this corpus (would need a frozen snapshot of a convention-aligned skill)."
     },
     "MISSING_SECTION_ROLE": {
       "synthetic": true,
