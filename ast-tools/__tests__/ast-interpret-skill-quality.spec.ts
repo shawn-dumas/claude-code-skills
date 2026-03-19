@@ -259,9 +259,42 @@ describe('ast-interpret-skill-quality (real-world fixtures)', () => {
       expect(missing[0].requiresManualReview).toBe(true);
     });
 
-    it('has score below 100 due to missing section', () => {
+    it('has score 97 due to missing section', () => {
       expect(report.score).toBe(97);
       expect(report.missingCount).toBe(1);
+    });
+  });
+
+  describe('pre-fix build-module (real-world STALE_COMMAND)', () => {
+    const obs = analyzeSkillFile(fixturePath('real-build-module-pretscfix.md'), MOCK_SKILL_DIRS);
+    const report = interpretSkillQuality(obs);
+
+    it('detects STALE_COMMAND for deprecated tsc pattern', () => {
+      const stale = findByKind(report.assessments, 'STALE_COMMAND');
+      expect(stale).toHaveLength(1);
+      expect(stale[0].subject.symbol).toContain('pnpm tsc --noEmit');
+      expect(stale[0].rationale[0]).toContain('tsconfig.check.json');
+    });
+
+    it('has score below 100 due to stale command', () => {
+      expect(report.score).toBe(95);
+      expect(report.staleCount).toBe(1);
+    });
+  });
+
+  describe('pre-fix visual-compare (real-world BROKEN_DOC_REF)', () => {
+    const obs = analyzeSkillFile(fixturePath('real-visual-compare-prefix.md'), MOCK_SKILL_DIRS);
+    const report = interpretSkillQuality(obs);
+
+    it('detects BROKEN_DOC_REF for nonexistent doc file', () => {
+      const broken = findByKind(report.assessments, 'BROKEN_DOC_REF');
+      expect(broken).toHaveLength(1);
+      expect(broken[0].subject.symbol).toBe('docs/compare-2026-03-13-1432.md');
+      expect(broken[0].confidence).toBe('high');
+    });
+
+    it('has staleCount reflecting doc ref and file path issues', () => {
+      expect(report.staleCount).toBeGreaterThanOrEqual(3);
     });
   });
 });

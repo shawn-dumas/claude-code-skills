@@ -3,7 +3,7 @@
   "created": "2026-03-19",
   "source": "mixed",
   "status": "verified",
-  "notes": "Ground-truth fixtures for ast-interpret-skill-quality interpreter. Covers all 9 assessment kinds. 7/9 have real-world grounding; STALE_COMMAND and BROKEN_DOC_REF are synthetic-only because no real-world instances exist (all were fixed). MISSING_SECTION uses a derived fixture (real skill with verify heading removed).",
+  "notes": "Ground-truth fixtures for ast-interpret-skill-quality interpreter. All 9 assessment kinds have both synthetic and real-world grounding. Real-world negative-path fixtures use pre-fix git snapshots of skill files that had the defects before they were fixed in this session.",
   "fixtures": [
     {
       "file": ".claude/skills/spawn-satan/SKILL.md",
@@ -117,7 +117,7 @@
           },
           {
             "expectedKind": "STALE_COMMAND",
-            "notes": "pnpm tsc --noEmit without -p flag. Synthetic-only -- no real-world instance exists."
+            "notes": "pnpm tsc --noEmit without -p flag."
           },
           {
             "expectedKind": "BROKEN_CROSS_REF",
@@ -125,7 +125,38 @@
           },
           {
             "expectedKind": "BROKEN_DOC_REF",
-            "notes": "docs/this-doc-does-not-exist.md. Synthetic-only -- no real-world instance exists."
+            "notes": "docs/this-doc-does-not-exist.md."
+          }
+        ]
+      }
+    },
+    {
+      "file": "scripts/AST/__tests__/fixtures/skill-analysis/real-build-module-pretscfix.md",
+      "source": "real-world (pre-fix snapshot from commit 57cd7e5f^)",
+      "expected": {
+        "assessments": [
+          {
+            "expectedKind": "STALE_COMMAND",
+            "count": 1,
+            "notes": "bash code block contains 'pnpm tsc --noEmit' without '-p tsconfig.check.json'. Fixed in commit 57cd7e5f."
+          }
+        ]
+      }
+    },
+    {
+      "file": "scripts/AST/__tests__/fixtures/skill-analysis/real-visual-compare-prefix.md",
+      "source": "real-world (pre-fix snapshot from commit f1c9849c^)",
+      "expected": {
+        "assessments": [
+          {
+            "expectedKind": "BROKEN_DOC_REF",
+            "count": 1,
+            "notes": "References docs/compare-2026-03-13-1432.md which does not exist (example filename was incorrect). Fixed in commit f1c9849c."
+          },
+          {
+            "expectedKind": "STALE_FILE_PATH",
+            "count": ">=2",
+            "notes": "Same nonexistent doc path also flagged as STALE_FILE_PATH in inline-code and table contexts."
           }
         ]
       }
@@ -134,17 +165,9 @@
   "coverageMatrix": {
     "STALE_FILE_PATH": { "synthetic": true, "realWorld": true },
     "ASPIRATIONAL_PATH": { "synthetic": true, "realWorld": true },
-    "STALE_COMMAND": {
-      "synthetic": true,
-      "realWorld": false,
-      "reason": "All deprecated commands were fixed. No real-world instance exists."
-    },
+    "STALE_COMMAND": { "synthetic": true, "realWorld": true, "source": "pre-fix snapshot (commit 57cd7e5f^)" },
     "BROKEN_CROSS_REF": { "synthetic": true, "realWorld": true },
-    "BROKEN_DOC_REF": {
-      "synthetic": true,
-      "realWorld": false,
-      "reason": "All broken doc refs were fixed. No real-world instance exists."
-    },
+    "BROKEN_DOC_REF": { "synthetic": true, "realWorld": true, "source": "pre-fix snapshot (commit f1c9849c^)" },
     "MISSING_SECTION": { "synthetic": false, "realWorld": true, "source": "derived" },
     "SECTION_COMPLETE": { "synthetic": false, "realWorld": true },
     "PATH_VALID": { "synthetic": true, "realWorld": true },
