@@ -413,3 +413,180 @@ describe('analyzeSkillDirectory', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Role annotation parsing (extractRoleAnnotations + resolveHeadingRoles)
+// ---------------------------------------------------------------------------
+
+describe('role annotation parsing', () => {
+  describe('fully annotated skill (synth-role-full)', () => {
+    const result = analyzeSkillFile(path.join(FIXTURES_DIR, 'synth-role-full', 'SKILL.md'), MOCK_SKILL_DIRS);
+    const sections = findByKind(result.observations, 'SKILL_SECTION');
+    const roleObs = findByKind(result.observations, 'SKILL_SECTION_ROLE');
+
+    it('emits SKILL_SECTION_ROLE for each explicit annotation', () => {
+      // 7 explicit annotations: workflow, detect, emit, reference, avoid, guidance, workflow
+      expect(roleObs).toHaveLength(7);
+    });
+
+    it('emits correct role names on SKILL_SECTION_ROLE observations', () => {
+      const roles = roleObs.map(o => o.evidence.sectionRole);
+      expect(roles).toContain('workflow');
+      expect(roles).toContain('detect');
+      expect(roles).toContain('emit');
+      expect(roles).toContain('reference');
+      expect(roles).toContain('avoid');
+      expect(roles).toContain('guidance');
+    });
+
+    it('enriches SKILL_SECTION observations with sectionRole', () => {
+      // Every ## heading should have sectionRole set (either explicit or inherited)
+      const topLevel = sections.filter(s => (s.evidence.depth ?? 1) <= 2);
+      for (const s of topLevel) {
+        expect(s.evidence.sectionRole).toBeTruthy();
+        expect(s.evidence.roleInherited).toBe(false);
+      }
+    });
+
+    it('marks subheadings as inherited', () => {
+      const subheadings = sections.filter(s => (s.evidence.depth ?? 1) > 2);
+      // The subheadings under "Step 2: Check the thing" should inherit detect
+      const detectSubs = subheadings.filter(s => s.evidence.sectionRole === 'detect');
+      expect(detectSubs.length).toBeGreaterThanOrEqual(2);
+      for (const s of detectSubs) {
+        expect(s.evidence.roleInherited).toBe(true);
+      }
+    });
+
+    it('emits no SKILL_INVALID_ROLE observations', () => {
+      const invalid = findByKind(result.observations, 'SKILL_INVALID_ROLE');
+      expect(invalid).toHaveLength(0);
+    });
+  });
+
+  describe('inheritance and override (synth-role-inheritance)', () => {
+    const result = analyzeSkillFile(path.join(FIXTURES_DIR, 'synth-role-inheritance', 'SKILL.md'), MOCK_SKILL_DIRS);
+    const sections = findByKind(result.observations, 'SKILL_SECTION');
+
+    it('inherits detect role to subheadings', () => {
+      const subDetect = sections.find(s => s.evidence.text === 'Sub-detect (inherits detect)');
+      expect(subDetect).toBeDefined();
+      expect(subDetect!.evidence.sectionRole).toBe('detect');
+      expect(subDetect!.evidence.roleInherited).toBe(true);
+    });
+
+    it('inherits detect to deeply nested headings', () => {
+      const deepDetect = sections.find(s => s.evidence.text === 'Deep-detect (inherits detect)');
+      expect(deepDetect).toBeDefined();
+      expect(deepDetect!.evidence.sectionRole).toBe('detect');
+      expect(deepDetect!.evidence.roleInherited).toBe(true);
+    });
+
+    it('allows subheading to override inherited role', () => {
+      const emitOverride = sections.find(s => s.evidence.text === 'Override to emit (overrides inherited detect)');
+      expect(emitOverride).toBeDefined();
+      expect(emitOverride!.evidence.sectionRole).toBe('emit');
+      expect(emitOverride!.evidence.roleInherited).toBe(false);
+    });
+
+    it('resets inheritance at same-level headings', () => {
+      const workflowTop = sections.find(s => s.evidence.text === 'Top-level workflow');
+      expect(workflowTop).toBeDefined();
+      expect(workflowTop!.evidence.sectionRole).toBe('workflow');
+      expect(workflowTop!.evidence.roleInherited).toBe(false);
+
+      const workflowSub = sections.find(s => s.evidence.text === 'Sub-workflow (inherits workflow)');
+      expect(workflowSub).toBeDefined();
+      expect(workflowSub!.evidence.sectionRole).toBe('workflow');
+      expect(workflowSub!.evidence.roleInherited).toBe(true);
+    });
+
+    it('allows sub-level override under a different parent', () => {
+      const refOverride = sections.find(s => s.evidence.text === 'Override sub to reference');
+      expect(refOverride).toBeDefined();
+      expect(refOverride!.evidence.sectionRole).toBe('reference');
+      expect(refOverride!.evidence.roleInherited).toBe(false);
+    });
+  });
+
+  describe('invalid role annotations (synth-role-invalid)', () => {
+    const result = analyzeSkillFile(path.join(FIXTURES_DIR, 'synth-role-invalid', 'SKILL.md'), MOCK_SKILL_DIRS);
+
+    it('emits SKILL_INVALID_ROLE for typos', () => {
+      const invalid = findByKind(result.observations, 'SKILL_INVALID_ROLE');
+      expect(invalid).toHaveLength(2);
+      const names = invalid.map(o => o.evidence.invalidRoleName).sort();
+      expect(names).toEqual(['detectt', 'emmit']);
+    });
+
+    it('does not emit SKILL_SECTION_ROLE for invalid annotations', () => {
+      const roleObs = findByKind(result.observations, 'SKILL_SECTION_ROLE');
+      const roleNames = roleObs.map(o => o.evidence.sectionRole);
+      expect(roleNames).not.toContain('emmit');
+      expect(roleNames).not.toContain('detectt');
+      // Only the valid "workflow" annotation should appear
+      expect(roleObs).toHaveLength(1);
+      expect(roleObs[0].evidence.sectionRole).toBe('workflow');
+    });
+
+    it('leaves headings after invalid annotations without a role', () => {
+      const sections = findByKind(result.observations, 'SKILL_SECTION');
+      const step1 = sections.find(s => s.evidence.text?.includes('Generate (typo: emmit)'));
+      expect(step1).toBeDefined();
+      expect(step1!.evidence.sectionRole).toBeUndefined();
+    });
+  });
+
+  describe('backward compatibility (zero annotations)', () => {
+    // skill-positive.md has no role annotations -- pre-migration state
+    const result = analyzeSkillFile(fixturePath('skill-positive.md'), MOCK_SKILL_DIRS);
+
+    it('emits zero SKILL_SECTION_ROLE observations', () => {
+      const roleObs = findByKind(result.observations, 'SKILL_SECTION_ROLE');
+      expect(roleObs).toHaveLength(0);
+    });
+
+    it('does not set sectionRole on SKILL_SECTION observations', () => {
+      const sections = findByKind(result.observations, 'SKILL_SECTION');
+      for (const s of sections) {
+        expect(s.evidence.sectionRole).toBeUndefined();
+      }
+    });
+  });
+
+  describe('role-aware convention scanning (synth-role-convention)', () => {
+    const result = analyzeSkillFile(path.join(FIXTURES_DIR, 'synth-role-convention', 'SKILL.md'), MOCK_SKILL_DIRS);
+
+    it('does NOT emit SKILL_SUPERSEDED_PATTERN for localStorage in detect section', () => {
+      const superseded = findByKind(result.observations, 'SKILL_SUPERSEDED_PATTERN');
+      expect(superseded).toHaveLength(0);
+    });
+
+    it('emits SKILL_CONVENTION_ALIGNED for typed-storage', () => {
+      const aligned = findByKind(result.observations, 'SKILL_CONVENTION_ALIGNED');
+      const typedStorage = aligned.filter(o => o.evidence.conventionId === 'typed-storage');
+      expect(typedStorage).toHaveLength(1);
+    });
+
+    it('does NOT emit SKILL_MISSING_CONVENTION for typed-storage', () => {
+      const missing = findByKind(result.observations, 'SKILL_MISSING_CONVENTION');
+      const typedStorage = missing.filter(o => o.evidence.conventionId === 'typed-storage');
+      expect(typedStorage).toHaveLength(0);
+    });
+  });
+
+  describe('partial annotations (synth-role-partial)', () => {
+    const result = analyzeSkillFile(path.join(FIXTURES_DIR, 'synth-role-partial', 'SKILL.md'), MOCK_SKILL_DIRS);
+    const sections = findByKind(result.observations, 'SKILL_SECTION');
+    const roleObs = findByKind(result.observations, 'SKILL_SECTION_ROLE');
+
+    it('has some annotated and some unannotated headings', () => {
+      expect(roleObs.length).toBeGreaterThan(0);
+      const topLevel = sections.filter(s => (s.evidence.depth ?? 1) <= 2);
+      const withRole = topLevel.filter(s => s.evidence.sectionRole);
+      const withoutRole = topLevel.filter(s => !s.evidence.sectionRole);
+      expect(withRole.length).toBeGreaterThan(0);
+      expect(withoutRole.length).toBeGreaterThan(0);
+    });
+  });
+});

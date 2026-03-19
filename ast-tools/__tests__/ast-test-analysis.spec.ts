@@ -246,7 +246,7 @@ describe('ast-test-analysis', () => {
 
   describe('real file smoke test', () => {
     it('analyzes a real spec file without crashing', () => {
-      const result = analyzeTestFile('src/ui/page_blocks/dashboard/team/ProductivityBlock.spec.tsx');
+      const result = analyzeTestFile('src/ui/page_blocks/dashboard/team/__tests__/ProductivityBlock.spec.tsx');
 
       expect(result.filePath).toContain('ProductivityBlock.spec.tsx');
       expect(result.subjectExists).toBe(true);
@@ -258,7 +258,7 @@ describe('ast-test-analysis', () => {
 
     it('analyzes a real pure-function spec without crashing', () => {
       const result = analyzeTestFile(
-        'src/ui/page_blocks/dashboard/team/utils/mapDaysTableData/mapDaysTableData.spec.ts',
+        'src/ui/page_blocks/dashboard/team/utils/mapDaysTableData/__tests__/mapDaysTableData.spec.ts',
       );
 
       expect(result.filePath).toContain('mapDaysTableData.spec.ts');
@@ -425,7 +425,9 @@ describe('ast-test-analysis', () => {
     });
 
     it('correctly counts expanded tests on a real spec with test.each', () => {
-      const result = analyzeTestFile('src/shared/utils/string/capitalizeFirstLetter/capitalizeFirstLetter.spec.ts');
+      const result = analyzeTestFile(
+        'src/shared/utils/string/capitalizeFirstLetter/__tests__/capitalizeFirstLetter.spec.ts',
+      );
 
       // This file has 2 test.each calls: one with 6 items, one with 3 items
       // Base testCount: 2 (two test.each calls counted as 1 each)

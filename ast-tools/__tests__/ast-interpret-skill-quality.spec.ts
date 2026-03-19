@@ -414,3 +414,136 @@ describe('directory-wide interpretation', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Role annotation quality assessments
+// ---------------------------------------------------------------------------
+
+describe('role annotation assessments', () => {
+  describe('fully annotated skill (synth-role-full)', () => {
+    const obs = analyzeSkillFile(path.join(FIXTURES_DIR, 'synth-role-full', 'SKILL.md'), MOCK_SKILL_DIRS);
+    const report = interpretSkillQuality(obs);
+
+    it('scores 100/100 with no role issues', () => {
+      expect(report.score).toBe(100);
+      expect(report.missingRoleCount).toBe(0);
+      expect(report.missingRequiredRoleCount).toBe(0);
+    });
+
+    it('has zero MISSING_SECTION_ROLE assessments', () => {
+      const missing = findByKind(report.assessments, 'MISSING_SECTION_ROLE');
+      expect(missing).toHaveLength(0);
+    });
+  });
+
+  describe('partial annotations (synth-role-partial)', () => {
+    const obs = analyzeSkillFile(path.join(FIXTURES_DIR, 'synth-role-partial', 'SKILL.md'), MOCK_SKILL_DIRS);
+    const report = interpretSkillQuality(obs);
+
+    it('penalizes missing role annotations at -2 each', () => {
+      expect(report.missingRoleCount).toBe(1);
+      expect(report.score).toBe(98);
+    });
+
+    it('emits MISSING_SECTION_ROLE for the unannotated heading', () => {
+      const missing = findByKind(report.assessments, 'MISSING_SECTION_ROLE');
+      expect(missing).toHaveLength(1);
+      expect(missing[0].subject.symbol).toContain('Generate output');
+    });
+  });
+
+  describe('missing required role (build-synth-role-missing-required)', () => {
+    const obs = analyzeSkillFile(
+      path.join(FIXTURES_DIR, 'build-synth-role-missing-required', 'SKILL.md'),
+      MOCK_SKILL_DIRS,
+    );
+    const report = interpretSkillQuality(obs);
+
+    it('detects category is build', () => {
+      expect(report.category).toBe('build');
+    });
+
+    it('penalizes missing required role at -3', () => {
+      expect(report.missingRequiredRoleCount).toBe(1);
+      expect(report.score).toBe(97);
+    });
+
+    it('emits ROLE_REQUIREMENT_MISSING for emit', () => {
+      const missing = findByKind(report.assessments, 'ROLE_REQUIREMENT_MISSING');
+      expect(missing).toHaveLength(1);
+      expect(missing[0].subject.symbol).toBe('emit');
+    });
+
+    it('emits ROLE_REQUIREMENT_MET for workflow', () => {
+      const met = findByKind(report.assessments, 'ROLE_REQUIREMENT_MET');
+      expect(met.some(a => a.subject.symbol === 'workflow')).toBe(true);
+    });
+  });
+
+  describe('invalid role annotations (synth-role-invalid)', () => {
+    const obs = analyzeSkillFile(path.join(FIXTURES_DIR, 'synth-role-invalid', 'SKILL.md'), MOCK_SKILL_DIRS);
+    const report = interpretSkillQuality(obs);
+
+    it('penalizes invalid role annotations at -5 each', () => {
+      const invalid = findByKind(report.assessments, 'INVALID_ROLE_ANNOTATION');
+      expect(invalid).toHaveLength(2);
+    });
+
+    it('has correct score (100 - 10 invalid - 2 missing role = 88)', () => {
+      // 2 invalid roles (-10) + 2 headings without valid annotations
+      // are flagged as MISSING_SECTION_ROLE (-2 each = -4)
+      // Total: 100 - 10 - 4 = 86
+      expect(report.score).toBeLessThan(100);
+      const invalid = findByKind(report.assessments, 'INVALID_ROLE_ANNOTATION');
+      const missingRoles = findByKind(report.assessments, 'MISSING_SECTION_ROLE');
+      expect(report.score).toBe(100 - invalid.length * 5 - missingRoles.length * 2);
+    });
+
+    it('includes the typo name in the assessment subject', () => {
+      const invalid = findByKind(report.assessments, 'INVALID_ROLE_ANNOTATION');
+      const subjects = invalid.map(a => a.subject.symbol).sort();
+      expect(subjects).toEqual(['detectt', 'emmit']);
+    });
+  });
+
+  describe('backward compatibility (zero annotations)', () => {
+    const obs = analyzeSkillFile(fixturePath('skill-positive.md'), MOCK_SKILL_DIRS);
+    const report = interpretSkillQuality(obs);
+
+    it('skips all role checks when no annotations exist', () => {
+      const roleAssessments = report.assessments.filter(
+        a =>
+          a.kind === 'MISSING_SECTION_ROLE' ||
+          a.kind === 'ROLE_REQUIREMENT_MET' ||
+          a.kind === 'ROLE_REQUIREMENT_MISSING' ||
+          a.kind === 'INVALID_ROLE_ANNOTATION',
+      );
+      expect(roleAssessments).toHaveLength(0);
+    });
+
+    it('does not penalize score for missing roles', () => {
+      expect(report.missingRoleCount).toBe(0);
+      expect(report.missingRequiredRoleCount).toBe(0);
+    });
+  });
+
+  describe('role-aware convention scanning (synth-role-convention)', () => {
+    const obs = analyzeSkillFile(path.join(FIXTURES_DIR, 'synth-role-convention', 'SKILL.md'), MOCK_SKILL_DIRS);
+    const report = interpretSkillQuality(obs);
+
+    it('scores 100 despite localStorage in detect section', () => {
+      expect(report.score).toBe(100);
+      expect(report.conventionDriftCount).toBe(0);
+    });
+
+    it('emits CONVENTION_ALIGNED for typed-storage', () => {
+      const aligned = findByKind(report.assessments, 'CONVENTION_ALIGNED');
+      expect(aligned.some(a => a.subject.symbol === 'typed-storage')).toBe(true);
+    });
+
+    it('does not emit CONVENTION_DRIFT', () => {
+      const drift = findByKind(report.assessments, 'CONVENTION_DRIFT');
+      expect(drift).toHaveLength(0);
+    });
+  });
+});
