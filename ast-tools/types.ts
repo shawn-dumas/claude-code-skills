@@ -1452,7 +1452,9 @@ export type SkillAnalysisObservationKind =
   | 'SKILL_CROSS_REF' // reference to another skill (by name)
   | 'SKILL_DOC_REF' // reference to a docs/ file
   | 'SKILL_TABLE' // parsed pipe table (headers + row count)
-  | 'SKILL_CHECKLIST_ITEM'; // checklist entry (checked/unchecked)
+  | 'SKILL_CHECKLIST_ITEM' // checklist entry (checked/unchecked)
+  | 'SKILL_SUPERSEDED_PATTERN' // code block or text matches a superseded convention pattern
+  | 'SKILL_MISSING_CONVENTION'; // skill is in scope for a convention but does not reference current pattern
 
 export type SkillAnalysisObservationEvidence = {
   /** Heading text (SKILL_SECTION, SKILL_STEP) */
@@ -1487,6 +1489,12 @@ export type SkillAnalysisObservationEvidence = {
   checked?: boolean;
   /** Checklist item text (SKILL_CHECKLIST_ITEM) */
   itemText?: string;
+  /** Convention rule ID (SKILL_SUPERSEDED_PATTERN, SKILL_MISSING_CONVENTION) */
+  conventionId?: string;
+  /** Convention message (SKILL_SUPERSEDED_PATTERN, SKILL_MISSING_CONVENTION) */
+  conventionMessage?: string;
+  /** The matched superseded pattern text (SKILL_SUPERSEDED_PATTERN) */
+  matchedPattern?: string;
 };
 
 export type SkillAnalysisObservation = Observation<SkillAnalysisObservationKind, SkillAnalysisObservationEvidence>;
@@ -1511,7 +1519,9 @@ export type SkillQualityAssessmentKind =
   | 'MISSING_SECTION' // category-required section not found
   | 'SECTION_COMPLETE' // all category-required sections present
   | 'PATH_VALID' // neutral: file path verified as existing
-  | 'CROSS_REF_VALID'; // neutral: skill cross-ref verified as existing
+  | 'CROSS_REF_VALID' // neutral: skill cross-ref verified as existing
+  | 'CONVENTION_DRIFT' // skill references superseded pattern and/or misses current convention
+  | 'CONVENTION_ALIGNED'; // skill references current convention pattern
 
 export type SkillQualityAssessment = Assessment<SkillQualityAssessmentKind>;
 
@@ -1522,4 +1532,5 @@ export interface SkillQualityReport {
   readonly score: number;
   readonly staleCount: number;
   readonly missingCount: number;
+  readonly conventionDriftCount: number;
 }

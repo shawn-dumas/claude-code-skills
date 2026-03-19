@@ -254,6 +254,28 @@ interface AstConfig {
     readonly deprecatedCommandPatterns: readonly { readonly pattern: string; readonly replacement: string }[];
   };
 
+  readonly conventions: {
+    /**
+     * Convention rules for detecting skill drift. Each entry defines:
+     * - scope: regex that determines if a skill is relevant to this convention
+     *   (matched against the full skill text content)
+     * - current: string patterns that indicate the skill references the current convention
+     * - superseded: regex patterns that indicate the skill references the old/superseded convention
+     * - message: human-readable description of the current convention
+     *
+     * The observation layer scans code blocks and text for superseded patterns.
+     * The interpreter classifies: CONVENTION_DRIFT (has superseded, missing current)
+     * or CONVENTION_ALIGNED (references current pattern).
+     */
+    readonly rules: readonly {
+      readonly id: string;
+      readonly scope: string; // regex string, matched against full skill text
+      readonly current: readonly string[]; // literal substrings to search for
+      readonly superseded: readonly string[]; // regex strings to search for
+      readonly message: string;
+    }[];
+  };
+
   readonly bffGaps: {
     /** Text patterns that identify a BFF stub (searched in file content) */
     readonly stubPatterns: readonly string[];
@@ -957,6 +979,19 @@ export const astConfig: AstConfig = Object.freeze({
       { pattern: 'pnpm\\s+tsc\\s+--noEmit(?!\\s+-p)', replacement: 'pnpm tsc --noEmit -p tsconfig.check.json' },
       { pattern: 'pnpm\\s+build-types', replacement: 'pnpm tsc --noEmit -p tsconfig.check.json' },
     ] as { readonly pattern: string; readonly replacement: string }[],
+  }),
+
+  conventions: Object.freeze({
+    rules: [
+      {
+        id: 'ch-query-registry',
+        scope: 'clickhouse|ClickHouse|data-api.*handler|CH_QUERIES|queries\\.ts',
+        current: ['CH_QUERIES', 'queries.generated', '@/server/db/queries'],
+        superseded: ['clickhouse\\.query\\(\\{[\\s\\S]*query:\\s*`', 'interface\\s+\\w+Row\\s*\\{'],
+        message:
+          'ClickHouse queries use the centralized registry (src/server/db/queries.ts) and generated types (queries.generated.ts), not inline SQL or hand-written row interfaces.',
+      },
+    ] as const,
   }),
 
   bffGaps: Object.freeze({

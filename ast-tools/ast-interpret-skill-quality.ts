@@ -258,6 +258,52 @@ function classifySections(result: SkillAnalysisResult): SkillQualityAssessment[]
   return assessments;
 }
 
+function classifyConventions(observations: readonly SkillAnalysisObservation[]): SkillQualityAssessment[] {
+  const assessments: SkillQualityAssessment[] = [];
+
+  const superseded = observations.filter(o => o.kind === 'SKILL_SUPERSEDED_PATTERN');
+  const missing = observations.filter(o => o.kind === 'SKILL_MISSING_CONVENTION');
+
+  // Group by convention ID
+  const conventionIds = new Set([
+    ...superseded.map(o => o.evidence.conventionId!),
+    ...missing.map(o => o.evidence.conventionId!),
+  ]);
+
+  for (const id of conventionIds) {
+    const supersededForId = superseded.filter(o => o.evidence.conventionId === id);
+    const missingForId = missing.filter(o => o.evidence.conventionId === id);
+
+    if (supersededForId.length > 0 || missingForId.length > 0) {
+      const rationale: string[] = [];
+      const basedOn: ObservationRef[] = [];
+
+      for (const obs of supersededForId) {
+        rationale.push(`Code block at line ${obs.line} matches superseded pattern for convention '${id}'.`);
+        basedOn.push(toRef(obs));
+      }
+      for (const obs of missingForId) {
+        rationale.push(obs.evidence.conventionMessage ?? `Convention '${id}' not referenced.`);
+        basedOn.push(toRef(obs));
+      }
+
+      assessments.push(
+        makeAssessment(
+          'CONVENTION_DRIFT',
+          supersededForId[0]?.file ?? missingForId[0]?.file ?? '',
+          supersededForId[0]?.line,
+          id,
+          supersededForId.length > 0 ? 'high' : 'medium',
+          rationale,
+          basedOn,
+        ),
+      );
+    }
+  }
+
+  return assessments;
+}
+
 // ---------------------------------------------------------------------------
 // Main interpreter
 // ---------------------------------------------------------------------------
@@ -269,6 +315,7 @@ export function interpretSkillQuality(result: SkillAnalysisResult): SkillQuality
     ...classifyDocRefs(result.observations),
     ...classifyCommands(result.observations),
     ...classifySections(result),
+    ...classifyConventions(result.observations),
   ];
 
   const staleCount = assessments.filter(
@@ -279,9 +326,10 @@ export function interpretSkillQuality(result: SkillAnalysisResult): SkillQuality
       a.kind === 'BROKEN_DOC_REF',
   ).length;
   const missingCount = assessments.filter(a => a.kind === 'MISSING_SECTION').length;
+  const conventionDriftCount = assessments.filter(a => a.kind === 'CONVENTION_DRIFT').length;
 
-  // Score: starts at 100, -5 per stale/broken finding, -3 per missing section
-  const score = Math.max(0, 100 - staleCount * 5 - missingCount * 3);
+  // Score: starts at 100, -5 per stale/broken finding, -3 per missing section, -10 per convention drift
+  const score = Math.max(0, 100 - staleCount * 5 - missingCount * 3 - conventionDriftCount * 10);
 
   return {
     skillName: result.skillName,
@@ -290,6 +338,7 @@ export function interpretSkillQuality(result: SkillAnalysisResult): SkillQuality
     score,
     staleCount,
     missingCount,
+    conventionDriftCount,
   };
 }
 
@@ -300,7 +349,9 @@ export function interpretSkillQuality(result: SkillAnalysisResult): SkillQuality
 function prettyPrint(report: SkillQualityReport): string {
   const lines: string[] = [];
   lines.push(`Skill Quality: ${report.skillName} (${report.category})`);
-  lines.push(`Score: ${report.score}/100  |  Stale: ${report.staleCount}  |  Missing sections: ${report.missingCount}`);
+  lines.push(
+    `Score: ${report.score}/100  |  Stale: ${report.staleCount}  |  Missing sections: ${report.missingCount}  |  Convention drift: ${report.conventionDriftCount}`,
+  );
   lines.push('');
 
   const issues = report.assessments.filter(
@@ -309,7 +360,8 @@ function prettyPrint(report: SkillQualityReport): string {
       a.kind === 'STALE_COMMAND' ||
       a.kind === 'BROKEN_CROSS_REF' ||
       a.kind === 'BROKEN_DOC_REF' ||
-      a.kind === 'MISSING_SECTION',
+      a.kind === 'MISSING_SECTION' ||
+      a.kind === 'CONVENTION_DRIFT',
   );
 
   if (issues.length === 0) {
@@ -357,6 +409,8 @@ function main(): void {
         '  BROKEN_CROSS_REF    Skill cross-reference does not exist\n' +
         '  BROKEN_DOC_REF      Doc reference does not exist\n' +
         '  MISSING_SECTION     Category-required section not found\n' +
+        '  CONVENTION_DRIFT    Skill references superseded convention pattern\n' +
+        '  CONVENTION_ALIGNED  Skill references current convention pattern\n' +
         '  SECTION_COMPLETE    All required sections present\n' +
         '  PATH_VALID          File path verified on disk\n' +
         '  CROSS_REF_VALID     Skill cross-ref verified\n\n' +

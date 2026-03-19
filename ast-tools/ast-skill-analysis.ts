@@ -20,6 +20,7 @@ import path from 'path';
 import fg from 'fast-glob';
 import { parseArgs, outputFiltered, fatal } from './cli';
 import { PROJECT_ROOT } from './project';
+import { resolveConfig } from './ast-config';
 import type {
   SkillAnalysisObservation,
   SkillAnalysisObservationKind,
@@ -455,6 +456,48 @@ function extractTables(content: string, file: string, obs: SkillAnalysisObservat
   }
 }
 
+// --- Convention scanning ---
+
+function scanConventions(
+  content: string,
+  codeBlocks: { content: string; line: number }[],
+  file: string,
+  obs: SkillAnalysisObservation[],
+): void {
+  const config = resolveConfig();
+
+  for (const rule of config.conventions.rules) {
+    const scopeRegex = new RegExp(rule.scope, 'i');
+
+    // Check if this skill is in scope for this convention
+    if (!scopeRegex.test(content)) continue;
+
+    // Check code blocks for superseded patterns
+    for (const block of codeBlocks) {
+      for (const pattern of rule.superseded) {
+        const regex = new RegExp(pattern, 'i');
+        if (regex.test(block.content)) {
+          emit(obs, 'SKILL_SUPERSEDED_PATTERN', file, block.line, {
+            conventionId: rule.id,
+            conventionMessage: rule.message,
+            matchedPattern: block.content.substring(0, 100),
+          });
+        }
+      }
+    }
+
+    // Check if skill references any current pattern (in full content)
+    const hasCurrentRef = rule.current.some(pattern => content.includes(pattern));
+
+    if (!hasCurrentRef) {
+      emit(obs, 'SKILL_MISSING_CONVENTION', file, 1, {
+        conventionId: rule.id,
+        conventionMessage: rule.message,
+      });
+    }
+  }
+}
+
 // --- Main analysis ---
 
 export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): SkillAnalysisResult {
@@ -582,6 +625,13 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
 
     extractFilePaths(line, relPath, i + 1, 'table', obs, contentLines, i);
   }
+
+  // --- Scan conventions ---
+  const codeBlockData = codeBlocks.map(cb => ({
+    content: cb.value ?? '',
+    line: nodeLine(cb),
+  }));
+  scanConventions(content, codeBlockData, relPath, obs);
 
   return { filePath: relPath, skillName, category, observations: obs };
 }
