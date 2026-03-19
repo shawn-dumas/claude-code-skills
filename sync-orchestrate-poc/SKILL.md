@@ -28,67 +28,67 @@ these files to determine the current state of the codebase.
 
 ### Group 1: Dashboard Navigation
 
-| Data | Source File | What to Extract |
-|------|------------|-----------------|
-| Sidebar items | `src/ui/components/8flow/Sidebar/Sidebar.tsx` | Top-level nav links (Insights, Users, Teams) and their role gates |
-| Dashboard tabs | `src/ui/page_blocks/dashboard/ui/DashboardNavigation/constants.ts` | `dashboardPages` array: name, link, featureFlag, group |
-| Dashboard groups | Same file | `DashboardPageGroup` values |
-| Tab page names | `src/shared/constants/dashboard.ts` | `DASHBOARD_PAGES` constant |
-| Settings tabs | `src/ui/page_blocks/settings/ui/SettingsNavigation/constants.ts` | `settingsNavItems` array |
+| Data             | Source File                                                        | What to Extract                                                   |
+| ---------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| Sidebar items    | `src/ui/components/8flow/Sidebar/Sidebar.tsx`                      | Top-level nav links (Insights, Users, Teams) and their role gates |
+| Dashboard tabs   | `src/ui/page_blocks/dashboard/ui/DashboardNavigation/constants.ts` | `dashboardPages` array: name, link, featureFlag, group            |
+| Dashboard groups | Same file                                                          | `DashboardPageGroup` values                                       |
+| Tab page names   | `src/shared/constants/dashboard.ts`                                | `DASHBOARD_PAGES` constant                                        |
+| Settings tabs    | `src/ui/page_blocks/settings/ui/SettingsNavigation/constants.ts`   | `settingsNavItems` array                                          |
 
 ### Group 2: Feature Flags
 
-| Data | Source File | What to Extract |
-|------|------------|-----------------|
-| Flag definitions | `src/shared/hooks/useFeatureFlags/types.ts` | `FeatureFlagsToLoad` constant + `FeatureFlagsShapeSchema` |
-| Flag fallbacks | `src/shared/hooks/useFeatureFlags/constants.ts` | `fallbackFlags` + `localAllOnFlags` |
+| Data             | Source File                                     | What to Extract                                           |
+| ---------------- | ----------------------------------------------- | --------------------------------------------------------- |
+| Flag definitions | `src/shared/hooks/useFeatureFlags/types.ts`     | `FeatureFlagsToLoad` constant + `FeatureFlagsShapeSchema` |
+| Flag fallbacks   | `src/shared/hooks/useFeatureFlags/constants.ts` | `fallbackFlags` + `localAllOnFlags`                       |
 
 ### Group 3: Roles and Permissions
 
-| Data | Source File | What to Extract |
-|------|------------|-----------------|
-| Role definitions | `src/shared/types/auth.ts` | `Role` constant (all values) |
-| Admin roles | `src/ui/constants/index.ts` | `adminRoles` array |
-| Dashboard role gate | `src/ui/page_blocks/dashboard/DashboardContent.tsx` | `allowedRoles` in `RequireLoginMaybe` |
-| Page-level role gates | `src/pages/users.tsx`, `src/pages/teams/index.tsx`, `src/pages/settings/*.tsx` | `allowedRoles` per page |
+| Data                  | Source File                                                                    | What to Extract                       |
+| --------------------- | ------------------------------------------------------------------------------ | ------------------------------------- |
+| Role definitions      | `src/shared/types/auth/index.ts`                                               | `Role` constant (all values)          |
+| Admin roles           | `src/ui/constants/index.ts`                                                    | `adminRoles` array                    |
+| Dashboard role gate   | `src/ui/page_blocks/dashboard/DashboardContent.tsx`                            | `allowedRoles` in `RequireLoginMaybe` |
+| Page-level role gates | `src/pages/users.tsx`, `src/pages/teams/index.tsx`, `src/pages/settings/*.tsx` | `allowedRoles` per page               |
 
 ### Group 4: Page Routes and Layout
 
-| Data | Source File | What to Extract |
-|------|------------|-----------------|
-| Insights pages | `src/pages/insights/` directory | All `.tsx` files = route slugs |
-| Page filtersType | Each `src/pages/insights/*.tsx` file | `filtersType` in `getLayout` call |
-| Page containers | Each page file | Which container component is imported and rendered |
-| resolveFilterComponent | `src/ui/page_blocks/dashboard/DashboardLayout.tsx` | Filter type to component mapping |
-| Non-dashboard pages | `src/pages/users.tsx`, `src/pages/teams/`, `src/pages/settings/` | Route paths and role gates |
+| Data                   | Source File                                                      | What to Extract                                    |
+| ---------------------- | ---------------------------------------------------------------- | -------------------------------------------------- |
+| Insights pages         | `src/pages/insights/` directory                                  | All `.tsx` files = route slugs                     |
+| Page filtersType       | Each `src/pages/insights/*.tsx` file                             | `filtersType` in `getLayout` call                  |
+| Page containers        | Each page file                                                   | Which container component is imported and rendered |
+| resolveFilterComponent | `src/ui/page_blocks/dashboard/DashboardLayout.tsx`               | Filter type to component mapping                   |
+| Non-dashboard pages    | `src/pages/users.tsx`, `src/pages/teams/`, `src/pages/settings/` | Route paths and role gates                         |
 
 ### Group 5: BFF and Mock Routes
 
-| Data | Source File | What to Extract |
-|------|------------|-----------------|
-| Real API routes | `src/pages/api/` directory (excluding `mock/`) | All route files and HTTP methods |
-| Mock API routes | `src/pages/api/mock/` directory | All route files; for each, the response type name if identifiable from imports |
+| Data            | Source File                                    | What to Extract                                                                |
+| --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------ |
+| Real API routes | `src/pages/api/` directory (excluding `mock/`) | All route files and HTTP methods                                               |
+| Mock API routes | `src/pages/api/mock/` directory                | All route files; for each, the response type name if identifiable from imports |
 
 ### Group 6: Shared Types
 
-| Data | Source File | What to Extract |
-|------|------------|-----------------|
-| Type definitions | `src/shared/types/*.ts` (non-schema, non-spec files) | Exported type/interface names and their key fields |
-| Zod schemas | `src/shared/types/*.schema.ts` | Schema names (confirms which types have runtime validation) |
-| Branded types | `src/shared/types/brand.ts` | All `Brand<>` type aliases and constructor functions |
+| Data             | Source File                                           | What to Extract                                             |
+| ---------------- | ----------------------------------------------------- | ----------------------------------------------------------- |
+| Type definitions | `src/shared/types/*/index.ts` (and leaf `*.ts` files) | Exported type/interface names and their key fields          |
+| Zod schemas      | `src/shared/types/<domain>/schemas.ts`                | Schema names (confirms which types have runtime validation) |
+| Branded types    | `src/shared/types/brand.ts`                           | All `Brand<>` type aliases and constructor functions        |
 
 ### Group 7: Fixture System
 
-| Data | Source File | What to Extract |
-|------|------------|-----------------|
+| Data            | Source File                       | What to Extract                                          |
+| --------------- | --------------------------------- | -------------------------------------------------------- |
 | Domain fixtures | `src/fixtures/domains/` directory | All `.fixture.ts` files and their exported builder names |
-| Scenario fields | `src/fixtures/scenario.ts` | `StandardScenario` interface fields |
-| Identity pool | `src/fixtures/identity-pool.ts` | Pool config defaults (userCount, teamCount, etc.) |
+| Scenario fields | `src/fixtures/scenario.ts`        | `StandardScenario` interface fields                      |
+| Identity pool   | `src/fixtures/identity-pool.ts`   | Pool config defaults (userCount, teamCount, etc.)        |
 
 ### Group 8: Adding-Dashboard-Pages Guide
 
-| Data | Source File | What to Extract |
-|------|------------|-----------------|
+| Data                | Source File                      | What to Extract                         |
+| ------------------- | -------------------------------- | --------------------------------------- |
 | Files-touched table | `docs/adding-dashboard-pages.md` | The "Files Summary" table at the bottom |
 
 ---
@@ -114,6 +114,7 @@ your working memory -- do not write intermediate files):
 
 Build an ASCII tree matching the format in the skill's "Navigation
 Hierarchy" section. Include:
+
 - Sidebar items with route and role restriction
 - Dashboard tab groups with tab names and feature flag keys
 - Settings tabs with routes
@@ -129,6 +130,7 @@ RequireRoles, so it always gets "Yes (auto)").
 
 Build a markdown table with columns: Tab, page_block Domain, Container,
 filtersType. Derive from:
+
 - Tab name from `dashboardPages` array
 - Domain from the container import path in each page file
 - Container name from the page file's default render
@@ -138,6 +140,7 @@ filtersType. Derive from:
 
 Build a markdown table with columns: Domain, Endpoint, Data Type,
 Description. Derive from:
+
 - The `src/pages/api/mock/` directory tree (endpoint paths)
 - Import statements in each mock route (data type names)
 - Categorize by domain based on directory path
@@ -170,6 +173,7 @@ that appear in the wizard phases:
 ### 3.1 Q6 Options (Dashboard Group)
 
 Format: one option per group, listing current tabs in that group.
+
 ```
 - "People" -- User-focused insights. Current tabs: <comma-separated tab names in People group>
 - "Process" -- Workflow insights. Current tabs: <comma-separated tab names in Process group>
@@ -180,6 +184,7 @@ Format: one option per group, listing current tabs in that group.
 
 Format: one option per existing dashboard tab, with a description of
 its layout pattern. Each option:
+
 ```
 - "<Tab Name>" -- <1-sentence description of layout + data pattern>. <filter info>.
 ```
@@ -191,6 +196,7 @@ existing description from the current SKILL.md as a starting point and
 verify it is still accurate.
 
 Always end with:
+
 ```
 - "None of these" -- This is a novel layout that does not closely match any existing tab.
 ```
@@ -198,6 +204,7 @@ Always end with:
 ### 3.3 Q5e Options (Non-Dashboard Pages)
 
 Format: one option per non-dashboard page that could be modified.
+
 ```
 - "<Page Name> (<route>)" -- <1-sentence description> (<role restriction>)
 ```
@@ -208,6 +215,7 @@ Include: Users, Teams, Team Detail, and all Settings pages.
 
 Format: one option per existing data type that a PM might want to reuse.
 Each option:
+
 ```
 - "<TypeName> (<domain>)" -- <what it contains>. Available via <mock endpoint path>
 ```
@@ -215,6 +223,7 @@ Each option:
 Map types to their mock endpoints. Only include types that represent
 data a PM would plausibly want to display (not internal infrastructure
 types). Always end with:
+
 ```
 - "This is new data" -- None of the above match. The BFF team will need to build a new endpoint.
 ```
@@ -229,20 +238,20 @@ every section that contains embedded codebase data.
 The sections to compare are at these locations (identified by their
 markdown headers and surrounding context):
 
-| Section | Marker | Content Type |
-|---------|--------|-------------|
-| Q6 options | `### Q6: Dashboard Group` | Question options block |
-| Q7 options | `### Q7: Similar Tab` | Question options block |
-| Q5e options | `### Q6e: Which Page` | Question options block (Branch E) |
-| Q11 options | `### Q11: For Each Entity -- Existing or New` | Question options block |
-| Q6 group descriptions | Within Q6 options | Tab lists per group |
-| Navigation Hierarchy | `### Navigation Hierarchy` | ASCII tree |
-| Roles table | `### Roles` | Markdown table |
-| Tab-to-Domain Mapping | `### Tab-to-Domain Mapping` | Markdown table |
-| Files Touched table | `### Files Touched When Adding a New Dashboard Tab` | Markdown table |
-| Mock API Endpoints | `### Existing Mock API Endpoints` | Markdown table |
-| Shared Types | `### Existing Shared Types` | Markdown table |
-| Branded Types | `### Branded Types` | Inline list |
+| Section               | Marker                                              | Content Type                      |
+| --------------------- | --------------------------------------------------- | --------------------------------- |
+| Q6 options            | `### Q6: Dashboard Group`                           | Question options block            |
+| Q7 options            | `### Q7: Similar Tab`                               | Question options block            |
+| Q5e options           | `### Q6e: Which Page`                               | Question options block (Branch E) |
+| Q11 options           | `### Q11: For Each Entity -- Existing or New`       | Question options block            |
+| Q6 group descriptions | Within Q6 options                                   | Tab lists per group               |
+| Navigation Hierarchy  | `### Navigation Hierarchy`                          | ASCII tree                        |
+| Roles table           | `### Roles`                                         | Markdown table                    |
+| Tab-to-Domain Mapping | `### Tab-to-Domain Mapping`                         | Markdown table                    |
+| Files Touched table   | `### Files Touched When Adding a New Dashboard Tab` | Markdown table                    |
+| Mock API Endpoints    | `### Existing Mock API Endpoints`                   | Markdown table                    |
+| Shared Types          | `### Existing Shared Types`                         | Markdown table                    |
+| Branded Types         | `### Branded Types`                                 | Inline list                       |
 
 ---
 
@@ -256,14 +265,14 @@ Compare each section's current content against what you built in Steps
 
 ### Sections with Changes
 
-| Section | What Changed |
-|---------|-------------|
+| Section        | What Changed                                                                                               |
+| -------------- | ---------------------------------------------------------------------------------------------------------- |
 | <section name> | <brief description: e.g., "Added 2 new tabs: X, Y", "Removed System Latency endpoint", "New role: VIEWER"> |
 
 ### Sections Unchanged
 
-| Section |
-|---------|
+| Section        |
+| -------------- |
 | <section name> |
 
 ### New Items Not in Skill
@@ -330,6 +339,7 @@ Update in this order to avoid offset drift from earlier edits:
 After all edits:
 
 1. Read the updated SKILL.md in full to confirm:
+
    - All sections are syntactically valid markdown
    - No orphaned table rows or broken code blocks
    - Question option blocks are properly formatted
@@ -337,6 +347,7 @@ After all edits:
    - No duplicate entries
 
 2. Cross-check consistency:
+
    - Every tab in the Navigation Hierarchy appears in the Tab-to-Domain
      Mapping table
    - Every tab in the Tab-to-Domain Mapping appears in the Q7 options

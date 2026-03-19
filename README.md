@@ -295,7 +295,7 @@ Types have the same ownership rules as data and state. A type should live in one
 
 #### Domain type modules
 
-Shared types live in `src/shared/types/<domain>.ts`. Each domain module is the single source of truth for that domain's type definitions. Before defining a new interface, check whether one already exists in `src/shared/types/`. If an existing definition is close but not exact, extend or narrow it with `Pick`/`Omit`/`&` rather than duplicating.
+Shared types live in `src/shared/types/<domain>/index.ts` (or `<domain>/schemas.ts` + `<domain>/types.ts` for larger domains). Each domain module is the single source of truth for that domain's type definitions and Zod schemas. Types are derived from Zod schemas via `z.infer<>`. Before defining a new interface, check whether one already exists in `src/shared/types/`. If an existing definition is close but not exact, extend or narrow it with `Pick`/`Omit`/`&` rather than duplicating. See `docs/type-schema-unification.md` for the full architecture.
 
 What stays co-located:
 

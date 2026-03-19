@@ -385,7 +385,7 @@ Before defining any new type:
 
 1. Check `src/shared/types/` for existing domain type modules. Import from
    `@/shared/types/<module>`, not from internal paths.
-2. Check `src/shared/types/<domain>.schema.ts` for existing Zod schemas. If the
+2. Check `src/shared/types/<domain>/schemas.ts` (or `<domain>/index.ts`) for existing Zod schemas. If the
    handler's response matches an existing schema, import and use it.
 3. Use branded types for IDs: `UserId`, `TeamId`, `WorkstreamId`, `OrganizationId`
    from `@/shared/types/brand`.

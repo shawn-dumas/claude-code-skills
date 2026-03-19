@@ -42,15 +42,18 @@ directory (and `$PLANS_DIR/prompts/`) if it does not exist.
 Before proceeding, verify:
 
 1. **The PoC was created via `orchestrate-poc`.** Look for:
+
    - `$PLANS_DIR/poc-<slug>-prd.md` (the PRD)
    - `$PLANS_DIR/poc-<slug>-cleanup.md` (the cleanup file)
    - Optionally: `$PLANS_DIR/poc-<slug>-bff-handoff.md`
    - Optionally: `$PLANS_DIR/poc-<slug>-plan.md` (the master plan)
 
    If none of these exist, try the alternate naming convention:
+
    - `$PLANS_DIR/poc-<slug>.md`
 
    If the PRD file cannot be found:
+
    > I cannot find the PRD for this PoC. The `iterate-poc` skill
    > requires artifacts from `orchestrate-poc`. Expected path:
    > `$PLANS_DIR/poc-<slug>-prd.md` or `$PLANS_DIR/poc-<slug>.md`.
@@ -64,6 +67,7 @@ Before proceeding, verify:
 2. **The PRD status is not `Escalated`.** Read the PRD header. If the
    status is `Escalated` or an escalation report exists at
    `$PLANS_DIR/poc-<slug>-escalation.md`:
+
    > This PoC was escalated during `orchestrate-poc`. The escalation
    > report at `$PLANS_DIR/poc-<slug>-escalation.md` needs engineering
    > review before further iteration. Resolve the escalation first.
@@ -72,10 +76,13 @@ Before proceeding, verify:
 
 3. **The feature branch exists and is checked out.** Read the PRD header
    for the source branch. Verify it exists and is checked out:
+
    ```
    git branch --show-current
    ```
+
    If the current branch does not match, ask:
+
    ```
    Question: The PRD says the source branch is "<branch>", but you are
    currently on "<current>". Should I switch to "<branch>"?
@@ -83,15 +90,17 @@ Before proceeding, verify:
    Options:
      - "Switch to <branch>" -- Check out the PoC branch before making changes.
       - "Stay on <current>" -- The work should happen on this branch instead.
-    ```
+   ```
 
 4. **The branch is not behind development.** Check for divergence:
+
    ```bash
    git fetch origin development 2>/dev/null
    BEHIND=$(git rev-list --count HEAD..origin/development 2>/dev/null || echo "0")
    ```
 
    If `$BEHIND` is greater than 0, inform the PM:
+
    ```
    Question: Your branch is BEHIND commits behind development. Merging
    now to pick up recent changes before starting the iteration.
@@ -103,6 +112,7 @@ Before proceeding, verify:
 
    If "Merge now": run `git merge origin/development --no-edit`. If
    there are merge conflicts, stop:
+
    > Merge conflicts detected when syncing with development. This needs
    > engineering help. Do not proceed until the conflicts are resolved.
 
@@ -111,6 +121,7 @@ Before proceeding, verify:
 ## Step 1: Parse the Change Request
 
 Extract the change description from `$ARGUMENTS`. The PM may provide:
+
 - A specific change ("add a column to the table showing total hours")
 - Multiple changes ("swap the bar chart for a line chart and add a
   date range filter")
@@ -134,6 +145,7 @@ Read these artifacts to understand what exists:
 
 Read the full PRD at `$PLANS_DIR/poc-<slug>-prd.md` (or `$PLANS_DIR/poc-<slug>.md`).
 Extract:
+
 - Section 2 (Functional Requirements) -- what the feature currently does
 - Section 3 (User Experience) -- current flows and UI states
 - Section 4 (Data Model) -- current types and API contracts
@@ -146,14 +158,14 @@ Extract:
 From the PRD's Engineering Notes (Section 10), identify the key files.
 Read the files that the change request touches. Typical file categories:
 
-| Change Type | Files to Read |
-|-------------|---------------|
-| UI change (column, chart, layout) | Container, presentational components |
-| Data change (new field, new metric) | Types, schemas, fixtures, mock routes, service hooks |
-| Interaction change (click behavior) | Container (event handlers), affected components |
-| Filter change | Container (nuqs state), InsightsContext types, DashboardLayout |
-| Permission change | Container (role check), page file |
-| Removal | All files that reference the removed element |
+| Change Type                         | Files to Read                                                  |
+| ----------------------------------- | -------------------------------------------------------------- |
+| UI change (column, chart, layout)   | Container, presentational components                           |
+| Data change (new field, new metric) | Types, schemas, fixtures, mock routes, service hooks           |
+| Interaction change (click behavior) | Container (event handlers), affected components                |
+| Filter change                       | Container (nuqs state), InsightsContext types, DashboardLayout |
+| Permission change                   | Container (role check), page file                              |
+| Removal                             | All files that reference the removed element                   |
 
 Read the actual source files, not just the PRD description. The PRD may
 be slightly out of date if previous iterate-poc runs or manual edits
@@ -176,12 +188,12 @@ Based on the change request and current code, determine:
 List every file that needs modification, creation, or deletion.
 Classify each:
 
-| File | Action | What Changes |
-|------|--------|-------------|
-| `path/to/file.tsx` | modify | Add new column to table |
-| `src/shared/types/domain.ts` | modify | Add new field to type |
-| `src/fixtures/domains/domain.fixture.ts` | modify | Generate new field |
-| ... | ... | ... |
+| File                                     | Action | What Changes            |
+| ---------------------------------------- | ------ | ----------------------- |
+| `path/to/file.tsx`                       | modify | Add new column to table |
+| `src/shared/types/<domain>/index.ts`     | modify | Add new field to type   |
+| `src/fixtures/domains/domain.fixture.ts` | modify | Generate new field      |
+| ...                                      | ...    | ...                     |
 
 ### 3.2 Scope Classification
 
@@ -210,6 +222,7 @@ Classify the change:
 ### 3.3 PRD Impact
 
 Determine which PRD sections need updates:
+
 - Section 2 (FRs) -- if behavior changes
 - Section 3 (UX Flows) -- if interaction changes
 - Section 4 (Data Model) -- if types change
@@ -224,8 +237,7 @@ Present the impact analysis to the PM:
 
 > **Impact analysis for: "<change description>"**
 >
-> **Scope:** <classification>
-> **Files affected:** N files (N modify, N create, N delete)
+> **Scope:** <classification> > **Files affected:** N files (N modify, N create, N delete)
 > **PRD sections to update:** <list>
 >
 > <Table of affected files>
@@ -233,12 +245,14 @@ Present the impact analysis to the PM:
 > <Any concerns or trade-offs the PM should know about>
 
 If the change is **cross-boundary**, warn:
+
 > This change affects files outside the PoC's feature directory.
 > Specifically: <list files>. These changes may affect other features.
 > Proceed with caution -- consider whether this should be deferred to
 > an engineering review.
 
 Ask:
+
 ```
 Question: Does this impact analysis look right? Ready to proceed?
 Header: Confirm scope
@@ -266,6 +280,7 @@ Based on the scope classification, generate prompts.
   refactor-react-route).
 
 - **Data-extending**: 2-3 prompts. Typical sequence:
+
   1. Types + schema + fixture changes
   2. Mock route + service hook changes
   3. UI changes (container + components)
@@ -291,6 +306,7 @@ Each prompt follows the standard orchestration prompt format from
 
 - **Skill references** follow the same worker selection rules as
   orchestrate-poc Step 7.4:
+
   - Type/schema changes: manual (small changes)
   - Fixture changes: `/build-fixture` if new domain, manual if extending
   - Mock route changes: manual
@@ -338,14 +354,14 @@ iteration section:
 ### Affected Files
 
 | File | Action | What Changes |
-|------|--------|-------------|
-| ... | ... | ... |
+| ---- | ------ | ------------ |
+| ...  | ...    | ...          |
 
 ### Prompts
 
-| # | Phase | Prompt | Status |
-|---|-------|--------|--------|
-| 1 | ... | poc-<slug>-iter-NN-... | pending |
+| #   | Phase | Prompt                 | Status  |
+| --- | ----- | ---------------------- | ------- |
+| 1   | ...   | poc-<slug>-iter-NN-... | pending |
 ```
 
 If no master plan exists, create a lightweight one at
@@ -372,15 +388,16 @@ and `~/.claude/CLAUDE.md` (Orchestration Protocol):
    to paste the reconciliation output.
 
 4. **Verify independently.** Run in `~/github/user-frontend`:
-    ```
-    git log --oneline -10
-    # Verify commit message format (last N commits from this prompt)
-    git log -5 --format="%s%n%b" | grep -c "^PoC: " || echo "WARNING: recent commits missing PoC trailer"
-    pnpm tsc --noEmit
-    pnpm test --run 2>&1 | tail -5
-    pnpm build 2>&1 | tail -5
-    npx eslint . --max-warnings 0 2>&1 | tail -3
-    ```
+
+   ```
+   git log --oneline -10
+   # Verify commit message format (last N commits from this prompt)
+   git log -5 --format="%s%n%b" | grep -c "^PoC: " || echo "WARNING: recent commits missing PoC trailer"
+   pnpm tsc --noEmit
+   pnpm test --run 2>&1 | tail -5
+   pnpm build 2>&1 | tail -5
+   npx eslint . --max-warnings 0 2>&1 | tail -3
+   ```
 
 5. **Compare results** against the work agent's reconciliation.
 
@@ -422,8 +439,8 @@ sections):
 
 ## Changelog
 
-| Date | Change | Sections Updated |
-|------|--------|-----------------|
+| Date   | Change                      | Sections Updated  |
+| ------ | --------------------------- | ----------------- |
 | <date> | <1-sentence change summary> | <section numbers> |
 ```
 
@@ -457,6 +474,7 @@ response shapes) and a BFF handoff document exists at
 ## Step 7: Final Verification and Report
 
 1. Run the full verification suite:
+
    ```
    pnpm tsc --noEmit
    pnpm build
@@ -464,6 +482,7 @@ response shapes) and a BFF handoff document exists at
    ```
 
 2. If integration scope was `per-prompt` or `final-only`, run:
+
    ```
    pnpm test:integration
    ```
@@ -478,6 +497,7 @@ response shapes) and a BFF handoff document exists at
    > **ESLint:** clean
    >
    > **What changed:**
+   >
    > - <bullet list of user-visible changes>
    >
    > **PRD updated:** Sections <list>. Changelog entry added.
@@ -544,6 +564,7 @@ and update or remove the cleanup item.
 ### Change requires new dependencies
 
 If the change requires a new npm package:
+
 1. Ask the PM to confirm the dependency addition.
 2. Add `pnpm add <package>` to the first prompt.
 3. Note the dependency in the PRD's Engineering Notes.

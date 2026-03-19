@@ -62,17 +62,17 @@ and progressively building toward a complete implementation plan. The PM
 can stop after any phase and resume later -- the PRD file is the state
 document.
 
-| Phase | Purpose | PRD Sections Filled |
-|-------|---------|---------------------|
-| 0. Triage | New vs. existing spike, branch setup | -- |
-| 0E. Spike Audit | Inventory, audit, score, classify findings | 10 (Eng Notes), 9 (Gotchas) |
-| 1. Discovery | Who, what, why | 1 (Overview), 7 (Permissions) |
-| 2. Placement | Where it lives in the dashboard | 3.1 (Entry Points), part of 3.2 |
-| 3. Data | What data, existing vs. new | 4 (Data Model), 5 (API Contracts) |
-| 4. UX Design | How users interact | 2 (FRs), 3 (Flows), 3.4 (UI States) |
-| 5. Gating | Feature flags, analytics, permissions | 6 (Events), 7 (Permissions) |
-| 6. PRD Finalization | Review and fill gaps | All sections |
-| 7. Implementation | Generate prompts, execute | 8 (Tests), 10 (Eng Notes) |
+| Phase               | Purpose                                    | PRD Sections Filled                 |
+| ------------------- | ------------------------------------------ | ----------------------------------- |
+| 0. Triage           | New vs. existing spike, branch setup       | --                                  |
+| 0E. Spike Audit     | Inventory, audit, score, classify findings | 10 (Eng Notes), 9 (Gotchas)         |
+| 1. Discovery        | Who, what, why                             | 1 (Overview), 7 (Permissions)       |
+| 2. Placement        | Where it lives in the dashboard            | 3.1 (Entry Points), part of 3.2     |
+| 3. Data             | What data, existing vs. new                | 4 (Data Model), 5 (API Contracts)   |
+| 4. UX Design        | How users interact                         | 2 (FRs), 3 (Flows), 3.4 (UI States) |
+| 5. Gating           | Feature flags, analytics, permissions      | 6 (Events), 7 (Permissions)         |
+| 6. PRD Finalization | Review and fill gaps                       | All sections                        |
+| 7. Implementation   | Generate prompts, execute                  | 8 (Tests), 10 (Eng Notes)           |
 
 Phase 0E only runs for existing spikes. For greenfield, Phase 0 routes
 directly to Phase 1.
@@ -94,6 +94,7 @@ level so the PM knows what needs their judgment:
   role? [requires PM confirmation]"
 
 Apply these annotations to:
+
 - Pre-filled defaults in Question options (append to the description)
 - Statements of fact in your narrative between questions
 - Recommendations you make based on codebase analysis
@@ -140,7 +141,9 @@ If **Existing spike** or **Partial spike**: continue with Q0b.
 ### Q0b: Where Is the Code
 
 Ask as free text:
+
 > Where is the existing code?
+>
 > - Branch name (e.g., `feature/team-utilization`)
 > - Or list the key files/directories if on the current branch
 > - If you are unsure, just tell me roughly what was built and I will find it
@@ -184,6 +187,7 @@ Header: PM initials
 ```
 
 Create the branch:
+
 ```bash
 git checkout -b poc/<slug>/<initials>
 ```
@@ -227,29 +231,31 @@ Check out the spike branch (or read files from the current branch).
 Build a complete inventory of what was built:
 
 1. **List all files** added or modified on the branch vs. main:
+
    ```
    git diff --name-status main...<branch>
    ```
 
 2. **Classify each file** into categories:
 
-   | Category | Pattern | Example |
-   |----------|---------|---------|
-   | Page file | `src/pages/**/*.tsx` | `src/pages/insights/utilization.tsx` |
-   | Container | `**/containers/**/*.tsx` | `TeamUtilizationContainer.tsx` |
-   | Component | `**/page_blocks/**/*.tsx` (non-container) | `UtilizationChart.tsx` |
-   | Service hook | `**/services/hooks/**/*.ts` | `useTeamUtilization.ts` |
-   | Shared type | `src/shared/types/**/*.ts` | `utilization.ts` |
-   | Zod schema | `src/shared/types/**/*.schema.ts` | `utilization.schema.ts` |
-   | Fixture | `src/fixtures/domains/**/*.ts` | `utilization.fixture.ts` |
-   | Mock route | `src/pages/api/mock/**/*.ts` | `getUtilization.ts` |
-   | Real API route | `src/pages/api/**/*.ts` (non-mock) | `utilization.ts` |
-   | Test | `**/*.spec.ts` or `**/*.test.ts` | `UtilizationChart.spec.tsx` |
-   | Config/wiring | Feature flags, nav constants, etc. | `types.ts`, `constants.ts` |
-   | Other | Anything else | docs, scripts, etc. |
+   | Category       | Pattern                                   | Example                              |
+   | -------------- | ----------------------------------------- | ------------------------------------ |
+   | Page file      | `src/pages/**/*.tsx`                      | `src/pages/insights/utilization.tsx` |
+   | Container      | `**/containers/**/*.tsx`                  | `TeamUtilizationContainer.tsx`       |
+   | Component      | `**/page_blocks/**/*.tsx` (non-container) | `UtilizationChart.tsx`               |
+   | Service hook   | `**/services/hooks/**/*.ts`               | `useTeamUtilization.ts`              |
+   | Shared type    | `src/shared/types/<domain>/index.ts`      | `utilization/index.ts`               |
+   | Zod schema     | `src/shared/types/<domain>/schemas.ts`    | `utilization/schemas.ts`             |
+   | Fixture        | `src/fixtures/domains/**/*.ts`            | `utilization.fixture.ts`             |
+   | Mock route     | `src/pages/api/mock/**/*.ts`              | `getUtilization.ts`                  |
+   | Real API route | `src/pages/api/**/*.ts` (non-mock)        | `utilization.ts`                     |
+   | Test           | `**/*.spec.ts` or `**/*.test.ts`          | `UtilizationChart.spec.tsx`          |
+   | Config/wiring  | Feature flags, nav constants, etc.        | `types.ts`, `constants.ts`           |
+   | Other          | Anything else                             | docs, scripts, etc.                  |
 
 3. **Report the inventory** to the PM:
    > I found N files on this branch:
+   >
    > - X page files, Y containers, Z components
    > - N service hooks, N types/schemas
    > - N fixtures, N mock routes
@@ -261,21 +267,21 @@ Build a complete inventory of what was built:
 Check the spike against the full wiring checklist from
 `docs/adding-dashboard-pages.md`. For each item, report present/missing:
 
-| Wiring Step | Status | Notes |
-|-------------|--------|-------|
-| Feature flag in `useFeatureFlags/types.ts` | Present / Missing | |
-| Feature flag fallback in `constants.ts` | Present / Missing | |
-| URL in `urlsRegistry.ts` | Present / Missing | |
-| Tab in `DASHBOARD_PAGES` constant | Present / Missing | |
-| Nav item in `dashboardPages` array | Present / Missing | |
-| `useFeatureFlagPageGuard` in container | Present / Missing | |
-| `getLayout` with `EightFlowDashboardLayout` | Present / Missing | |
-| Filter type in `InsightsContext/types.ts` | Present / Missing / N/A | |
-| Filter initial state in `InsightsContext.tsx` | Present / Missing / N/A | |
-| Filter handler case | Present / Missing / N/A | |
-| Layout visibility state | Present / Missing / N/A | |
-| `resolveFilterComponent` registration | Present / Missing / N/A | |
-| `MockedInsightsContext` update | Present / Missing / N/A | |
+| Wiring Step                                   | Status                  | Notes |
+| --------------------------------------------- | ----------------------- | ----- |
+| Feature flag in `useFeatureFlags/types.ts`    | Present / Missing       |       |
+| Feature flag fallback in `constants.ts`       | Present / Missing       |       |
+| URL in `urlsRegistry.ts`                      | Present / Missing       |       |
+| Tab in `DASHBOARD_PAGES` constant             | Present / Missing       |       |
+| Nav item in `dashboardPages` array            | Present / Missing       |       |
+| `useFeatureFlagPageGuard` in container        | Present / Missing       |       |
+| `getLayout` with `EightFlowDashboardLayout`   | Present / Missing       |       |
+| Filter type in `InsightsContext/types.ts`     | Present / Missing / N/A |       |
+| Filter initial state in `InsightsContext.tsx` | Present / Missing / N/A |       |
+| Filter handler case                           | Present / Missing / N/A |       |
+| Layout visibility state                       | Present / Missing / N/A |       |
+| `resolveFilterComponent` registration         | Present / Missing / N/A |       |
+| `MockedInsightsContext` update                | Present / Missing / N/A |       |
 
 Report the gap count to the PM.
 
@@ -308,6 +314,7 @@ in parallel where possible:
 
 1. **For each container and component:** Determine the audit scope
    based on directory ownership:
+
    - If the containing `page_blocks/` directory is mostly spike-owned
      (>50% of files were created or substantially modified by the
      spike), run `/audit-react-feature` on the full directory.
@@ -318,6 +325,7 @@ in parallel where possible:
      integration points without scoring unrelated files.
 
 2. **For each service hook:** Check manually:
+
    - Does it use `useFetchApi` + `useQuery`/`useMutation`?
    - Does it have a Zod schema on the `fetchApi` call?
    - Does it contain toasts, navigation, or storage access? (violations)
@@ -338,13 +346,13 @@ Collect all findings into a summary:
 
 ### By category
 
-| Category | Files | Avg Score | Critical Findings |
-|----------|-------|-----------|-------------------|
-| Containers | N | N/10 | <count> |
-| Components | N | N/10 | <count> |
-| Service hooks | N | N/10 | <count> |
-| Types/schemas | N | N/10 | <count> |
-| Tests | N | N/10 | <count> |
+| Category      | Files | Avg Score | Critical Findings |
+| ------------- | ----- | --------- | ----------------- |
+| Containers    | N     | N/10      | <count>           |
+| Components    | N     | N/10      | <count>           |
+| Service hooks | N     | N/10      | <count>           |
+| Types/schemas | N     | N/10      | <count>           |
+| Tests         | N     | N/10      | <count>           |
 
 ### Critical findings (must fix)
 
@@ -380,6 +388,7 @@ non-standard format, a filter that behaves differently from other tabs,
 an action that is missing compared to similar pages.
 
 For each product-intent finding:
+
 ```
 Question: I found this behavior: "[description]" in [file:line].
 Is this intentional product behavior, or should it work differently?
@@ -404,6 +413,7 @@ formatting issues, missing type annotations.
 
 Default action: bundle into refactor prompts. Present one summary to
 the PM:
+
 > I found N code hygiene issues. These will be fixed automatically
 > during refactoring unless you prefer to defer them.
 
@@ -449,6 +459,7 @@ conditions triggered it.
 **Score-based bands (when no override conditions apply):**
 
 **If overall score >= 7/10:**
+
 > The spike is in good shape. It needs minor fixes and infrastructure
 > wiring, but the core code is sound. I recommend incremental fixes.
 
@@ -456,6 +467,7 @@ Skip directly to Phase 1 (Discovery) using the code-informed path
 (see Phase 1 modifications below).
 
 **If overall score 4-6/10:**
+
 ```
 Question: The spike scores [N]/10 on audit. It has [X] critical findings
 and [Y] moderate findings. There are two paths forward:
@@ -466,6 +478,7 @@ Options:
 ```
 
 **If overall score <= 3/10:**
+
 > The spike scores [N]/10 on audit. Refactoring every file would take
 > more effort than starting fresh. I strongly recommend the rewrite
 > path -- I will use the spike as a design reference so nothing is lost.
@@ -484,6 +497,7 @@ pre-fill answers from what the code reveals (see Phase 1 modifications).
 
 If **refactor**: the implementation phase (Phase 7) will generate
 refactor prompts instead of build prompts. The prompt sequence becomes:
+
 1. Feature flag retrofit (if missing)
 2. Infrastructure wiring gaps
 3. Refactor prompts for critical findings (using the matching refactor skills)
@@ -491,6 +505,7 @@ refactor prompts instead of build prompts. The prompt sequence becomes:
 5. Tests (fill coverage gaps)
 
 **After Phase 0E:** Update the PRD:
+
 - Section 9 (Gotchas): Add all "Intentional -- keep as-is" findings
 - Section 10 (Engineering Notes): Add the audit summary, spike file inventory
 - Record the chosen path (refactor/rewrite) for Phase 7
@@ -500,6 +515,7 @@ refactor prompts instead of build prompts. The prompt sequence becomes:
 ## Step 1: Parse the Feature Idea
 
 Extract whatever the PM provided in `$ARGUMENTS`. It might be:
+
 - A one-sentence idea ("show team utilization over time")
 - A paragraph with some detail
 - Just a feature name
@@ -515,6 +531,7 @@ immediately (unless already created in Phase 0):
 
 Create `$PLANS_DIR/poc-<feature-slug>.md` with the PRD template from
 the Reference: PRD Template section below. Fill in:
+
 - Feature Name from the argument
 - Status: `Draft`
 - Author(s): `[PM name -- ask if not provided]`
@@ -557,13 +574,11 @@ PM to confirm or correct. These are high-risk inference points -- the
 code may not reflect the PM's actual intent:
 
 > Based on the existing code, I can see:
+>
 > - Target audience: [inferred from RequireLoginMaybe allowedRoles, or
->   "All dashboard users" if using standard DashboardContent gating]
->   [confirmed from code] or [inferred from code structure]
-> - Problem space: [inferred from the page_block domain and data types used]
->   [inferred from code structure]
-> - The feature [description inferred from component names, data displayed]
->   [inferred from code structure]
+>   > "All dashboard users" if using standard DashboardContent gating] > [confirmed from code] or [inferred from code structure]
+> - Problem space: [inferred from the page_block domain and data types used] > [inferred from code structure]
+> - The feature [description inferred from component names, data displayed] > [inferred from code structure]
 >
 > Is this accurate, or do you want to adjust any of these?
 
@@ -601,16 +616,19 @@ Options:
 ### Q3: Problem Statement
 
 Ask as free text:
+
 > In 1-2 sentences, what specific problem does this feature solve? What
 > can the user NOT do today that they need to do?
 
 ### Q4: Success Criteria
 
 Ask as free text:
+
 > How will you know this feature is successful? What does the PM look
 > at to say "yes, this is working"? (e.g., "Users can see X and act on Y")
 
 **After Q1-Q4:** Update the PRD:
+
 - Section 1 (Overview): Write the first bullet from the answers
 - Section 7 (Permissions): Set "Who can see this feature" based on Q1
 - Record the problem category for use in Phase 2
@@ -623,9 +641,9 @@ Ask as free text:
 determine where the feature already lives. Present what you found with
 confidence annotations -- group assignment and "similar to" are
 inferences that the PM may disagree with:
+
 > The spike lives at `/insights/<slug>` in the [People/Process/Platform]
-> group [confirmed from code]. It uses `filtersType="<type>"`
-> [confirmed from code] and is similar in structure to the
+> group [confirmed from code]. It uses `filtersType="<type>"` > [confirmed from code] and is similar in structure to the
 > [existing tab] tab [inferred from code structure].
 >
 > Is this where it should stay, or do you want to move it?
@@ -685,6 +703,7 @@ Options:
 **Q8: Tab Label**
 
 Ask as free text:
+
 > What should the tab label say in the navigation menu? Keep it short
 > (1-2 words). Examples from existing tabs: "Realtime", "Systems",
 > "Microworkflows", "Intelligence".
@@ -694,6 +713,7 @@ Ask as free text:
 Branch based on Q7 answer:
 
 If a similar tab was chosen:
+
 ```
 Question: How should filtering work on this page?
 Header: Filter approach
@@ -705,6 +725,7 @@ Options:
 ```
 
 If "None of these" was chosen:
+
 ```
 Question: Does this page need filters?
 Header: Filters needed
@@ -715,6 +736,7 @@ Options:
 ```
 
 If "Custom filters": ask free text:
+
 > What filter controls does this page need? List each filter with its
 > type (dropdown, date range, text search, toggle, multi-select).
 
@@ -723,11 +745,13 @@ If "Custom filters": ask free text:
 **Q6b: Which Tab**
 
 Present the same 12-tab list as Q7 above but ask:
+
 > Which existing tab should this sub-view be added to?
 
 **Q7b: Sub-View Description**
 
 Ask as free text:
+
 > Describe the sub-view. What does it show that the existing tab does not?
 > How does the user access it (new section below existing content, a
 > toggle/switch, a detail panel that opens on row click, etc.)?
@@ -737,11 +761,13 @@ Ask as free text:
 **Q6c: Which Tab**
 
 Same 12-tab list:
+
 > Which existing tab are you modifying?
 
 **Q7c: What Changes**
 
 Ask as free text:
+
 > What are you changing? Be specific -- new columns in a table, new chart
 > added, new action button, changed calculation, etc.
 
@@ -777,6 +803,7 @@ Options:
 ```
 
 **After Phase 2:** Update the PRD:
+
 - Section 3.1 (Entry Points): Write the exact navigation path
 - Section 3.2 (Primary User Flow): Start with "User navigates to [path]"
 - Record the similar tab choice for template selection in Phase 7
@@ -789,11 +816,11 @@ Options:
 determine what data the spike uses. Cross-reference against the data
 layer triage from Step 0E.3. Apply confidence annotations -- type
 mappings and data source classifications are high-risk inferences:
+
 > The spike uses these data sources:
-> - [TypeName] via [endpoint or inline data] -- [existing/hardcoded/raw fetch]
->   [confirmed from code] or [inferred from code structure]
-> - [TypeName] via [endpoint or inline data] -- [existing/hardcoded/raw fetch]
->   [confirmed from code] or [inferred from code structure]
+>
+> - [TypeName] via [endpoint or inline data] -- [existing/hardcoded/raw fetch] > [confirmed from code] or [inferred from code structure]
+> - [TypeName] via [endpoint or inline data] -- [existing/hardcoded/raw fetch] > [confirmed from code] or [inferred from code structure]
 >
 > [If hardcoded data:] These need to be replaced with proper fixture
 > builders, mock routes, and service hooks.
@@ -814,6 +841,7 @@ new backend work (slower, needs BFF team coordination).
 ### Q10: Data Entities
 
 Ask as free text:
+
 > List the data entities this feature displays. For each one, briefly
 > describe what it represents. Example:
 >
@@ -867,8 +895,10 @@ Options:
 ```
 
 Ask as free text:
+
 > What is different about the shape you need compared to [base type]?
 > Examples:
+>
 > - "Same fields but grouped by team instead of by user"
 > - "Need a new 'utilizationRate' field that is activeTime/shiftDuration"
 > - "Same data but aggregated weekly instead of daily"
@@ -885,6 +915,7 @@ calculated values (Q12a, Q12b, Q12c).
 **Q12a: Data Shape**
 
 Ask as free text:
+
 > For "[entity name]", describe the fields you need. For each field,
 > note: the field name, what it represents, and whether it is always
 > present or sometimes missing. Example:
@@ -909,7 +940,9 @@ Options:
 **Q12c: Calculated Values**
 
 Ask as free text:
+
 > Are there any calculated or derived values? For each one, describe:
+>
 > - The formula or logic
 > - A worked example with real numbers
 > - What happens when input values are zero, null, or missing
@@ -952,6 +985,7 @@ Options:
 ```
 
 **After Phase 3:** Update the PRD:
+
 - Section 4.1 (New Data Structures): Write TypeScript types for new entities
 - Section 4.2 (Existing Data Consumed): List existing types/APIs used
 - Section 4.3 (Calculated Values): Fill in the formula table
@@ -960,6 +994,7 @@ Options:
 
 If new data entities exist, generate a BFF handoff document at
 `$PLANS_DIR/poc-<feature-slug>-bff-handoff.md` containing:
+
 - Endpoint path (following the existing `/api/mock/users/data-api/` convention)
 - Request parameters (with Zod schema)
 - Response shape (with Zod schema)
@@ -995,13 +1030,16 @@ If "Data table":
 **Q14a: Table Columns**
 
 Ask as free text:
+
 > List the columns this table should display. For each column, note:
+>
 > - Column header label (exact text shown to user)
 > - What data it shows
 > - Is it sortable?
 > - Is it a link/clickable?
 >
 > Example:
+>
 > - "Name" -- user's full name, sortable, links to user detail
 > - "Active Time" -- hours:minutes format, sortable
 > - "Utilization" -- percentage with color coding, sortable
@@ -1010,7 +1048,9 @@ If "KPI cards + table":
 **Q14b: KPI Cards**
 
 Ask as free text:
+
 > List the KPI cards shown at the top. For each card:
+>
 > - Card title (exact label)
 > - What metric it shows
 > - Format (number, percentage, duration, count)
@@ -1021,7 +1061,9 @@ If "Charts + table":
 **Q14c: Charts**
 
 Ask as free text:
+
 > Describe each chart:
+>
 > - Chart type (bar, line, area, pie, scatter)
 > - X-axis (what dimension)
 > - Y-axis (what metric)
@@ -1065,6 +1107,7 @@ Options:
 ### Q17: UI States
 
 Ask as free text (or present as a structured form):
+
 > For the main view on this page, describe what the user sees in each state:
 >
 > 1. **Empty state**: What message when there is no data? (e.g., "No
@@ -1077,6 +1120,7 @@ Ask as free text (or present as a structured form):
 > patterns from similar pages.
 
 **After Phase 4:** Update the PRD:
+
 - Section 2 (Functional Requirements): Write FRs for each interaction
 - Section 3.2 (Primary User Flow): Complete the happy path
 - Section 3.3 (Secondary Flows): Add drill-down, export, etc.
@@ -1117,7 +1161,9 @@ Options:
 ```
 
 If yes, ask as free text:
+
 > List each custom event:
+>
 > - Event name (use snake_case, e.g., "utilization_threshold_changed")
 > - When it fires (user action or system event)
 > - Key properties to capture (what data accompanies the event)
@@ -1137,7 +1183,9 @@ Options:
 ```
 
 Display the proposed permissions before asking:
+
 > **Proposed permissions:**
+>
 > - Who can see: [derived from Q1 -- e.g., "TEAM_OWNER, ADMIN, SUPER_ADMIN"]
 > - Who can interact: [same as see, unless Q15 indicated edit actions]
 > - Feature flag: [from Q18]
@@ -1146,6 +1194,7 @@ Display the proposed permissions before asking:
 If "Need changes": ask what should change.
 
 **After Phase 5:** Update the PRD:
+
 - Section 6.1 (New Events): Fill in custom events table
 - Section 6.2 (Existing Events Used): List standard events that fire
 - Section 7 (Permissions): Complete all fields
@@ -1155,6 +1204,7 @@ If "Need changes": ask what should change.
 ## Phase 6: PRD Finalization
 
 At this point the PRD should have all sections filled except:
+
 - Section 8 (Tests) -- filled during implementation
 - Section 9 (Gotchas) -- ask now
 - Section 10 (Engineering Notes) -- filled during implementation
@@ -1162,10 +1212,12 @@ At this point the PRD should have all sections filled except:
 ### Q21: Gotchas
 
 Ask as free text:
+
 > Are there any non-obvious behaviors, edge cases, or interactions with
 > other features that someone working on this later should know about?
 >
 > Examples:
+>
 > - "The utilization metric intentionally excludes lunch breaks even though they appear in the activity log"
 > - "This feature shares data with the Team Productivity tab but displays it differently"
 > - "The export includes columns that are not visible in the table"
@@ -1175,6 +1227,7 @@ Ask as free text:
 ### Q22: Anything Missing
 
 Ask as free text:
+
 > Is there anything else about this feature that we have not covered?
 > Any constraints, deadlines, design mockups, stakeholder requirements?
 > This is your chance to add anything before I generate the implementation plan.
@@ -1182,6 +1235,7 @@ Ask as free text:
 > Type "ready" if the PRD captures everything.
 
 **After Phase 6:**
+
 - Update Section 9 (Gotchas)
 - Review the complete PRD for gaps. Flag any section marked TODO.
 - Present the full PRD to the PM for review.
@@ -1210,29 +1264,29 @@ data assessment (Phase 3), determine which phases are needed:
 
 **Path A: Greenfield -- new dashboard tab:**
 
-| # | Phase | Always needed? | Condition |
-|---|-------|---------------|-----------|
-| 1 | Feature flag + types + schemas | Yes | -- |
-| 2 | Fixture builders | Only if new/extended data | Q11 = "This is entirely new data" or "Existing data, new aggregation/projection" |
-| 3 | Mock API routes | Only if new/extended data | Q11 = "This is entirely new data" or "Existing data, new aggregation/projection" |
-| 4 | Service hooks | Yes | -- |
-| 5 | Container | Yes | -- |
-| 6 | Presentational components | Yes | -- |
-| 7 | Page file + navigation wiring | Yes | -- |
-| 8 | Filter integration | Only if filters | Q9 != "No filters" |
-| 9 | Tests | Yes | -- |
+| #   | Phase                          | Always needed?            | Condition                                                                        |
+| --- | ------------------------------ | ------------------------- | -------------------------------------------------------------------------------- |
+| 1   | Feature flag + types + schemas | Yes                       | --                                                                               |
+| 2   | Fixture builders               | Only if new/extended data | Q11 = "This is entirely new data" or "Existing data, new aggregation/projection" |
+| 3   | Mock API routes                | Only if new/extended data | Q11 = "This is entirely new data" or "Existing data, new aggregation/projection" |
+| 4   | Service hooks                  | Yes                       | --                                                                               |
+| 5   | Container                      | Yes                       | --                                                                               |
+| 6   | Presentational components      | Yes                       | --                                                                               |
+| 7   | Page file + navigation wiring  | Yes                       | --                                                                               |
+| 8   | Filter integration             | Only if filters           | Q9 != "No filters"                                                               |
+| 9   | Tests                          | Yes                       | --                                                                               |
 
 **Path B: Existing spike -- refactor in place:**
 
-| # | Phase | Always needed? | Condition |
-|---|-------|---------------|-----------|
-| 1 | Feature flag retrofit | Only if missing | Infrastructure gap check |
-| 2 | Infrastructure wiring gaps | Only if gaps exist | Infrastructure gap check |
-| 3 | Data layer remediation | Only if not proper | Data layer triage != "Proper" |
-| 4 | Critical finding fixes | Only if critical findings | Audit score + PM classification |
-| 5 | Moderate finding fixes | Only if moderate findings | Audit score + PM classification |
-| 6 | Missing tests | Yes (almost always) | Test coverage gaps |
-| 7 | PRD-driven additions | Only if PM added scope | New entities or interactions from Phases 3-4 |
+| #   | Phase                      | Always needed?            | Condition                                    |
+| --- | -------------------------- | ------------------------- | -------------------------------------------- |
+| 1   | Feature flag retrofit      | Only if missing           | Infrastructure gap check                     |
+| 2   | Infrastructure wiring gaps | Only if gaps exist        | Infrastructure gap check                     |
+| 3   | Data layer remediation     | Only if not proper        | Data layer triage != "Proper"                |
+| 4   | Critical finding fixes     | Only if critical findings | Audit score + PM classification              |
+| 5   | Moderate finding fixes     | Only if moderate findings | Audit score + PM classification              |
+| 6   | Missing tests              | Yes (almost always)       | Test coverage gaps                           |
+| 7   | PRD-driven additions       | Only if PM added scope    | New entities or interactions from Phases 3-4 |
 
 Each refactor prompt uses the matching skill: `/refactor-react-component`,
 `/refactor-react-service-hook`, `/refactor-react-route`, etc. Group
@@ -1263,24 +1317,23 @@ Follow the same master plan format as `orchestrate-feature`:
 
 ### New Files
 
-| File | Type | Purpose |
-|------|------|---------|
-| src/shared/hooks/useFeatureFlags/types.ts | modified | Add new feature flag |
-| src/shared/types/<domain>.ts | new | Type definitions |
-| src/shared/types/<domain>.schema.ts | new | Zod schema |
-| src/fixtures/domains/<domain>.fixture.ts | new | Fixture builders |
-| src/pages/api/mock/users/data-api/<domain>/*.ts | new | Mock API routes |
-| src/ui/services/hooks/<domain>/*.ts | new | Service hooks |
-| src/ui/page_blocks/dashboard/<domain>/containers/*.tsx | new | Container |
-| src/ui/page_blocks/dashboard/<domain>/*.tsx | new | Presentational components |
-| src/pages/insights/<slug>.tsx | new | Page file |
+| File                                                    | Type     | Purpose                        |
+| ------------------------------------------------------- | -------- | ------------------------------ |
+| src/shared/hooks/useFeatureFlags/types.ts               | modified | Add new feature flag           |
+| src/shared/types/<domain>/index.ts                      | new      | Type definitions + Zod schemas |
+| src/fixtures/domains/<domain>.fixture.ts                | new      | Fixture builders               |
+| src/pages/api/mock/users/data-api/<domain>/\*.ts        | new      | Mock API routes                |
+| src/ui/services/hooks/<domain>/\*.ts                    | new      | Service hooks                  |
+| src/ui/page_blocks/dashboard/<domain>/containers/\*.tsx | new      | Container                      |
+| src/ui/page_blocks/dashboard/<domain>/\*.tsx            | new      | Presentational components      |
+| src/pages/insights/<slug>.tsx                           | new      | Page file                      |
 
 ### Implementation Phases
 
-| # | Phase | Prompt | Depends On | Status |
-|---|-------|--------|-----------|--------|
-| 1 | Types + flag | poc-<slug>-01-types | none | pending |
-| ... | ... | ... | ... | ... |
+| #   | Phase        | Prompt              | Depends On | Status  |
+| --- | ------------ | ------------------- | ---------- | ------- |
+| 1   | Types + flag | poc-<slug>-01-types | none       | pending |
+| ... | ...          | ...                 | ...        | ...     |
 ```
 
 ### Step 7.4: Generate implementation prompts
@@ -1291,6 +1344,7 @@ Each prompt follows the standard orchestration prompt template (see
 orchestrate-feature for the exact format). Key rules:
 
 - Each prompt references which skills to use. Worker selection rules:
+
   - Phase 1 (types): manual (small changes, no skill needed)
   - Phase 2 (fixtures): `/build-fixture`
   - Phase 3 (mock routes): manual (follow existing mock route patterns)
@@ -1318,6 +1372,7 @@ orchestrate-feature for the exact format). Key rules:
   task (`build-react-component`). If the boundary is ambiguous (e.g.,
   inner orchestration seam, scoped context, filter-adjacent logic),
   prefer the container path and document why in the prompt.
+
 - Each prompt independently passes tsc + tests + build + eslint
 - New production files get tests in the same prompt
 - Include grep commands that verify new files exist
@@ -1356,7 +1411,7 @@ If any data entities were marked "This is entirely new data" or
 "Existing data, new aggregation/projection" in Phase 3, create
 `$PLANS_DIR/poc-<feature-slug>-bff-handoff.md`:
 
-```markdown
+````markdown
 # BFF Handoff: <feature name>
 
 ## Summary
@@ -1381,6 +1436,7 @@ production/development/staging, and to /api/mock/ in mocked mode only).
 **Feature flag gate:** <flag name>
 
 **Request:**
+
 ```typescript
 // Query parameters
 {
@@ -1390,8 +1446,10 @@ production/development/staging, and to /api/mock/ in mocked mode only).
   timezone?: string;   // IANA timezone for date bucketing
 }
 ```
+````
 
 **Response:**
+
 ```typescript
 // Response body -- validated against this Zod schema on both ends
 {
@@ -1417,6 +1475,7 @@ production/development/staging, and to /api/mock/ in mocked mode only).
 **Feature flag gate:** <flag name>
 
 **Request:**
+
 ```typescript
 // Query parameters -- note differences from base endpoint
 {
@@ -1427,6 +1486,7 @@ production/development/staging, and to /api/mock/ in mocked mode only).
 ```
 
 **Response:**
+
 ```typescript
 // Response body -- note differences from base type
 {
@@ -1442,7 +1502,8 @@ production/development/staging, and to /api/mock/ in mocked mode only).
 ## Zod Schemas
 
 The frontend Zod schemas for these types live in:
-- `src/shared/types/<domain>.schema.ts`
+
+- `src/shared/types/<domain>/index.ts` (or `<domain>/schemas.ts` for larger domains)
 
 The BFF route handler MUST validate its output against these same
 schemas before returning (see existing routes for the pattern).
@@ -1450,11 +1511,13 @@ schemas before returning (see existing routes for the pattern).
 ## Mock Routes (already built)
 
 The PoC mock routes live at:
+
 - `src/pages/api/mock/users/data-api/<domain>/...`
 
 These serve fixture data from `buildStandardScenario()`. They
 demonstrate the exact response shape the real endpoints must match.
-```
+
+````
 
 ### Step 7.6: Present the plan to the PM
 
@@ -1609,9 +1672,10 @@ When either threshold is triggered:
   the approach may need rethinking.
 - The cross-team dependencies need to be resolved before the cleanup
   can proceed. Coordinate with [team] on [items].
-```
+````
 
 3. **Present the escalation to the PM:**
+
    > The cleanup file has grown beyond what can be resolved in this PoC
    > session. I have generated an escalation report at
    > `$PLANS_DIR/poc-<feature-slug>-escalation.md`.
@@ -1697,6 +1761,7 @@ all `[bracketed text]` with real content as phases complete.
 [1-2 sentences. What does this behavior do? Name the component, the trigger, and the result.]
 
 Acceptance Criteria:
+
 - [ ] **Step-by-step:** [Walk through exactly what the user does and sees. Include: which page they are on, what they click, what fields/columns appear, what values are shown, and what happens next. Use exact labels and field names from the UI.]
 - [ ] **Data:** [What data is read or written? Name the exact table, column, or API field. What value is expected for a known input?]
 - [ ] **Edge case:** [What happens when data is missing, empty, null, or unexpected? What does the user see?]
@@ -1721,6 +1786,7 @@ Screenshots: [path to screenshot, or "TODO -- add before handoff"]
 ### 3.3 Secondary & Edge Flows
 
 **[Flow name]:**
+
 1. [Step with exact UI labels and outcomes]
 2. [Step]
 
@@ -1730,6 +1796,7 @@ Screenshots: [path to screenshot, or "TODO -- add before handoff"]
 > labels, tooltips, button text, error messages, empty state text. Add screenshots where possible.
 
 **[View / Component Name]**
+
 - **Empty State:** [Exact copy shown to user. What condition triggers it. What CTA is shown, if any.]
 - **Loading State:** [Skeleton, spinner, or dots? Is there a delay threshold before showing it?]
 - **Error State:** [Exact error message copy. Is it recoverable -- can the user retry? What does retry do?]
@@ -1757,8 +1824,8 @@ where the value comes from, and any constraints.]
 
 ### 4.3 Calculated & Derived Values
 
-| Field | Formula | Worked Example | Edge Cases |
-|-------|---------|----------------|------------|
+| Field        | Formula         | Worked Example                     | Edge Cases           |
+| ------------ | --------------- | ---------------------------------- | -------------------- |
 | [field name] | [exact formula] | [worked example with real numbers] | [edge case handling] |
 
 ---
@@ -1780,13 +1847,13 @@ where the value comes from, and any constraints.]
 ### 6.1 New Events
 
 | Event Name | Trigger | Key Properties | Feature Flag |
-|------------|---------|----------------|--------------|
+| ---------- | ------- | -------------- | ------------ |
 
 ### 6.2 Existing Events Used
 
-| Event Name | Where It Fires Today | How This Feature Uses It |
-|------------|---------------------|--------------------------|
-| $pageview | PosthogProvider on route change | Tracks visits to this page |
+| Event Name | Where It Fires Today            | How This Feature Uses It    |
+| ---------- | ------------------------------- | --------------------------- |
+| $pageview  | PosthogProvider on route change | Tracks visits to this page  |
 | $pageleave | PosthogProvider on route change | Tracks exits from this page |
 
 ---
@@ -1804,7 +1871,7 @@ where the value comes from, and any constraints.]
 ## 8. Tests
 
 | Test File | FR(s) Covered | What It Verifies |
-|-----------|---------------|-----------------|
+| --------- | ------------- | ---------------- |
 
 ---
 
@@ -1817,12 +1884,15 @@ where the value comes from, and any constraints.]
 ## 10. Engineering Notes
 
 **Key files:**
+
 - `[path]` -- [what it does, one sentence]
 
 **Patterns used:**
+
 - [Pattern name and brief description]
 
 **Database / ClickHouse changes required:**
+
 - [Migration details, or "None -- PoC uses fixture data only"]
 ````
 
@@ -1863,13 +1933,13 @@ Sidebar
 
 ### Roles
 
-| Role | Value | Dashboard | Users | Teams | Settings |
-|------|-------|-----------|-------|-------|----------|
-| MEMBER | member | Blocked | No | No | No |
-| TEAM_OWNER | teamowner | Yes | No | Yes | No |
-| ADMIN | admin | Yes | Yes | Yes | Yes |
-| SUPER_ADMIN | superadmin | Yes | Yes | Yes | Yes |
-| INTERNAL_ADMIN | internal:admin | Yes (auto) | Yes | Yes | Yes |
+| Role           | Value          | Dashboard  | Users | Teams | Settings |
+| -------------- | -------------- | ---------- | ----- | ----- | -------- |
+| MEMBER         | member         | Blocked    | No    | No    | No       |
+| TEAM_OWNER     | teamowner      | Yes        | No    | Yes   | No       |
+| ADMIN          | admin          | Yes        | Yes   | Yes   | Yes      |
+| SUPER_ADMIN    | superadmin     | Yes        | Yes   | Yes   | Yes      |
+| INTERNAL_ADMIN | internal:admin | Yes (auto) | Yes   | Yes   | Yes      |
 
 ### Page Layout Pattern
 
@@ -1886,32 +1956,32 @@ _app.tsx > Providers > getLayout
 
 ### Tab-to-Domain Mapping
 
-| Tab | page_block Domain | Container | filtersType |
-|-----|-------------------|-----------|-------------|
-| Realtime | operational-status/ | RealtimeActivityContainer | null |
-| User Productivity | team/ | ProductivityBlock (variant='basic') | userProductivity |
-| Team Productivity | operational-hours/ | TeamProductivityContainer | teamProductivity |
-| Workstream Analysis | workstream-analysis/ | WorkstreamAnalysisContainer | workstreamAnalysis |
-| Systems | systems/ | SystemsContainer | systems |
-| Microworkflows | opportunities/ | OpportunityBlock | opportunities |
-| Relays | usage/ | RelayUsageBlock | relayUsage |
-| Favorites | usage/ | FavoriteUsageBlock | favoriteUsage |
-| Details | team/ | ProductivityBlock (variant='detailed') | userProductivity |
-| Intelligence | chat/ | ChatContainer | null |
+| Tab                 | page_block Domain    | Container                              | filtersType        |
+| ------------------- | -------------------- | -------------------------------------- | ------------------ |
+| Realtime            | operational-status/  | RealtimeActivityContainer              | null               |
+| User Productivity   | team/                | ProductivityBlock (variant='basic')    | userProductivity   |
+| Team Productivity   | operational-hours/   | TeamProductivityContainer              | teamProductivity   |
+| Workstream Analysis | workstream-analysis/ | WorkstreamAnalysisContainer            | workstreamAnalysis |
+| Systems             | systems/             | SystemsContainer                       | systems            |
+| Microworkflows      | opportunities/       | OpportunityBlock                       | opportunities      |
+| Relays              | usage/               | RelayUsageBlock                        | relayUsage         |
+| Favorites           | usage/               | FavoriteUsageBlock                     | favoriteUsage      |
+| Details             | team/                | ProductivityBlock (variant='detailed') | userProductivity   |
+| Intelligence        | chat/                | ChatContainer                          | null               |
 
 ### Files Touched When Adding a New Dashboard Tab
 
-| Step | Files |
-|------|-------|
-| Feature flag | `src/shared/hooks/useFeatureFlags/types.ts`, `constants.ts` |
-| URL | `src/ui/urlsRegistry.ts` |
-| Navigation | `src/shared/constants/dashboard.ts`, `DashboardNavigation/constants.ts` |
-| Container | `src/ui/page_blocks/dashboard/<domain>/containers/` |
-| Page | `src/pages/insights/<slug>.tsx` |
-| Filter types | `src/ui/providers/context/insightsContext/types.ts`, `InsightsContext.tsx` |
-| Layout visibility | `src/ui/providers/context/layout/types.ts` |
-| Custom filters | `DashboardLayout.tsx` (`resolveFilterComponent`) |
-| Test mock | `insightsContext/mocks/MockedInsightsContext.tsx` |
+| Step              | Files                                                                      |
+| ----------------- | -------------------------------------------------------------------------- |
+| Feature flag      | `src/shared/hooks/useFeatureFlags/types.ts`, `constants.ts`                |
+| URL               | `src/ui/urlsRegistry.ts`                                                   |
+| Navigation        | `src/shared/constants/dashboard.ts`, `DashboardNavigation/constants.ts`    |
+| Container         | `src/ui/page_blocks/dashboard/<domain>/containers/`                        |
+| Page              | `src/pages/insights/<slug>.tsx`                                            |
+| Filter types      | `src/ui/providers/context/insightsContext/types.ts`, `InsightsContext.tsx` |
+| Layout visibility | `src/ui/providers/context/layout/types.ts`                                 |
+| Custom filters    | `DashboardLayout.tsx` (`resolveFilterComponent`)                           |
+| Test mock         | `insightsContext/mocks/MockedInsightsContext.tsx`                          |
 
 ---
 
@@ -1919,58 +1989,59 @@ _app.tsx > Providers > getLayout
 
 ### Existing Mock API Endpoints (available for PoC reuse)
 
-| Domain | Endpoint | Data Type | Description |
-|--------|----------|-----------|-------------|
-| Productivity | /users/data-api/productivity/getDayStats | UserStats[] | Per-user daily productivity metrics |
-| Productivity | /users/data-api/productivity/getTeamRealtimeStats | RealtimeStatsResponse | Live user status counts |
-| Productivity | /users/data-api/productivity/getHostTime | UserStats[] | Per-host time breakdown |
-| Productivity | /users/data-api/productivity/getOperationalAnalysis | OperationalHoursData | Team operational hours analysis |
-| Productivity | /users/data-api/productivity/getTtmForDays | TTM data | Time-to-first-action metrics |
-| Workstreams | /users/data-api/workstream-analysis/getWorkstreamList | WorkstreamData[] | Workstream listing |
-| Workstreams | /users/data-api/workstream-analysis/getTimingInfo | TimingInfo | Workstream timing analysis |
-| Microworkflows | /users/data-api/opportunities/microworkflows | AggregatedMicroworkflow[] | Aggregated workflow patterns |
-| Microworkflows | /users/data-api/opportunities/microworkflows/details | MicroworkflowDetail[] | Individual workflow instances |
-| Microworkflows | /users/data-api/opportunities/microworkflows/by-user | MicroworkflowByUser[] | Per-user workflow breakdown |
-| Systems | /users/data-api/systems/overview | SystemData[] | System overview with KPIs |
-| Systems | /users/data-api/systems/[systemId]/pages | SystemPage[] | Pages within a system |
-| Relay | /users/data-api/relay-usage/kpis | RelayKPIs | Relay usage summary KPIs |
-| Relay | /users/data-api/relay-usage/user-details | RelayUserDetail[] | Per-user relay usage |
-| Relay | /users/data-api/relay-usage/system-aggregate | RelaySystemAggregate[] | Relay usage by system |
-| Favorite | /users/data-api/favorite-usage/kpis | FavoriteKPIs | Favorite usage summary KPIs |
-| Favorite | /users/data-api/favorite-usage/user-details | FavoriteUserDetail[] | Per-user favorite usage |
-| Favorite | /users/data-api/favorite-usage/system-aggregate | FavoriteSystemAggregate[] | Favorite usage by system |
-| Users | /users/user-data | User[] | All users in org |
-| Users | /users/user-info | UserInfo | Current user info |
-| Teams | /users/teams/getByOrgId | Team[] | All teams in org |
-| Groups | /users/groups | Group[] | BPOs and Projects |
-| Classification | /users/classification/site-urls/team | URLClassification[] | Team URL classifications |
-| Classification | /users/classification/site-urls/org | URLClassification[] | Org URL classifications |
+| Domain         | Endpoint                                              | Data Type                 | Description                         |
+| -------------- | ----------------------------------------------------- | ------------------------- | ----------------------------------- |
+| Productivity   | /users/data-api/productivity/getDayStats              | UserStats[]               | Per-user daily productivity metrics |
+| Productivity   | /users/data-api/productivity/getTeamRealtimeStats     | RealtimeStatsResponse     | Live user status counts             |
+| Productivity   | /users/data-api/productivity/getHostTime              | UserStats[]               | Per-host time breakdown             |
+| Productivity   | /users/data-api/productivity/getOperationalAnalysis   | OperationalHoursData      | Team operational hours analysis     |
+| Productivity   | /users/data-api/productivity/getTtmForDays            | TTM data                  | Time-to-first-action metrics        |
+| Workstreams    | /users/data-api/workstream-analysis/getWorkstreamList | WorkstreamData[]          | Workstream listing                  |
+| Workstreams    | /users/data-api/workstream-analysis/getTimingInfo     | TimingInfo                | Workstream timing analysis          |
+| Microworkflows | /users/data-api/opportunities/microworkflows          | AggregatedMicroworkflow[] | Aggregated workflow patterns        |
+| Microworkflows | /users/data-api/opportunities/microworkflows/details  | MicroworkflowDetail[]     | Individual workflow instances       |
+| Microworkflows | /users/data-api/opportunities/microworkflows/by-user  | MicroworkflowByUser[]     | Per-user workflow breakdown         |
+| Systems        | /users/data-api/systems/overview                      | SystemData[]              | System overview with KPIs           |
+| Systems        | /users/data-api/systems/[systemId]/pages              | SystemPage[]              | Pages within a system               |
+| Relay          | /users/data-api/relay-usage/kpis                      | RelayKPIs                 | Relay usage summary KPIs            |
+| Relay          | /users/data-api/relay-usage/user-details              | RelayUserDetail[]         | Per-user relay usage                |
+| Relay          | /users/data-api/relay-usage/system-aggregate          | RelaySystemAggregate[]    | Relay usage by system               |
+| Favorite       | /users/data-api/favorite-usage/kpis                   | FavoriteKPIs              | Favorite usage summary KPIs         |
+| Favorite       | /users/data-api/favorite-usage/user-details           | FavoriteUserDetail[]      | Per-user favorite usage             |
+| Favorite       | /users/data-api/favorite-usage/system-aggregate       | FavoriteSystemAggregate[] | Favorite usage by system            |
+| Users          | /users/user-data                                      | User[]                    | All users in org                    |
+| Users          | /users/user-info                                      | UserInfo                  | Current user info                   |
+| Teams          | /users/teams/getByOrgId                               | Team[]                    | All teams in org                    |
+| Groups         | /users/groups                                         | Group[]                   | BPOs and Projects                   |
+| Classification | /users/classification/site-urls/team                  | URLClassification[]       | Team URL classifications            |
+| Classification | /users/classification/site-urls/org                   | URLClassification[]       | Org URL classifications             |
 
 ### Existing Shared Types (in src/shared/types/)
 
-| Type | File | Key Fields |
-|------|------|------------|
-| User | users.ts | uid, email, name, roles, teamData[] |
-| MappedUser | users.ts | uid, email, fullName, timezone, teams, roles |
-| Team | teams.ts | id, name, count_users |
-| UserInfo | auth.ts | uid, company, tenantId, tenant_name |
-| UserStats | productivity.ts | userId, activeTime, idleTime, shiftDuration, scores |
-| CompanyEvent | events.ts | userId, timestamp, eventType, system, url |
-| CompanySpan | spans.ts | userId, startTime, endTime, system, url, duration |
-| AggregatedMicroworkflow | microworkflows.ts | steps, frequency, duration, automationScore |
-| SystemData | systems.ts | name, host, userCount, pageCount, timeSpent |
-| CompanyKPIs | systems.ts | automationOpportunities, totalSystems, efficiency |
-| RealtimeStatsResponse | realtime.ts | onlineCount, offlineCount, idleCount, userStatuses |
-| Group | bpo-projects.ts | id, name, type (BPO/PROJECT), userIds |
-| WorkstreamData | workstreamData.ts | workstream timing and load info |
-| OperationalHoursData | operationalHoursData.ts | scheduled vs. actual hours |
-| RelayUsage types | relay.ts | relay KPIs, user details, system aggregates |
-| FavoriteUsage types | relay.ts | favorite KPIs, user details, system aggregates |
-| SystemLatency types | (inline in service hooks) | load times, top used, per-user |
+| Type                    | File                       | Key Fields                                          |
+| ----------------------- | -------------------------- | --------------------------------------------------- |
+| User                    | users/index.ts             | uid, email, name, roles, teamData[]                 |
+| MappedUser              | users/index.ts             | uid, email, fullName, timezone, teams, roles        |
+| Team                    | teams/index.ts             | id, name, count_users                               |
+| UserInfo                | auth/index.ts              | uid, company, tenantId, tenant_name                 |
+| UserStats               | productivity/index.ts      | userId, activeTime, idleTime, shiftDuration, scores |
+| CompanyEvent            | events/index.ts            | userId, timestamp, eventType, system, url           |
+| CompanySpan             | spans/index.ts             | userId, startTime, endTime, system, url, duration   |
+| AggregatedMicroworkflow | microworkflows/index.ts    | steps, frequency, duration, automationScore         |
+| SystemData              | systems/index.ts           | name, host, userCount, pageCount, timeSpent         |
+| CompanyKPIs             | systems/index.ts           | automationOpportunities, totalSystems, efficiency   |
+| RealtimeStatsResponse   | realtime/index.ts          | onlineCount, offlineCount, idleCount, userStatuses  |
+| Group                   | bpo-projects/index.ts      | id, name, type (BPO/PROJECT), userIds               |
+| WorkstreamData          | workstream-data/index.ts   | workstream timing and load info                     |
+| OperationalHoursData    | operational-hours/index.ts | scheduled vs. actual hours                          |
+| RelayUsage types        | relay/index.ts             | relay KPIs, user details, system aggregates         |
+| FavoriteUsage types     | relay/index.ts             | favorite KPIs, user details, system aggregates      |
+| SystemLatency types     | (inline in service hooks)  | load times, top used, per-user                      |
 
 ### Fixture System
 
 Domain fixtures live in `src/fixtures/domains/`. Each exports:
+
 - `build(overrides?, pool?)` -- returns one entity
 - `buildMany(count, overrides?, pool?)` -- returns an array
 

@@ -385,7 +385,7 @@ These endpoints replace the mock routes with real data from
     2. Edge case: empty dataset, large dataset, timezone edge cases
     3. Error: invalid auth (401), missing org (403), invalid params (400)
 - Regression areas: existing BFF endpoints (shared middleware)
-- Test data: seeded database (see docs/bff-user-backend-migration.md)
+- Test data: seeded database (see docs/bff.md)
 - Known risks: <from BFF handoff doc edge cases section>
 
 ## Engineering Notes
@@ -402,7 +402,7 @@ These endpoints replace the mock routes with real data from
 ## Resources & References
 - BFF Handoff: $PLANS_DIR/poc-<slug>-bff-handoff.md
 - BFF Architecture: docs/bff.md
-- BFF Migration Guide: docs/bff-user-backend-migration.md
+- BFF Migration Guide: docs/bff.md
 - Related Epic: <epic key>
 ```
 

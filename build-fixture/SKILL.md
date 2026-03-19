@@ -9,12 +9,12 @@ argument-hint: <domain-name> [description]
 Generate a new domain fixture. `$ARGUMENTS`
 
 The first token is the domain name (e.g., `notifications` or `workflows`). It maps
-to the type module at `src/shared/types/<domain>.ts`. Everything after the first
+to the type module at `src/shared/types/<domain>/index.ts`. Everything after the first
 whitespace is an optional description of which types to cover.
 
 ## Step 1: Read the domain types
 
-Read `src/shared/types/<domain>.ts` (and `<domain>.schema.ts` if it exists).
+Read `src/shared/types/<domain>/index.ts` (and `<domain>/schemas.ts` if it exists).
 Inventory every exported interface and type alias. Note:
 
 - Which fields use branded types (`UserId`, `TeamId`, `ISOTimestamp`, etc.)
@@ -22,7 +22,7 @@ Inventory every exported interface and type alias. Note:
 - Which fields reference other domains (e.g., a `userId` field)
 - Any `as const` objects that define discriminant values
 
-Also read `<domain>.schema.ts` or the API response schema if it exists.
+Also read `<domain>/schemas.ts` or the API response schema if it exists.
 The Zod schema is the source of truth for data validation, not the
 TypeScript interface. Key differences:
 
@@ -34,7 +34,7 @@ If the Zod schema uses `.optional()`, the builder must NOT produce
 `null` for that field. Use `undefined` or omit the field entirely.
 
 If the type file does not exist, stop and report: "No type module found at
-`src/shared/types/<domain>.ts`. Create the types first."
+`src/shared/types/<domain>/index.ts`. Create the types first."
 
 ## Step 2: Survey existing fixtures
 
