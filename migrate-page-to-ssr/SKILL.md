@@ -143,7 +143,7 @@ export async function fetchUsersServer(organizationId: number) {
    self). For Postgres queries, import the Drizzle `db` client from
    `src/server/db/postgres.ts`. For ClickHouse queries, use the centralized
    query registry: import `CH_QUERIES` from `@/server/db/queries` and the
-   generated row types from `@/server/db/queries.generated`. Do not write
+   row types from `@/server/db/queries.types`. Do not write
    inline SQL or hand-written row interfaces. Read the corresponding API route
    handler in `src/pages/api/` to see which query it uses.
 
@@ -165,9 +165,9 @@ The database clients already exist. Do not create new ones:
 - **Postgres**: `import { db } from '@/server/db/postgres'` -- Drizzle ORM client.
   Schema tables are in `@/server/db/schema`, relations in `@/server/db/relations`.
 - **ClickHouse**: `import { CH_QUERIES } from '@/server/db/queries'` -- centralized
-  query registry with generated row types from `@/server/db/queries.generated`.
+  query registry with row types from `@/server/db/queries.types`.
   Do not import the raw `clickhouse` client directly for queries that are already
-  registered. See `AGENTS.md` "ClickHouse Type Codegen" section.
+  registered. See `AGENTS.md` "ClickHouse Query Registry" section.
 - **Firebase Admin**: `import { ... } from '@/server/db/firebase-admin'` -- for
   token verification and RTDB access.
 

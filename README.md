@@ -59,8 +59,9 @@ Code blocks in this section are what the agent generates...
 Code blocks here show what NOT to generate...
 ```
 
-The comment must be on the line immediately preceding the heading (no
-blank line between them). The format is exactly `<!-- role: <name> -->`
+The comment must appear before the heading it annotates. A blank line
+between the comment and heading is allowed (the MDAST parser treats
+them as adjacent siblings). The format is exactly `<!-- role: <name> -->`
 with a single space after `role:`.
 
 ### Role taxonomy

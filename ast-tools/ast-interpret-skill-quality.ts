@@ -459,12 +459,12 @@ function prettyPrint(report: SkillQualityReport): string {
     return lines.join('\n');
   }
 
-  lines.push(' Line | Assessment         | Subject');
-  lines.push('------+--------------------+----------------------------------------');
+  lines.push(' Line | Assessment                  | Subject');
+  lines.push('------+----------------------------+----------------------------------------');
 
   for (const a of issues) {
     const line = a.subject.line ? String(a.subject.line).padStart(5) : '    -';
-    const kind = a.kind.padEnd(18);
+    const kind = a.kind.padEnd(26);
     const subject = (a.subject.symbol ?? '-').slice(0, 40);
     lines.push(`${line} | ${kind} | ${subject}`);
   }

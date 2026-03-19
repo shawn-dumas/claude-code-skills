@@ -994,10 +994,10 @@ export const astConfig: AstConfig = Object.freeze({
       {
         id: 'ch-query-registry',
         scope: 'clickhouse|ClickHouse|data-api.*handler|CH_QUERIES|queries\\.ts',
-        current: ['CH_QUERIES', 'queries.generated', '@/server/db/queries'],
+        current: ['CH_QUERIES', 'queries.types', '@/server/db/queries'],
         superseded: ['clickhouse\\.query\\(\\{[\\s\\S]*query:\\s*`', 'interface\\s+\\w+Row\\s*\\{'],
         message:
-          'ClickHouse queries use the centralized registry (src/server/db/queries.ts) and generated types (queries.generated.ts), not inline SQL or hand-written row interfaces.',
+          'ClickHouse queries use the centralized registry (src/server/db/queries.ts) and row types (queries.types.ts), not inline SQL or hand-written row interfaces.',
       },
       {
         id: 'parse-input',
@@ -1033,17 +1033,17 @@ export const astConfig: AstConfig = Object.freeze({
       },
       {
         id: 'env-validated',
-        scope: 'process\\.env\\.(?!NEXT_PUBLIC_|NODE_ENV)[A-Z_]+|clientEnv|serverEnv',
+        scope: 'process\\.env\\.(?!NEXT_PUBLIC_|NODE_ENV\\b)[A-Z_]+|clientEnv|serverEnv',
         current: ['clientEnv', 'serverEnv'],
-        superseded: ['process\\.env\\.(?!NEXT_PUBLIC_|NODE_ENV)[A-Z_][A-Z_0-9]*'],
+        superseded: ['process\\.env\\.(?!NEXT_PUBLIC_|NODE_ENV\\b)[A-Z_][A-Z_0-9]*'],
         message:
           'Environment variables are accessed through Zod-validated env modules (clientEnv, serverEnv), not raw process.env reads. The no-process-env ESLint rule enforces this.',
       },
       {
         id: 'branded-types',
-        scope: 'as\\s+(?:User|Team|Workstream|Organization)Id|UserId\\(|TeamId\\(|WorkstreamId\\(|OrganizationId\\(',
+        scope: 'as\\s+(?:User|Team|Workstream|Organization)Id\\b|UserId\\(|TeamId\\(|WorkstreamId\\(|OrganizationId\\(',
         current: ['UserId(', 'TeamId(', 'WorkstreamId(', 'OrganizationId('],
-        superseded: ['as\\s+(?:User|Team|Workstream|Organization)Id'],
+        superseded: ['as\\s+(?:User|Team|Workstream|Organization)Id\\b'],
         message:
           'Branded types use constructor functions (UserId(), TeamId(), etc.) or Zod .transform(BrandCtor), not type assertions (as UserId). See docs/type-schema-unification.md.',
       },

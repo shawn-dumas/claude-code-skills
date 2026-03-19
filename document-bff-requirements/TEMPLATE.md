@@ -34,9 +34,9 @@ the BFF endpoints should return.
 ### ClickHouse table/view requirements
 
 [FILL IN: Required ClickHouse schema for the queries. Register all queries
-in `src/server/db/queries.ts` (CH_QUERIES registry) and run
-`npx tsx scripts/codegen-ch-types.ts` to generate row types in
-`queries.generated.ts`. See AGENTS.md "ClickHouse Type Codegen" section.]
+in `src/server/db/queries.ts` (CH_QUERIES registry) and add row type
+interfaces to `src/server/db/queries.types.ts`. See AGENTS.md "ClickHouse
+Query Registry" section.]
 
 ### Production readiness checklist
 

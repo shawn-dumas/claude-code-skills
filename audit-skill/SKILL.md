@@ -153,11 +153,11 @@ pattern (e.g., `localStorage.getItem` instead of `readStorage`).
 
 Check file paths, cross-references, and doc references:
 
-1. `STALE_FILE_REF` -- a `SKILL_FILE_PATH_REF` observation where `exists`
+1. `STALE_FILE_PATH` -- a `SKILL_FILE_PATH_REF` observation where `exists`
    is false
-2. `STALE_CROSS_REF` -- a `SKILL_CROSS_REF` observation where `exists`
+2. `BROKEN_CROSS_REF` -- a `SKILL_CROSS_REF` observation where `exists`
    is false
-3. `STALE_DOC_REF` -- a `SKILL_DOC_REF` observation where `exists` is
+3. `BROKEN_DOC_REF` -- a `SKILL_DOC_REF` observation where `exists` is
    false
 
 **Violation:** Any reference to a file, skill, or doc that does not exist

@@ -197,7 +197,7 @@
           {
             "expectedKind": "CONVENTION_DRIFT",
             "count": 1,
-            "notes": "Inline code reference to src/server/db/clickhouse.ts puts skill in scope for ch-query-registry convention. No reference to CH_QUERIES, queries.generated, or @/server/db/queries (current patterns). Confidence: medium (scope matches but no superseded code block found)."
+            "notes": "Inline code reference to src/server/db/clickhouse.ts puts skill in scope for ch-query-registry convention. No reference to CH_QUERIES, queries.types, or @/server/db/queries (current patterns). Confidence: medium (scope matches but no superseded code block found)."
           }
         ]
       }
