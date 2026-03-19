@@ -164,6 +164,13 @@ function resolvePathRef(refPath: string): string | null {
   if (/[$<{]/.test(refPath)) return null;
   // Skip glob patterns
   if (/[*?]/.test(refPath)) return null;
+  // Skip ellipsis placeholders (e.g., @/components/...)
+  if (/\.{3}/.test(refPath)) return null;
+  // Skip truncated template paths ending with - (e.g., scripts/AST/ast-)
+  if (/-$/.test(refPath)) return null;
+  // Skip relative paths (./shared, ./handler-name.schema, ../utils)
+  // These are relative imports shown in code examples, not resolvable from project root
+  if (/^\.\.?\//.test(refPath)) return null;
 
   // Strip trailing punctuation that might have been captured
   const cleaned = refPath.replace(/[),;:]+$/, '');

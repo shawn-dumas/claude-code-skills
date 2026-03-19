@@ -941,18 +941,16 @@ export const astConfig: AstConfig = Object.freeze({
         { pattern: 'verif', label: 'Verify section' },
       ],
       refactor: [
-        { pattern: 'prerequisite', label: 'Prerequisite section' },
-        { pattern: 'step\\s+0', label: 'Step 0 (AST analysis)' },
+        { pattern: 'prerequisite|step\\s+0', label: 'Prerequisite / Step 0' },
         { pattern: 'verif', label: 'Verify section' },
-        { pattern: 'intention\\s+matcher', label: 'Intention matcher' },
       ],
-      audit: [
-        { pattern: 'step\\s+0', label: 'Step 0 (AST analysis)' },
-        { pattern: 'report\\s+policy|ast-confirmed', label: 'Report policy / AST-confirmed' },
-      ],
+      audit: [{ pattern: 'step\\s+0', label: 'Step 0 (AST analysis)' }],
       orchestrate: [
-        { pattern: 'reconciliation', label: 'Reconciliation section' },
-        { pattern: 'verification\\s+checklist|pre-execution\\s+verification', label: 'Verification checklist' },
+        { pattern: 'step\\s+\\d', label: 'Step headings' },
+        {
+          pattern: 'final\\s+verification|verification\\s+checklist|pre-execution\\s+verification',
+          label: 'Verification section',
+        },
       ],
     } as Record<string, readonly { readonly pattern: string; readonly label: string }[]>),
     deprecatedCommandPatterns: [
