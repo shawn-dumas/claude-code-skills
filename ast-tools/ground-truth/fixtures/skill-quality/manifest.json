@@ -1,82 +1,153 @@
 {
   "tool": "skill-quality",
-  "created": "2026-03-18",
-  "source": "real-world",
+  "created": "2026-03-19",
+  "source": "mixed",
   "status": "verified",
-  "notes": "Ground-truth fixtures for ast-interpret-skill-quality interpreter. Uses real .claude/skills/ SKILL.md files as sources. Assessments verified by running the interpreter and manually confirming each classification.",
+  "notes": "Ground-truth fixtures for ast-interpret-skill-quality interpreter. Covers all 9 assessment kinds. 7/9 have real-world grounding; STALE_COMMAND and BROKEN_DOC_REF are synthetic-only because no real-world instances exist (all were fixed). MISSING_SECTION uses a derived fixture (real skill with verify heading removed).",
   "fixtures": [
     {
       "file": ".claude/skills/spawn-satan/SKILL.md",
+      "source": "real-world",
       "expected": {
         "skillName": "spawn-satan",
         "category": "other",
+        "score": 100,
         "assessments": [
           {
             "expectedKind": "no-issues",
-            "notes": "Clean skill. No stale paths, no broken refs, no missing sections. Category 'other' has no required sections. Score should be 100."
+            "notes": "Clean skill. Category 'other' has no required sections. PATH_VALID for referenced paths."
           }
         ]
       }
     },
     {
-      "file": ".claude/skills/build-playwright-test/SKILL.md",
+      "file": "scripts/AST/__tests__/fixtures/skill-analysis/real-build-playwright-test-prefix.md",
+      "source": "real-world (pre-fix snapshot from git)",
       "expected": {
-        "skillName": "build-playwright-test",
-        "category": "build",
+        "skillName": "skill-analysis",
+        "category": "other",
         "assessments": [
           {
             "expectedKind": "STALE_FILE_PATH",
-            "notes": "Multiple stale file paths detected. This skill has the lowest score (55) across all skills. Several referenced paths in code blocks and inline code no longer exist on disk."
+            "count": ">=7",
+            "notes": "Pre-fix snapshot of build-playwright-test with 9 stale file paths (integration/config.ts, integration/utils/authUtils.ts, etc.). Real stale refs that were subsequently fixed."
           },
+          {
+            "expectedKind": "BROKEN_CROSS_REF",
+            "count": ">=1",
+            "notes": "References /create-feedback-fixture which is not in the mock skill dirs set."
+          }
+        ]
+      }
+    },
+    {
+      "file": "scripts/AST/__tests__/fixtures/skill-analysis/real-migrate-page-to-ssr.md",
+      "source": "real-world (current post-fix version)",
+      "expected": {
+        "skillName": "skill-analysis",
+        "category": "other",
+        "assessments": [
+          {
+            "expectedKind": "ASPIRATIONAL_PATH",
+            "count": 5,
+            "notes": "All 5 src/server/fetchers/ references are correctly classified as aspirational because surrounding prose uses creation-intent verbs ('create', 'goes in', 'created in', 'new file')."
+          }
+        ]
+      }
+    },
+    {
+      "file": "scripts/AST/__tests__/fixtures/skill-analysis/build-fixture-real/SKILL.md",
+      "source": "real-world (copy of build-fixture/SKILL.md)",
+      "expected": {
+        "skillName": "build-fixture-real",
+        "category": "build",
+        "score": 100,
+        "assessments": [
           {
             "expectedKind": "SECTION_COMPLETE",
-            "notes": "All build-category required sections (Step headings, Verify section) are present."
+            "count": 1,
+            "notes": "All build-category required sections present (Step headings, Verify section). SECTION_COMPLETE with high confidence."
           }
         ]
       }
     },
     {
-      "file": ".claude/skills/orchestrate-poc/SKILL.md",
+      "file": "scripts/AST/__tests__/fixtures/skill-analysis/build-missing-verify/SKILL.md",
+      "source": "derived (build-fixture with verify heading removed)",
       "expected": {
-        "skillName": "orchestrate-poc",
-        "category": "orchestrate",
-        "assessments": [
-          {
-            "expectedKind": "STALE_FILE_PATH",
-            "notes": "Several stale file paths from outdated type path references."
-          },
-          {
-            "expectedKind": "MISSING_SECTION",
-            "notes": "orchestrate-poc uses Phase headings, not 'Reconciliation' or 'Verification Checklist' headings. The category-aware check correctly flags these as missing for the orchestrate category."
-          }
-        ]
-      }
-    },
-    {
-      "file": ".claude/skills/audit-npm-deps/SKILL.md",
-      "expected": {
-        "skillName": "audit-npm-deps",
-        "category": "audit",
+        "skillName": "build-missing-verify",
+        "category": "build",
+        "score": 97,
         "assessments": [
           {
             "expectedKind": "MISSING_SECTION",
-            "notes": "Missing 'Report Policy / AST-confirmed' section. audit-npm-deps is a non-AST audit skill so it legitimately does not have AST-confirmed tagging, but the category check flags it. This is a known false positive for non-AST audit skills."
+            "count": 1,
+            "notes": "Step 7 heading changed from 'Verify' to 'Final review' which does not match the verify pattern. MISSING_SECTION with medium confidence and requiresManualReview=true."
           }
         ]
       }
     },
     {
       "file": ".claude/skills/build-fixture/SKILL.md",
+      "source": "real-world",
       "expected": {
         "skillName": "build-fixture",
         "category": "build",
+        "score": 100,
         "assessments": [
           {
             "expectedKind": "SECTION_COMPLETE",
-            "notes": "Clean build skill. All required sections present (Step headings, Verify). Score should be 100."
+            "notes": "Clean build skill. All required sections present."
+          }
+        ]
+      }
+    },
+    {
+      "file": "scripts/AST/__tests__/fixtures/skill-analysis/skill-negative.md",
+      "source": "synthetic",
+      "expected": {
+        "assessments": [
+          {
+            "expectedKind": "STALE_FILE_PATH",
+            "notes": "Nonexistent paths: src/nonexistent/..., scripts/AST/does-not-exist-tool.ts, src/fake/module.ts."
+          },
+          {
+            "expectedKind": "ASPIRATIONAL_PATH",
+            "notes": "src/server/aspirational/fetchers.ts preceded by 'Create a new fetcher' verb."
+          },
+          {
+            "expectedKind": "STALE_COMMAND",
+            "notes": "pnpm tsc --noEmit without -p flag. Synthetic-only -- no real-world instance exists."
+          },
+          {
+            "expectedKind": "BROKEN_CROSS_REF",
+            "notes": "/nonexistent-skill-name not in mock skill dirs."
+          },
+          {
+            "expectedKind": "BROKEN_DOC_REF",
+            "notes": "docs/this-doc-does-not-exist.md. Synthetic-only -- no real-world instance exists."
           }
         ]
       }
     }
-  ]
+  ],
+  "coverageMatrix": {
+    "STALE_FILE_PATH": { "synthetic": true, "realWorld": true },
+    "ASPIRATIONAL_PATH": { "synthetic": true, "realWorld": true },
+    "STALE_COMMAND": {
+      "synthetic": true,
+      "realWorld": false,
+      "reason": "All deprecated commands were fixed. No real-world instance exists."
+    },
+    "BROKEN_CROSS_REF": { "synthetic": true, "realWorld": true },
+    "BROKEN_DOC_REF": {
+      "synthetic": true,
+      "realWorld": false,
+      "reason": "All broken doc refs were fixed. No real-world instance exists."
+    },
+    "MISSING_SECTION": { "synthetic": false, "realWorld": true, "source": "derived" },
+    "SECTION_COMPLETE": { "synthetic": false, "realWorld": true },
+    "PATH_VALID": { "synthetic": true, "realWorld": true },
+    "CROSS_REF_VALID": { "synthetic": true, "realWorld": true }
+  }
 }

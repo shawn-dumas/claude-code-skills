@@ -17,6 +17,8 @@ Also read `scripts/AST/does-not-exist-tool.ts` for reference.
 
 Check `docs/this-doc-does-not-exist.md` for guidance.
 
+Create a new fetcher in `src/server/aspirational/fetchers.ts` for the migration.
+
 ## Step 2: Run commands
 
 ```bash
