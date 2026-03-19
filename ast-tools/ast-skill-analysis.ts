@@ -200,12 +200,47 @@ function resolvePathRef(refPath: string): string | null {
   return path.resolve(PROJECT_ROOT, cleaned);
 }
 
+// --- Creation-intent detection ---
+
+/**
+ * Pattern that matches verbs indicating the path is being created, not referenced.
+ * Checks the line containing the path and 2 lines before it.
+ */
+const CREATION_VERB_PATTERN = /\b(create|add|generate|write|mkdir|touch|new\s+file|scaffold|initialize|set\s+up)\b/i;
+
+/** Placement/creation patterns that signal intent to create this path */
+const CREATION_CHECKLIST_PATTERN =
+  /\b(created?\s+in|created?\s+at|added?\s+to|generated?\s+in|goes\s+in|lives?\s+in|belongs?\s+in|placed?\s+in)\b/i;
+
+/** Code comment patterns (e.g., "// src/server/fetchers/users.ts" as a file-to-create header) */
+const CODE_COMMENT_FILE_HEADER = /^\/\/\s+(src\/|scripts\/|integration\/)/;
+
+function detectCreationIntent(text: string, contextLines: readonly string[], lineIndex: number): boolean {
+  // Check the current line
+  if (CREATION_VERB_PATTERN.test(text)) return true;
+  if (CREATION_CHECKLIST_PATTERN.test(text)) return true;
+  if (CODE_COMMENT_FILE_HEADER.test(text.trim())) return true;
+
+  // Check 2 lines before for creation verbs
+  for (let i = Math.max(0, lineIndex - 2); i < lineIndex; i++) {
+    if (CREATION_VERB_PATTERN.test(contextLines[i])) return true;
+    if (CREATION_CHECKLIST_PATTERN.test(contextLines[i])) return true;
+  }
+
+  // Check for "new file" or "-- new" in table rows
+  if (/\bnew\b/i.test(text) && text.trim().startsWith('|')) return true;
+
+  return false;
+}
+
 function extractFilePaths(
   text: string,
   file: string,
   lineOffset: number,
   pathContext: SkillAnalysisObservationEvidence['pathContext'],
   obs: SkillAnalysisObservation[],
+  contextLines?: readonly string[],
+  lineIndex?: number,
 ): void {
   const seen = new Set<string>();
 
@@ -224,10 +259,14 @@ function extractFilePaths(
         exists = fs.existsSync(resolved) || fs.existsSync(resolved + '.ts') || fs.existsSync(resolved + '.tsx');
       }
 
+      const creationIntent =
+        contextLines && lineIndex !== undefined ? detectCreationIntent(text, contextLines, lineIndex) : undefined;
+
       emit(obs, 'SKILL_FILE_PATH_REF', file, lineOffset, {
         referencedPath: refPath,
         exists,
         pathContext,
+        ...(creationIntent ? { creationIntent } : {}),
       });
     }
   }
@@ -458,6 +497,9 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
     }
   }
 
+  // Split content into lines early (used by code block extraction and inline scanning)
+  const contentLines = content.split('\n');
+
   // --- Extract code blocks ---
   const codeBlocks = findAll(tree, 'code');
   for (const cb of codeBlocks) {
@@ -473,13 +515,13 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
     // Extract commands from bash/shell code blocks
     extractCommandsFromCodeBlock(cbContent, lang, relPath, line, obs);
 
-    // Extract file paths from code blocks
-    extractFilePaths(cbContent, relPath, line, 'code-block', obs);
+    // Extract file paths from code blocks (pass file lines for creation-intent context)
+    // line is 1-indexed MDAST position; convert to 0-indexed for contentLines
+    extractFilePaths(cbContent, relPath, line, 'code-block', obs, contentLines, line - 1);
   }
 
   // --- Extract inline code paths and cross-refs line by line ---
   // Track fenced code block boundaries to avoid false positives
-  const contentLines = content.split('\n');
   let inFencedBlock = false;
   for (let i = 0; i < contentLines.length; i++) {
     const line = contentLines[i];
@@ -507,10 +549,12 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
         if (resolved) {
           exists = fs.existsSync(resolved) || fs.existsSync(resolved + '.ts') || fs.existsSync(resolved + '.tsx');
         }
+        const creationIntent = detectCreationIntent(line, contentLines, i);
         emit(obs, 'SKILL_FILE_PATH_REF', relPath, lineNum, {
           referencedPath: refPath,
           exists,
           pathContext: 'inline-code',
+          ...(creationIntent ? { creationIntent } : {}),
         });
       }
     }
@@ -536,7 +580,7 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
     // Skip header separator rows
     if (/^\s*\|[\s-:|]+\|\s*$/.test(line)) continue;
 
-    extractFilePaths(line, relPath, i + 1, 'table', obs);
+    extractFilePaths(line, relPath, i + 1, 'table', obs, contentLines, i);
   }
 
   return { filePath: relPath, skillName, category, observations: obs };

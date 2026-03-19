@@ -1473,6 +1473,8 @@ export type SkillAnalysisObservationEvidence = {
   referencedPath?: string;
   /** Context where the path was found (SKILL_FILE_PATH_REF) */
   pathContext?: 'code-block' | 'inline-code' | 'table' | 'text';
+  /** Whether nearby text signals intent to create this path (SKILL_FILE_PATH_REF) */
+  creationIntent?: boolean;
   /** Skill name (SKILL_CROSS_REF) */
   skillName?: string;
   /** Whether the referenced skill exists (SKILL_CROSS_REF, SKILL_DOC_REF) */
@@ -1502,6 +1504,7 @@ export interface SkillAnalysisResult {
 
 export type SkillQualityAssessmentKind =
   | 'STALE_FILE_PATH' // referenced path does not exist on disk
+  | 'ASPIRATIONAL_PATH' // path does not exist but surrounding text signals intent to create it
   | 'STALE_COMMAND' // command references nonexistent script or uses deprecated pattern
   | 'BROKEN_CROSS_REF' // skill reference points to nonexistent skill
   | 'BROKEN_DOC_REF' // doc reference points to nonexistent file

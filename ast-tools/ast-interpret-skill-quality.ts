@@ -67,17 +67,33 @@ function classifyFilePaths(observations: readonly SkillAnalysisObservation[]): S
 
   for (const obs of pathRefs) {
     if (obs.evidence.exists === false) {
-      assessments.push(
-        makeAssessment(
-          'STALE_FILE_PATH',
-          obs.file,
-          obs.line,
-          obs.evidence.referencedPath,
-          'high',
-          [`Path \`${obs.evidence.referencedPath}\` does not exist on disk (context: ${obs.evidence.pathContext}).`],
-          [toRef(obs)],
-        ),
-      );
+      if (obs.evidence.creationIntent) {
+        assessments.push(
+          makeAssessment(
+            'ASPIRATIONAL_PATH',
+            obs.file,
+            obs.line,
+            obs.evidence.referencedPath,
+            'high',
+            [
+              `Path \`${obs.evidence.referencedPath}\` does not exist but surrounding text signals creation intent (context: ${obs.evidence.pathContext}).`,
+            ],
+            [toRef(obs)],
+          ),
+        );
+      } else {
+        assessments.push(
+          makeAssessment(
+            'STALE_FILE_PATH',
+            obs.file,
+            obs.line,
+            obs.evidence.referencedPath,
+            'high',
+            [`Path \`${obs.evidence.referencedPath}\` does not exist on disk (context: ${obs.evidence.pathContext}).`],
+            [toRef(obs)],
+          ),
+        );
+      }
     } else if (obs.evidence.exists === true) {
       assessments.push(
         makeAssessment(
