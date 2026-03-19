@@ -121,7 +121,7 @@ Indicators:
 ### Role distribution reference
 
 Use this as a sanity check. These are the expected role distributions
-by category from investigation of the existing 55 skills:
+by category from investigation of the existing 58 skills:
 
 | Role      | build | audit | refactor | orchestrate |
 | --------- | ----- | ----- | -------- | ----------- |

@@ -264,6 +264,24 @@ function classifyRoles(result: SkillAnalysisResult): SkillQualityAssessment[] {
 
   const sections = result.observations.filter(o => o.kind === 'SKILL_SECTION');
   const roleAnnotations = result.observations.filter(o => o.kind === 'SKILL_SECTION_ROLE');
+  const invalidRoles = result.observations.filter(o => o.kind === 'SKILL_INVALID_ROLE');
+
+  // Classify invalid role annotations (typos)
+  for (const inv of invalidRoles) {
+    assessments.push(
+      makeAssessment(
+        'INVALID_ROLE_ANNOTATION',
+        result.filePath,
+        inv.line,
+        inv.evidence.invalidRoleName ?? '',
+        'high',
+        [
+          `Role annotation "<!-- role: ${inv.evidence.invalidRoleName} -->" uses an invalid role name. Valid roles: emit, avoid, detect, guidance, reference, workflow, cleanup.`,
+        ],
+        [toRef(inv)],
+      ),
+    );
+  }
 
   // If no role annotations exist at all, skip role checks entirely.
   // This provides backward compatibility during migration: skills without
@@ -333,16 +351,19 @@ function classifyConventions(observations: readonly SkillAnalysisObservation[]):
 
   const superseded = observations.filter(o => o.kind === 'SKILL_SUPERSEDED_PATTERN');
   const missing = observations.filter(o => o.kind === 'SKILL_MISSING_CONVENTION');
+  const aligned = observations.filter(o => o.kind === 'SKILL_CONVENTION_ALIGNED');
 
   // Group by convention ID
   const conventionIds = new Set([
     ...superseded.map(o => o.evidence.conventionId!),
     ...missing.map(o => o.evidence.conventionId!),
+    ...aligned.map(o => o.evidence.conventionId!),
   ]);
 
   for (const id of conventionIds) {
     const supersededForId = superseded.filter(o => o.evidence.conventionId === id);
     const missingForId = missing.filter(o => o.evidence.conventionId === id);
+    const alignedForId = aligned.filter(o => o.evidence.conventionId === id);
 
     if (supersededForId.length > 0 || missingForId.length > 0) {
       const rationale: string[] = [];
@@ -366,6 +387,18 @@ function classifyConventions(observations: readonly SkillAnalysisObservation[]):
           supersededForId.length > 0 ? 'high' : 'medium',
           rationale,
           basedOn,
+        ),
+      );
+    } else if (alignedForId.length > 0) {
+      assessments.push(
+        makeAssessment(
+          'CONVENTION_ALIGNED',
+          alignedForId[0].file,
+          undefined,
+          id,
+          'high',
+          [`Convention '${id}' is in scope and the skill references the current pattern.`],
+          alignedForId.map(toRef),
         ),
       );
     }
@@ -400,6 +433,7 @@ export function interpretSkillQuality(result: SkillAnalysisResult): SkillQuality
   const conventionDriftCount = assessments.filter(a => a.kind === 'CONVENTION_DRIFT').length;
   const missingRoleCount = assessments.filter(a => a.kind === 'MISSING_SECTION_ROLE').length;
   const missingRequiredRoleCount = assessments.filter(a => a.kind === 'ROLE_REQUIREMENT_MISSING').length;
+  const invalidRoleCount = assessments.filter(a => a.kind === 'INVALID_ROLE_ANNOTATION').length;
 
   // Score: starts at 100
   //   -5 per stale/broken finding
@@ -407,6 +441,7 @@ export function interpretSkillQuality(result: SkillAnalysisResult): SkillQuality
   //   -10 per convention drift
   //   -2 per missing role annotation (lighter penalty -- migration grace)
   //   -3 per missing required role (category requirement unmet)
+  //   -5 per invalid role annotation (typo -- same weight as stale path)
   const score = Math.max(
     0,
     100 -
@@ -414,7 +449,8 @@ export function interpretSkillQuality(result: SkillAnalysisResult): SkillQuality
       missingCount * 3 -
       conventionDriftCount * 10 -
       missingRoleCount * 2 -
-      missingRequiredRoleCount * 3,
+      missingRequiredRoleCount * 3 -
+      invalidRoleCount * 5,
   );
 
   return {
@@ -451,7 +487,8 @@ function prettyPrint(report: SkillQualityReport): string {
       a.kind === 'MISSING_SECTION' ||
       a.kind === 'CONVENTION_DRIFT' ||
       a.kind === 'MISSING_SECTION_ROLE' ||
-      a.kind === 'ROLE_REQUIREMENT_MISSING',
+      a.kind === 'ROLE_REQUIREMENT_MISSING' ||
+      a.kind === 'INVALID_ROLE_ANNOTATION',
   );
 
   if (issues.length === 0) {
@@ -495,6 +532,7 @@ function main(): void {
         'Interpret skill analysis observations and classify quality issues.\n\n' +
         'Assessment kinds:\n' +
         '  STALE_FILE_PATH     File path does not exist on disk\n' +
+        '  ASPIRATIONAL_PATH   Path absent but creation intent detected nearby\n' +
         '  STALE_COMMAND       Command uses deprecated pattern\n' +
         '  BROKEN_CROSS_REF    Skill cross-reference does not exist\n' +
         '  BROKEN_DOC_REF      Doc reference does not exist\n' +
@@ -504,6 +542,7 @@ function main(): void {
         '  MISSING_SECTION_ROLE  Top-level heading lacks a role annotation\n' +
         '  ROLE_REQUIREMENT_MET  Required role for category is present\n' +
         '  ROLE_REQUIREMENT_MISSING  Required role for category is absent\n' +
+        '  INVALID_ROLE_ANNOTATION  Role annotation has an invalid role name (typo)\n' +
         '  SECTION_COMPLETE    All required sections present\n' +
         '  PATH_VALID          File path verified on disk\n' +
         '  CROSS_REF_VALID     Skill cross-ref verified\n\n' +

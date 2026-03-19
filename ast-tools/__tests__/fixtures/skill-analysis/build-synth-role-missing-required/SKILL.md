@@ -1,5 +1,5 @@
 ---
-name: synth-role-missing-required
+name: build-synth-role-missing-required
 description: Synthetic build skill with role annotations but missing the required emit role.
 context: fork
 allowed-tools: Read, Bash

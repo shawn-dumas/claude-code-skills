@@ -1033,7 +1033,7 @@ export const astConfig: AstConfig = Object.freeze({
       },
       {
         id: 'env-validated',
-        scope: 'process\\.env\\.(?!NEXT_PUBLIC_|NODE_ENV\\b)[A-Z_]+|clientEnv|serverEnv',
+        scope: 'process\\.env\\.(?!NEXT_PUBLIC_|NODE_ENV\\b)[A-Z_][A-Z_0-9]*|clientEnv|serverEnv',
         current: ['clientEnv', 'serverEnv'],
         superseded: ['process\\.env\\.(?!NEXT_PUBLIC_|NODE_ENV\\b)[A-Z_][A-Z_0-9]*'],
         message:

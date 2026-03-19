@@ -1,6 +1,6 @@
 ---
 name: synth-role-partial
-description: Synthetic build skill with partial role annotations (missing on one heading).
+description: Synthetic skill with partial role annotations (missing on one heading).
 context: fork
 allowed-tools: Read, Bash
 ---

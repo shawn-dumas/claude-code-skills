@@ -483,8 +483,17 @@ interface RoleAnnotation {
  * Walk top-level MDAST children to find `<!-- role: X -->` HTML comments
  * immediately preceding a heading node. Returns one entry per annotation.
  */
-function extractRoleAnnotations(tree: MdNode): RoleAnnotation[] {
-  const entries: RoleAnnotation[] = [];
+interface InvalidRoleAnnotation {
+  roleName: string;
+  commentLine: number;
+}
+
+function extractRoleAnnotations(tree: MdNode): {
+  valid: RoleAnnotation[];
+  invalid: InvalidRoleAnnotation[];
+} {
+  const valid: RoleAnnotation[] = [];
+  const invalid: InvalidRoleAnnotation[] = [];
   const children = tree.children ?? [];
 
   for (let i = 0; i < children.length; i++) {
@@ -495,13 +504,16 @@ function extractRoleAnnotations(tree: MdNode): RoleAnnotation[] {
     if (!match) continue;
 
     const roleName = match[1].toLowerCase();
-    if (!VALID_SECTION_ROLES.has(roleName as SkillSectionRole)) continue;
+    if (!VALID_SECTION_ROLES.has(roleName as SkillSectionRole)) {
+      invalid.push({ roleName, commentLine: nodeLine(node) });
+      continue;
+    }
 
     // Look for the next heading sibling (skip blank text nodes)
     for (let j = i + 1; j < children.length; j++) {
       const next = children[j];
       if (next.type === 'heading') {
-        entries.push({
+        valid.push({
           role: roleName as SkillSectionRole,
           commentLine: nodeLine(node),
           headingLine: nodeLine(next),
@@ -515,7 +527,7 @@ function extractRoleAnnotations(tree: MdNode): RoleAnnotation[] {
     }
   }
 
-  return entries;
+  return { valid, invalid };
 }
 
 /**
@@ -646,6 +658,7 @@ function scanConventions(
     // Check code blocks for superseded patterns.
     // Role-aware: only check blocks in 'emit' sections (or blocks with
     // no role, for backward compatibility during migration).
+    let hasSuperseded = false;
     for (const block of codeBlocks) {
       const blockRole = getRoleForLine(block.line, sortedHeadings, headingRoles);
 
@@ -655,6 +668,7 @@ function scanConventions(
       for (const pattern of rule.superseded) {
         const regex = new RegExp(pattern, 'i');
         if (regex.test(block.content)) {
+          hasSuperseded = true;
           emit(obs, 'SKILL_SUPERSEDED_PATTERN', file, block.line, {
             conventionId: rule.id,
             conventionMessage: rule.message,
@@ -670,6 +684,13 @@ function scanConventions(
 
     if (!hasCurrentRef) {
       emit(obs, 'SKILL_MISSING_CONVENTION', file, 1, {
+        conventionId: rule.id,
+        conventionMessage: rule.message,
+      });
+    } else if (!hasSuperseded) {
+      // Convention is in scope, current pattern is present, no superseded
+      // patterns found in emit sections -- the skill is aligned.
+      emit(obs, 'SKILL_CONVENTION_ALIGNED', file, 1, {
         conventionId: rule.id,
         conventionMessage: rule.message,
       });
@@ -697,7 +718,14 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
   const frontmatterEnd = detectFrontmatterEnd(content);
 
   // --- Extract role annotations from HTML comments ---
-  const roleAnnotations = extractRoleAnnotations(tree);
+  const { valid: roleAnnotations, invalid: invalidRoles } = extractRoleAnnotations(tree);
+
+  // Emit invalid role observations (typos like <!-- role: emmit -->)
+  for (const inv of invalidRoles) {
+    emit(obs, 'SKILL_INVALID_ROLE', relPath, inv.commentLine, {
+      invalidRoleName: inv.roleName,
+    });
+  }
 
   // --- Extract sections (headings) ---
   const headings = findAll(tree, 'heading');

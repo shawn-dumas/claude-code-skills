@@ -77,32 +77,39 @@ npx tsx scripts/AST/ast-interpret-skill-quality.ts .claude/skills/ --pretty \
 
 **Observations** from `ast-skill-analysis`:
 
-| Observation Kind       | Evidence                                        | Audit use                       |
-| ---------------------- | ----------------------------------------------- | ------------------------------- |
-| `SKILL_SECTION`        | `depth`, `text`, `sectionRole`, `roleInherited` | Role coverage inventory         |
-| `SKILL_SECTION_ROLE`   | `sectionRole`, `text`, `depth`                  | Explicit annotation count       |
-| `SKILL_STEP`           | `stepNumber`, `text`                            | Workflow structure              |
-| `SKILL_CODE_BLOCK`     | `language`, `lineCount`                         | Convention scanning targets     |
-| `SKILL_COMMAND_REF`    | `command`                                       | Command staleness check         |
-| `SKILL_FILE_PATH_REF`  | `filePath`, `exists`                            | Stale path detection            |
-| `SKILL_CROSS_REF`      | `target`, `exists`                              | Stale cross-reference detection |
-| `SKILL_DOC_REF`        | `docPath`, `exists`                             | Stale doc reference detection   |
-| `SKILL_TABLE`          | `columns`, `rows`                               | Table structure                 |
-| `SKILL_CHECKLIST_ITEM` | `checked`, `text`                               | Checklist structure             |
+| Observation Kind           | Evidence fields                                             | Audit use                       |
+| -------------------------- | ----------------------------------------------------------- | ------------------------------- |
+| `SKILL_SECTION`            | `depth`, `text`, `sectionRole`, `roleInherited`             | Role coverage inventory         |
+| `SKILL_SECTION_ROLE`       | `sectionRole`, `text`, `depth`                              | Explicit annotation count       |
+| `SKILL_STEP`               | `stepNumber`, `text`, `depth`                               | Workflow structure              |
+| `SKILL_CODE_BLOCK`         | `lang`, `content`                                           | Convention scanning targets     |
+| `SKILL_COMMAND_REF`        | `content`, `commandType`                                    | Command staleness check         |
+| `SKILL_FILE_PATH_REF`      | `referencedPath`, `exists`, `pathContext`, `creationIntent` | Stale path detection            |
+| `SKILL_CROSS_REF`          | `skillName`, `refExists`                                    | Stale cross-reference detection |
+| `SKILL_DOC_REF`            | `referencedPath`, `refExists`                               | Stale doc reference detection   |
+| `SKILL_TABLE`              | `tableHeaders`, `tableRowCount`                             | Table structure                 |
+| `SKILL_CHECKLIST_ITEM`     | `checked`, `itemText`                                       | Checklist structure             |
+| `SKILL_SUPERSEDED_PATTERN` | `conventionId`, `conventionMessage`, `matchedPattern`       | Convention drift (code block)   |
+| `SKILL_MISSING_CONVENTION` | `conventionId`, `conventionMessage`                         | Convention drift (missing ref)  |
 
 **Assessments** from `ast-interpret-skill-quality`:
 
-| Assessment Kind            | Meaning                                 | Score impact |
-| -------------------------- | --------------------------------------- | ------------ |
-| `SECTION_COMPLETE`         | Required section is present             | (positive)   |
-| `MISSING_SECTION`          | Required section is absent              | -3 per       |
-| `STALE_FILE_PATH`          | Referenced file does not exist          | -5 per       |
-| `BROKEN_CROSS_REF`         | Referenced skill does not exist         | -5 per       |
-| `BROKEN_DOC_REF`           | Referenced doc does not exist           | -5 per       |
-| `CONVENTION_DRIFT`         | Code block uses superseded pattern      | -10 per      |
-| `MISSING_SECTION_ROLE`     | Top-level heading lacks role annotation | -2 per       |
-| `ROLE_REQUIREMENT_MET`     | Required role for category is present   | (positive)   |
-| `ROLE_REQUIREMENT_MISSING` | Required role for category is absent    | -3 per       |
+| Assessment Kind            | Meaning                                         | Score impact |
+| -------------------------- | ----------------------------------------------- | ------------ |
+| `STALE_FILE_PATH`          | Referenced file does not exist                  | -5 per       |
+| `ASPIRATIONAL_PATH`        | Path absent but creation intent detected nearby | (neutral)    |
+| `STALE_COMMAND`            | Command uses deprecated pattern                 | -5 per       |
+| `BROKEN_CROSS_REF`         | Referenced skill does not exist                 | -5 per       |
+| `BROKEN_DOC_REF`           | Referenced doc does not exist                   | -5 per       |
+| `MISSING_SECTION`          | Required section is absent                      | -3 per       |
+| `SECTION_COMPLETE`         | All required sections present                   | (positive)   |
+| `PATH_VALID`               | File path verified as existing                  | (neutral)    |
+| `CROSS_REF_VALID`          | Skill cross-reference verified                  | (neutral)    |
+| `CONVENTION_DRIFT`         | Superseded pattern and/or missing current ref   | -10 per      |
+| `CONVENTION_ALIGNED`       | Current convention pattern referenced           | (positive)   |
+| `MISSING_SECTION_ROLE`     | Top-level heading lacks role annotation         | -2 per       |
+| `ROLE_REQUIREMENT_MET`     | Required role for category is present           | (positive)   |
+| `ROLE_REQUIREMENT_MISSING` | Required role for category is absent            | -3 per       |
 
 <!-- role: detect -->
 

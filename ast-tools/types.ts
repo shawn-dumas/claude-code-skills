@@ -1455,7 +1455,9 @@ export type SkillAnalysisObservationKind =
   | 'SKILL_TABLE' // parsed pipe table (headers + row count)
   | 'SKILL_CHECKLIST_ITEM' // checklist entry (checked/unchecked)
   | 'SKILL_SUPERSEDED_PATTERN' // code block or text matches a superseded convention pattern
-  | 'SKILL_MISSING_CONVENTION'; // skill is in scope for a convention but does not reference current pattern
+  | 'SKILL_MISSING_CONVENTION' // skill is in scope for a convention but does not reference current pattern
+  | 'SKILL_CONVENTION_ALIGNED' // skill is in scope, references current pattern, no superseded patterns found
+  | 'SKILL_INVALID_ROLE'; // HTML comment matches role pattern but the role name is not valid
 
 /** Valid section role names for the structured skill format. */
 export type SkillSectionRole = 'emit' | 'avoid' | 'detect' | 'guidance' | 'reference' | 'workflow' | 'cleanup';
@@ -1467,7 +1469,7 @@ export type SkillAnalysisObservationEvidence = {
   depth?: number;
   /** Step number extracted from "Step N" pattern (SKILL_STEP) */
   stepNumber?: number;
-  /** Section role from HTML comment annotation (SKILL_SECTION, SKILL_SECTION_ROLE) */
+  /** Effective section role, either from HTML comment annotation or inherited from parent heading (SKILL_SECTION, SKILL_SECTION_ROLE) */
   sectionRole?: SkillSectionRole;
   /** Whether the role was inherited from a parent heading (SKILL_SECTION) */
   roleInherited?: boolean;
@@ -1497,6 +1499,8 @@ export type SkillAnalysisObservationEvidence = {
   checked?: boolean;
   /** Checklist item text (SKILL_CHECKLIST_ITEM) */
   itemText?: string;
+  /** Invalid role name from a malformed annotation (SKILL_INVALID_ROLE) */
+  invalidRoleName?: string;
   /** Convention rule ID (SKILL_SUPERSEDED_PATTERN, SKILL_MISSING_CONVENTION) */
   conventionId?: string;
   /** Convention message (SKILL_SUPERSEDED_PATTERN, SKILL_MISSING_CONVENTION) */
@@ -1532,7 +1536,8 @@ export type SkillQualityAssessmentKind =
   | 'CONVENTION_ALIGNED' // skill references current convention pattern
   | 'MISSING_SECTION_ROLE' // top-level heading lacks a role annotation
   | 'ROLE_REQUIREMENT_MET' // all required roles for the skill category are present
-  | 'ROLE_REQUIREMENT_MISSING'; // a required role for the skill category is absent
+  | 'ROLE_REQUIREMENT_MISSING' // a required role for the skill category is absent
+  | 'INVALID_ROLE_ANNOTATION'; // HTML comment has role: pattern but the role name is not valid (typo)
 
 export type SkillQualityAssessment = Assessment<SkillQualityAssessmentKind>;
 

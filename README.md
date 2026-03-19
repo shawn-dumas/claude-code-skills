@@ -172,11 +172,11 @@ template has pre-placed role annotations and placeholder sections.
 
 Three meta-skills operate on skill files themselves:
 
-| Skill             | Purpose                                                  |
-| ----------------- | -------------------------------------------------------- |
-| `/audit-skill`    | Score a SKILL.md against the structured format spec      |
-| `/refactor-skill` | Restructure an existing SKILL.md to comply with the spec |
-| `/build-skill`    | Generate a new SKILL.md from a category template         |
+| Skill             | Purpose                                             |
+| ----------------- | --------------------------------------------------- |
+| `/audit-skill`    | Score a SKILL.md against the structured format spec |
+| `/refactor-skill` | Add role annotations to an existing SKILL.md file   |
+| `/build-skill`    | Generate a new SKILL.md from a category template    |
 
 These skills use `ast-skill-analysis` and `ast-interpret-skill-quality`
 for automated validation, the same way code skills use `ast-complexity`
@@ -1300,7 +1300,7 @@ observer gaps) before tuning weights in `ast-config.ts`. See
 | `ast-concern-matrix`  | `CONTAINER_HANDLES_LOADING`, `CONTAINER_HANDLES_ERROR`, `CONTAINER_HANDLES_EMPTY`, `CONTAINER_HANDLES_PERMISSION`, `CONTAINER_MISSING_LOADING`, `CONTAINER_MISSING_ERROR`, `CONTAINER_MISSING_EMPTY`, `CONTAINER_MISSING_PERMISSION`                                                                                                                                                                                                                                                                           | (observation-only)                                                        |
 | `ast-export-surface`  | `EXPORT_SURFACE`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | (observation-only)                                                        |
 | `ast-plan-audit`      | `PLAN_HEADER_MISSING`, `PLAN_HEADER_INVALID`, `VERIFICATION_BLOCK_MISSING`, `CLEANUP_FILE_MISSING`, `PROMPT_FILE_MISSING`, `PROMPT_VERIFICATION_MISSING`, `PROMPT_DEPENDENCY_CYCLE`, `PROMPT_MODE_UNSET`, `STANDING_ELEMENT_MISSING`, `RECONCILIATION_TEMPLATE_MISSING`, `PRE_FLIGHT_CERTIFIED`, `PRE_FLIGHT_CONDITIONAL`, `PRE_FLIGHT_BLOCKED`, `PRE_FLIGHT_MARK_MISSING`, `NAMING_CONVENTION_INSTRUCTION`, `CLIENT_SIDE_AGGREGATION`, `DEFERRED_CLEANUP_REFERENCE`, `FILE_PATH_REFERENCE`, `SKILL_REFERENCE` | (observation-only, MDAST-based)                                           |
-| `ast-skill-analysis`  | `SKILL_SECTION`, `SKILL_STEP`, `SKILL_CODE_BLOCK`, `SKILL_COMMAND_REF`, `SKILL_FILE_PATH_REF`, `SKILL_CROSS_REF`, `SKILL_DOC_REF`, `SKILL_TABLE`, `SKILL_CHECKLIST_ITEM`                                                                                                                                                                                                                                                                                                                                       | `ast-interpret-skill-quality`                                             |
+| `ast-skill-analysis`  | `SKILL_SECTION`, `SKILL_STEP`, `SKILL_SECTION_ROLE`, `SKILL_CODE_BLOCK`, `SKILL_COMMAND_REF`, `SKILL_FILE_PATH_REF`, `SKILL_CROSS_REF`, `SKILL_DOC_REF`, `SKILL_TABLE`, `SKILL_CHECKLIST_ITEM`, `SKILL_SUPERSEDED_PATTERN`, `SKILL_MISSING_CONVENTION`                                                                                                                                                                                                                                                         | `ast-interpret-skill-quality`                                             |
 
 ### The `astConfig` file
 

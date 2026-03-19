@@ -3,7 +3,7 @@
   "created": "2026-03-19",
   "source": "mixed",
   "status": "verified",
-  "notes": "Ground-truth fixtures for ast-interpret-skill-quality interpreter. All 14 assessment kinds have both synthetic and real-world grounding. Real-world negative-path fixtures use pre-fix git snapshots of skill files that had the defects before they were fixed. Role-related kinds (MISSING_SECTION_ROLE, ROLE_REQUIREMENT_MET, ROLE_REQUIREMENT_MISSING) added in the structured skill format work.",
+  "notes": "Ground-truth fixtures for ast-interpret-skill-quality interpreter. 13 of 16 assessment kinds have real-world grounding; CONVENTION_ALIGNED, MISSING_SECTION_ROLE, and ROLE_REQUIREMENT_MISSING have synthetic coverage only (no real-world negative cases exist). Real-world negative-path fixtures use pre-fix git snapshots of skill files that had the defects before they were fixed. Role-related kinds (MISSING_SECTION_ROLE, ROLE_REQUIREMENT_MET, ROLE_REQUIREMENT_MISSING) and INVALID_ROLE_ANNOTATION added in the structured skill format work.",
   "fixtures": [
     {
       "file": ".claude/skills/spawn-satan/SKILL.md",

@@ -369,7 +369,7 @@ Classify:
 | P9_UNSEEDED_FAKER   | `faker.*` without `faker.seed()` or pool                     | Add seed or use fixture system                  |
 | P9_TIMER_NO_CLEANUP | `vi.useFakeTimers()` without `vi.useRealTimers()` in cleanup | Add cleanup                                     |
 
-<!-- role: cleanup -->
+<!-- role: detect -->
 
 ## Step 12: Audit Principle 10 -- Total Cleanup
 
