@@ -3,7 +3,7 @@
   "created": "2026-03-19",
   "source": "mixed",
   "status": "verified",
-  "notes": "Ground-truth fixtures for ast-interpret-skill-quality interpreter. All 9 assessment kinds have both synthetic and real-world grounding. Real-world negative-path fixtures use pre-fix git snapshots of skill files that had the defects before they were fixed in this session.",
+  "notes": "Ground-truth fixtures for ast-interpret-skill-quality interpreter. All 11 assessment kinds have both synthetic and real-world grounding. Real-world negative-path fixtures use pre-fix git snapshots of skill files that had the defects before they were fixed.",
   "fixtures": [
     {
       "file": ".claude/skills/spawn-satan/SKILL.md",
@@ -160,6 +160,61 @@
           }
         ]
       }
+    },
+    {
+      "file": "scripts/AST/__tests__/fixtures/skill-analysis/synth-convention-drift-superseded.md",
+      "source": "synthetic",
+      "expected": {
+        "score": 90,
+        "assessments": [
+          {
+            "expectedKind": "CONVENTION_DRIFT",
+            "count": 1,
+            "notes": "TypeScript code block contains Schema.parse(req.query) and Schema.parse(req.body) which match the parse-input superseded pattern. Confidence: high (superseded pattern found in code block)."
+          }
+        ]
+      }
+    },
+    {
+      "file": "scripts/AST/__tests__/fixtures/skill-analysis/synth-convention-aligned.md",
+      "source": "synthetic",
+      "expected": {
+        "score": 100,
+        "assessments": [
+          {
+            "expectedKind": "no-convention-drift",
+            "notes": "TypeScript code block uses parseInput(Schema, req.body) -- the current pattern. Skill references parseInput in prose. In scope for parse-input convention, but aligned."
+          }
+        ]
+      }
+    },
+    {
+      "file": "scripts/AST/__tests__/fixtures/skill-analysis/synth-convention-drift-missing.md",
+      "source": "synthetic",
+      "expected": {
+        "score": 90,
+        "assessments": [
+          {
+            "expectedKind": "CONVENTION_DRIFT",
+            "count": 1,
+            "notes": "Inline code reference to src/server/db/clickhouse.ts puts skill in scope for ch-query-registry convention. No reference to CH_QUERIES, queries.generated, or @/server/db/queries (current patterns). Confidence: medium (scope matches but no superseded code block found)."
+          }
+        ]
+      }
+    },
+    {
+      "file": "scripts/AST/__tests__/fixtures/skill-analysis/real-build-api-handler-preparse.md",
+      "source": "real-world (pre-fix snapshot from HEAD before parseInput convention fix)",
+      "expected": {
+        "score": 90,
+        "assessments": [
+          {
+            "expectedKind": "CONVENTION_DRIFT",
+            "count": 1,
+            "notes": "Real build-api-handler SKILL.md before parseInput fix. Code block at line ~247 contains ParamSchema.parse(req.query) and BodySchema.parse(req.body), matching parse-input superseded patterns. Confidence: high."
+          }
+        ]
+      }
     }
   ],
   "coverageMatrix": {
@@ -171,6 +226,12 @@
     "MISSING_SECTION": { "synthetic": true, "realWorld": true, "source": "derived" },
     "SECTION_COMPLETE": { "synthetic": true, "realWorld": true },
     "PATH_VALID": { "synthetic": true, "realWorld": true },
-    "CROSS_REF_VALID": { "synthetic": true, "realWorld": true }
+    "CROSS_REF_VALID": { "synthetic": true, "realWorld": true },
+    "CONVENTION_DRIFT": { "synthetic": true, "realWorld": true, "source": "pre-fix snapshot of build-api-handler" },
+    "CONVENTION_ALIGNED": {
+      "synthetic": true,
+      "realWorld": false,
+      "notes": "CONVENTION_ALIGNED assessment kind is defined in types but not emitted by interpreter. Positive fixture validates no-drift behavior."
+    }
   }
 }

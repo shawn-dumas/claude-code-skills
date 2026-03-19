@@ -146,14 +146,19 @@ WARN if shared shapes are redefined locally.
 
 ### G5 -- Parse at the boundary
 
-The handler should parse/validate incoming data immediately:
+The handler should parse/validate incoming data immediately using
+`parseInput(Schema, req.body)` from `@/server/errors/ApiErrorResponse`:
 
-- Request body parsed with the Zod schema before any processing
-- Query parameters parsed/validated before use
+- Request body parsed with `parseInput(BodySchema, req.body)` before any processing
+- Query parameters parsed with `parseInput(QuerySchema, req.query)` before use
+- No bare `Schema.parse(req.body)` -- `parseInput` converts `ZodError` into
+  `BadRequestError` (400); bare `ZodError` reaching `withErrorHandler` is treated
+  as an output validation failure (500)
 - No `as T` casts on request data
 - No `req.body.someField` access without prior validation
 
-FAIL if the handler uses request data without validation.
+FAIL if the handler uses request data without validation or uses bare
+`.parse()` instead of `parseInput()`.
 
 ### G6 -- Pure core, effects at the edge
 

@@ -991,6 +991,30 @@ export const astConfig: AstConfig = Object.freeze({
         message:
           'ClickHouse queries use the centralized registry (src/server/db/queries.ts) and generated types (queries.generated.ts), not inline SQL or hand-written row interfaces.',
       },
+      {
+        id: 'parse-input',
+        scope: 'parseInput|req\\.body|req\\.query',
+        current: ['parseInput'],
+        superseded: ['\\w+Schema\\.parse\\(req\\.(?:body|query)\\)', '\\.parse\\(req\\.(?:body|query)\\)'],
+        message:
+          'BFF input validation uses parseInput(Schema, req.body) from @/server/errors/ApiErrorResponse, not bare Schema.parse(). parseInput converts ZodError into BadRequestError (400).',
+      },
+      {
+        id: 'error-response-classes',
+        scope: 'ApiErrorResponse|BadRequestError|NotFoundError|UnauthorizedError|ForbiddenError|res\\.status\\([45]',
+        current: ['ApiErrorResponse', 'BadRequestError', 'NotFoundError', 'UnauthorizedError', 'ForbiddenError'],
+        superseded: ['res\\.status\\([45]\\d{2}\\)\\.json\\('],
+        message:
+          'BFF error responses use error classes (BadRequestError, NotFoundError, etc.) from @/server/errors/, not inline res.status(4xx).json(). Error classes integrate with withErrorHandler middleware.',
+      },
+      {
+        id: 'fetchapi-zod-schema',
+        scope: 'fetchApi|FetchApiConfig|useFetchApi',
+        current: ['fetchApi', 'FetchApiConfig'],
+        superseded: ['(?:await\\s+)?fetch\\([\'"]\\/?api\\/'],
+        message:
+          'API calls use fetchApi() with a required Zod schema field, not bare fetch(). fetchApi handles auth headers, base URL, and runtime response validation.',
+      },
     ] as const,
   }),
 

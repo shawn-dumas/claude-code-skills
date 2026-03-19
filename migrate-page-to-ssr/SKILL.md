@@ -132,10 +132,12 @@ export async function fetchUsersServer(organizationId: number) {
 
 3. **Production path queries the database directly.** Do NOT call the app's own
    API routes from `getServerSideProps` (that would be an HTTP round-trip to
-   self). Import the Drizzle `db` client from `src/server/db/postgres.ts` (for
-   Postgres) or the ClickHouse client from `src/server/db/clickhouse.ts` and
-   query the same tables the API route queries. Read the corresponding API
-   route handler in `src/pages/api/` to understand the exact query.
+   self). For Postgres queries, import the Drizzle `db` client from
+   `src/server/db/postgres.ts`. For ClickHouse queries, use the centralized
+   query registry: import `CH_QUERIES` from `@/server/db/queries` and the
+   generated row types from `@/server/db/queries.generated`. Do not write
+   inline SQL or hand-written row interfaces. Read the corresponding API route
+   handler in `src/pages/api/` to see which query it uses.
 
 4. **No React hooks.** Server fetchers are plain functions. No `useFetchApi`,
    no `useAuthState`, no `useCompanyScope`.
@@ -154,13 +156,15 @@ The database clients already exist. Do not create new ones:
 
 - **Postgres**: `import { db } from '@/server/db/postgres'` -- Drizzle ORM client.
   Schema tables are in `@/server/db/schema`, relations in `@/server/db/relations`.
-- **ClickHouse**: `import { clickhouse } from '@/server/db/clickhouse'` -- raw
-  `@clickhouse/client` instance.
+- **ClickHouse**: `import { CH_QUERIES } from '@/server/db/queries'` -- centralized
+  query registry with generated row types from `@/server/db/queries.generated`.
+  Do not import the raw `clickhouse` client directly for queries that are already
+  registered. See `AGENTS.md` "ClickHouse Type Codegen" section.
 - **Firebase Admin**: `import { ... } from '@/server/db/firebase-admin'` -- for
   token verification and RTDB access.
 
-Read the corresponding API route handler in `src/pages/api/` to see how it
-queries the database, and replicate that query in the server fetcher.
+Read the corresponding API route handler in `src/pages/api/` to see which
+registered query it uses, and call the same query in the server fetcher.
 
 ## Step 3: Add `getServerSideProps` to the page
 

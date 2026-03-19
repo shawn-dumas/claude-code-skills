@@ -163,15 +163,20 @@ Target: every function in the refactored handler has CC <= 10. Aim for CC <= 5.
 
 ### If G5 fails (missing parse at boundary)
 
-Add Zod schemas for all request data. Replace `as T` casts with `.parse()` calls.
-Specific actions:
+Add Zod schemas for all request data. Replace `as T` casts with
+`parseInput()` calls from `@/server/errors/ApiErrorResponse`. Specific actions:
 
-- `req.body` without validation -> add body schema, call `.parse(req.body)`
-- `req.query` without validation -> add query schema, call `.parse(req.query)`
+- `req.body` without validation -> add body schema, call `parseInput(BodySchema, req.body)`
+- `req.query` without validation -> add query schema, call `parseInput(QuerySchema, req.query)`
+- Bare `Schema.parse(req.body)` -> replace with `parseInput(Schema, req.body)`
+  (`parseInput` converts `ZodError` into `BadRequestError` 400; bare `ZodError`
+  reaching `withErrorHandler` is treated as output validation failure 500)
 - `req.query.id as string` -> add route param schema with `z.coerce`
 - `as UserId`, `as TeamId` on request data -> use branded type constructors in
   Zod schema transforms
-- Response not validated -> add `.parse()` before `res.json()`
+- Response not validated -> add `.parse()` before `res.json()` (bare `.parse()`
+  is correct for output validation -- `ZodError` here = 500, which is the right
+  status for a response that fails its own contract)
 
 If no schema file exists, create one at `<handler>.schema.ts` (co-located, same
 directory). Follow the schema file structure from `build-api-handler`.
@@ -328,20 +333,15 @@ When reducing CC:
 
 ### Error handling normalization
 
-Replace all raw `res.status(N).json()` error responses with typed error classes:
+Replace all raw `res.status(N).json()` error responses with typed error
+classes from `src/server/errors/ApiErrorResponse.ts`. `withErrorHandler`
+catches them and maps to the correct HTTP status and response envelope.
 
 ```ts
-// Before
-if (!user) {
-  return res.status(404).json({ error: 'User not found' });
-}
-
-// After
 if (!user) throw new NotFoundError('User');
+if (!ctx.roles.includes('admin')) throw new ForbiddenError('Admin role required');
+if (!isValid) throw new BadRequestError('Invalid input');
 ```
-
-The typed error classes are in `src/server/errors/ApiErrorResponse.ts`.
-`withErrorHandler` catches them and maps to the correct HTTP status and envelope.
 
 ### Consumer updates
 

@@ -458,19 +458,33 @@ function extractTables(content: string, file: string, obs: SkillAnalysisObservat
 
 // --- Convention scanning ---
 
+/** Language tags that indicate a fenced code block contains programming code. */
+const CODE_LANG_TAGS = new Set(['typescript', 'ts', 'tsx', 'javascript', 'js', 'bash', 'shell', 'sh']);
+
 function scanConventions(
   content: string,
-  codeBlocks: { content: string; line: number }[],
+  codeBlocks: { content: string; line: number; lang: string }[],
+  inlineCodeText: string,
   file: string,
   obs: SkillAnalysisObservation[],
 ): void {
   const config = resolveConfig();
 
+  // Scope matching uses typed code blocks (ts/tsx/bash) + inline code
+  // spans. This excludes template prose in unlabeled fenced blocks
+  // (questionnaires, Jira ticket templates) while catching inline code
+  // references like `import { clickhouse } from '@/server/db/clickhouse'`.
+  const typedBlockText = codeBlocks
+    .filter(b => CODE_LANG_TAGS.has(b.lang.toLowerCase()))
+    .map(b => b.content)
+    .join('\n');
+  const scopeText = typedBlockText + '\n' + inlineCodeText;
+
   for (const rule of config.conventions.rules) {
     const scopeRegex = new RegExp(rule.scope, 'i');
 
-    // Check if this skill is in scope for this convention
-    if (!scopeRegex.test(content)) continue;
+    // Check if this skill's code content is in scope for this convention
+    if (!scopeRegex.test(scopeText)) continue;
 
     // Check code blocks for superseded patterns
     for (const block of codeBlocks) {
@@ -486,7 +500,8 @@ function scanConventions(
       }
     }
 
-    // Check if skill references any current pattern (in full content)
+    // Check if skill references any current pattern (in full content,
+    // since current-pattern references may appear in prose guidance)
     const hasCurrentRef = rule.current.some(pattern => content.includes(pattern));
 
     if (!hasCurrentRef) {
@@ -630,8 +645,11 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
   const codeBlockData = codeBlocks.map(cb => ({
     content: cb.value ?? '',
     line: nodeLine(cb),
+    lang: (cb.lang as string) ?? '',
   }));
-  scanConventions(content, codeBlockData, relPath, obs);
+  const inlineCodeNodes = findAll(tree, 'inlineCode');
+  const inlineCodeText = inlineCodeNodes.map(ic => (ic.value as string) ?? '').join('\n');
+  scanConventions(content, codeBlockData, inlineCodeText, relPath, obs);
 
   return { filePath: relPath, skillName, category, observations: obs };
 }

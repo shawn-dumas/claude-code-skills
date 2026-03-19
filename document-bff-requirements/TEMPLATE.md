@@ -33,15 +33,18 @@ the BFF endpoints should return.
 
 ### ClickHouse table/view requirements
 
-[FILL IN: Required ClickHouse schema for the queries.]
+[FILL IN: Required ClickHouse schema for the queries. Register all queries
+in `src/server/db/queries.ts` (CH_QUERIES registry) and run
+`npx tsx scripts/codegen-ch-types.ts` to generate row types in
+`queries.generated.ts`. See AGENTS.md "ClickHouse Type Codegen" section.]
 
 ### Production readiness checklist
 
 - [ ] ClickHouse tables/views exist with required columns
-{{CHECKLIST_ENDPOINTS}}
+      {{CHECKLIST_ENDPOINTS}}
 - [ ] Co-located `*.schema.ts` request body schemas for each endpoint
 - [ ] Multi-tenancy: all queries scoped to `ctx.organizationId`
-{{CHECKLIST_COLLAPSE}}
+      {{CHECKLIST_COLLAPSE}}
 - [ ] Vitest API integration tests for all endpoints
 - [ ] Playwright integration tests updated
 - [ ] Feature flag gating (if shipping incrementally)

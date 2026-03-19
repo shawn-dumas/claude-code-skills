@@ -74,11 +74,9 @@ Request --> [Parse] --> [Process] --> [Respond] --> Response
 
 ### Parse layer (trust boundary)
 
-Every value from `req.body`, `req.query`, and `req.params` passes through
-`parseInput()` from `@/server/errors/ApiErrorResponse`. No bare `Schema.parse()`
--- `parseInput` converts `ZodError` into `BadRequestError` (400). No `as UserId`,
-`as TeamId`, or `as T` casts on request data. The parse layer produces typed,
-trusted values for the process layer.
+Every value from `req.body`, `req.query`, and `req.params` passes through a Zod
+schema. No `as UserId`, `as TeamId`, or `as T` casts on request data. The parse
+layer produces typed, trusted values for the process layer.
 
 ### Process layer (business logic)
 
@@ -255,21 +253,21 @@ import { withRole, MODIFY_ROLES } from '@/server/middleware/withRole';
 import { db } from '@/server/db/postgres';
 import { someTable } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { NotFoundError, parseInput } from '@/server/errors/ApiErrorResponse';
+import { NotFoundError } from '@/server/errors/ApiErrorResponse';
 import { ResponseSchema } from '@/shared/types/<domain>';
 import { BodySchema, ParamSchema } from './handler-name.schema';
 
 async function handler(ctx: AuthedContext, req: NextApiRequest, res: NextApiResponse) {
-  // 1. Parse -- trust boundary (parseInput converts ZodError -> BadRequestError 400)
-  const { id } = parseInput(ParamSchema, req.query);
-  const body = parseInput(BodySchema, req.body);
+  // 1. Parse -- trust boundary
+  const { id } = ParamSchema.parse(req.query);
+  const body = BodySchema.parse(req.body);
 
   // 2. Process -- business logic (inline for simple CRUD)
   const rows = await db.select().from(someTable).where(eq(someTable.id, id));
 
   if (rows.length === 0) throw new NotFoundError('Resource');
 
-  // 3. Respond -- validate output (bare .parse() is correct here: ZodError = 500)
+  // 3. Respond -- validate output
   const validated = ResponseSchema.parse(rows[0]);
   return res.status(200).json(validated);
 }

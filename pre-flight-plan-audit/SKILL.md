@@ -50,35 +50,35 @@ Collect the observations. These feed into the verdict in Step 3.
 
 **Blocker-tier observations** (any of these = BLOCKED):
 
-| Observation | Why it blocks |
-|---|---|
+| Observation                                                            | Why it blocks                                           |
+| ---------------------------------------------------------------------- | ------------------------------------------------------- |
 | `PLAN_HEADER_MISSING` (Complexity, Duration, Nearest, Created, Branch) | Cannot assess plan scope or find historical comparisons |
-| `PLAN_HEADER_INVALID` | Scoring data is unparseable |
-| `VERIFICATION_BLOCK_MISSING` | No way to verify execution results |
-| `CLEANUP_FILE_MISSING` | No cleanup accumulation target |
-| `PROMPT_FILE_MISSING` | Plan references prompts that don't exist |
-| `PROMPT_VERIFICATION_MISSING` | Prompt has no verification commands |
-| `PROMPT_DEPENDENCY_CYCLE` | Prompts cannot be executed in valid order |
-| `PROMPT_MODE_UNSET` | Orchestrator cannot determine auto vs manual dispatch |
-| `STANDING_ELEMENT_MISSING` (missing Yes/No/N/A value) | Standing element not triaged |
-| `RECONCILIATION_TEMPLATE_MISSING` | Work agents won't produce reconciliation output |
+| `PLAN_HEADER_INVALID`                                                  | Scoring data is unparseable                             |
+| `VERIFICATION_BLOCK_MISSING`                                           | No way to verify execution results                      |
+| `CLEANUP_FILE_MISSING`                                                 | No cleanup accumulation target                          |
+| `PROMPT_FILE_MISSING`                                                  | Plan references prompts that don't exist                |
+| `PROMPT_VERIFICATION_MISSING`                                          | Prompt has no verification commands                     |
+| `PROMPT_DEPENDENCY_CYCLE`                                              | Prompts cannot be executed in valid order               |
+| `PROMPT_MODE_UNSET`                                                    | Orchestrator cannot determine auto vs manual dispatch   |
+| `STANDING_ELEMENT_MISSING` (missing Yes/No/N/A value)                  | Standing element not triaged                            |
+| `RECONCILIATION_TEMPLATE_MISSING`                                      | Work agents won't produce reconciliation output         |
 
 **Warning-tier observations** (do not block, but get annotated):
 
-| Observation | Action |
-|---|---|
-| `NAMING_CONVENTION_INSTRUCTION` | Cross-reference against target codebase in Step 1 |
-| `CLIENT_SIDE_AGGREGATION` | Flag for BFF review |
-| `DEFERRED_CLEANUP_REFERENCE` | Check if the deferred item is convention/naming (if so, escalate to blocker) |
-| `FILE_PATH_REFERENCE` | Verified in Step 1 (do referenced files exist?) |
-| `SKILL_REFERENCE` | Verified in Step 1 (do referenced skills exist?) |
+| Observation                     | Action                                                                          |
+| ------------------------------- | ------------------------------------------------------------------------------- |
+| `NAMING_CONVENTION_INSTRUCTION` | Cross-reference against target codebase in Step 1                               |
+| `CLIENT_SIDE_AGGREGATION`       | Flag for BFF review                                                             |
+| `DEFERRED_CLEANUP_REFERENCE`    | Check if the deferred item is convention/naming (if so, escalate to blocker)    |
+| `FILE_PATH_REFERENCE`           | Verified in Step 1 (do referenced files exist?)                                 |
+| `SKILL_REFERENCE`               | Verified in Step 1 (do referenced skills exist? do they have convention drift?) |
 
 **Informational observations** (no action needed):
 
-| Observation | Meaning |
-|---|---|
-| `PRE_FLIGHT_CERTIFIED` | Plan was already certified (report date and tier) |
-| `PRE_FLIGHT_MARK_MISSING` | Expected -- this tool adds the mark |
+| Observation               | Meaning                                           |
+| ------------------------- | ------------------------------------------------- |
+| `PRE_FLIGHT_CERTIFIED`    | Plan was already certified (report date and tier) |
+| `PRE_FLIGHT_MARK_MISSING` | Expected -- this tool adds the mark               |
 
 ---
 
@@ -131,6 +131,23 @@ Cross-reference the AST tool output against prompt instructions:
    or structural patterns. If so, escalate to **blocker** -- these should
    be fixed upfront, not deferred.
 
+9. **Skill convention drift**: For each `SKILL_REFERENCE` that passed
+   the existence check (point 7), run the skill quality interpreter to
+   check for convention drift:
+
+   ```bash
+   # For each referenced skill (extract names from SKILL_REFERENCE observations)
+   npx tsx scripts/AST/ast-interpret-skill-quality.ts \
+     .claude/skills/<skill-name>/SKILL.md --pretty
+   ```
+
+   If any referenced skill has `CONVENTION_DRIFT` assessments (score
+   below 100 due to convention drift), this is a **CONDITIONAL** finding.
+   The stale skill will produce code that follows superseded conventions.
+   Annotate the affected prompts with the drift details and recommend
+   running the appropriate refactor skill to update the stale skill
+   before executing the plan.
+
 Record all findings with file, line, and rationale.
 
 ---
@@ -153,12 +170,12 @@ npx tsx scripts/AST/ast-imports.ts <source-dirs> --pretty
 
 Flag and record:
 
-| Condition | Severity |
-|---|---|
+| Condition                                                         | Severity                                                    |
+| ----------------------------------------------------------------- | ----------------------------------------------------------- |
 | Source files with `AS_ANY_CAST` or `NON_NULL_ASSERTION` count > 5 | CONDITIONAL annotation on the prompt that ports those files |
-| Source functions with cyclomatic complexity > 10 | CONDITIONAL annotation |
-| Source files with `CONSOLE_CALL` (debug artifacts) | CONDITIONAL annotation |
-| Source files with `WINDOW_MUTATION` (global side effects) | CONDITIONAL annotation |
+| Source functions with cyclomatic complexity > 10                  | CONDITIONAL annotation                                      |
+| Source files with `CONSOLE_CALL` (debug artifacts)                | CONDITIONAL annotation                                      |
+| Source files with `WINDOW_MUTATION` (global side effects)         | CONDITIONAL annotation                                      |
 
 These findings do NOT block execution. They become inline annotations
 on the affected prompts so the work agent is aware of source quality
@@ -216,11 +233,12 @@ line in the header blockquote.
 ### When to re-run pre-flight
 
 The certification is invalidated when:
+
 - The plan file is modified after certification (check git diff)
 - Prompt files are added, removed, or modified after certification
 - The scope of the plan changes (new domains, new prompts)
 
-The orchestrate-* skills check for the `Pre-flight:` header line
+The orchestrate-\* skills check for the `Pre-flight:` header line
 before executing. If it is missing or says BLOCKED, they launch this
 skill as a sub-agent before proceeding.
 
