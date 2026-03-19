@@ -14,6 +14,8 @@ If the argument is a directory, audit all `.spec.ts`, `.spec.tsx`, `.test.ts`,
 and `.test.tsx` files in that directory and its subdirectories. If it is a single
 file, audit that file only.
 
+<!-- role: reference -->
+
 ## Background: The 10 Principles
 
 | #   | Principle         | Violation signal                                                                                  |
@@ -28,6 +30,8 @@ file, audit that file only.
 | 8   | User Outcomes     | Asserts on CSS classes, snapshot of large tree, internal variable, or mock call args for own code |
 | 9   | Determinism       | Unmocked `Date`, `Math.random`, `setTimeout`, or `setInterval` in test path                       |
 | 10  | Total Cleanup     | Missing `afterEach`, or cleanup does not reset mocks/timers/storage/MSW                           |
+
+<!-- role: workflow -->
 
 ## Step 0: Run AST analysis tools and interpreters
 
@@ -80,6 +84,8 @@ npx tsx scripts/AST/ast-interpret-test-quality.ts $ARGUMENTS --pretty
 You still need to read files for P7 (refactor sync -- comparing mock shapes
 against current production signatures) and P1 (nuanced public API violations).
 
+<!-- role: guidance -->
+
 ## Report Policy
 
 ### AST-confirmed tagging
@@ -123,6 +129,8 @@ Use assessments to populate the per-file scorecard:
 - P8: Count `ASSERTION_IMPLEMENTATION` and `ASSERTION_SNAPSHOT` assessments
 - P10: Use `CLEANUP_INCOMPLETE` assessments
 
+<!-- role: workflow -->
+
 ## Step 1: Inventory all test files
 
 Glob for all `.spec.ts`, `.spec.tsx`, `.test.ts`, `.test.tsx` files in the
@@ -134,6 +142,8 @@ target path. For each file, record:
 - Test runner (Vitest, Playwright, or other -- detect from imports)
 - Number of `describe` blocks, `test`/`it` blocks
 
+<!-- role: detect -->
+
 ## Step 2: Check for orphaned tests
 
 For each test file, verify the production file it imports still exists:
@@ -144,7 +154,9 @@ For each test file, verify the production file it imports still exists:
 - Check whether any `vi.mock()` target module still exists. A mock of a
   deleted module is a stale mock even if the test file itself still compiles.
 
-## Step 3: Audit Principle 1 — Public API Only
+<!-- role: detect -->
+
+## Step 3: Audit Principle 1 -- Public API Only
 
 For each test, check whether it asserts on internal implementation details:
 
@@ -168,6 +180,8 @@ Classify each violation:
 | P1_EFFECT_ORDER   | Asserts on effect execution sequence                | Assert on final rendered state    |
 | P1_RENDER_COUNT   | Tracks re-render count                              | Remove unless profiling test      |
 
+<!-- role: detect -->
+
 ## Step 4: Audit Principle 2 -- Boundary Mocking
 
 Use `MOCK_BOUNDARY_COMPLIANT`, `MOCK_INTERNAL_VIOLATION`, and `MOCK_DOMAIN_BOUNDARY`
@@ -188,7 +202,9 @@ These are mocking patterns that cross domain boundaries (e.g., container test mo
 a service hook). The preferred approach is MSW, but this is a judgment call. Include
 these in the Manual Review section, not the violation count.
 
-## Step 5: Audit Principle 3 — System Isolation
+<!-- role: detect -->
+
+## Step 5: Audit Principle 3 -- System Isolation
 
 For each `vi.mock()` that mocks a child component:
 
@@ -205,7 +221,9 @@ Also check for over-isolation:
   that mock everything should be flagged as candidates for simplification
   once the component is DDAU (all data via props).
 
-## Step 6: Audit Principle 4 — Strict Strategies
+<!-- role: detect -->
+
+## Step 6: Audit Principle 4 -- Strict Strategies
 
 Classify each test file's strategy level:
 
@@ -226,7 +244,9 @@ Flag strategy mixing:
 | P4_INTEGRATION_MOCKING_HOOKS | Integration test mocks hooks instead of using MSW                  | Use MSW or push data through props                    |
 | P4_MIXED_SIGNALS             | Same file has both pure-props renders and provider-wrapped renders | Split into separate unit and integration files        |
 
-## Step 7: Audit Principle 5 — Data Ownership
+<!-- role: detect -->
+
+## Step 7: Audit Principle 5 -- Data Ownership
 
 For each test file, check data sourcing:
 
@@ -252,6 +272,8 @@ Classify:
 | P5_CROSS_FILE_DATA | Test file imports data from another test file          | Move to shared factory or inline   |
 | P5_STALE_MOCK_DATA | Mock data shape does not match current production type | Update mock data to match type     |
 
+<!-- role: detect -->
+
 ## Step 8: Audit Principle 6 -- Type-Safe Mocks
 
 Use `DATA_SOURCING_VIOLATION` assessments with `asAnyCount` evidence, and
@@ -270,7 +292,9 @@ Flag files with `AS_ANY_CAST` observation count >= 5 as high priority.
 This threshold is a skill-level escalation rule configured by the skill,
 not the interpreter.
 
-## Step 9: Audit Principle 7 — Refactor Sync
+<!-- role: detect -->
+
+## Step 9: Audit Principle 7 -- Refactor Sync
 
 Check for stale references:
 
@@ -292,6 +316,8 @@ Classify:
 | P7_STALE_HOOK_SHAPE | Mock return shape does not match current hook          | Update mock to match current shape |
 | P7_RENAMED_PROP     | Test passes prop name that component no longer accepts | Update prop name                   |
 | P7_DEAD_WRAPPER     | Test utility wraps in unnecessary providers            | Simplify render helper             |
+
+<!-- role: detect -->
 
 ## Step 10: Audit Principle 8 -- User Outcomes
 
@@ -315,7 +341,9 @@ matcher name and expect arg text.
 | Internal mock args | `ASSERTION_IMPLEMENTATION` | Assert on rendered result of that call     |
 | DOM structure      | `ASSERTION_IMPLEMENTATION` | Assert on visible content                  |
 
-## Step 11: Audit Principle 9 — Determinism
+<!-- role: detect -->
+
+## Step 11: Audit Principle 9 -- Determinism
 
 Scan for non-deterministic patterns:
 
@@ -340,6 +368,8 @@ Classify:
 | P9_UNMOCKED_RANDOM  | `Math.random()` without seed                                 | Mock or seed                                    |
 | P9_UNSEEDED_FAKER   | `faker.*` without `faker.seed()` or pool                     | Add seed or use fixture system                  |
 | P9_TIMER_NO_CLEANUP | `vi.useFakeTimers()` without `vi.useRealTimers()` in cleanup | Add cleanup                                     |
+
+<!-- role: cleanup -->
 
 ## Step 12: Audit Principle 10 -- Total Cleanup
 
@@ -374,6 +404,8 @@ Classify:
 | P10_TIMER_LEAK      | Fake timers set up but never restored                            | Add `vi.useRealTimers()` to `afterEach` |
 | P10_STORAGE_LEAK    | Storage written but never cleared                                | Add storage clear to `afterEach`        |
 
+<!-- role: detect -->
+
 ## Step 13: Coverage gap detection
 
 For each production file in the target directory that has NO corresponding
@@ -390,6 +422,8 @@ For each test file, check whether it covers the component's full public API:
 - Check whether each prop has at least one test that exercises it
 - List all callbacks and check whether each has a test asserting it fires
 - Flag untested props/callbacks as **COVERAGE_GAP**
+
+<!-- role: emit -->
 
 ## Step 14: Produce the audit report
 
@@ -480,6 +514,8 @@ Score = number of principles with zero violations (0-10, higher is better).
 - Files needing rewrite (3+ principles violated): <N>
 - Production files with no test coverage: <N>
 ```
+
+<!-- role: workflow -->
 
 ## Interpreter Calibration Gate
 

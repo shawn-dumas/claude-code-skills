@@ -8,6 +8,8 @@ argument-hint: <path/to/production-file.ts>
 
 Generate a test file for the production module at `$ARGUMENTS`.
 
+<!-- role: workflow -->
+
 ## Step 0: Pre-flight -- delete-or-build decision
 
 Check whether a spec file already exists for this production file. Look for
@@ -25,6 +27,8 @@ If a spec file exists, run the delete threshold check:
 | Spec is a copy-paste of another spec                          | Delete and rebuild         |
 
 If no spec exists or the old one was deleted, continue to generate fresh.
+
+<!-- role: workflow -->
 
 ## Step 0b: Run AST analysis on the production file
 
@@ -53,6 +57,8 @@ Use side-effect observations to classify the module:
   observations indicate the module is NOT pure
 - Presence of side effects changes strategy from zero-mocks to boundary-mocks
 
+<!-- role: workflow -->
+
 ## Step 1: Read the production file
 
 Read the target file completely. Record:
@@ -67,6 +73,8 @@ Read the target file completely. Record:
   - External library imports
   - Boundary imports (fs, fetch, database clients, process.env)
 
+<!-- role: workflow -->
+
 ## Step 2: Classify and select strategy
 
 | Classification       | Criteria                                                                | Strategy                                                                                    |
@@ -76,6 +84,8 @@ Read the target file completely. Record:
 | **Mixed module**     | Some pure exports, some I/O exports                                     | **Split** -- pure tests (no mocks) + I/O tests (boundary mocks) in separate describe blocks |
 | **Data transformer** | Takes data in, returns transformed data out. May be complex but is pure | **Zero mocks** -- construct input data, assert output shape                                 |
 | **API handler**      | Next.js request handler                                                 | **Boundary mocks** (fetch/DB) + mock req/res objects                                        |
+
+<!-- role: workflow -->
 
 ## Step 3: Survey surrounding conventions
 
@@ -92,6 +102,8 @@ Also check the global test setup:
   and `afterAll(() => { fetchMocker.disableMocks(); vi.useRealTimers(); })`
 - `fetchMock` is globally available (from `vitest-fetch-mock`)
 - Vitest globals are auto-imported (`describe`, `it`, `expect`, `vi`, etc.)
+
+<!-- role: workflow -->
 
 ## Step 4: Design the test plan
 
@@ -128,6 +140,8 @@ For data transformers with complex output:
 - I/O functions: test with boundary mocks in a separate `describe` block
 - Never mix mocked and unmocked tests in the same `describe`
 
+<!-- role: workflow -->
+
 ## Step 5: Check for fixture builders
 
 Before writing inline test data, check `src/fixtures/domains/` for existing
@@ -143,6 +157,8 @@ Use fixture builders when they exist. They produce complete, type-safe objects
 and keep test data in sync with production types.
 
 If no fixture exists, use inline data with explicit type annotations.
+
+<!-- role: emit -->
 
 ## Step 6: Generate the spec file
 
@@ -342,6 +358,8 @@ describe('buildSystemsOverviewFast', () => {
   - `process.env` mutations -> save and restore in `afterEach`
 - Do NOT add redundant `vi.clearAllMocks()`
 
+<!-- role: workflow -->
+
 ## Step 7: Verify
 
 1. Run `npx tsc --noEmit -p tsconfig.check.json` -- fix any type errors in the new spec file.
@@ -362,6 +380,8 @@ describe('buildSystemsOverviewFast', () => {
 
 Report: file path, test count, pass/fail, and whether any principle violations
 remain.
+
+<!-- role: avoid -->
 
 ## What NOT to do
 

@@ -21,6 +21,8 @@ options if it has a new data type, and the tab-to-domain mapping table.
 
 ---
 
+<!-- role: reference -->
+
 ## Source-of-Truth Map
 
 Every piece of embedded data has an authoritative source file. Read
@@ -93,6 +95,8 @@ these files to determine the current state of the codebase.
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 1: Read All Sources
 
 Read every source file listed above. Use parallel reads where possible
@@ -104,6 +108,8 @@ snapshot entirely from source files first, so you are not biased by
 stale content.
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 2: Build the Current-State Snapshot
 
@@ -164,6 +170,8 @@ List all `.fixture.ts` files and confirm the scenario fields.
 Extract from `docs/adding-dashboard-pages.md`.
 
 ---
+
+<!-- role: emit -->
 
 ## Step 3: Build the Question Option Lists
 
@@ -230,6 +238,8 @@ types). Always end with:
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 4: Read the Current SKILL.md
 
 Now read `.claude/skills/orchestrate-poc/SKILL.md` in full. Identify
@@ -254,6 +264,8 @@ markdown headers and surrounding context):
 | Branded Types         | `### Branded Types`                                 | Inline list                       |
 
 ---
+
+<!-- role: emit -->
 
 ## Step 5: Diff and Report
 
@@ -288,6 +300,8 @@ Output this report to the user. If no changes are detected, report
 "orchestrate-poc is up to date with the codebase" and stop.
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 6: Apply Updates
 
@@ -334,6 +348,8 @@ Update in this order to avoid offset drift from earlier edits:
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 7: Verify
 
 After all edits:
@@ -371,6 +387,8 @@ Cross-check: all N consistency checks passed.
 ```
 
 ---
+
+<!-- role: reference -->
 
 ## When to Run This Skill
 

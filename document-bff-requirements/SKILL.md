@@ -6,11 +6,15 @@ allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Task
 argument-hint: [branch-name] (defaults to current branch)
 ---
 
+<!-- role: guidance -->
+
 # document-bff-requirements
 
 Generate BFF requirements documentation for a PoC feature branch. Uses
 `ast-bff-gaps` to mechanically extract endpoint gap data and produces a
 structured markdown section for `docs/upcoming-poc-features-needing-bff-work.md`.
+
+<!-- role: guidance -->
 
 ## When to use
 
@@ -18,10 +22,14 @@ structured markdown section for `docs/upcoming-poc-features-needing-bff-work.md`
 - When a PM needs to know what BFF work is required for a feature
 - When updating the BFF requirements doc after a branch changes
 
+<!-- role: guidance -->
+
 ## When NOT to use
 
 - If no mock routes or BFF stubs exist (nothing to document)
 - For documenting implemented BFF endpoints (this tool finds gaps, not docs)
+
+<!-- role: reference -->
 
 ## Inputs
 
@@ -36,6 +44,8 @@ The user provides:
 
 If analyzing a worktree, set `AST_PROJECT_ROOT` to the worktree path
 before running the tool.
+
+<!-- role: workflow -->
 
 ## Step 1: Run ast-bff-gaps with hook cross-referencing
 
@@ -62,12 +72,16 @@ npx tsx scripts/AST/ast-bff-gaps.ts <api-directory> \
   --hook-dir <hook-directory> --count --no-cache
 ```
 
+<!-- role: workflow -->
+
 ## Step 2: Verify schema coverage
 
 Check that every `BFF_STUB_ROUTE` observation has a `responseSchema`
 evidence field. If any are missing, the corresponding query hook either
 does not exist yet or does not pass a schema to `fetchApi`. Flag these
 for manual review.
+
+<!-- role: workflow -->
 
 ## Step 3: Read schemas from tool output
 
@@ -80,6 +94,8 @@ Step 1 output.
 If `--hook-dir` was not provided, re-run Step 1 with `--hook-dir` to
 get schema data.
 
+<!-- role: workflow -->
+
 ## Step 4: Find TODO(blocked) comments
 
 Search the codebase for TODO(blocked) comments related to the feature:
@@ -90,6 +106,8 @@ rg 'TODO\(blocked\)' src/ --type ts --type tsx
 
 This is a non-structural text search for comment patterns. `rg` is the
 correct tool here (tier 3 -- no AST tool covers comment text matching).
+
+<!-- role: workflow -->
 
 ## Step 5: Group endpoints
 
@@ -103,8 +121,10 @@ endpoint groups. The grouping algorithm:
 3. Within each group, list endpoints in a markdown table with columns:
    - Endpoint (the API path)
    - Stub file (relative path)
-    - Response schema (from `responseSchema` evidence on BFF_STUB_ROUTE)
+   - Response schema (from `responseSchema` evidence on BFF_STUB_ROUTE)
    - ClickHouse query needed (placeholder: `[FILL IN]`)
+
+<!-- role: detect -->
 
 ## Step 6: Identify BFF collapse opportunities
 
@@ -119,6 +139,8 @@ For each endpoint group with 2+ endpoints:
 This is a heuristic. The tool can detect when multiple query hooks in
 the same container reference endpoints under the same path prefix.
 Whether they should actually be merged requires domain knowledge.
+
+<!-- role: emit -->
 
 ## Step 7: Generate the document section
 
@@ -139,10 +161,13 @@ Read the template from `TEMPLATE.md` and fill in the placeholders:
 - `{{TODO_BLOCKED_FILES}}` -- files with TODO(blocked) from Step 4
 
 Sections that require domain knowledge are marked with `[FILL IN]`:
+
 - "What exists today" (description of the feature's UI)
 - "ClickHouse query needed" column in endpoint tables
 - "Frontend changes needed when BFF is implemented"
 - "ClickHouse table/view requirements"
+
+<!-- role: workflow -->
 
 ## Step 8: Append to the doc
 
@@ -151,6 +176,8 @@ Append the generated section with a `---` separator before it.
 
 If a section for this branch already exists, ask the user whether to
 replace it or append a new one.
+
+<!-- role: workflow -->
 
 ## Step 9: Verify
 
@@ -161,9 +188,12 @@ replace it or append a new one.
    - TODO(blocked) files are listed
 2. Compare against the ast-bff-gaps output to confirm nothing was missed.
 
+<!-- role: emit -->
+
 ## Output
 
 The skill produces:
+
 - A new section in `docs/upcoming-poc-features-needing-bff-work.md`
 - Console summary: endpoint count, schema count, mock route count,
   collapse opportunities flagged

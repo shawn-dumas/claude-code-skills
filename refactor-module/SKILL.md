@@ -8,11 +8,15 @@ argument-hint: <path/to/module.ts>
 
 Refactor the TypeScript module at `$ARGUMENTS`.
 
+<!-- role: guidance -->
+
 ## Prerequisite
 
 If you have not run `audit-module` on this file yet, consider doing so first. The audit
 produces a scored report and prioritized fix list that prevents duplicate work. If no
 audit exists, this skill runs the audit internally in Step 2.
+
+<!-- role: workflow -->
 
 ## Step 0: Run AST analysis tools
 
@@ -51,6 +55,8 @@ Use side effect observations for G6 (impure code mixed with transformation):
 - `POSTHOG_CALL` -- analytics in transformation logic
 - `WINDOW_MUTATION` -- DOM/browser state mutation
 
+<!-- role: workflow -->
+
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read every file it imports -- other local modules, types,
@@ -60,11 +66,15 @@ observations from Step 0, or `sg -p 'exportedName' src/` for call-site matching)
 This map determines what changes are safe. If a function signature changes, every
 consumer must be updated.
 
+<!-- role: detect -->
+
 ## Step 2: Audit (internal)
 
 Run the same G1-G10 audit as `audit-module`. Produce the scorecard and violation list.
 If an `audit-module` report was already produced, use that instead of re-auditing. Output
 the audit report before proceeding to the rewrite.
+
+<!-- role: guidance -->
 
 ## Step 3: Classify and plan
 
@@ -129,6 +139,8 @@ becomes a private helper that the variants compose.
 Plan error surfacing: replace empty catches with rethrows or typed error returns.
 Replace fallback defaults at trust boundaries with explicit error handling.
 
+<!-- role: emit -->
+
 ## Step 4: Rewrite
 
 Apply all fixes. Follow these rules:
@@ -189,6 +201,8 @@ Apply all fixes. Follow these rules:
   do not consolidate unless the pattern meets the G3 threshold (3+ occurrences, stable
   shape, simpler call sites).
 
+<!-- role: reference -->
+
 ## Type touchpoints
 
 When you encounter inline types during the refactor:
@@ -201,6 +215,8 @@ When you encounter inline types during the refactor:
 4. When you find inline types used cross-module (imported by files in other
    directories), move them to the appropriate domain module in
    `src/shared/types/` and update all import sites.
+
+<!-- role: workflow -->
 
 ## Step 5: Verify
 
@@ -255,6 +271,8 @@ investigated and resolved.
 5. If the intention matcher flags a signal as ACCIDENTALLY_DROPPED and
    investigation confirms it was actually intentional, run
    `/create-feedback-fixture --tool intent --file <before-file> --files <after-files> --expected INTENTIONALLY_REMOVED --actual ACCIDENTALLY_DROPPED`.
+
+<!-- role: emit -->
 
 ## Step 6: Summary
 

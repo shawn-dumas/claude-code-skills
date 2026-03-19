@@ -8,12 +8,16 @@ argument-hint: <path/to/SomeProvider.tsx>
 
 Refactor the React context provider at `$ARGUMENTS`.
 
+<!-- role: guidance -->
+
 ## Prerequisite
 
 If you have not run `audit-react-feature` for this provider's feature domain yet,
 consider doing so first. The audit produces a dependency graph and migration checklist
 that prevents duplicate work and surfaces cross-file issues this skill cannot see in
 isolation.
+
+<!-- role: workflow -->
 
 ## Step 0: Run AST analysis tools
 
@@ -54,6 +58,8 @@ Use data layer observations (`QUERY_HOOK_DEFINITION`,
 (useQuery/useMutation hooks embedded in the provider that must be
 extracted).
 
+<!-- role: workflow -->
+
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read:
@@ -65,6 +71,8 @@ Read the target file. Then read:
 
 Count the fields in the context interface. List every consumer and which fields it
 actually uses.
+
+<!-- role: detect -->
 
 ## Step 2: Audit against each principle
 
@@ -174,6 +182,8 @@ Does the provider import query keys from other domains for cache invalidation?
 - Check for circular imports between providers (Provider A imports Provider B's keys
   and vice versa).
 
+<!-- role: emit -->
+
 ## Step 3: Report
 
 Output a clear report:
@@ -207,6 +217,8 @@ Output a clear report:
 ### No issues
 - [List principles with no violations]
 ```
+
+<!-- role: emit -->
 
 ## Step 4: Rewrite
 
@@ -283,6 +295,8 @@ Apply all fixes. Follow these rules:
 - Do not change behavior. Consumers should get the same data and capabilities, just
   without the provider owning data-fetching or cross-domain concerns.
 
+<!-- role: reference -->
+
 ## Type touchpoints
 
 When you encounter inline types during the refactor, check whether they belong in
@@ -296,6 +310,8 @@ When you encounter inline types during the refactor, check whether they belong i
 4. When you find inline types used cross-domain (imported by files in other
    feature areas), move them to the appropriate domain module in
    `src/shared/types/` and update all import sites.
+
+<!-- role: workflow -->
 
 ## Step 5: Verify
 
@@ -350,6 +366,8 @@ investigated and resolved.
 5. If a signal is flagged `ACCIDENTALLY_DROPPED` but investigation
    confirms it was intentional, run
    `/create-feedback-fixture --tool intent --file <before-file> --files <after-files> --expected INTENTIONALLY_REMOVED --actual ACCIDENTALLY_DROPPED`.
+
+<!-- role: emit -->
 
 ## Step 6: Summary
 

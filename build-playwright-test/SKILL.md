@@ -13,6 +13,8 @@ page file path (e.g., `src/pages/insights/user-productivity.tsx`). Everything
 after the first whitespace is an optional description of what interactions
 to test.
 
+<!-- role: workflow -->
+
 ## Step 0: Run AST analysis on the page and container
 
 After identifying the page and container files (see Step 1), run:
@@ -42,6 +44,8 @@ Use ast-interpret-ownership to verify the container classification:
 - Hook assessments (`LIKELY_SERVICE_HOOK`, `LIKELY_CONTEXT_HOOK`) identify
   which hooks drive the page's data flow
 
+<!-- role: workflow -->
+
 ## Step 1: Map the route to its page and container
 
 If given a route path, find the corresponding:
@@ -59,6 +63,8 @@ Read the container to understand:
 - What test IDs exist (`data-testid` attributes)
 - What loading/error/empty states exist
 
+<!-- role: workflow -->
+
 ## Step 2: Survey existing integration test conventions
 
 Read 1-2 existing integration specs to match conventions:
@@ -73,6 +79,8 @@ Also read:
 - `integration/constants.ts` -- shared constants
 
 Match the existing import style, test structure, and helper patterns.
+
+<!-- role: workflow -->
 
 ## Step 3: Design the test plan
 
@@ -102,6 +110,8 @@ List the primary user interactions for this page:
 
 New tests should prefer mock-data unless explicitly testing auth flows.
 
+<!-- role: emit -->
+
 ## Step 4: Generate fixture data for route handlers
 
 For each API endpoint the page calls, prepare fixture data:
@@ -116,6 +126,8 @@ const mockProductivity = productivityFixtures.buildMany(10);
 If no fixture builder exists for a needed type, create inline typed data.
 Do NOT import from `integration/utils/mockDataUtils.ts` -- that file uses hardcoded
 objects with magic UIDs. New tests use the centralized fixture system.
+
+<!-- role: emit -->
 
 ## Step 5: Generate the spec file
 
@@ -231,6 +243,8 @@ for (const { name, data, expected } of cases) {
   });
 }
 ```
+
+<!-- role: reference -->
 
 ## Patterns from Production
 
@@ -355,6 +369,8 @@ The database at `~/.local/share/opencode/opencode.db` (or
 `~/.local/share/Claude/Claude.db` for Claude Code) contains the full
 history of every command run in every session.
 
+<!-- role: workflow -->
+
 ## Step 6: Verify
 
 1. Run `npx tsc --noEmit -p tsconfig.check.json` on the new spec (it imports from `@/fixtures`
@@ -397,6 +413,8 @@ history of every command run in every session.
    test files. Report the environment issue and what is needed to run.
 6. Report: file path, test count, verification result (pass/fail with
    counts, not "not run").
+
+<!-- role: avoid -->
 
 ## What NOT to do
 

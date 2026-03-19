@@ -12,6 +12,8 @@ The first token is the page path relative to `src/pages/` (e.g.,
 `insights/workload-analysis`). Everything after the first whitespace is the
 description of what the page does.
 
+<!-- role: workflow -->
+
 ## Step 1: Parse the argument
 
 Extract the page file path (relative to `src/pages/`). Derive:
@@ -20,6 +22,8 @@ Extract the page file path (relative to `src/pages/`). Derive:
   `WorkloadAnalysis`)
 - **ContainerName**: `PageNameContainer` (e.g., `WorkloadAnalysisContainer`)
 - **Feature area**: the first path segment (e.g., `insights`)
+
+<!-- role: workflow -->
 
 ## Step 2: Survey the codebase
 
@@ -33,6 +37,8 @@ Extract the page file path (relative to `src/pages/`). Derive:
   area. If not, it will be created.
 - Read the `page_blocks/` structure for this feature area to understand how
   page-level components are organized
+
+<!-- role: guidance -->
 
 ## Step 3: Design the container
 
@@ -88,6 +94,8 @@ const [params, setParams] = useQueryStates({
 nuqs batches URL updates through a shared throttle queue. Two separate
 hooks updating in the same render cycle read stale `location.search`,
 causing one update to clobber the other's pending params.
+
+<!-- role: emit -->
 
 ## Step 4: Generate the files
 
@@ -244,6 +252,8 @@ its hook-calling and prop-wiring, but it is acceptable to render a simple placeh
 `<div>` where a child component will eventually go, with a comment noting what
 should replace it.
 
+<!-- role: reference -->
+
 ## Type touchpoints
 
 Before defining any new type or interface inline, check first:
@@ -271,6 +281,8 @@ corresponding branded type (`UserId`, `TeamId`, `WorkstreamId`,
 This check catches the most common branded type omission: ID fields
 typed as bare `string` in props interfaces, function parameters, and
 type definitions.
+
+<!-- role: workflow -->
 
 ## Step 5: Verify
 

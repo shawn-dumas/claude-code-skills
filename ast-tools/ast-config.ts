@@ -250,6 +250,8 @@ interface AstConfig {
     readonly requiredSections: Readonly<
       Record<string, readonly { readonly pattern: string; readonly label: string }[]>
     >;
+    /** Category-specific required section roles. Key is the category, value is role names. */
+    readonly requiredRoles: Readonly<Record<string, readonly string[]>>;
     /** Deprecated command patterns (regex strings). Commands matching these are flagged. */
     readonly deprecatedCommandPatterns: readonly { readonly pattern: string; readonly replacement: string }[];
   };
@@ -975,6 +977,12 @@ export const astConfig: AstConfig = Object.freeze({
         },
       ],
     } as Record<string, readonly { readonly pattern: string; readonly label: string }[]>),
+    requiredRoles: Object.freeze({
+      build: ['emit', 'workflow'],
+      refactor: ['detect', 'emit', 'workflow'],
+      audit: ['detect', 'workflow'],
+      orchestrate: ['emit', 'workflow'],
+    } as Record<string, readonly string[]>),
     deprecatedCommandPatterns: [
       { pattern: 'pnpm\\s+tsc\\s+--noEmit(?!\\s+-p)', replacement: 'pnpm tsc --noEmit -p tsconfig.check.json' },
       { pattern: 'pnpm\\s+build-types', replacement: 'pnpm tsc --noEmit -p tsconfig.check.json' },
@@ -1014,6 +1022,38 @@ export const astConfig: AstConfig = Object.freeze({
         superseded: ['(?:await\\s+)?fetch\\([\'"]\\/?api\\/'],
         message:
           'API calls use fetchApi() with a required Zod schema field, not bare fetch(). fetchApi handles auth headers, base URL, and runtime response validation.',
+      },
+      {
+        id: 'typed-storage',
+        scope: 'localStorage|sessionStorage|typedStorage|readStorage|writeStorage|removeStorage',
+        current: ['typedStorage', 'readStorage', 'writeStorage', 'removeStorage'],
+        superseded: ['localStorage\\.(?:get|set|remove)Item', 'sessionStorage\\.(?:get|set|remove)Item'],
+        message:
+          'Storage access uses readStorage/writeStorage/removeStorage from @/shared/utils/typedStorage with Zod schema validation, not direct localStorage/sessionStorage API calls.',
+      },
+      {
+        id: 'env-validated',
+        scope: 'process\\.env\\.(?!NEXT_PUBLIC_|NODE_ENV)[A-Z_]+|clientEnv|serverEnv',
+        current: ['clientEnv', 'serverEnv'],
+        superseded: ['process\\.env\\.(?!NEXT_PUBLIC_|NODE_ENV)[A-Z_][A-Z_0-9]*'],
+        message:
+          'Environment variables are accessed through Zod-validated env modules (clientEnv, serverEnv), not raw process.env reads. The no-process-env ESLint rule enforces this.',
+      },
+      {
+        id: 'branded-types',
+        scope: 'as\\s+(?:User|Team|Workstream|Organization)Id|UserId\\(|TeamId\\(|WorkstreamId\\(|OrganizationId\\(',
+        current: ['UserId(', 'TeamId(', 'WorkstreamId(', 'OrganizationId('],
+        superseded: ['as\\s+(?:User|Team|Workstream|Organization)Id'],
+        message:
+          'Branded types use constructor functions (UserId(), TeamId(), etc.) or Zod .transform(BrandCtor), not type assertions (as UserId). See docs/type-schema-unification.md.',
+      },
+      {
+        id: 'fixture-builders',
+        scope: 'createMock\\w+|build\\(|buildMany\\(|@\\/fixtures|buildStandardScenario',
+        current: ['build(', 'buildMany(', '@/fixtures', 'buildStandardScenario'],
+        superseded: ['createMock\\w+'],
+        message:
+          'Test data uses the centralized fixture system (build/buildMany from src/fixtures/) with faker-backed builders and identity pool, not ad-hoc createMock* helpers.',
       },
     ] as const,
   }),
@@ -1112,7 +1152,11 @@ function mergeConfig(base: AstConfig, overrides: Record<string, unknown>): AstCo
     result[sectionKey] = Object.freeze(merged);
   }
 
-  return Object.freeze(result) as AstConfig;
+  // The result structurally matches AstConfig (built by iterating all keys of
+  // a valid AstConfig base), but Object.freeze erases the specific type to
+  // Readonly<Record<string, unknown>>. The double assertion is the standard
+  // TypeScript escape hatch for this pattern.
+  return Object.freeze(result) as unknown as AstConfig;
 }
 
 let resolvedConfig: AstConfig | null = null;

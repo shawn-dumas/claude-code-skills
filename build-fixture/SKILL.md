@@ -12,6 +12,8 @@ The first token is the domain name (e.g., `notifications` or `workflows`). It ma
 to the type module at `src/shared/types/<domain>/index.ts`. Everything after the first
 whitespace is an optional description of which types to cover.
 
+<!-- role: workflow -->
+
 ## Step 1: Read the domain types
 
 Read `src/shared/types/<domain>/index.ts` (and `<domain>/schemas.ts` if it exists).
@@ -36,6 +38,8 @@ If the Zod schema uses `.optional()`, the builder must NOT produce
 If the type file does not exist, stop and report: "No type module found at
 `src/shared/types/<domain>/index.ts`. Create the types first."
 
+<!-- role: workflow -->
+
 ## Step 2: Survey existing fixtures
 
 Read 2-3 existing fixture files in `src/fixtures/domains/` to match conventions:
@@ -45,6 +49,8 @@ Read 2-3 existing fixture files in `src/fixtures/domains/` to match conventions:
 - `spans.fixture.ts` (heavy use of brand generators and pool pickers)
 
 Match the import style, function signatures, and spread-merge pattern exactly.
+
+<!-- role: guidance -->
 
 ## Step 3: Design the builders
 
@@ -63,6 +69,8 @@ Skip types that are:
 - Pure input/request types (the test provides these directly)
 - Union type aliases with no structure (e.g., `type DatasetKey = 'process' | 'systems'`)
 - Types already covered by an existing fixture in another domain
+
+<!-- role: emit -->
 
 ## Step 4: Generate the fixture file
 
@@ -158,6 +166,8 @@ parser, not the output shape.
 Example: `UserStats` (API shape) vs `MappedUserStats` (UI shape).
 The fixture must use `UserStats`.
 
+<!-- role: workflow -->
+
 ## Step 5: Update the barrel export
 
 Add the new fixture to `src/fixtures/index.ts`:
@@ -168,6 +178,8 @@ export * as <domain>Fixtures from './domains/<domain>.fixture';
 
 Use camelCase for the namespace (e.g., `urlClassificationFixtures`,
 `operationalHoursFixtures`).
+
+<!-- role: workflow -->
 
 ## Step 6: Optionally integrate with scenarios
 
@@ -183,6 +195,8 @@ Only do this if the user requests it or the domain is a core part of the
 application's data model. Most domain fixtures are consumed directly by
 individual tests without needing scenario integration.
 
+<!-- role: workflow -->
+
 ## Step 7: Verify
 
 1. Run `npx tsc --noEmit -p tsconfig.check.json` — fix any type errors in the new file.
@@ -197,6 +211,8 @@ individual tests without needing scenario integration.
    value imports from the same module) and `no-unused-vars` (remove unused
    imports, or prefix intentionally unused params with `_`).
 5. Report the file path and whether verification passed.
+
+<!-- role: avoid -->
 
 ## What NOT to do
 

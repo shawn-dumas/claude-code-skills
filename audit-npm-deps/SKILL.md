@@ -10,6 +10,8 @@ Audit the npm dependencies of the project at `$ARGUMENTS` (default: current work
 directory). This is a read-only diagnostic -- do not modify any files. Produce a
 complete dependency update plan.
 
+<!-- role: workflow -->
+
 ## Step 0: Run AST import analysis
 
 Run the import graph analyzer on the full source tree. This emits
@@ -36,6 +38,8 @@ are type-only dependencies (may be misplaced to devDependencies).
 
 No interpreter is needed for npm dep auditing -- observation-only consumption.
 
+<!-- role: workflow -->
+
 ## Step 1: Read package.json
 
 Read `package.json` and record:
@@ -44,6 +48,8 @@ Read `package.json` and record:
 - Every direct dev dependency (name + version constraint)
 - The package manager (check for `pnpm-lock.yaml`, `yarn.lock`, or `package-lock.json`)
 - The Node engine constraint (if any)
+
+<!-- role: workflow -->
 
 ## Step 2: Check outdated versions
 
@@ -58,6 +64,8 @@ npm outdated --json 2>/dev/null || true
 
 For each outdated package, record: current version, wanted (semver-compatible),
 latest, and whether the gap is a patch, minor, or major.
+
+<!-- role: workflow -->
 
 ## Step 3: Check security vulnerabilities
 
@@ -76,6 +84,8 @@ package is in production or dev dependencies.
 
 Separate production-facing vulnerabilities from dev-only vulnerabilities. Dev-only
 vulnerabilities (storybook, eslint, vitest chains) are lower priority.
+
+<!-- role: detect -->
 
 ## Step 4: Detect dead dependencies
 
@@ -99,6 +109,8 @@ evidence. Type-only dependencies may be candidates for:
 Note what types are imported from type-only packages -- they may need to be
 inlined before the package can be removed.
 
+<!-- role: detect -->
+
 ## Step 5: Detect misplaced dependencies
 
 Check whether any production dependency is only imported from test or integration files
@@ -107,6 +119,8 @@ devDependencies.
 
 Conversely, check whether any devDependency is imported from production source files
 (files NOT matching test/integration patterns). These should be production dependencies.
+
+<!-- role: detect -->
 
 ## Step 6: Check React peerDependency compatibility
 
@@ -135,6 +149,8 @@ Classify each library:
 - **UPGRADE-NEEDED**: A newer version of the package supports the next React major
 - **BLOCKER**: No version of the package supports the next React major
 - **REPLACEMENT-NEEDED**: Package is abandoned/unmaintained and should be replaced
+
+<!-- role: emit -->
 
 ## Step 7: Produce the tiered update plan
 
@@ -182,6 +198,8 @@ increasingly complex upgrades.
 
 After completing all recommended updates, what vulnerabilities remain and why
 (e.g., transitive deps with no fix available, dev-only chains).
+
+<!-- role: emit -->
 
 ## Output format
 

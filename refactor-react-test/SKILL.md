@@ -9,6 +9,8 @@ argument-hint: <path/to/spec-file.spec.tsx>
 Refactor the test file at `$ARGUMENTS` to comply with the contract-first
 testing philosophy. Read the spec, score it, fix or replace it.
 
+<!-- role: workflow -->
+
 ## Step 0: Run AST analysis tools
 
 ```bash
@@ -45,6 +47,8 @@ it manually. The interpreter classifies observations into assessments:
 
 - `DELETE_CANDIDATE` assessment triggers delete-and-rebuild
 
+<!-- role: workflow -->
+
 ## Step 1: Read the spec and its production file
 
 Read the spec file completely. Identify:
@@ -60,6 +64,8 @@ Then read the production file completely. Record:
 - Current exports, Props interface, hook signatures, function signatures
 - Whether the file is DDAU (props only), container, hook, or utility
 - What it imports (to understand boundaries)
+
+<!-- role: detect -->
 
 ## Step 2: Score against the 10 principles
 
@@ -79,6 +85,8 @@ Quickly score the spec against each principle (OK or VIOLATION with count):
 | 10  | Total Cleanup     | OK / N violations |
 
 Total score = number of principles with zero violations (0-10).
+
+<!-- role: detect -->
 
 ## Step 3: Apply the delete threshold
 
@@ -119,6 +127,8 @@ If the score is 5-6/10, apply the gray-zone tiebreaker:
 - Does the test have non-trivial interaction/flow assertions? -> Fix
 - Is > 60% of the file mock setup (count `MOCK_DECLARATION` observations)? -> Delete and rebuild
 - Is it a thin render-and-assert? -> Delete and rebuild
+
+<!-- role: emit -->
 
 ## Step 4: Fix violations (targeted, in-place)
 
@@ -199,6 +209,8 @@ Do NOT add redundant `vi.clearAllMocks()` or `cleanup()`.
 - Replace mock-call-arg assertions (for own code) with `getByText` / `getByRole`
 - Replace large snapshots with targeted assertions
 
+<!-- role: emit -->
+
 ## Step 5: Restructure if needed
 
 After applying fixes, check if the file structure is sound:
@@ -210,6 +222,8 @@ After applying fixes, check if the file structure is sound:
   `describe('when loading')`, not `describe('isLoading prop')`.
 - **One test per behavior**: Each `it` block should test one user-visible
   behavior, not one implementation detail.
+
+<!-- role: workflow -->
 
 ## Step 6: Verify
 
@@ -262,6 +276,8 @@ Check the output:
 Report: original score, new score, changes made, tests passing, intention
 matcher results (matched/unmatched/novel counts), parity results
 (matched/reduced/not-ported counts).
+
+<!-- role: guidance -->
 
 ## Interpreter Calibration Gate
 

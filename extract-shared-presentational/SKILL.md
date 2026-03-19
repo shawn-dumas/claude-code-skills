@@ -13,6 +13,8 @@ The first token is the component name (e.g., `ProgressBar`). The quoted string i
 a description of the pattern. The remaining tokens are file paths where the pattern
 appears (at least 2). If no files are listed, search the codebase for the pattern.
 
+<!-- role: workflow -->
+
 ## Step 0: Run AST analysis tools
 
 ```bash
@@ -40,6 +42,8 @@ For extraction candidates, the `ast-interpret-template` interpreter
 produces `EXTRACTION_CANDIDATE` assessments when the same structural
 pattern appears in 3+ files with similar JSX observation evidence.
 
+<!-- role: workflow -->
+
 ## Step 1: Parse arguments
 
 Extract:
@@ -47,6 +51,8 @@ Extract:
 - **ComponentName** (PascalCase)
 - **Pattern description** (what the repeated JSX does)
 - **Source files** (where the pattern currently lives)
+
+<!-- role: workflow -->
 
 ## Step 2: Read all source files
 
@@ -56,6 +62,8 @@ For each source file, find every instance of the pattern. Record:
 - The line numbers
 - What varies between instances (the props the shared component needs)
 - What is constant (the shared structure)
+
+<!-- role: guidance -->
 
 ## Step 3: Design the shared component's Props
 
@@ -71,6 +79,8 @@ Keep the props interface as small as possible. If an instance needs a capability
 that only 1 of 8 call sites uses, consider whether it belongs in this component
 or is a separate concern.
 
+<!-- role: guidance -->
+
 ## Step 4: Choose the location
 
 The shared component goes in `src/ui/components/8flow/` if it is a general UI
@@ -79,6 +89,8 @@ feature's `components/` directory if it is specific to one feature area.
 
 Check for existing similar components before creating a new one. Grep for names
 like the pattern description to avoid duplication.
+
+<!-- role: emit -->
 
 ## Step 5: Generate the component
 
@@ -110,6 +122,8 @@ Re-export types if applicable.
 - Visual variations (e.g., different percentages, loading states)
 - `// TODO:` for behavior-specific assertions
 
+<!-- role: workflow -->
+
 ## Step 6: Replace all call sites
 
 For each source file, replace the inline pattern with the new component:
@@ -123,6 +137,8 @@ For each source file, replace the inline pattern with the new component:
 **Verify each replacement renders identically.** The shared component is a
 refactor, not a redesign.
 
+<!-- role: reference -->
+
 ## Type touchpoints
 
 The extracted component's props should reference shared types, not redefine them:
@@ -135,6 +151,8 @@ The extracted component's props should reference shared types, not redefine them
 4. If the extracted component introduces a new type that multiple consumers will
    share, add it to the appropriate domain module in `src/shared/types/`, not
    inline in the component file.
+
+<!-- role: workflow -->
 
 ## Step 7: Verify
 

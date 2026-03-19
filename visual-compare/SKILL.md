@@ -14,6 +14,8 @@ remote browser (`mcp_dashboard-remote_*` tools) so Firebase auth tokens do not c
 
 ---
 
+<!-- role: workflow -->
+
 ## Phase 0: Setup
 
 ### Validate argument
@@ -61,6 +63,8 @@ Record the docs file path — you will append to it throughout the session.
 
 ---
 
+<!-- role: workflow -->
+
 ## Phase 1: Open sign-in pages
 
 Open the sign-in page in each browser simultaneously:
@@ -98,6 +102,8 @@ Options:
 ---
 
 Don't take any screenshots until after signin is completed.
+
+<!-- role: workflow -->
 
 ## Phase 2: Comparison loop
 
@@ -208,6 +214,8 @@ Return to Step 2a.
 
 ---
 
+<!-- role: emit -->
+
 ## Phase 3: Session wrap-up
 
 Append a summary section to the docs file:
@@ -242,6 +250,8 @@ Discrepancies found: <N>
 
 ---
 
+<!-- role: reference -->
+
 ## Naming conventions
 
 | Item                | Convention                               | Example                                  |
@@ -253,6 +263,8 @@ Discrepancies found: <N>
 | Sign-in screenshots | `local-signin.png` / `remote-signin.png` | (fixed names, taken at session start)    |
 
 ---
+
+<!-- role: reference -->
 
 ## Tool reference
 
@@ -271,6 +283,8 @@ the user asks you to interact with the app (e.g., click a filter, fill a form,
 expand a panel) before taking a comparison screenshot.
 
 ---
+
+<!-- role: avoid -->
 
 ## What NOT to do
 

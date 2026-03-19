@@ -11,6 +11,8 @@ directory). This is a read-only diagnostic -- do not modify any files. Produce a
 structured report that groups errors by root cause and prioritizes fixes by
 cascade impact (fix one thing, eliminate N errors).
 
+<!-- role: workflow -->
+
 ## Step 0: Run AST analysis tools and interpreters
 
 Before running tsc, run observation-producing tools and interpreters.
@@ -50,6 +52,8 @@ npx tsx scripts/AST/ast-interpret-dead-code.ts $ARGUMENTS --pretty
 - `CIRCULAR_DEPENDENCY` assessments: part of import cycle (root cause of
   "used before declared" errors)
 
+<!-- role: guidance -->
+
 ## Report Policy
 
 ### AST-confirmed tagging
@@ -83,6 +87,8 @@ These thresholds are skill-level escalation rules:
 The interpreter emits individual observations with counts in `basedOn`.
 The skill applies thresholds to those counts for presentation.
 
+<!-- role: workflow -->
+
 ## Step 1: Run tsc and capture structured output
 
 ```bash
@@ -97,6 +103,8 @@ file(line,col): error TSxxxx: message
 
 Record every error with: file path, line number, column, error code, and message.
 Count total errors.
+
+<!-- role: detect -->
 
 ## Step 2: Classify each error by root cause
 
@@ -157,6 +165,8 @@ classify into one of these categories:
 | VERSION_MISMATCH    | Types package version mismatched with library version | Align versions                             |
 | MISSING_DECLARATION | No type declarations for library                      | Install @types/ or write .d.ts             |
 
+<!-- role: detect -->
+
 ## Step 3: Identify cascading error chains
 
 Many tsc errors are symptoms of a single root cause. A missing type export
@@ -180,6 +190,8 @@ ROOT: src/shared/types/users/index.ts:15 -- User interface missing `email` prope
 
 Count how many errors each root cause produces. Sort root causes by cascade
 count (highest first). These are the highest-leverage fixes.
+
+<!-- role: detect -->
 
 ## Step 4: Cross-reference with known type patterns
 
@@ -241,10 +253,14 @@ Group `NON_NULL_ASSERTION` observations by file and count per file. Flag files
 with count >= 3. Use the observation count from ast-type-safety output rather
 than grep for accurate structured data.
 
+<!-- role: workflow -->
+
 ## Step 5: Produce the prioritized fix plan
 
 Sort fixes by **errors eliminated per fix** (cascade count). The goal is to tell
 the developer: "Fix these 10 root causes and 150 of your 244 errors disappear."
+
+<!-- role: emit -->
 
 ## Output format
 

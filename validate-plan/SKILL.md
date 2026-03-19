@@ -6,6 +6,8 @@ allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Task, TodoWrite, Question
 argument-hint: "The plan file path (e.g., '~/plans/authz-enforcement.md')"
 ---
 
+<!-- role: guidance -->
+
 # Skill: validate-plan
 
 Validate an orchestration plan before execution. `$ARGUMENTS`
@@ -64,6 +66,8 @@ if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans";
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 0: Read the plan and extract metadata
 
 Read the plan file at `$ARGUMENTS`. Extract:
@@ -76,6 +80,8 @@ Read the plan file at `$ARGUMENTS`. Extract:
 Read ALL prompt files. You need full content for every step below.
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 1: Conditional dialectic check
 
@@ -95,6 +101,8 @@ Context or Background section).
   threshold, skipped."
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 2: Adversarial plan review
 
@@ -117,6 +125,8 @@ Collect all findings with severity rankings.
 
 ---
 
+<!-- role: detect -->
+
 ## Step 3: Deep review (verify prompt data against codebase)
 
 For each prompt file, verify that concrete claims match the actual
@@ -127,12 +137,12 @@ actual import convention is different.
 **Tool hierarchy (strict).** All verification in this step MUST follow
 the tool hierarchy from AGENTS.md. Use the highest-tier tool available:
 
-| Tier | Tool | Use for |
-|------|------|---------|
-| 1 | AST tools (`scripts/AST/ast-*.ts`) | Import graph, exports, type safety, complexity |
-| 2 | `sg` (ast-grep) | Structural patterns with no AST tool |
-| 3 | `rg` (ripgrep) | Text search when structure does not matter |
-| 4 | `grep` | Fallback only |
+| Tier | Tool                               | Use for                                        |
+| ---- | ---------------------------------- | ---------------------------------------------- |
+| 1    | AST tools (`scripts/AST/ast-*.ts`) | Import graph, exports, type safety, complexity |
+| 2    | `sg` (ast-grep)                    | Structural patterns with no AST tool           |
+| 3    | `rg` (ripgrep)                     | Text search when structure does not matter     |
+| 4    | `grep`                             | Fallback only                                  |
 
 If you use tier 2-4 for a pattern that SHOULD have an AST tool, append
 an entry to `scripts/AST/GAPS.md` per the gap-flagging protocol.
@@ -189,6 +199,8 @@ configuration values, verify they match the actual definitions:
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 4: PoC gate
 
 Review the adversarial findings from Step 2. For each finding tagged
@@ -215,6 +227,8 @@ Note "no risky approaches identified, PoC gate skipped."
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 5: Address all findings
 
 Go through every finding from Steps 2-3, one by one. For each:
@@ -234,6 +248,8 @@ npx tsx scripts/AST/ast-plan-audit.ts "$PLAN_FILE" \
 ```
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 6: Prework checklist
 
@@ -285,6 +301,8 @@ previous session).
 
 ---
 
+<!-- role: emit -->
+
 ## Output summary
 
 ```
@@ -322,6 +340,7 @@ previous session).
 ```
 
 The plan is ready for execution only if:
+
 - All adversarial and deep review findings are addressed
 - All PoCs passed (or none were needed)
 - Baseline tsc and tests pass

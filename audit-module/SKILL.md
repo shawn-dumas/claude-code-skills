@@ -9,6 +9,8 @@ argument-hint: <path/to/module.ts>
 Audit the TypeScript module at `$ARGUMENTS`. This is a read-only diagnostic -- do not
 modify any files. Produce a complete violation report.
 
+<!-- role: workflow -->
+
 ## Step 0: Run AST analysis tools and interpreters
 
 ```bash
@@ -59,6 +61,8 @@ levels and rationale. Use `DEAD_EXPORT` assessments for G7 (narrow exports).
 | G2/G5 Env access        | ast-env-access                      | `PROCESS_ENV_ACCESS` observations (violations), `ENV_WRAPPER_ACCESS` (compliant)  |
 | G5/G6 Storage           | ast-storage-access                  | `DIRECT_STORAGE_CALL` observations (violations), `TYPED_STORAGE_CALL` (compliant) |
 
+<!-- role: guidance -->
+
 ## Report Policy
 
 ### AST-confirmed tagging
@@ -101,6 +105,8 @@ These thresholds are presentation decisions, not tool configuration:
 Flag files for priority when `AS_ANY_CAST` observation count >= 5. This
 threshold is a skill-level escalation rule, not an interpreter judgment.
 
+<!-- role: workflow -->
+
 ## Step 1: Read the module and build context
 
 Read the target file. Then:
@@ -110,6 +116,8 @@ Read the target file. Then:
 - Identify whether this module is re-exported through a barrel file
 
 Build a map of what this module depends on and what depends on it.
+
+<!-- role: detect -->
 
 ## Step 2: Classify the module
 
@@ -126,6 +134,8 @@ Determine what kind of module this is:
 | **Script**           | One-off or periodic Node.js script. Lives in `scripts/`.                                                                                                              |
 | **Constant**         | Static configuration values, lookup tables, test IDs. Lives in `src/shared/constants/`.                                                                               |
 | **Infrastructure**   | fetchApi, storage wrappers, analytics, auth utilities. Lives in `src/shared/lib/`.                                                                                    |
+
+<!-- role: detect -->
 
 ## Step 3: Audit against G1-G10
 
@@ -278,6 +288,8 @@ be clearer.
 FAIL if errors are silently swallowed (empty catch, catch-and-log-only at boundaries).
 WARN if fallback defaults could mask bugs (but may be intentional for resilience).
 
+<!-- role: detect -->
+
 ## Step 4: Additional checks
 
 ### Test coverage assessment
@@ -337,6 +349,8 @@ Apply the same type audit as `audit-react-feature` Step 3d:
 - `as unknown as X` double casts
 - Trust boundaries without runtime validation
 - `catch (error: any)` that should be `catch (error: unknown)`
+
+<!-- role: emit -->
 
 ## Step 5: Produce the report
 
@@ -414,6 +428,8 @@ Refactor risk: HIGH/MEDIUM/LOW (based on coverage level + complexity)
 2. [ ] <next fix>
 3. [ ] ...
 ```
+
+<!-- role: workflow -->
 
 ## Interpreter Calibration Gate
 

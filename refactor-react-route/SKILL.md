@@ -8,12 +8,16 @@ argument-hint: <path/to/pages/somePage.tsx>
 
 Refactor the React page or route file at `$ARGUMENTS`.
 
+<!-- role: guidance -->
+
 ## Prerequisite
 
 If you have not run `audit-react-feature` for this route's feature domain yet,
 consider doing so first. The audit produces a dependency graph and migration checklist
 that prevents duplicate work and surfaces cross-file issues this skill cannot see in
 isolation.
+
+<!-- role: workflow -->
 
 ## Step 0: Run AST analysis tools
 
@@ -60,6 +64,8 @@ observations (`QUERY_HOOK_DEFINITION`, `MUTATION_HOOK_DEFINITION`,
 `FETCH_API_CALL`) for Steps 2a/2b/2h (service hook locations, query key
 ownership, fetchApi endpoints across the route tree).
 
+<!-- role: workflow -->
+
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read:
@@ -72,6 +78,8 @@ Read the target file. Then read:
 
 Map the full tree: which components fetch data, which call context hooks, which call
 useRouter, which read storage, which fire toasts. This is the "before" picture.
+
+<!-- role: detect -->
 
 ## Step 2: Audit against each principle
 
@@ -210,6 +218,8 @@ Flag:
 These do not block the route refactor, but note them in the report so they are
 addressed when `refactor-react-component` runs on each child.
 
+<!-- role: emit -->
+
 ## Step 3: Report
 
 Output a clear report:
@@ -241,6 +251,8 @@ Output a clear report:
 ### No issues
 - [List principles with no violations]
 ```
+
+<!-- role: emit -->
 
 ## Step 4: Rewrite
 
@@ -278,6 +290,8 @@ Apply all fixes. Follow these rules:
 - Do not change behavior. The route should render the same UI with the same data,
   just with all orchestration in one visible place.
 
+<!-- role: reference -->
+
 ## Type touchpoints
 
 When you encounter inline types during the refactor, check whether they belong in
@@ -291,6 +305,8 @@ When you encounter inline types during the refactor, check whether they belong i
 4. When you find inline types used cross-domain (imported by files in other
    feature areas), move them to the appropriate domain module in
    `src/shared/types/` and update all import sites.
+
+<!-- role: workflow -->
 
 ## Step 5: Verify
 
@@ -356,6 +372,8 @@ npx tsx scripts/AST/ast-error-coverage.ts <refactored-container> --count
 npx tsx scripts/AST/ast-concern-matrix.ts <refactored-container> --pretty
 # Expect: score not decreased vs. pre-refactor
 ```
+
+<!-- role: emit -->
 
 ## Step 6: Summary
 

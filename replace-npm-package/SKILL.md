@@ -13,18 +13,22 @@ The second token is the new package name (e.g., `sonner`).
 Everything after the second token is optional hints about the API mapping
 (e.g., `"toast() -> toast(), <Toaster /> -> <Toaster />"`)
 
+<!-- role: workflow -->
+
 ## Step 1: Map the old package's usage
 
 1. Read `package.json` to find the old package's version and dependency type
    (production or dev).
 
 2. Grep the entire source tree for every import of the old package:
+
    - `import ... from '<old-package>'`
    - `import ... from '<old-package>/...'`
    - `require('<old-package>')`
    - `import type { ... } from '<old-package>'`
 
 3. For each file that imports the old package, read it and record:
+
    - Which named exports are imported
    - Which default export is imported (if any)
    - How each imported API is used (function calls, JSX components, type
@@ -33,6 +37,8 @@ Everything after the second token is optional hints about the API mapping
 
 4. Produce an **API surface map**: every API from the old package that is actually
    used, with file locations and usage counts.
+
+<!-- role: workflow -->
 
 ## Step 2: Map the new package's API
 
@@ -43,6 +49,7 @@ Everything after the second token is optional hints about the API mapping
    ```
 
 2. Read the new package's type definitions:
+
    ```bash
    # Check for TypeScript declarations:
    cat node_modules/<new-package>/package.json | grep -E '"types"|"typings"'
@@ -53,6 +60,7 @@ Everything after the second token is optional hints about the API mapping
 
 4. For each API from the old package (from Step 1), find the equivalent in the
    new package:
+
    - Same name, same signature -> direct replacement
    - Different name, same behavior -> rename import
    - Different signature -> note the transformation needed
@@ -60,25 +68,29 @@ Everything after the second token is optional hints about the API mapping
 
 5. Produce an **API mapping table**:
 
-   | Old API | New API | Transformation |
-   |---------|---------|---------------|
-   | `toast('msg')` | `toast('msg')` | Direct replacement |
-   | `toast.success('msg')` | `toast.success('msg')` | Direct replacement |
+   | Old API                            | New API                            | Transformation     |
+   | ---------------------------------- | ---------------------------------- | ------------------ |
+   | `toast('msg')`                     | `toast('msg')`                     | Direct replacement |
+   | `toast.success('msg')`             | `toast.success('msg')`             | Direct replacement |
    | `<Toaster position="top-right" />` | `<Toaster position="top-right" />` | Direct replacement |
-   | `toast.custom(jsx)` | `toast.custom(jsx)` | Direct replacement |
-   | `toast.dismiss(id)` | `toast.dismiss(id)` | Direct replacement |
-   | (no old equivalent) | (new-only API) | N/A |
+   | `toast.custom(jsx)`                | `toast.custom(jsx)`                | Direct replacement |
+   | `toast.dismiss(id)`                | `toast.dismiss(id)`                | Direct replacement |
+   | (no old equivalent)                | (new-only API)                     | N/A                |
+
+<!-- role: workflow -->
 
 ## Step 3: Rewrite all import sites
 
 For each file that imports the old package:
 
 1. Replace the import statement:
+
    - Change `from '<old-package>'` to `from '<new-package>'`
    - Rename any imports that differ between packages
    - Add any new imports needed for changed APIs
 
 2. Update each usage site according to the API mapping table:
+
    - Direct replacements: change the import, done
    - Signature changes: update the call site arguments/props
    - Gaps: implement the replacement logic inline or extract a wrapper
@@ -88,6 +100,8 @@ For each file that imports the old package:
 
 4. If the old package provided global CSS or setup (e.g., styles import), find
    and replace those too.
+
+<!-- role: workflow -->
 
 ## Step 4: Remove the old package, verify the new one
 
@@ -103,6 +117,8 @@ Check that the new package is correctly installed:
 ```bash
 pnpm list <new-package>
 ```
+
+<!-- role: workflow -->
 
 ## Step 5: Verify
 
@@ -121,8 +137,11 @@ pnpm build 2>&1 || true
 ```
 
 If any step fails, analyze the errors:
+
 - Are they caused by the replacement? Fix them.
 - Are they pre-existing? Note them but do not fix unrelated issues.
+
+<!-- role: emit -->
 
 ## Step 6: Summary
 

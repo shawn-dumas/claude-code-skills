@@ -23,6 +23,8 @@ if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans";
 Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
 directory (and `$PLANS_DIR/prompts/`) if it does not exist.
 
+<!-- role: workflow -->
+
 ## Step 1: Parse the migration description
 
 Extract from the argument:
@@ -32,6 +34,8 @@ Extract from the argument:
 - Any scope constraints (specific directories, specific files)
 
 If the description is vague, ask clarifying questions before proceeding.
+
+<!-- role: workflow -->
 
 ## Step 2: Inventory the current state
 
@@ -73,6 +77,8 @@ Then build a complete inventory:
    consumers). Prefer inline mapping in the mock route over changing
    the `StandardScenario` type.
 
+<!-- role: workflow -->
+
 ## Step 3: Decide whether to orchestrate
 
 If the migration touches fewer than 5 files, all mechanical, do NOT
@@ -80,6 +86,8 @@ orchestrate. Do it in a single prompt.
 
 If the migration spans 5+ files across multiple domains, or has phased
 dependencies, proceed with orchestration.
+
+<!-- role: workflow -->
 
 ## Step 4: Assess integration test scope
 
@@ -107,6 +115,8 @@ in the master plan header (e.g., `Playwright scope: dedicated prompt`).
 
 Record the scope in the master plan header. Reference it when generating
 prompt verification sections and the orchestrator verification loop.
+
+<!-- role: emit -->
 
 ## Step 5: Generate the master plan
 
@@ -202,6 +212,8 @@ Phase 7 (cleanup + deletion)
    migrations are independent and can run in any order.
 4. **Cleanup last.** Delete the old pattern, remove the old dependency,
    verify zero remaining instances.
+
+<!-- role: emit -->
 
 ## Step 5: Generate prompts
 
@@ -359,6 +371,8 @@ Work Left Undone: <none | list>
 - Each step in a prompt includes a concrete example of the old code and
   the new code for that specific file
 
+<!-- role: emit -->
+
 ## Step 6: Create the cleanup file
 
 Create `$PLANS_DIR/<migration-name>-cleanup.md`:
@@ -375,6 +389,8 @@ Files where the old pattern is intentionally kept:
 
 - (none yet)
 ```
+
+<!-- role: workflow -->
 
 ## Step 7: Pre-flight audit (MANDATORY)
 
@@ -402,6 +418,8 @@ done
 If any tool has 3+ pending fixtures, run `/calibrate-ast-interpreter
 --tool <name>` before proceeding.
 
+<!-- role: workflow -->
+
 ## Step 8: Validate the plan (MANDATORY)
 
 Launch `/validate-plan` on the plan file. This replaces the previous
@@ -422,6 +440,8 @@ proceed to Step 9 until the verdict is READY.
 If /validate-plan modifies any prompt files (fixing accepted findings),
 it re-runs pre-flight automatically to maintain structural certification.
 
+<!-- role: workflow -->
+
 ## Step 9: Present the plan to the user
 
 Show the user:
@@ -438,6 +458,8 @@ Show the user:
 - Ask: "Ready to start?"
 
 Wait for the user's go-ahead.
+
+<!-- role: workflow -->
 
 ## Step 9: Execute the orchestrator loop
 
@@ -515,6 +537,8 @@ For each prompt:
 not verified, reason>`. The cleanup prompt must resolve all such
    items before the plan is marked complete.
 
+<!-- role: workflow -->
+
 ## Step 10: Generate the cleanup prompt
 
 After all planned prompts complete:
@@ -529,6 +553,8 @@ After all planned prompts complete:
    matches the documented exemptions exactly
 7. Present to user for approval
 8. Run only after user approves
+
+<!-- role: workflow -->
 
 ## Step 11: Final verification and plan update
 
@@ -553,6 +579,8 @@ references to the old pattern, API, or library (text search -- docs are
 not code). Update any documentation that now describes the pre-migration
 state. Stale docs are a recurring source of agent confusion in subsequent
 work sessions.
+
+<!-- role: workflow -->
 
 ## Step 12: Archive the plan
 

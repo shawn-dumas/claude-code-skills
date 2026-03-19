@@ -16,6 +16,8 @@ The argument format is: `<endpoint-path> <HTTP-methods> [description]`
 - **description** (optional): What the endpoint does. Used to inform schema design
   and business logic extraction.
 
+<!-- role: workflow -->
+
 ## Step 1: Parse the argument
 
 Extract:
@@ -30,6 +32,8 @@ Extract:
 
 If the argument is ambiguous (no methods specified, unclear whether the endpoint
 is a collection or single resource), ask the user before proceeding.
+
+<!-- role: workflow -->
 
 ## Step 2: Survey the codebase
 
@@ -60,6 +64,8 @@ Read the following to understand existing patterns and the target domain:
 6. **Existing service hooks:** Grep `src/ui/services/hooks/` for hooks that will
    consume this endpoint. If a consumer already exists, the handler's response shape
    must match the client-side Zod schema.
+
+<!-- role: guidance -->
 
 ## Step 3: Design the handler architecture
 
@@ -138,6 +144,8 @@ authorization if needed.
 
 **Public endpoints (no auth):** Omit `withAuth`. The handler receives raw
 `(req, res)` instead of `(ctx, req, res)`. This is rare in the BFF.
+
+<!-- role: emit -->
 
 ## Step 4: Generate the files
 
@@ -381,6 +389,8 @@ note about which spec file to create. Do not generate the integration test direc
 - `beforeEach` resets mocks. The global `vitest.setup.ts` handles
   `afterEach(() => vi.restoreAllMocks())` (P10).
 
+<!-- role: reference -->
+
 ## Type touchpoints
 
 Before defining any new type:
@@ -395,6 +405,8 @@ Before defining any new type:
    to `src/shared/types/` with a barrel export.
 5. Handler-local types (request body shapes, query param shapes) stay in the co-located
    schema file.
+
+<!-- role: workflow -->
 
 ## Step 5: Verify
 

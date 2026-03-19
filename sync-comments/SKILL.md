@@ -18,6 +18,8 @@ bad comments.
 Do NOT create any markdown files, report files, or documentation files. Output
 the assessment directly, then apply changes to source files.
 
+<!-- role: detect -->
+
 ## Comment classification
 
 Every comment falls into exactly one of three categories: DELETE, UPDATE, or
@@ -25,50 +27,50 @@ PRESERVE. When in doubt, DELETE.
 
 ### DELETE -- remove entirely
 
-| Code | Pattern | Examples |
-|------|---------|----------|
-| D1 | Commented-out code | `// const old = getStuff();`, `/* if (flag) { ... } */` |
-| D2 | Restates the code | `// increment i` above `i++`, `// return the value` above `return val` |
-| D3 | Obvious/trivial | `// constructor`, `// default case`, `// render`, `// imports` |
-| D4 | Section separators | `// =========`, `// ----------`, `// ***********` |
-| D5 | Noise section headers | `// Functions`, `// Variables`, `// Types`, `// Exports`, `// Constants` |
-| D6 | End-of-block markers | `// end of function`, `// end of if`, `// closing brace`, `} // MyComponent` |
-| D7 | Journal/changelog entries | `// Changed by John on 2024-01-15`, `// v2: refactored to use hooks` |
-| D8 | Empty comments | `//`, `/* */`, `// ` (whitespace only) |
-| D9 | Stale TODO/FIXME/HACK | `// TODO: fix this`, `// FIXME`, `// HACK` -- UNLESS it is `TODO(production-bug)` |
-| D10 | Apologetic/uncertain | `// not sure if this is right`, `// this is a hack`, `// sorry` |
-| D11 | Redundant type narration | `// this function takes a string and returns a number` when the type signature already says that |
-| D12 | Dead references | Comments referencing variables, functions, files, or behaviors that no longer exist and cannot be updated (the thing they describe is gone) |
+| Code | Pattern                   | Examples                                                                                                                                    |
+| ---- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1   | Commented-out code        | `// const old = getStuff();`, `/* if (flag) { ... } */`                                                                                     |
+| D2   | Restates the code         | `// increment i` above `i++`, `// return the value` above `return val`                                                                      |
+| D3   | Obvious/trivial           | `// constructor`, `// default case`, `// render`, `// imports`                                                                              |
+| D4   | Section separators        | `// =========`, `// ----------`, `// ***********`                                                                                           |
+| D5   | Noise section headers     | `// Functions`, `// Variables`, `// Types`, `// Exports`, `// Constants`                                                                    |
+| D6   | End-of-block markers      | `// end of function`, `// end of if`, `// closing brace`, `} // MyComponent`                                                                |
+| D7   | Journal/changelog entries | `// Changed by John on 2024-01-15`, `// v2: refactored to use hooks`                                                                        |
+| D8   | Empty comments            | `//`, `/* */`, `// ` (whitespace only)                                                                                                      |
+| D9   | Stale TODO/FIXME/HACK     | `// TODO: fix this`, `// FIXME`, `// HACK` -- UNLESS it is `TODO(production-bug)`                                                           |
+| D10  | Apologetic/uncertain      | `// not sure if this is right`, `// this is a hack`, `// sorry`                                                                             |
+| D11  | Redundant type narration  | `// this function takes a string and returns a number` when the type signature already says that                                            |
+| D12  | Dead references           | Comments referencing variables, functions, files, or behaviors that no longer exist and cannot be updated (the thing they describe is gone) |
 
 ### UPDATE -- rewrite to match current code
 
-| Code | Pattern | Action |
-|------|---------|--------|
-| U1 | Wrong variable/function/parameter name | Replace old name with current name |
-| U2 | Wrong behavior description | Rewrite to describe actual current behavior |
-| U3 | Wrong values/thresholds/counts | Correct the numbers |
-| U4 | Stale JSDoc @param | Update parameter name, type, and description to match current signature |
-| U5 | Stale JSDoc @returns | Update return type and description to match current signature |
-| U6 | Stale JSDoc @throws | Update or remove if the function no longer throws |
-| U7 | Stale JSDoc @example | Update example code to work with current API, or remove if no longer representative |
-| U8 | Missing JSDoc @param | Add @param entries for parameters that exist in the signature but are missing from the JSDoc |
-| U9 | Wrong file/module path reference | Update to current path |
-| U10 | Partially stale | Comment is mostly right but contains one or two wrong details -- fix the details |
+| Code | Pattern                                | Action                                                                                       |
+| ---- | -------------------------------------- | -------------------------------------------------------------------------------------------- |
+| U1   | Wrong variable/function/parameter name | Replace old name with current name                                                           |
+| U2   | Wrong behavior description             | Rewrite to describe actual current behavior                                                  |
+| U3   | Wrong values/thresholds/counts         | Correct the numbers                                                                          |
+| U4   | Stale JSDoc @param                     | Update parameter name, type, and description to match current signature                      |
+| U5   | Stale JSDoc @returns                   | Update return type and description to match current signature                                |
+| U6   | Stale JSDoc @throws                    | Update or remove if the function no longer throws                                            |
+| U7   | Stale JSDoc @example                   | Update example code to work with current API, or remove if no longer representative          |
+| U8   | Missing JSDoc @param                   | Add @param entries for parameters that exist in the signature but are missing from the JSDoc |
+| U9   | Wrong file/module path reference       | Update to current path                                                                       |
+| U10  | Partially stale                        | Comment is mostly right but contains one or two wrong details -- fix the details             |
 
 ### PRESERVE -- do not touch
 
-| Code | Pattern | Why |
-|------|---------|-----|
-| K1 | `TODO(production-bug)` | Tracked production bug protocol |
-| K2 | `eslint-disable` with explanation | Intentional rule suppression with documented reason |
-| K3 | Business logic rationale | Explains *why* a non-obvious decision was made (not *what* the code does) |
-| K4 | Workaround explanation | Documents a workaround for a known bug, browser quirk, or library limitation, with context |
-| K5 | Performance justification | Explains why a less-obvious approach was chosen for performance reasons |
-| K6 | External links | Links to GitHub issues, PRs, docs, RFCs, or specs that provide context |
-| K7 | Legal/license headers | Copyright notices, license blocks |
-| K8 | Type narrowing rationale | Explains why a type assertion or narrowing is necessary and safe |
-| K9 | Non-obvious algorithm explanation | Documents a tricky algorithm, formula, or data structure choice that is not self-evident from the code |
-| K10 | Warning comments | `// WARNING:`, `// IMPORTANT:`, `// NOTE:` that flag genuinely non-obvious gotchas |
+| Code | Pattern                           | Why                                                                                                    |
+| ---- | --------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| K1   | `TODO(production-bug)`            | Tracked production bug protocol                                                                        |
+| K2   | `eslint-disable` with explanation | Intentional rule suppression with documented reason                                                    |
+| K3   | Business logic rationale          | Explains _why_ a non-obvious decision was made (not _what_ the code does)                              |
+| K4   | Workaround explanation            | Documents a workaround for a known bug, browser quirk, or library limitation, with context             |
+| K5   | Performance justification         | Explains why a less-obvious approach was chosen for performance reasons                                |
+| K6   | External links                    | Links to GitHub issues, PRs, docs, RFCs, or specs that provide context                                 |
+| K7   | Legal/license headers             | Copyright notices, license blocks                                                                      |
+| K8   | Type narrowing rationale          | Explains why a type assertion or narrowing is necessary and safe                                       |
+| K9   | Non-obvious algorithm explanation | Documents a tricky algorithm, formula, or data structure choice that is not self-evident from the code |
+| K10  | Warning comments                  | `// WARNING:`, `// IMPORTANT:`, `// NOTE:` that flag genuinely non-obvious gotchas                     |
 
 ### Gray-zone rules
 
@@ -84,9 +86,12 @@ When a comment does not clearly fit one category:
 5. **Is it a `// NOTE:` or `// IMPORTANT:` that just restates the code?** The
    prefix does not save it. DELETE.
 
+<!-- role: workflow -->
+
 ## Step 1: Inventory files in scope
 
 Glob for all `.ts`, `.tsx`, `.js`, `.jsx` files under the target path. Exclude:
+
 - `node_modules/`
 - `.next/`
 - `dist/`
@@ -98,6 +103,8 @@ Glob for all `.ts`, `.tsx`, `.js`, `.jsx` files under the target path. Exclude:
 
 Count the files. If more than 200 files are in scope, process them in batches
 of 50 to avoid context overflow. Report the total file count before proceeding.
+
+<!-- role: workflow -->
 
 ## Step 2: Assess every comment
 
@@ -125,6 +132,8 @@ action, record:
     L<line>: <code> -- <brief description of what and why>
 ```
 
+<!-- role: emit -->
+
 ## Step 3: Output the assessment
 
 Before making any changes, output the full assessment. Group by file. Include:
@@ -136,6 +145,8 @@ Before making any changes, output the full assessment. Group by file. Include:
 - Per-file action list (from Step 2)
 
 This gives visibility into what will change before it happens.
+
+<!-- role: workflow -->
 
 ## Step 4: Apply all changes
 
@@ -167,6 +178,8 @@ Rules during application:
     what the function does (the "what"), only if the function name alone is
     not sufficient
 
+<!-- role: workflow -->
+
 ## Step 5: Verify
 
 1. Run `npx tsc --noEmit -p tsconfig.check.json` -- comment changes should never break types, but
@@ -175,6 +188,8 @@ Rules during application:
    verify. Fix any errors.
 3. If either check fails, something went wrong (likely an accidental code
    edit). Investigate and fix before reporting.
+
+<!-- role: emit -->
 
 ## Step 6: Output the summary
 

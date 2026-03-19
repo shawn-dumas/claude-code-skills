@@ -9,6 +9,8 @@ argument-hint: <path/to/feature/directory>
 Audit the React feature area at `$ARGUMENTS`. This is a read-only diagnostic -- do not
 modify any files. Produce a complete migration report.
 
+<!-- role: workflow -->
+
 ## Step 0: Run AST analysis tools and interpreters
 
 Before reading files manually, run observation-producing tools AND their
@@ -99,6 +101,8 @@ Use observations for counts and inventories. Use assessments for
 classification decisions. When an assessment says `requiresManualReview:
 true`, include the item in the Manual Review section of the report.
 
+<!-- role: guidance -->
+
 ## Report Policy
 
 ### AST-confirmed tagging
@@ -150,6 +154,8 @@ that need human judgment:
 - `DERIVED_STATE` candidates with `isCandidate: true` (effect interpreter)
 - `DELETE_CANDIDATE` test files (test quality interpreter)
 
+<!-- role: workflow -->
+
 ## Step 1: Inventory all files
 
 Glob for all .ts/.tsx files in the target directory and its subdirectories. For each
@@ -158,6 +164,8 @@ file, record:
 - File path
 - What it exports (from `EXPORT_DECLARATION` observations in ast-imports output)
 - What it imports (from `STATIC_IMPORT` observations in ast-imports output)
+
+<!-- role: workflow -->
 
 ## Step 2: Map the dependency graph
 
@@ -172,6 +180,8 @@ Use observations from ast-imports to build the dependency graph. Identify:
 - Which files access storage (from `DIRECT_STORAGE_CALL` / `TYPED_STORAGE_CALL` observations)
 - Which files call toast functions (from `TOAST_CALL` observations)
 - Circular dependencies (from `CIRCULAR_DEPENDENCY` observations/assessments)
+
+<!-- role: detect -->
 
 ## Step 3: Classify every component
 
@@ -193,6 +203,8 @@ as Inner container.
 **Providers:** Not detected by ownership interpreter. Look for
 `ComponentObservation` where the return contains `Provider` or
 `createContext` usage.
+
+<!-- role: detect -->
 
 ## Step 3b: Dead code detection
 
@@ -220,6 +232,8 @@ file, flag it as a candidate for file splitting: the container should move to
 `containers/` and the leaf should be exported from the original file. Common
 pattern: `Foo` (container) wrapping `FooContent` (leaf) in the same file.
 
+<!-- role: detect -->
+
 ## Step 3c: Debug artifact detection
 
 Use observations from ast-side-effects to detect development leftovers:
@@ -234,6 +248,8 @@ For these items, manually scan:
 - Disabled ESLint rules (`eslint-disable`) without an explanatory comment
 
 Record these in the report under a "Debug artifacts" section.
+
+<!-- role: detect -->
 
 ## Step 3d: Type audit
 
@@ -266,6 +282,8 @@ These items require manual scanning (not covered by ast-type-safety):
 
 Record all findings in the report under a "Type violations" section.
 
+<!-- role: detect -->
+
 ## Step 4: Classify every useEffect
 
 The interpreter `ast-interpret-effects` (run in Step 0) emits assessments for each
@@ -297,6 +315,8 @@ review section.
 in `effectObservations` from ast-react-inventory. These feed the interpreter. You
 can reference them in the useEffect inventory table for additional context.
 
+<!-- role: detect -->
+
 ## Step 4b: Detect ghost state
 
 Ghost state is a boolean (like `isCollapsed`, `isDetailCollapsed`, `isUserCollapsed`)
@@ -317,6 +337,8 @@ For each boolean state variable:
 
 Ghost state is invisible when JSX guards are correct, but becomes a latent bug if
 someone later removes the guard. Flag it in the report even when currently guarded.
+
+<!-- role: detect -->
 
 ## Step 4c: Detect timer race conditions
 
@@ -345,6 +367,8 @@ if cleanup is present -- the pattern itself is worth reviewing.
 Note: `requestAnimationFrame` inside useEffect for one-time layout measurement
 is a recognized pattern and less risky than setTimeout, but still flag it if it
 calls setState -- the same unmount race applies.
+
+<!-- role: detect -->
 
 ## Step 4d: Audit JSX template complexity
 
@@ -384,6 +408,8 @@ what shared component would replace it.
 
 Record all findings in the report under a "Template complexity" section.
 
+<!-- role: detect -->
+
 ## Step 5: Classify every hook call in leaves
 
 Use assessments from ast-interpret-hooks to classify hook calls. For each
@@ -409,6 +435,8 @@ For each flagged hook call, record:
 ambient leaf hooks list: useBreakpoints, useWindowSize, useDropdownScrollHandler,
 useClickAway, useScrollCallback, usePagination, useSorting, useTheme, useTranslation,
 and any `useXxxScope()` hook exported by a scoped context. Do NOT flag these.
+
+<!-- role: detect -->
 
 ## Step 6: Check storage, toast, cross-domain coupling, and URL state
 
@@ -458,6 +486,8 @@ Use `QUERY_INVALIDATION` observations from ast-data-layer:
   (from `STATIC_IMPORT` observations targeting another domain's keys file)
 - For each: what mutation triggers it, and which container should own it instead
 
+<!-- role: detect -->
+
 ## Step 6b: Test coverage assessment
 
 For test files in scope, use assessments from `ast-interpret-test-quality`:
@@ -498,6 +528,8 @@ For UNTESTED files, estimate refactor risk using complexity observations:
 - MEDIUM: component with multiple interactive behaviors and zero coverage
 - LOW: simple presentational component or type file
 
+<!-- role: detect -->
+
 ## Step 7: Identify the DDAU boundary
 
 Use ownership assessments to determine container boundaries:
@@ -508,6 +540,8 @@ Use ownership assessments to determine container boundaries:
 - `LAYOUT_SHELL` assessments indicate components rendered at layout level
 - `LEAF_VIOLATION` assessments indicate components 2-3 levels deep calling hooks
   (deeply nested data-fetching)
+
+<!-- role: emit -->
 
 ## Step 8: Produce the migration report
 
@@ -679,6 +713,8 @@ For each item, if the target file is UNTESTED, prepend: **[UNTESTED -- write tes
 - Templates to flatten (COMPLEXITY_HOTSPOT count): <N>
 - Production files with no test coverage: <N>
 ```
+
+<!-- role: workflow -->
 
 ## Interpreter Calibration Gate
 

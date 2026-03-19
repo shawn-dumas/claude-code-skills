@@ -17,12 +17,16 @@ useState for loading/error/data) into a proper TanStack Query hook. If the targe
 contains raw `fetch()` inside a useEffect instead of useQuery, that is the primary
 violation to fix.
 
+<!-- role: guidance -->
+
 ## Prerequisite
 
 If you have not run `audit-react-feature` for this hook's feature domain yet,
 consider doing so first. The audit produces a dependency graph and migration checklist
 that prevents duplicate work and surfaces cross-file issues this skill cannot see in
 isolation.
+
+<!-- role: workflow -->
 
 ## Step 0: Run AST analysis tools
 
@@ -60,6 +64,8 @@ Use data layer observations for Steps 2b/2c/2d/2f/2h:
 - `FETCH_API_CALL` -- verify correct API path sourcing
 - `API_ENDPOINT` -- should be inline string, not imported from urlsRegistry
 
+<!-- role: workflow -->
+
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read:
@@ -70,6 +76,8 @@ Read the target file. Then read:
 - Any cross-domain query key files this hook imports
 
 Build a map of what this hook depends on and what depends on it.
+
+<!-- role: detect -->
 
 ## Step 2: Audit against each principle
 
@@ -179,6 +187,8 @@ Service hooks should live in:
 
 If the hook is in the wrong directory, it should be moved.
 
+<!-- role: emit -->
+
 ## Step 3: Report
 
 Output a clear report:
@@ -220,6 +230,8 @@ Output a clear report:
 - [List principles with no violations]
 ```
 
+<!-- role: emit -->
+
 ## Step 4: Rewrite
 
 Apply all fixes. Follow these rules:
@@ -245,6 +257,8 @@ Apply all fixes. Follow these rules:
   interface. Side effects that were removed must be documented so the caller knows
   to absorb them.
 
+<!-- role: reference -->
+
 ## Type touchpoints
 
 When you encounter inline types during the refactor, check whether they belong in
@@ -258,6 +272,8 @@ When you encounter inline types during the refactor, check whether they belong i
 4. When you find inline request/response types used cross-domain (imported by
    files in other feature areas), move them to the appropriate domain module in
    `src/shared/types/` and update all import sites.
+
+<!-- role: workflow -->
 
 ## Step 5: Verify
 
@@ -315,6 +331,8 @@ as INTENTIONALLY_REMOVED rather than ACCIDENTALLY_DROPPED.
 5. If a signal is flagged `ACCIDENTALLY_DROPPED` but investigation
    confirms it was intentional, run
    `/create-feedback-fixture --tool intent --file <before-file> --files <after-files> --expected INTENTIONALLY_REMOVED --actual ACCIDENTALLY_DROPPED`.
+
+<!-- role: emit -->
 
 ## Step 6: Summary
 

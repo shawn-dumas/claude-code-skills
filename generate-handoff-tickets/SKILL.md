@@ -24,6 +24,8 @@ if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans";
 Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
 directory (and `$PLANS_DIR/prompts/`) if it does not exist.
 
+<!-- role: guidance -->
+
 ## Preconditions
 
 Before proceeding, verify:
@@ -62,6 +64,8 @@ Before proceeding, verify:
 
 ---
 
+<!-- role: reference -->
+
 ## Jira Configuration
 
 <!-- The jira_create_issue MCP tool takes issue type by name (e.g.,
@@ -83,6 +87,8 @@ Before proceeding, verify:
 | Default sprint            | `current`               |
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 1: Read the Artifacts
 
@@ -129,6 +135,8 @@ Extract from the escalation report (if present):
 
 ---
 
+<!-- role: reference -->
+
 ## Step 2: Determine the Ticket Set
 
 The standard handoff produces 8 ticket types. Some are conditional.
@@ -153,6 +161,8 @@ Additional tickets may be generated from:
 - BFF handoff endpoints (one sub-task per endpoint if multiple)
 
 ---
+
+<!-- role: emit -->
 
 ## Step 3: Build Ticket Content
 
@@ -596,6 +606,8 @@ environment persists, the higher the risk of drift from production.
 
 ---
 
+<!-- role: emit -->
+
 ## Step 4: Generate Additional Tickets from Cleanup / Escalation
 
 If the cleanup file has `[NEEDS ENG REVIEW]` items, create one task per
@@ -627,6 +639,8 @@ If an escalation report exists, create tasks for each item in the
 "Items Requiring Engineering Review" section.
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 5: Create Tickets in Jira
 
@@ -702,6 +716,8 @@ Total tickets: N
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 6: Update the PRD
 
 After creating tickets, update the PRD file:
@@ -711,6 +727,8 @@ After creating tickets, update the PRD file:
 - Update PRD status from `Draft` to `Handoff`
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 6.5: Generate PR Artifacts
 
@@ -778,6 +796,8 @@ Present all three artifacts to the PM:
 > the commit message.
 
 ---
+
+<!-- role: guidance -->
 
 ## Error Handling
 

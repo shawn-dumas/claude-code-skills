@@ -6,10 +6,14 @@ allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Task
 argument-hint: --tool <intent|parity|vitest-parity|effects|hooks|ownership|template|test-quality|dead-code|plan-audit>
 ---
 
+<!-- role: guidance -->
+
 # /calibrate-ast-interpreter
 
 Calibrate an AST interpreter's weights/thresholds against the ground truth
 fixture corpus. Supports all 10 interpreter tools.
+
+<!-- role: reference -->
 
 ## Arguments
 
@@ -17,6 +21,8 @@ fixture corpus. Supports all 10 interpreter tools.
 
 Supported tools: `intent`, `parity`, `vitest-parity`, `effects`, `hooks`,
 `ownership`, `template`, `test-quality`, `dead-code`, `plan-audit`.
+
+<!-- role: workflow -->
 
 ## Step 1: Discover fixtures
 
@@ -31,6 +37,8 @@ Report:
 - Pending calibration: N
 - Previously calibrated: N
 - Total expected classifications: N
+
+<!-- role: workflow -->
 
 ## Step 2: Run the interpreter on all fixtures
 
@@ -300,6 +308,8 @@ Ground-truth fixture prefix: `skill-quality/`
 - The `skillDirs` set for cross-ref validation is built by scanning the
   actual `.claude/skills/` directory, not from the fixture manifest.
 
+<!-- role: detect -->
+
 ## Step 3: Compute accuracy metrics
 
 - Overall accuracy: correct / total
@@ -311,11 +321,15 @@ Ground-truth fixture prefix: `skill-quality/`
 - Per-signal-kind accuracy (which observation kinds or test match
   dimensions are most often wrong)
 
+<!-- role: workflow -->
+
 ## Step 4: Assess whether calibration is needed
 
 - If overall accuracy >= current threshold AND no pending fixtures:
   report "No calibration needed" and stop.
 - If pending fixtures exist OR accuracy < threshold: proceed to Step 4b.
+
+<!-- role: detect -->
 
 ## Step 4b: Diagnose -- algorithmic defect or weight tuning?
 
@@ -361,6 +375,8 @@ For each misclassified observation:
    If both types are present, do algorithm fixes first (Step 4c), then
    re-measure, then tune weights (Step 5) if still needed.
 
+<!-- role: workflow -->
+
 ## Step 4c: Fix algorithmic defects
 
 Apply targeted fixes to the matching or classification algorithm in
@@ -378,6 +394,8 @@ After each fix:
 When all algorithmic defects are addressed, return to Step 3 to
 recompute accuracy metrics, then proceed to Step 5 if weight tuning is
 still needed.
+
+<!-- role: workflow -->
 
 ## Step 5: Tune weights
 
@@ -512,6 +530,8 @@ Stop when:
 
 Document each adjustment: parameter, old value, new value, accuracy delta.
 
+<!-- role: emit -->
+
 ## Step 6: Update configuration
 
 ### If `--tool intent`
@@ -590,9 +610,13 @@ Add a calibration comment block to the updated section:
 Update the accuracy threshold to: calibrated accuracy minus 5 points
 (floor of 60%).
 
+<!-- role: workflow -->
+
 ## Step 7: Mark fixtures as calibrated
 
 Update each pending fixture manifest for this tool: `status` -> `"calibrated"`.
+
+<!-- role: workflow -->
 
 ## Step 8: Run regression test
 
@@ -605,6 +629,8 @@ The test loads ALL fixtures (both tools), groups by tool, runs each
 tool's interpreter on its fixtures, and asserts accuracy >= threshold
 per tool. This catches regressions where tuning one tool's weights
 degrades the other.
+
+<!-- role: workflow -->
 
 ## Step 9: Verify and commit
 
@@ -620,6 +646,8 @@ Commit:
 calibrate(ast): tune <tool> weights (accuracy N% on M fixtures)
 ```
 
+<!-- role: emit -->
+
 ## Step 10: Report
 
 Output:
@@ -631,6 +659,8 @@ Output:
 - Weights/thresholds changed: list
 - Threshold: N%
 - Bias profile: FP:FN
+
+<!-- role: guidance -->
 
 ## Notes
 

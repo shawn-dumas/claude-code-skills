@@ -258,6 +258,76 @@ function classifySections(result: SkillAnalysisResult): SkillQualityAssessment[]
   return assessments;
 }
 
+function classifyRoles(result: SkillAnalysisResult): SkillQualityAssessment[] {
+  const config = resolveConfig();
+  const assessments: SkillQualityAssessment[] = [];
+
+  const sections = result.observations.filter(o => o.kind === 'SKILL_SECTION');
+  const roleAnnotations = result.observations.filter(o => o.kind === 'SKILL_SECTION_ROLE');
+
+  // If no role annotations exist at all, skip role checks entirely.
+  // This provides backward compatibility during migration: skills without
+  // any annotations are not penalized. Once a skill has at least one
+  // annotation, all top-level headings are expected to have roles.
+  if (roleAnnotations.length === 0) return assessments;
+
+  // Check top-level headings (depth <= 2) for missing role annotations
+  const topLevelSections = sections.filter(s => (s.evidence.depth ?? 1) <= 2);
+  for (const section of topLevelSections) {
+    if (!section.evidence.sectionRole) {
+      assessments.push(
+        makeAssessment(
+          'MISSING_SECTION_ROLE',
+          result.filePath,
+          section.line,
+          section.evidence.text ?? '',
+          'medium',
+          [
+            `Top-level heading "${section.evidence.text}" has no role annotation. Add \`<!-- role: <name> -->\` on the preceding line.`,
+          ],
+          [toRef(section)],
+        ),
+      );
+    }
+  }
+
+  // Check required roles for this category
+  const requiredRoles = config.skillQuality.requiredRoles[result.category];
+  if (requiredRoles && requiredRoles.length > 0) {
+    const presentRoles = new Set(roleAnnotations.map(o => o.evidence.sectionRole).filter(Boolean));
+
+    for (const role of requiredRoles) {
+      if (presentRoles.has(role as import('./types').SkillSectionRole)) {
+        assessments.push(
+          makeAssessment(
+            'ROLE_REQUIREMENT_MET',
+            result.filePath,
+            undefined,
+            role,
+            'high',
+            [`Required role '${role}' for '${result.category}' category is present.`],
+            roleAnnotations.filter(o => o.evidence.sectionRole === role).map(toRef),
+          ),
+        );
+      } else {
+        assessments.push(
+          makeAssessment(
+            'ROLE_REQUIREMENT_MISSING',
+            result.filePath,
+            undefined,
+            role,
+            'medium',
+            [`Category '${result.category}' requires a section with role '${role}' but none was found.`],
+            [],
+          ),
+        );
+      }
+    }
+  }
+
+  return assessments;
+}
+
 function classifyConventions(observations: readonly SkillAnalysisObservation[]): SkillQualityAssessment[] {
   const assessments: SkillQualityAssessment[] = [];
 
@@ -315,6 +385,7 @@ export function interpretSkillQuality(result: SkillAnalysisResult): SkillQuality
     ...classifyDocRefs(result.observations),
     ...classifyCommands(result.observations),
     ...classifySections(result),
+    ...classifyRoles(result),
     ...classifyConventions(result.observations),
   ];
 
@@ -327,9 +398,24 @@ export function interpretSkillQuality(result: SkillAnalysisResult): SkillQuality
   ).length;
   const missingCount = assessments.filter(a => a.kind === 'MISSING_SECTION').length;
   const conventionDriftCount = assessments.filter(a => a.kind === 'CONVENTION_DRIFT').length;
+  const missingRoleCount = assessments.filter(a => a.kind === 'MISSING_SECTION_ROLE').length;
+  const missingRequiredRoleCount = assessments.filter(a => a.kind === 'ROLE_REQUIREMENT_MISSING').length;
 
-  // Score: starts at 100, -5 per stale/broken finding, -3 per missing section, -10 per convention drift
-  const score = Math.max(0, 100 - staleCount * 5 - missingCount * 3 - conventionDriftCount * 10);
+  // Score: starts at 100
+  //   -5 per stale/broken finding
+  //   -3 per missing section
+  //   -10 per convention drift
+  //   -2 per missing role annotation (lighter penalty -- migration grace)
+  //   -3 per missing required role (category requirement unmet)
+  const score = Math.max(
+    0,
+    100 -
+      staleCount * 5 -
+      missingCount * 3 -
+      conventionDriftCount * 10 -
+      missingRoleCount * 2 -
+      missingRequiredRoleCount * 3,
+  );
 
   return {
     skillName: result.skillName,
@@ -339,6 +425,8 @@ export function interpretSkillQuality(result: SkillAnalysisResult): SkillQuality
     staleCount,
     missingCount,
     conventionDriftCount,
+    missingRoleCount,
+    missingRequiredRoleCount,
   };
 }
 
@@ -350,7 +438,7 @@ function prettyPrint(report: SkillQualityReport): string {
   const lines: string[] = [];
   lines.push(`Skill Quality: ${report.skillName} (${report.category})`);
   lines.push(
-    `Score: ${report.score}/100  |  Stale: ${report.staleCount}  |  Missing sections: ${report.missingCount}  |  Convention drift: ${report.conventionDriftCount}`,
+    `Score: ${report.score}/100  |  Stale: ${report.staleCount}  |  Missing sections: ${report.missingCount}  |  Convention drift: ${report.conventionDriftCount}  |  Missing roles: ${report.missingRoleCount}  |  Missing required: ${report.missingRequiredRoleCount}`,
   );
   lines.push('');
 
@@ -361,7 +449,9 @@ function prettyPrint(report: SkillQualityReport): string {
       a.kind === 'BROKEN_CROSS_REF' ||
       a.kind === 'BROKEN_DOC_REF' ||
       a.kind === 'MISSING_SECTION' ||
-      a.kind === 'CONVENTION_DRIFT',
+      a.kind === 'CONVENTION_DRIFT' ||
+      a.kind === 'MISSING_SECTION_ROLE' ||
+      a.kind === 'ROLE_REQUIREMENT_MISSING',
   );
 
   if (issues.length === 0) {
@@ -411,6 +501,9 @@ function main(): void {
         '  MISSING_SECTION     Category-required section not found\n' +
         '  CONVENTION_DRIFT    Skill references superseded convention pattern\n' +
         '  CONVENTION_ALIGNED  Skill references current convention pattern\n' +
+        '  MISSING_SECTION_ROLE  Top-level heading lacks a role annotation\n' +
+        '  ROLE_REQUIREMENT_MET  Required role for category is present\n' +
+        '  ROLE_REQUIREMENT_MISSING  Required role for category is absent\n' +
         '  SECTION_COMPLETE    All required sections present\n' +
         '  PATH_VALID          File path verified on disk\n' +
         '  CROSS_REF_VALID     Skill cross-ref verified\n\n' +

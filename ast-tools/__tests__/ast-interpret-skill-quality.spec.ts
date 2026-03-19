@@ -322,9 +322,14 @@ describe('ast-interpret-skill-quality (real-world fixtures)', () => {
       expect(stale[0].rationale[0]).toContain('tsconfig.check.json');
     });
 
-    it('has score below 100 due to stale command', () => {
-      expect(report.score).toBe(95);
+    it('has score below 100 due to stale command and convention drift', () => {
+      // Score: 100 - 5 (stale) - 10 (convention drift: typed-storage) = 85
+      // The fixture is a pre-fix snapshot without role annotations, so
+      // backward-compat scope matching catches the inline `localStorage`
+      // reference and flags missing current convention (readStorage, etc.)
+      expect(report.score).toBe(85);
       expect(report.staleCount).toBe(1);
+      expect(report.conventionDriftCount).toBe(1);
     });
   });
 

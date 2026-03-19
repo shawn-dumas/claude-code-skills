@@ -37,6 +37,8 @@ directory (and `$PLANS_DIR/prompts/`) if it does not exist.
 
 ---
 
+<!-- role: workflow -->
+
 ## Preconditions
 
 Before proceeding, verify:
@@ -118,6 +120,8 @@ Before proceeding, verify:
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 1: Parse the Change Request
 
 Extract the change description from `$ARGUMENTS`. The PM may provide:
@@ -136,6 +140,8 @@ the Question tool. Do not ask more than one question before starting
 analysis.
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 2: Read Current State
 
@@ -178,6 +184,8 @@ items are related to or affected by the requested change. If so, note
 them -- the change may resolve existing items or create conflicts.
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 3: Impact Analysis
 
@@ -265,6 +273,8 @@ If "Adjust scope": wait for the PM's clarification, re-analyze, and
 present again.
 
 ---
+
+<!-- role: emit -->
 
 ## Step 4: Generate Implementation Prompts
 
@@ -369,6 +379,8 @@ If no master plan exists, create a lightweight one at
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 5: Execute the Orchestrator Loop
 
 Follow the IDENTICAL orchestrator loop from `orchestrate-poc` Step 8
@@ -408,6 +420,8 @@ and `~/.claude/CLAUDE.md` (Orchestration Protocol):
    items, note them.
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 6: Update the PRD
 
@@ -471,6 +485,8 @@ response shapes) and a BFF handoff document exists at
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 7: Final Verification and Report
 
 1. Run the full verification suite:
@@ -509,6 +525,8 @@ response shapes) and a BFF handoff document exists at
 
 ---
 
+<!-- role: guidance -->
+
 ## Scope Boundaries
 
 This skill handles iterative changes to an existing PoC. It does NOT
@@ -536,6 +554,8 @@ handle:
   exist.
 
 ---
+
+<!-- role: guidance -->
 
 ## Edge Cases
 

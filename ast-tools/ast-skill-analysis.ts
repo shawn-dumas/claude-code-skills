@@ -26,6 +26,7 @@ import type {
   SkillAnalysisObservationKind,
   SkillAnalysisObservationEvidence,
   SkillAnalysisResult,
+  SkillSectionRole,
 } from './types';
 
 // --- Minimal MDAST node interface (same approach as ast-plan-audit) ---
@@ -456,6 +457,128 @@ function extractTables(content: string, file: string, obs: SkillAnalysisObservat
   }
 }
 
+// --- Section role parsing ---
+
+const VALID_SECTION_ROLES = new Set<SkillSectionRole>([
+  'emit',
+  'avoid',
+  'detect',
+  'guidance',
+  'reference',
+  'workflow',
+  'cleanup',
+]);
+
+const ROLE_COMMENT_RE = /^<!--\s*role:\s*(\w+)\s*-->$/;
+
+interface RoleAnnotation {
+  role: SkillSectionRole;
+  commentLine: number;
+  headingLine: number;
+  headingDepth: number;
+  headingText: string;
+}
+
+/**
+ * Walk top-level MDAST children to find `<!-- role: X -->` HTML comments
+ * immediately preceding a heading node. Returns one entry per annotation.
+ */
+function extractRoleAnnotations(tree: MdNode): RoleAnnotation[] {
+  const entries: RoleAnnotation[] = [];
+  const children = tree.children ?? [];
+
+  for (let i = 0; i < children.length; i++) {
+    const node = children[i];
+    if (node.type !== 'html') continue;
+
+    const match = (node.value ?? '').trim().match(ROLE_COMMENT_RE);
+    if (!match) continue;
+
+    const roleName = match[1].toLowerCase();
+    if (!VALID_SECTION_ROLES.has(roleName as SkillSectionRole)) continue;
+
+    // Look for the next heading sibling (skip blank text nodes)
+    for (let j = i + 1; j < children.length; j++) {
+      const next = children[j];
+      if (next.type === 'heading') {
+        entries.push({
+          role: roleName as SkillSectionRole,
+          commentLine: nodeLine(node),
+          headingLine: nodeLine(next),
+          headingDepth: next.depth ?? 1,
+          headingText: nodeText(next),
+        });
+        break;
+      }
+      // Stop if we hit a non-heading content node before finding a heading
+      if (next.type !== 'html' && next.type !== 'thematicBreak') break;
+    }
+  }
+
+  return entries;
+}
+
+/**
+ * Resolve the effective role for every heading in the document.
+ * Explicit annotations take priority; subheadings without annotations
+ * inherit from the nearest annotated ancestor at a shallower depth.
+ *
+ * Returns a Map from heading line number to { role, inherited }.
+ */
+function resolveHeadingRoles(
+  annotations: RoleAnnotation[],
+  headings: Array<{ line: number; depth: number }>,
+): Map<number, { role: SkillSectionRole; inherited: boolean }> {
+  // Build explicit-role lookup from annotations
+  const explicitByLine = new Map<number, SkillSectionRole>();
+  for (const ann of annotations) {
+    explicitByLine.set(ann.headingLine, ann.role);
+  }
+
+  // Process headings in document order. Maintain a stack of active roles
+  // keyed by depth; a heading at depth N pops everything >= N.
+  const sorted = [...headings].sort((a, b) => a.line - b.line);
+  const result = new Map<number, { role: SkillSectionRole; inherited: boolean }>();
+  const stack: Array<{ depth: number; role: SkillSectionRole }> = [];
+
+  for (const h of sorted) {
+    // Pop entries at equal or deeper depth (new section at same level)
+    while (stack.length > 0 && stack[stack.length - 1].depth >= h.depth) {
+      stack.pop();
+    }
+
+    const explicit = explicitByLine.get(h.line);
+    if (explicit) {
+      stack.push({ depth: h.depth, role: explicit });
+      result.set(h.line, { role: explicit, inherited: false });
+    } else if (stack.length > 0) {
+      const inherited = stack[stack.length - 1].role;
+      result.set(h.line, { role: inherited, inherited: true });
+      stack.push({ depth: h.depth, role: inherited });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Determine the effective section role for a given line number
+ * by finding the most recent heading before that line.
+ */
+function getRoleForLine(
+  line: number,
+  sortedHeadings: Array<{ line: number }>,
+  headingRoles: Map<number, { role: SkillSectionRole; inherited: boolean }>,
+): SkillSectionRole | undefined {
+  let role: SkillSectionRole | undefined;
+  for (const h of sortedHeadings) {
+    if (h.line > line) break;
+    const entry = headingRoles.get(h.line);
+    if (entry) role = entry.role;
+  }
+  return role;
+}
+
 // --- Convention scanning ---
 
 /** Language tags that indicate a fenced code block contains programming code. */
@@ -467,6 +590,8 @@ function scanConventions(
   inlineCodeText: string,
   file: string,
   obs: SkillAnalysisObservation[],
+  sortedHeadings: Array<{ line: number }>,
+  headingRoles: Map<number, { role: SkillSectionRole; inherited: boolean }>,
 ): void {
   const config = resolveConfig();
 
@@ -474,20 +599,59 @@ function scanConventions(
   // spans. This excludes template prose in unlabeled fenced blocks
   // (questionnaires, Jira ticket templates) while catching inline code
   // references like `import { clickhouse } from '@/server/db/clickhouse'`.
+  //
+  // Role-aware: only include code from 'emit' sections (or blocks with
+  // no role, for backward compat). Code in detect/avoid/cleanup sections
+  // should not make a convention "in scope" for that skill, because those
+  // sections describe what to look for, not what to generate.
   const typedBlockText = codeBlocks
+    .filter(b => {
+      if (!CODE_LANG_TAGS.has(b.lang.toLowerCase())) return false;
+      const role = getRoleForLine(b.line, sortedHeadings, headingRoles);
+      return !role || role === 'emit';
+    })
+    .map(b => b.content)
+    .join('\n');
+  // For role-aware skills, scope is determined solely by emit-section
+  // code blocks. Inline code spans in prose are always explanatory
+  // references, never code templates. For backward compat (no roles),
+  // include inline code text in the scope check.
+  const scopeText = typedBlockText;
+
+  // Build a secondary scope text from ALL code blocks + inline code
+  // (regardless of role) for the full-text current-reference check.
+  // The primary scopeText (emit-only) gates whether the convention is
+  // relevant. The full text is used only to verify the current pattern
+  // appears somewhere when the convention IS relevant.
+  const allTypedBlockText = codeBlocks
     .filter(b => CODE_LANG_TAGS.has(b.lang.toLowerCase()))
     .map(b => b.content)
     .join('\n');
-  const scopeText = typedBlockText + '\n' + inlineCodeText;
+  const fullScopeText = allTypedBlockText + '\n' + inlineCodeText;
 
   for (const rule of config.conventions.rules) {
     const scopeRegex = new RegExp(rule.scope, 'i');
 
-    // Check if this skill's code content is in scope for this convention
-    if (!scopeRegex.test(scopeText)) continue;
+    // Scope relevance: the convention applies to this skill only if
+    // emit-section code blocks match the scope regex. References in
+    // detect, avoid, cleanup, or guidance sections do not make the
+    // convention relevant -- those sections talk ABOUT the pattern,
+    // they do not generate it.
+    // Fall back to full scope text (all code blocks + inline code) for
+    // skills with no role annotations (backward compat).
+    const hasRoles = headingRoles.size > 0;
+    const inScope = hasRoles ? scopeRegex.test(scopeText) : scopeRegex.test(fullScopeText);
+    if (!inScope) continue;
 
-    // Check code blocks for superseded patterns
+    // Check code blocks for superseded patterns.
+    // Role-aware: only check blocks in 'emit' sections (or blocks with
+    // no role, for backward compatibility during migration).
     for (const block of codeBlocks) {
+      const blockRole = getRoleForLine(block.line, sortedHeadings, headingRoles);
+
+      // Skip blocks in roles that deliberately reference old patterns
+      if (blockRole && blockRole !== 'emit') continue;
+
       for (const pattern of rule.superseded) {
         const regex = new RegExp(pattern, 'i');
         if (regex.test(block.content)) {
@@ -532,24 +696,48 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
   // Detect frontmatter boundary to skip it from heading extraction
   const frontmatterEnd = detectFrontmatterEnd(content);
 
+  // --- Extract role annotations from HTML comments ---
+  const roleAnnotations = extractRoleAnnotations(tree);
+
   // --- Extract sections (headings) ---
   const headings = findAll(tree, 'heading');
+  const headingData: Array<{ line: number; depth: number; text: string }> = [];
   for (const h of headings) {
     const line = nodeLine(h);
     // Skip headings that fall inside YAML frontmatter (parser artifacts)
     if (line < frontmatterEnd) continue;
+    headingData.push({ line, depth: h.depth ?? 1, text: nodeText(h) });
+  }
 
-    const text = nodeText(h);
-    const depth = h.depth ?? 1;
+  // Resolve effective role for every heading (explicit + inherited)
+  const headingRoles = resolveHeadingRoles(roleAnnotations, headingData);
+  const sortedHeadings = [...headingData].sort((a, b) => a.line - b.line);
 
-    emit(obs, 'SKILL_SECTION', relPath, line, { text, depth });
+  // Emit role annotation observations
+  for (const ann of roleAnnotations) {
+    emit(obs, 'SKILL_SECTION_ROLE', relPath, ann.commentLine, {
+      sectionRole: ann.role,
+      text: ann.headingText,
+      depth: ann.headingDepth,
+    });
+  }
+
+  // Emit section observations enriched with role data
+  for (const h of headingData) {
+    const roleEntry = headingRoles.get(h.line);
+
+    emit(obs, 'SKILL_SECTION', relPath, h.line, {
+      text: h.text,
+      depth: h.depth,
+      ...(roleEntry ? { sectionRole: roleEntry.role, roleInherited: roleEntry.inherited } : {}),
+    });
 
     // Check for step pattern: "Step N:" or "Step N " or "Step N."
-    const stepMatch = text.match(/^Step\s+(\d+)/i);
+    const stepMatch = h.text.match(/^Step\s+(\d+)/i);
     if (stepMatch) {
-      emit(obs, 'SKILL_STEP', relPath, line, {
-        text,
-        depth,
+      emit(obs, 'SKILL_STEP', relPath, h.line, {
+        text: h.text,
+        depth: h.depth,
         stepNumber: parseInt(stepMatch[1], 10),
       });
     }
@@ -649,7 +837,7 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
   }));
   const inlineCodeNodes = findAll(tree, 'inlineCode');
   const inlineCodeText = inlineCodeNodes.map(ic => (ic.value as string) ?? '').join('\n');
-  scanConventions(content, codeBlockData, inlineCodeText, relPath, obs);
+  scanConventions(content, codeBlockData, inlineCodeText, relPath, obs, sortedHeadings, headingRoles);
 
   return { filePath: relPath, skillName, category, observations: obs };
 }

@@ -977,7 +977,7 @@ export interface BrandedCheckAnalysis {
 
 export type AuthZObservationKind = 'RAW_ROLE_CHECK' | 'RAW_ROLE_EQUALITY';
 
-export interface AuthZObservationEvidence {
+export type AuthZObservationEvidence = {
   /** The expression used: 'includes', 'indexOf', 'some' */
   readonly method: string;
   /** The Role member accessed: 'ADMIN', 'TEAM_OWNER', etc. */
@@ -986,7 +986,7 @@ export interface AuthZObservationEvidence {
   readonly expression: string;
   /** The containing function name, if any */
   readonly containingFunction?: string;
-}
+};
 
 export type AuthZObservation = Observation<AuthZObservationKind, AuthZObservationEvidence>;
 
@@ -1319,7 +1319,7 @@ export type VtParityObservationKind =
   | 'VT_BEFORE_EACH'
   | 'VT_AFTER_EACH';
 
-export interface VtParityObservationEvidence {
+export type VtParityObservationEvidence = {
   readonly name?: string;
   readonly nestedDepth?: number;
   readonly testCount?: number;
@@ -1338,7 +1338,7 @@ export interface VtParityObservationEvidence {
   readonly cleanupTargets?: string[];
   readonly scope?: string;
   readonly hookType?: string;
-}
+};
 
 export type VtParityObservation = Observation<VtParityObservationKind, VtParityObservationEvidence>;
 
@@ -1446,6 +1446,7 @@ export interface ExportSurfaceAnalysis {
 export type SkillAnalysisObservationKind =
   | 'SKILL_SECTION' // heading with depth, text, line
   | 'SKILL_STEP' // numbered step heading (## Step N: ...)
+  | 'SKILL_SECTION_ROLE' // HTML comment role annotation (<!-- role: X -->) associated with a heading
   | 'SKILL_CODE_BLOCK' // fenced code block (lang, content, line)
   | 'SKILL_COMMAND_REF' // shell command in code block or inline code
   | 'SKILL_FILE_PATH_REF' // file path reference with exists-on-disk check
@@ -1456,13 +1457,20 @@ export type SkillAnalysisObservationKind =
   | 'SKILL_SUPERSEDED_PATTERN' // code block or text matches a superseded convention pattern
   | 'SKILL_MISSING_CONVENTION'; // skill is in scope for a convention but does not reference current pattern
 
+/** Valid section role names for the structured skill format. */
+export type SkillSectionRole = 'emit' | 'avoid' | 'detect' | 'guidance' | 'reference' | 'workflow' | 'cleanup';
+
 export type SkillAnalysisObservationEvidence = {
-  /** Heading text (SKILL_SECTION, SKILL_STEP) */
+  /** Heading text (SKILL_SECTION, SKILL_STEP, SKILL_SECTION_ROLE) */
   text?: string;
-  /** Heading depth 1-6 (SKILL_SECTION, SKILL_STEP) */
+  /** Heading depth 1-6 (SKILL_SECTION, SKILL_STEP, SKILL_SECTION_ROLE) */
   depth?: number;
   /** Step number extracted from "Step N" pattern (SKILL_STEP) */
   stepNumber?: number;
+  /** Section role from HTML comment annotation (SKILL_SECTION, SKILL_SECTION_ROLE) */
+  sectionRole?: SkillSectionRole;
+  /** Whether the role was inherited from a parent heading (SKILL_SECTION) */
+  roleInherited?: boolean;
   /** Code block language (SKILL_CODE_BLOCK) */
   lang?: string;
   /** Code block or command content, truncated (SKILL_CODE_BLOCK, SKILL_COMMAND_REF) */
@@ -1521,7 +1529,10 @@ export type SkillQualityAssessmentKind =
   | 'PATH_VALID' // neutral: file path verified as existing
   | 'CROSS_REF_VALID' // neutral: skill cross-ref verified as existing
   | 'CONVENTION_DRIFT' // skill references superseded pattern and/or misses current convention
-  | 'CONVENTION_ALIGNED'; // skill references current convention pattern
+  | 'CONVENTION_ALIGNED' // skill references current convention pattern
+  | 'MISSING_SECTION_ROLE' // top-level heading lacks a role annotation
+  | 'ROLE_REQUIREMENT_MET' // all required roles for the skill category are present
+  | 'ROLE_REQUIREMENT_MISSING'; // a required role for the skill category is absent
 
 export type SkillQualityAssessment = Assessment<SkillQualityAssessmentKind>;
 
@@ -1533,4 +1544,6 @@ export interface SkillQualityReport {
   readonly staleCount: number;
   readonly missingCount: number;
   readonly conventionDriftCount: number;
+  readonly missingRoleCount: number;
+  readonly missingRequiredRoleCount: number;
 }

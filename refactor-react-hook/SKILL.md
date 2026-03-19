@@ -8,12 +8,16 @@ argument-hint: <path/to/useCustomHook.ts>
 
 Refactor the React custom hook at `$ARGUMENTS`.
 
+<!-- role: guidance -->
+
 ## Prerequisite
 
 If you have not run `audit-react-feature` for this hook's feature domain yet,
 consider doing so first. The audit produces a dependency graph and migration checklist
 that prevents duplicate work and surfaces cross-file issues this skill cannot see in
 isolation.
+
+<!-- role: workflow -->
 
 ## Step 0: Run AST analysis tools
 
@@ -49,12 +53,16 @@ navigate, storage writes, and analytics calls). Use data layer
 observations for Steps 3b-3d (factory indirection, mapper side effects,
 cross-domain query key imports).
 
+<!-- role: workflow -->
+
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read every file it imports -- other hooks, API utilities,
 query key constants, type files, context providers. Also find all consumers of this
 hook (use `npx tsx scripts/AST/ast-imports.ts --consumers $ARGUMENTS --pretty`). Build a map of what this hook depends on
 and what depends on it.
+
+<!-- role: detect -->
 
 ## Step 2: Classify the hook
 
@@ -79,6 +87,8 @@ Review the hook assessment from `ast-interpret-hooks`:
     toggle)
   - **Composite hook**: does multiple things (fetches data AND shows toasts AND
     navigates) -- should be split
+
+<!-- role: detect -->
 
 ## Step 3: Audit against each principle
 
@@ -146,6 +156,8 @@ Review effect assessments from `ast-interpret-effects`:
 - **`EXTERNAL_SUBSCRIPTION`** -- expected in subscription-based hooks
 - **`NECESSARY`** -- no issues detected
 
+<!-- role: emit -->
+
 ## Step 4: Report
 
 Output a clear report:
@@ -173,6 +185,8 @@ Output a clear report:
 ### No issues
 - [List principles with no violations]
 ```
+
+<!-- role: emit -->
 
 ## Step 5: Rewrite
 
@@ -203,6 +217,8 @@ Apply all fixes. Follow these rules:
 - Do not change behavior. Consumers should get the same data and capabilities, just
   through cleaner, more explicit channels.
 
+<!-- role: reference -->
+
 ## Type touchpoints
 
 When you encounter inline types during the refactor, check whether they belong in
@@ -216,6 +232,8 @@ When you encounter inline types during the refactor, check whether they belong i
 4. When you find inline types used cross-domain (imported by files in other
    feature areas), move them to the appropriate domain module in
    `src/shared/types/` and update all import sites.
+
+<!-- role: workflow -->
 
 ## Step 6: Verify
 
@@ -270,6 +288,8 @@ investigated and resolved.
 5. If a signal is flagged `ACCIDENTALLY_DROPPED` but investigation
    confirms it was intentional, run
    `/create-feedback-fixture --tool intent --file <before-file> --files <after-files> --expected INTENTIONALLY_REMOVED --actual ACCIDENTALLY_DROPPED`.
+
+<!-- role: emit -->
 
 ## Step 7: Summary
 

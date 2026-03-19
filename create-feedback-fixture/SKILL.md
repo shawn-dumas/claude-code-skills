@@ -6,12 +6,16 @@ allowed-tools: Read, Grep, Glob, Bash, Edit, Write
 argument-hint: --tool <effects|hooks|ownership|template|test-quality|dead-code|intent|parity|vitest-parity|plan-audit|skill-quality> --file <path> [--files <paths>] --expected <kind> --actual <kind> [--description <brief-slug>]
 ---
 
+<!-- role: guidance -->
+
 # /create-feedback-fixture
 
 Create a calibration feedback fixture when an interpreter produces a
 classification you believe is wrong. The fixture captures the source
 code, runs the interpreter to record ALL assessments (not just the
 wrong one), and writes a manifest with `status: "pending"`.
+
+<!-- role: guidance -->
 
 ## Pre-conditions
 
@@ -28,6 +32,8 @@ Do NOT create a fixture for:
 - A classification you are unsure about.
 - A classification that was wrong but did not affect any decision.
 - An ambiguous case where the interpreter might be right.
+
+<!-- role: reference -->
 
 ## Arguments
 
@@ -48,6 +54,8 @@ Optional:
   for intent, target-files for parity)
 - `--description <slug>`: short kebab-case description for the directory
   name (default: derived from tool + expected kind)
+
+<!-- role: workflow -->
 
 ## Step 1: Validate arguments
 
@@ -75,6 +83,8 @@ Verify:
 | plan-audit    | HEADER_COMPLETE, HEADER_DEFICIENCY, VERIFICATION_PRESENT, VERIFICATION_ABSENT, CLEANUP_REFERENCED, CLEANUP_UNREFERENCED, STANDING_ELEMENTS_COMPLETE, STANDING_ELEMENTS_INCOMPLETE, CERTIFICATION_MISSING, CERTIFIED, CONDITIONAL_PREFLIGHT, BLOCKED_PREFLIGHT, PROMPT_WELL_FORMED, PROMPT_DEFICIENCY, DEPENDENCY_CYCLE_DETECTED, PROMPT_FILE_UNRESOLVED, AGGREGATION_RISK, DEFERRED_CLEANUP_NOTED, CONVENTION_REFERENCE |
 | skill-quality | STALE_FILE_PATH, STALE_COMMAND, BROKEN_CROSS_REF, BROKEN_DOC_REF, MISSING_SECTION, SECTION_COMPLETE, PATH_VALID, CROSS_REF_VALID                                                                                                                                                                                                                                                                                        |
 
+<!-- role: workflow -->
+
 ## Step 2: Create fixture directory
 
 Directory name: `feedback-<YYYY-MM-DD>-<description>/`
@@ -86,6 +96,8 @@ Location: `scripts/AST/ground-truth/fixtures/`
 
 If the directory already exists (same date + description), append a
 numeric suffix: `feedback-2026-03-17-effects-derived-state-2/`
+
+<!-- role: workflow -->
 
 ## Step 3: Copy source files
 
@@ -131,6 +143,8 @@ The `--file` argument is the plan markdown file. The `--files` argument
 contains prompt files (if any).
 
 Copy as-is (plan.md, prompt-01.md, etc.).
+
+<!-- role: workflow -->
 
 ## Step 4: Run the interpreter and capture ALL assessments
 
@@ -198,6 +212,8 @@ npx tsx scripts/AST/ast-interpret-plan-audit.ts <plan-file> --json
 ```bash
 npx tsx scripts/AST/ast-interpret-skill-quality.ts <skill-file-or-dir>
 ```
+
+<!-- role: emit -->
 
 ## Step 5: Build the manifest
 
@@ -299,6 +315,8 @@ For EACH assessment from Step 4:
 }
 ```
 
+<!-- role: workflow -->
+
 ## Step 6: Verify the fixture
 
 Run the accuracy spec to confirm the fixture is structurally valid:
@@ -315,6 +333,8 @@ the overall tool accuracy must stay >= threshold.
 If the spec fails with a coverage error (UNCOVERED assessments), you
 missed an assessment in Step 5. Go back and add the missing entries.
 
+<!-- role: emit -->
+
 ## Step 7: Report
 
 Output a summary:
@@ -329,6 +349,8 @@ Created feedback fixture: feedback-<date>-<description>/
 Run `/calibrate-ast-interpreter --tool <tool>` when 3+ pending
 fixtures accumulate for this tool.
 ```
+
+<!-- role: guidance -->
 
 ## Notes
 

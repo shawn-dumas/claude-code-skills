@@ -23,6 +23,8 @@ if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans";
 Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
 directory (and `$PLANS_DIR/prompts/`) if it does not exist.
 
+<!-- role: workflow -->
+
 ## Step 1: Parse the argument
 
 Determine the input:
@@ -36,6 +38,8 @@ Determine the input:
   non-React code, `/audit-npm-deps` for dependencies.
 
 If neither is clear, ask the user what they want audited.
+
+<!-- role: workflow -->
 
 ## Step 2: Triage findings
 
@@ -75,12 +79,16 @@ Items that have been flagged 3+ times without resolution are, by
 definition, not being addressed by the normal priority system. Escalation
 is the forcing function.
 
+<!-- role: workflow -->
+
 ## Step 3: Decide whether to orchestrate
 
 If there are fewer than 5 findings, all in the same domain, do NOT
 orchestrate. Output a single fix prompt.
 
 If findings span multiple domains or number 5+, proceed with orchestration.
+
+<!-- role: workflow -->
 
 ## Step 4: Assess integration test scope
 
@@ -97,6 +105,8 @@ integration tests. Read the integration test scope rules in
 
 Record the scope in the master plan header. Reference it when generating
 prompt verification sections and the orchestrator verification loop.
+
+<!-- role: emit -->
 
 ## Step 5: Generate the master plan
 
@@ -158,6 +168,8 @@ Create `$PLANS_DIR/<audit-name>-fixes.md` with:
 4. Within the same severity, group by domain
 5. If a fix in one domain depends on a fix in another (e.g., shared type
    change), the dependency comes first
+
+<!-- role: emit -->
 
 ## Step 5: Generate fix prompts
 
@@ -248,6 +260,8 @@ Also update <master plan path>: mark findings <list> as DONE.
 - After reconciliation, instruct the work agent to mark findings as DONE
   in the master plan
 
+<!-- role: emit -->
+
 ## Step 6: Create the cleanup file
 
 Create `$PLANS_DIR/<audit-name>-fixes-cleanup.md`:
@@ -258,6 +272,8 @@ Create `$PLANS_DIR/<audit-name>-fixes-cleanup.md`:
 Items discovered during fix prompts that are non-blocking but should
 be addressed.
 ```
+
+<!-- role: workflow -->
 
 ## Step 7: Pre-flight audit (MANDATORY)
 
@@ -285,6 +301,8 @@ done
 If any tool has 3+ pending fixtures, run `/calibrate-ast-interpreter
 --tool <name>` before proceeding.
 
+<!-- role: workflow -->
+
 ## Step 8: Validate the plan (MANDATORY)
 
 Launch `/validate-plan` on the plan file. This replaces the previous
@@ -305,6 +323,8 @@ proceed to Step 9 until the verdict is READY.
 If /validate-plan modifies any prompt files (fixing accepted findings),
 it re-runs pre-flight automatically to maintain structural certification.
 
+<!-- role: workflow -->
+
 ## Step 9: Present the plan to the user
 
 Show the user:
@@ -320,6 +340,8 @@ Show the user:
 - Ask: "Ready to start?"
 
 Wait for the user's go-ahead.
+
+<!-- role: workflow -->
 
 ## Step 9: Execute the orchestrator loop
 
@@ -395,6 +417,8 @@ For each prompt:
 not verified, reason>`. The cleanup prompt must resolve all such
    items before the plan is marked complete.
 
+<!-- role: workflow -->
+
 ## Step 10: Generate the cleanup prompt
 
 After all planned prompts complete:
@@ -407,6 +431,8 @@ After all planned prompts complete:
 6. Present to user for approval
 7. Run only after user approves
 
+<!-- role: workflow -->
+
 ## Step 11: Final verification and plan update
 
 Run the full verification suite. When integration scope is `per-prompt`
@@ -416,6 +442,8 @@ Update the master plan: mark all findings as DONE or document
 carry-forward items with rationale. Update HEAD sha, test counts, build
 status, and integration test results (if scope is not `none`). Report to
 user.
+
+<!-- role: workflow -->
 
 ## Step 12: Archive the plan
 

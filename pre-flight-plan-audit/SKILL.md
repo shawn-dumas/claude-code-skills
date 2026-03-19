@@ -22,6 +22,8 @@ Use `$PLANS_DIR` for all paths below.
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 0: Parse the plan with ast-plan-audit
 
 Run the AST tool against the plan file and its prompt files:
@@ -81,6 +83,8 @@ Collect the observations. These feed into the verdict in Step 3.
 | `PRE_FLIGHT_MARK_MISSING` | Expected -- this tool adds the mark               |
 
 ---
+
+<!-- role: detect -->
 
 ## Step 1: Convention alignment (target codebase)
 
@@ -152,6 +156,8 @@ Record all findings with file, line, and rationale.
 
 ---
 
+<!-- role: detect -->
+
 ## Step 2: Source quality pre-screen (port/migration plans only)
 
 **Skip this step** if the plan does not reference a source codebase
@@ -182,6 +188,8 @@ on the affected prompts so the work agent is aware of source quality
 issues before porting.
 
 ---
+
+<!-- role: emit -->
 
 ## Step 3: Produce verdict
 
@@ -244,6 +252,8 @@ skill as a sub-agent before proceeding.
 
 ---
 
+<!-- role: workflow -->
+
 ## Interpreter Calibration Gate
 
 If the verdict or any assessment is wrong and the misclassification
@@ -257,6 +267,8 @@ blocked, or vice versa):
 Do NOT create a fixture if you are unsure.
 
 ---
+
+<!-- role: workflow -->
 
 ## Verification
 

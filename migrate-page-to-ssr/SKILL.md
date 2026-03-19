@@ -9,6 +9,8 @@ argument-hint: <path/to/pages/somePage.tsx>
 Migrate the Next.js page at `$ARGUMENTS` from client-side-only data fetching to
 server-side rendering via `getServerSideProps`.
 
+<!-- role: reference -->
+
 ## Prerequisites
 
 This skill assumes all client-side fetching goes through `fetchApi` (via service
@@ -26,6 +28,8 @@ For `getServerSideProps`, auth token delivery requires a cookie-based mechanism
 (the existing `withAuth` middleware reads the `id_token` header, which is not
 available in SSR). See the [Server Auth Bootstrap](#server-auth-bootstrap)
 section at the end of this file for the cookie setup.
+
+<!-- role: workflow -->
 
 ## Step 0: Run AST analysis on the container
 
@@ -47,6 +51,8 @@ The tool emits data layer observations with structured evidence:
 Use these observations to build the data dependency table in Step 1.
 The `queryKey`, `url`, and `schema` evidence fields map directly to
 the table columns.
+
+<!-- role: workflow -->
 
 ## Step 1: Map the page's data dependencies
 
@@ -82,6 +88,8 @@ Classify each hook into one of:
   clicks). These stay as client-side hooks.
 
 Only SSR candidates get server-side fetchers. Client-only hooks are untouched.
+
+<!-- role: emit -->
 
 ## Step 2: Create or extend the server fetcher module
 
@@ -166,6 +174,8 @@ The database clients already exist. Do not create new ones:
 Read the corresponding API route handler in `src/pages/api/` to see which
 registered query it uses, and call the same query in the server fetcher.
 
+<!-- role: emit -->
+
 ## Step 3: Add `getServerSideProps` to the page
 
 ### 3a. Import dependencies
@@ -237,6 +247,8 @@ export const getServerSideProps: GetServerSideProps = async ctx => {
   URL params, check the condition before prefetching. If the condition is false,
   skip the prefetch — the client hook will also skip it.
 
+<!-- role: emit -->
+
 ## Step 4: Wire dehydrated state into the page component
 
 ### 4a. Update `_app.tsx` (one-time, first migration only)
@@ -291,6 +303,8 @@ their `queryKey`, `queryFn`, `staleTime`, etc. On the client:
 handles this automatically. `initialData` and dehydration serve different
 purposes — mixing them causes subtle bugs.
 
+<!-- role: guidance -->
+
 ## Step 5: Handle auth guard interaction
 
 Many pages wrap content in `RequireLoginMaybe` or similar auth guards. With
@@ -308,6 +322,8 @@ cases (session expires mid-session). This is defensive but acceptable.
 
 Choose Option A unless the page has role-based guards. Document your choice in
 the commit message.
+
+<!-- role: workflow -->
 
 ## Step 6: Verify
 
@@ -360,6 +376,8 @@ pnpm dev
 3. Client-side navigation to the page should still work (TanStack Query
    refetches in the background if stale).
 
+<!-- role: emit -->
+
 ## Step 7: Report
 
 Output a summary:
@@ -393,6 +411,8 @@ Output a summary:
 ```
 
 ---
+
+<!-- role: reference -->
 
 ## Server Auth Bootstrap
 
@@ -486,6 +506,8 @@ the session. Check the terminal (not browser console) for the output.
 Remove the temporary code after confirming.
 
 ---
+
+<!-- role: emit -->
 
 ## Checklist (copy into PR description)
 

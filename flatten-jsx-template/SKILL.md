@@ -9,6 +9,8 @@ argument-hint: <path/to/Component.tsx>
 Flatten the JSX template of the component at `$ARGUMENTS`. This is a
 behavior-preserving cleanup -- the component renders identically before and after.
 
+<!-- role: guidance -->
+
 ## When to use this skill
 
 Use this on components that already have correct DDAU boundaries (props-only, or
@@ -19,6 +21,8 @@ above it.
 
 If the component has DDAU violations (hook calls that belong in a container, state
 that should be props), use `refactor-react-component` instead.
+
+<!-- role: workflow -->
 
 ## Step 0: Run JSX analysis
 
@@ -41,10 +45,14 @@ Use these observations for Step 2 (violation inventory). Each observation
 kind maps to a violation category, and the evidence fields provide the
 severity details (e.g., a depth of 3 is worse than depth of 2).
 
+<!-- role: workflow -->
+
 ## Step 1: Read and understand
 
 Read the target file. Identify the return statement boundaries (the opening
 `return (` and closing `);`). Count the lines. Read the logic inside.
+
+<!-- role: detect -->
 
 ## Step 2: Inventory template violations
 
@@ -67,6 +75,8 @@ booleans. A `JSX_INLINE_HANDLER` with `statementCount: 5` needs extraction
 more urgently than one with `statementCount: 2`.
 
 List each observation with its line number, evidence, and planned extraction.
+
+<!-- role: emit -->
 
 ## Step 3: Plan the extraction
 
@@ -214,6 +224,8 @@ const interactionClass = isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-
 className={`px-2 py-1 ${stateClass} ${interactionClass}`}
 ```
 
+<!-- role: guidance -->
+
 ## Step 4: Apply
 
 Rewrite the component. Rules:
@@ -232,6 +244,8 @@ Rewrite the component. Rules:
   is fine inline.
 - **Do not extract single binary ternaries** that are short and clear.
   `{isOpen && <Modal />}` and `{active ? 'on' : 'off'}` are fine inline.
+
+<!-- role: workflow -->
 
 ## Step 5: Verify
 

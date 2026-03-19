@@ -13,6 +13,8 @@ and then address every finding the critic raises. You do NOT perform the
 critique yourself -- that is the sub-agent's job. Your job is to collect
 the diff, launch the critic, and respond to its output.
 
+<!-- role: workflow -->
+
 ## Step 1: Gather context
 
 Run these commands to determine what changed:
@@ -33,6 +35,8 @@ Collect:
 
 1. The full diff (staged + unstaged, or last commit)
 2. The full content of every file that appears in the diff
+
+<!-- role: emit -->
 
 ## Step 2: Launch the critic
 
@@ -79,6 +83,8 @@ appear thorough.
 <paste full content of each changed file here, with file path headers>
 ```
 
+<!-- role: workflow -->
+
 ## Step 3: Address every finding
 
 When the critic responds, go through **every** finding one by one.
@@ -96,6 +102,8 @@ Rules:
 - If a fix introduces a new concern, note it.
 - After all findings are addressed, run `pnpm tsc --noEmit -p tsconfig.check.json` and
   `pnpm test --run` to verify nothing broke. Report the results.
+
+<!-- role: emit -->
 
 ## Output format
 

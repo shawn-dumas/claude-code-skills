@@ -15,6 +15,8 @@ the agents' job. Your job is to frame the problem, dispatch the agents,
 judge their output, and surface any novel options that emerge from the
 collision.
 
+<!-- role: workflow -->
+
 ## Step 1: Frame the problem
 
 Extract from the argument and the conversation history:
@@ -33,6 +35,8 @@ to gather relevant architectural context. Summarize it as part of the
 problem statement. Keep this brief -- the goal is orientation, not audit.
 
 If the problem is too vague to frame, ask one clarifying question. Only one.
+
+<!-- role: workflow -->
 
 ## Step 2: Launch agents
 
@@ -159,6 +163,8 @@ Return your output in this EXACT format with no preamble or commentary:
 - Do not add commentary outside the delimited block.
 ```
 
+<!-- role: workflow -->
+
 ## Step 3: Intake
 
 After both agents return, launch a single Intake agent using the Task
@@ -233,6 +239,8 @@ Return your output in this EXACT format with no preamble or commentary:
 - When in doubt, mark as "." (unrelated) rather than forcing a connection.
 ```
 
+<!-- role: workflow -->
+
 ## Step 4: Evaluate
 
 With all three agents' output in hand, use the Intake cross-reference
@@ -249,6 +257,7 @@ For each idea:
    addresses why the anti-pattern does not apply here.
 
 3. **Effort vs. value.** Estimate both on a rough scale (low/medium/high).
+
    - Low effort + high value = strong candidate for DOING
    - High effort + high value = candidate for DEFERRED (unless urgency overrides)
    - High effort + low value = REJECTED
@@ -260,6 +269,8 @@ For each idea:
 
 5. **Success criteria.** How many of the Critical agent's success criteria
    does this idea satisfy?
+
+<!-- role: workflow -->
 
 ## Step 5: Synthesize
 
@@ -274,6 +285,8 @@ produces something neither agent proposed:
 If a novel option emerges, add it to the evaluation. It must pass the
 same five checks from Step 4. Label it as "Synthesis" in the source
 column. Do not force synthesis -- if nothing emerges, move on.
+
+<!-- role: emit -->
 
 ## Step 6: Report
 

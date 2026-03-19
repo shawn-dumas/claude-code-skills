@@ -19,6 +19,168 @@ The `$PLANS_DIR` variable is not a shell variable. It is a convention used
 in skill instructions. When an agent reads `$PLANS_DIR/prompts/foo.md`, it
 resolves the path using the rule above.
 
+## Structured Skill Format
+
+Every SKILL.md file uses HTML comment annotations to declare the **role**
+of each section. These annotations enable role-aware convention scanning,
+quality scoring, and validation by the AST tooling (`ast-skill-analysis`
+and `ast-interpret-skill-quality`).
+
+### Why structured format
+
+Skill files mix several distinct intents: code templates to generate,
+anti-patterns to avoid, audit detection criteria, conventions to follow,
+test cleanup patterns, and reference data. Without explicit role
+annotations, tools cannot distinguish "emit this code" from "flag this
+pattern" from "do not use this." This ambiguity causes false positives
+in convention drift detection and limits what can be enforced
+automatically.
+
+The structured format makes intent explicit. Each section declares what
+it is for, and tools use that declaration to apply the right validation
+strategy. This shifts enforcement from the LLM (which must infer intent
+from context) to tooling (which reads the annotation directly).
+
+### Annotation syntax
+
+Place an HTML comment immediately before the heading it annotates:
+
+```markdown
+<!-- role: emit -->
+
+## Code Templates
+
+Code blocks in this section are what the agent generates...
+
+<!-- role: avoid -->
+
+## Anti-patterns
+
+Code blocks here show what NOT to generate...
+```
+
+The comment must be on the line immediately preceding the heading (no
+blank line between them). The format is exactly `<!-- role: <name> -->`
+with a single space after `role:`.
+
+### Role taxonomy
+
+| Role        | Purpose                                       | Convention scanner           | Path validation |
+| ----------- | --------------------------------------------- | ---------------------------- | --------------- |
+| `emit`      | Code the agent should generate                | Scan for superseded patterns | No              |
+| `avoid`     | Anti-patterns shown for education             | Skip                         | No              |
+| `detect`    | Patterns to flag during audits                | Skip                         | No              |
+| `guidance`  | Rules, conventions, principles                | Current-reference check only | No              |
+| `reference` | File paths, types, config, background context | Skip                         | Yes             |
+| `workflow`  | Steps, verification commands, process         | Skip                         | Yes (commands)  |
+| `cleanup`   | Test infrastructure patterns                  | Skip                         | No              |
+
+**`emit`** -- sections where code blocks contain code that agents should
+produce. Templates, correct examples, output formats. This is the only
+role the convention scanner checks for superseded patterns (old API usage
+that should be replaced by current conventions). If a code block shows
+`localStorage.getItem()` in an `emit` section, the scanner flags it. If
+the same pattern appears in an `avoid` section, it does not.
+
+**`avoid`** -- sections that show anti-patterns for educational purposes.
+"Do NOT do this" examples, before/after comparisons where the "before"
+is the anti-pattern. Code blocks here deliberately reference old patterns
+to teach agents what to avoid. The convention scanner skips these.
+
+**`detect`** -- sections that describe what to look for when auditing
+code. Audit criteria, scoring rules, violation definitions. Code
+references here name the patterns being flagged, not patterns being
+produced. The convention scanner skips these.
+
+**`guidance`** -- sections containing rules, conventions, and principles
+that the agent must follow. No code templates, just instructions. The
+convention scanner uses these for the "has current reference" check
+(verifying the skill mentions the current convention).
+
+**`reference`** -- sections containing file paths, type definitions,
+configuration values, background context, and other factual information
+the agent needs. The AST tool validates file paths and cross-references
+in these sections for staleness.
+
+**`workflow`** -- sections containing step-by-step process instructions
+and verification commands. The AST tool validates commands in these
+sections against the deprecated command registry.
+
+**`cleanup`** -- sections containing test infrastructure patterns
+(`afterEach` cleanup, mock restoration, storage clearing). Code blocks
+here use direct APIs (like `localStorage.clear()`) that would be flagged
+as convention violations in production code but are legitimate in test
+cleanup. The convention scanner skips these.
+
+### Inheritance
+
+A role annotation applies to its heading and all content until the next
+heading of equal or higher depth. Subheadings without their own
+annotation inherit the parent's role.
+
+```markdown
+<!-- role: detect -->
+
+## Step 3: Audit Principle 1
+
+### 3a. Public API assertions (inherits detect from parent)
+
+### 3b. Internal state leaks (inherits detect from parent)
+
+<!-- role: emit -->
+
+## Step 4: Produce the report (new role starts here)
+```
+
+Top-level headings (`##`) without a role annotation are flagged by the
+AST quality interpreter as `MISSING_SECTION_ROLE`. Subheadings that need
+a different role from their parent must have their own annotation.
+
+### Section requirements by category
+
+Each skill category has a minimum set of required roles. The AST quality
+interpreter checks these.
+
+| Category      | Required roles               | Notes                                                     |
+| ------------- | ---------------------------- | --------------------------------------------------------- |
+| `build`       | `emit`, `workflow`           | Must have code templates and verification steps           |
+| `audit`       | `detect`, `workflow`         | Must have detection criteria and AST tool / process steps |
+| `refactor`    | `detect`, `emit`, `workflow` | Must have audit phase, target output, and verification    |
+| `orchestrate` | `emit`, `workflow`           | Must have plan/prompt templates and process steps         |
+| `other`       | (none required)              | Flexible structure for non-standard skills                |
+
+Additional roles are welcome in any category. A build skill with an
+`avoid` section (anti-patterns to not generate) is more complete, not
+a violation.
+
+### Templates
+
+Category-specific templates live in `.claude/skills/templates/`. Use the
+matching template when creating a new skill with `/build-skill`. Each
+template has pre-placed role annotations and placeholder sections.
+
+| Template                  | Category    | Use for                    |
+| ------------------------- | ----------- | -------------------------- |
+| `TEMPLATE-build.md`       | build       | New `build-*` skills       |
+| `TEMPLATE-audit.md`       | audit       | New `audit-*` skills       |
+| `TEMPLATE-refactor.md`    | refactor    | New `refactor-*` skills    |
+| `TEMPLATE-orchestrate.md` | orchestrate | New `orchestrate-*` skills |
+| `TEMPLATE-other.md`       | other       | Non-standard skills        |
+
+### Meta-skills
+
+Three meta-skills operate on skill files themselves:
+
+| Skill             | Purpose                                                  |
+| ----------------- | -------------------------------------------------------- |
+| `/audit-skill`    | Score a SKILL.md against the structured format spec      |
+| `/refactor-skill` | Restructure an existing SKILL.md to comply with the spec |
+| `/build-skill`    | Generate a new SKILL.md from a category template         |
+
+These skills use `ast-skill-analysis` and `ast-interpret-skill-quality`
+for automated validation, the same way code skills use `ast-complexity`
+and `ast-type-safety`.
+
 ## General Code Principles
 
 These 10 principles apply to all non-trivial TypeScript code in the project -- utilities, server-side processing, API handlers, schemas, scripts, and shared libraries. The React-specific principles in the next section are specializations of these general rules applied to the component model.

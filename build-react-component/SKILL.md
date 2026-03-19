@@ -12,11 +12,15 @@ The first token is the component path (e.g., `dashboard/MetricsCard` or just
 `MetricsCard`). Everything after the first whitespace is the description of what
 the component renders.
 
+<!-- role: workflow -->
+
 ## Step 1: Parse the argument
 
 Extract the `ComponentName` (the last path segment) and the `ParentDir` (everything
 before the last `/`, if present). If no parent directory is given, default to
 `src/ui/components/8flow/`.
+
+<!-- role: workflow -->
 
 ## Step 2: Survey the codebase
 
@@ -31,6 +35,8 @@ Read 2-3 existing components near the target location to match conventions:
 
 Match whatever conventions you find. The goal is that the new component looks like
 it was written by the same person who wrote the surrounding code.
+
+<!-- role: guidance -->
 
 ## Step 3: Design the Props interface
 
@@ -61,6 +67,8 @@ If the component needs to detect client-side rendering for hydration-sensitive c
 (e.g., browser-only APIs, window measurements), use `useState(() => typeof window !== 'undefined')`
 as a lazy initializer instead of `useState(false)` + `useEffect(() => setMounted(true), [])`.
 The lazy initializer avoids an extra render cycle.
+
+<!-- role: emit -->
 
 ## Step 4: Generate the files
 
@@ -218,6 +226,8 @@ states, error states, empty states.
 - Snapshot tests.
 - Tests asserting on internal state, hook call counts, or effect order.
 
+<!-- role: reference -->
+
 ## Type touchpoints
 
 Before defining any new type or interface inline, check first:
@@ -245,6 +255,8 @@ corresponding branded type (`UserId`, `TeamId`, `WorkstreamId`,
 This check catches the most common branded type omission: ID fields
 typed as bare `string` in props interfaces, function parameters, and
 type definitions.
+
+<!-- role: workflow -->
 
 ## Step 5: Verify
 

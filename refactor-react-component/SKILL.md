@@ -8,12 +8,16 @@ argument-hint: <path/to/Component.tsx>
 
 Refactor the React component at `$ARGUMENTS`.
 
+<!-- role: guidance -->
+
 ## Prerequisite
 
 If you have not run `audit-react-feature` for this component's feature domain yet,
 consider doing so first. The audit produces a dependency graph and migration checklist
 that prevents duplicate work and surfaces cross-file issues this skill cannot see in
 isolation.
+
+<!-- role: workflow -->
 
 ## Step 0: Run AST analysis tools
 
@@ -67,11 +71,15 @@ functions that look pure, toast calls in wrong layers) and Step 2e
 Use import observations for Step 1 (dependency picture, consumer count,
 cross-domain imports) and Step 4 (updating imports after file splits).
 
+<!-- role: workflow -->
+
 ## Step 1: Build the dependency picture
 
 Read the target file. Then read every file it imports -- hooks, contexts, utilities,
 child components, type files. Build a mental map of what this component touches and
 what touches it.
+
+<!-- role: detect -->
 
 ## Step 2: Audit against each principle
 
@@ -186,6 +194,8 @@ For ownership assessment:
 - Server state copied from query results into useState or context
 - Multiple writers to the same localStorage key
 
+<!-- role: emit -->
+
 ## Step 3: Report
 
 Output a clear report with this structure:
@@ -205,6 +215,8 @@ Output a clear report with this structure:
 ### No issues
 - [List principles with no violations]
 ```
+
+<!-- role: emit -->
 
 ## Step 4: Rewrite
 
@@ -281,6 +293,8 @@ If the component imports from `@tanstack/react-table`, enforce:
 
 4. **`columnHelper.accessor` callbacks are pure.** No side effects,
    no hooks, no state access inside accessor functions.
+
+<!-- role: reference -->
 
 ## Step 4b: Common refactoring patterns
 
@@ -479,6 +493,8 @@ The lazy initializer runs once during state initialization. On the server,
 `typeof window` is `'undefined'` so it returns `false`. On the client, it returns
 `true`. No useEffect, no extra render cycle.
 
+<!-- role: reference -->
+
 ## Type touchpoints
 
 When you encounter inline types during the refactor, check whether they belong in
@@ -492,6 +508,8 @@ When you encounter inline types during the refactor, check whether they belong i
 4. When you find inline types used cross-domain (imported by files in other
    feature areas), move them to the appropriate domain module in
    `src/shared/types/` and update all import sites.
+
+<!-- role: workflow -->
 
 ## Step 5: Verify
 
@@ -556,6 +574,8 @@ error handling coverage is preserved:
 ```bash
 npx tsx scripts/AST/ast-error-coverage.ts <refactored-file> --count
 ```
+
+<!-- role: emit -->
 
 ## Step 6: Summary
 

@@ -13,12 +13,15 @@ The second token is the target version (e.g., `15`, `4.0.11`, `19`).
 Everything after the second token is an optional codemod command to run
 (e.g., `npx @next/codemod@latest upgrade`).
 
+<!-- role: workflow -->
+
 ## Step 1: Understand the current state
 
 1. Read `package.json` to find the current version and whether the package is a
    production or dev dependency.
 2. Read the installed version from `node_modules/<package>/package.json`.
 3. Grep the entire source tree for every import of the package:
+
    - `import ... from '<package>'`
    - `import ... from '<package>/...'`
    - `require('<package>')`
@@ -31,6 +34,8 @@ Everything after the second token is an optional codemod command to run
 4. Build a usage map: which APIs from the package are actually used in this
    codebase. This is critical for scoping the migration -- if the package has
    50 breaking changes but the codebase only uses 3 APIs, the migration is small.
+
+<!-- role: workflow -->
 
 ## Step 2: Research the migration
 
@@ -45,11 +50,14 @@ If the package has a well-known migration guide URL (Next.js, React, TanStack,
 Tailwind, etc.), fetch it. Otherwise, check the GitHub releases page.
 
 For each breaking change in the migration guide:
+
 - Does it affect any API that appears in the usage map from Step 1?
 - If yes, record the file, line, old API, new API, and whether a codemod handles it.
 - If no, skip it.
 
 Produce a migration checklist of only the relevant breaking changes.
+
+<!-- role: workflow -->
 
 ## Step 3: Run codemods (if provided)
 
@@ -70,6 +78,8 @@ the codemod handled and what it missed.
 
 If no codemod command was given, skip this step.
 
+<!-- role: workflow -->
+
 ## Step 4: Apply the upgrade
 
 ```bash
@@ -82,6 +92,8 @@ pnpm add -D <package>@<target-version>
 If the package has companion type packages (e.g., `@types/react` for `react`),
 upgrade those too.
 
+<!-- role: workflow -->
+
 ## Step 5: Fix code
 
 For each relevant breaking change from Step 2 that was NOT handled by the codemod:
@@ -92,6 +104,7 @@ For each relevant breaking change from Step 2 that was NOT handled by the codemo
 4. Record what was changed
 
 Common fix patterns:
+
 - **Renamed API**: Find-and-replace the old name with the new name
 - **Changed signature**: Update call sites to match the new parameter order/types
 - **Removed API**: Replace with the documented alternative
@@ -102,6 +115,8 @@ Common fix patterns:
 When fixing, preserve the existing code style and conventions. Do not refactor
 unrelated code.
 
+<!-- role: workflow -->
+
 ## Step 6: Handle peerDependency conflicts
 
 After installing, check for peerDependency warnings:
@@ -111,10 +126,13 @@ pnpm install 2>&1 | grep -i "peer" || true
 ```
 
 If other packages have peerDependency conflicts with the new version:
+
 - Record which packages conflict
 - Check if newer versions of those packages resolve the conflict
 - If a companion upgrade is needed, note it but do NOT automatically upgrade it
   (that is a separate skill invocation)
+
+<!-- role: workflow -->
 
 ## Step 7: Verify
 
@@ -133,8 +151,11 @@ pnpm build 2>&1 || true
 ```
 
 If any step fails, analyze the errors:
+
 - Are they caused by the migration? Fix them.
 - Are they pre-existing? Note them but do not fix unrelated issues.
+
+<!-- role: emit -->
 
 ## Step 8: Summary
 

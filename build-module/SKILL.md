@@ -24,6 +24,8 @@ generate:
 If the description implies React or an API handler, stop and recommend the
 correct skill.
 
+<!-- role: workflow -->
+
 ## Step 1: Parse the argument
 
 Extract the module name and purpose description. Validate:
@@ -46,6 +48,8 @@ Determine the target directory:
 If the user specifies a path, use it. Otherwise, default to
 `src/shared/utils/<moduleName>/`.
 
+<!-- role: workflow -->
+
 ## Step 2: Survey the codebase
 
 1. **Check for duplicates.** Grep for the module name and key terms from
@@ -64,6 +68,8 @@ If the user specifies a path, use it. Otherwise, default to
 4. **Check the barrel file.** If the target parent directory has an
    `index.ts`, read it to understand the re-export pattern. The new
    module will need to be added to it.
+
+<!-- role: guidance -->
 
 ## Step 3: Design the module
 
@@ -162,6 +168,8 @@ two functions. Shared logic (if any) becomes a private helper.
 At trust boundaries, throw or return typed errors. No silent swallowing.
 No fallback defaults that hide bugs. Use `Error` subclasses or typed
 result objects (`{ ok: true; data: T } | { ok: false; error: E }`).
+
+<!-- role: emit -->
 
 ## Step 4: Generate the files
 
@@ -269,6 +277,8 @@ describe('<moduleName>', () => {
 - Snapshot tests.
 - Tests that mock internal helpers of the module under test.
 
+<!-- role: workflow -->
+
 ## Step 5: Verify
 
 ### 5a. TypeScript
@@ -328,6 +338,8 @@ npx tsx scripts/AST/ast-side-effects.ts <generated-module-file> --pretty
 If the module was designed as pure (G6), this must return zero
 observations. If side effects are detected, either move them to a
 separate effectful shell or document why they are necessary.
+
+<!-- role: emit -->
 
 ## Summary
 

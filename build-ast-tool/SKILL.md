@@ -6,11 +6,15 @@ allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Task
 argument-hint: <pattern-class name from GAPS.md>
 ---
 
+<!-- role: guidance -->
+
 # build-ast-tool
 
 Build a new AST analysis tool for `scripts/AST/`. Use this skill when a
 pattern class in `scripts/AST/GAPS.md` has 3+ entries across different
 skills or prompts and justifies a purpose-built analyzer.
+
+<!-- role: guidance -->
 
 ## When to use
 
@@ -19,12 +23,16 @@ skills or prompts and justifies a purpose-built analyzer.
   same structural query that would benefit from typed observations
 - You need a new observation kind that interpreters can consume
 
+<!-- role: avoid -->
+
 ## When NOT to use
 
 - The pattern is narrow (one-off query for a specific refactor) -- use `sg`
 - The pattern is non-structural (string literals, config values) -- use `rg`
 - An existing AST tool already covers the pattern (check GAPS.md for
   `filled` entries and the tool inventory in `CLAUDE.md`)
+
+<!-- role: reference -->
 
 ## Prerequisites
 
@@ -44,6 +52,8 @@ Read these files before starting:
 - `scripts/AST/ast-complexity.ts` -- simple observation-only tool
 - `scripts/AST/ast-imports.ts` -- tool with both observations and an interpreter
 
+<!-- role: workflow -->
+
 ## Step 0: Validate the gap
 
 1. Read `scripts/AST/GAPS.md`. Identify the gap entry (or entries) this
@@ -57,6 +67,8 @@ Read these files before starting:
    - A unique `kind` string (SCREAMING_SNAKE_CASE, e.g., `HOOK_CONSUMER_CALL`)
    - An `evidence` shape (structured data, not free text)
    - A `file` (relative path) and `line` (1-indexed)
+
+<!-- role: emit -->
 
 ## Step 1: Define types
 
@@ -81,6 +93,8 @@ Add the new types to `scripts/AST/types.ts`:
 3. If the tool needs interpreter-level assessments, define an assessment
    interface too (with `confidence`, `rationale`, `basedOn`,
    `requiresManualReview`).
+
+<!-- role: emit -->
 
 ## Step 2: Implement the tool
 
@@ -200,6 +214,8 @@ if (isDirectRun) {
 - **G10**: Use `fatal()` for CLI errors. Observations report what exists;
   they do not silently skip files.
 
+<!-- role: emit -->
+
 ## Step 3: Add config entries (if needed)
 
 If the tool needs repo-specific configuration (lists of known patterns,
@@ -216,6 +232,8 @@ export const astConfig = {
   },
 } as const;
 ```
+
+<!-- role: emit -->
 
 ## Step 4: Write tests
 
@@ -272,6 +290,8 @@ describe('ast-<name>', () => {
 npx vitest run --config scripts/AST/vitest.config.mts scripts/AST/__tests__/ast-<name>.spec.ts
 ```
 
+<!-- role: emit -->
+
 ## Step 5: Build an interpreter (if needed)
 
 If the observations need classification or judgment (e.g., "is this
@@ -288,6 +308,8 @@ Interpreters:
 Not every tool needs an interpreter. Observation-only tools (like
 `ast-complexity`, `ast-side-effects`) are valid when skills apply their
 own judgment policies.
+
+<!-- role: workflow -->
 
 ## Step 6: Update the registry
 
@@ -315,6 +337,8 @@ own judgment policies.
 4. **Update skills README.md**: If the tool has an interpreter, add it to
    the tool list. If observation-only, note that.
 
+<!-- role: workflow -->
+
 ## Step 7: Verify
 
 ```bash
@@ -341,6 +365,8 @@ npx vitest run --config scripts/AST/vitest.config.mts
 ```
 
 All four commands must pass before the tool is complete.
+
+<!-- role: workflow -->
 
 ## Checklist
 

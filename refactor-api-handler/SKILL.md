@@ -8,11 +8,15 @@ argument-hint: "The API handler file path (e.g., 'src/pages/api/users/update.ts'
 
 Refactor the API route handler at `$ARGUMENTS`.
 
+<!-- role: guidance -->
+
 ## Prerequisite
 
 If you have not run `audit-api-handler` on this file yet, consider doing so first. The audit
 produces a scored report with a prioritized refactor checklist that prevents duplicate work.
 If no audit exists, this skill runs the audit internally in Step 2.
+
+<!-- role: workflow -->
 
 ## Step 0: Run AST analysis tools
 
@@ -55,6 +59,8 @@ This is the baseline for the mandatory before/after CC comparison in Step 6.
 | `DEAD_EXPORT_CANDIDATE` | G7                | Exports beyond the required default export                  |
 | `CIRCULAR_DEPENDENCY`   | G1                | Handler participating in a circular import chain            |
 
+<!-- role: workflow -->
+
 ## Step 1: Build the dependency picture
 
 Read the handler file. Then read every file it imports -- schemas, server modules,
@@ -80,6 +86,8 @@ Build a map:
 
 This map determines what changes are safe. The handler's HTTP API contract (request
 shape, response shape, status codes, error format) must not change.
+
+<!-- role: detect -->
 
 ## Step 2: Audit (internal)
 
@@ -121,6 +129,8 @@ re-auditing. Output the audit results before proceeding to the rewrite.
 **Multi-tenancy:**
 
 - Are all DB queries scoped to `ctx.organizationId`?
+
+<!-- role: guidance -->
 
 ## Step 3: Classify and plan
 
@@ -228,6 +238,8 @@ export default withErrorHandler(withMethod(['GET'], withAuth(handler)));
 // or with role check:
 export default withErrorHandler(withMethod(['GET'], withAuth(withRole(ROLES, handler))));
 ```
+
+<!-- role: emit -->
 
 ## Step 4: Rewrite
 
@@ -350,6 +362,8 @@ updates are needed (the handler's HTTP contract is unchanged). If you change the
 middleware composition (add `withRole`), verify that existing consumers handle the
 new 403 case.
 
+<!-- role: reference -->
+
 ## Type touchpoints
 
 Before defining any new type:
@@ -362,6 +376,8 @@ Before defining any new type:
    from `@/shared/types/brand`.
 4. Handler-local types (request body shapes, query param shapes) stay in the
    co-located schema file.
+
+<!-- role: workflow -->
 
 ## Step 5: Verify
 
@@ -425,6 +441,8 @@ Before defining any new type:
 
 Report all results in the summary. A refactoring is not complete until tsc passes,
 all functions have CC <= 10, and existing tests pass.
+
+<!-- role: emit -->
 
 ## Step 6: Summary
 

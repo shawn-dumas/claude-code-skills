@@ -9,6 +9,8 @@ argument-hint: <path/to/integration-spec.spec.ts>
 Refactor the Playwright integration spec at `$ARGUMENTS`. Read the spec, audit it
 against the current page structure and testing philosophy, then fix it.
 
+<!-- role: reference -->
+
 ## Background: Playwright integration test conventions
 
 This project uses Playwright with:
@@ -25,6 +27,8 @@ Relevant testing philosophy principles for integration tests:
 - **P8 User Outcomes**: Assert on visible text, roles, states — not DOM structure
 - **P9 Determinism**: No flaky waits, mock time if needed, seed data
 - **P10 Total Cleanup**: Route handlers cleaned between tests
+
+<!-- role: workflow -->
 
 ## Step 0: Run AST analysis tools
 
@@ -67,6 +71,8 @@ When a finding is confirmed by AST tool output (assertion type,
 cleanup pattern, data sourcing), tag it `[AST-confirmed]` in the report.
 Assessments with `confidence: 'high'` warrant the tag.
 
+<!-- role: workflow -->
+
 ## Step 1: Read the spec and its target pages
 
 Read the integration spec completely. For each route the spec navigates to:
@@ -76,6 +82,8 @@ Read the integration spec completely. For each route the spec navigates to:
 - Record all `data-testid` attributes used in the spec
 - Record all `getByRole`, `getByText`, `getByLabel` selectors
 - Check whether test IDs referenced in the spec still exist in production
+
+<!-- role: detect -->
 
 ## Step 2: Audit for stale references
 
@@ -105,6 +113,8 @@ If the spec uses auth utils (`signInAsOKTAAdmin`, etc.):
 - Check that the auth flow still works with the current login page structure
 - Flag if the spec uses `signInAs*` for a mock-data test that could use
   emulator sign-in instead
+
+<!-- role: detect -->
 
 ## Step 3: Audit for anti-patterns
 
@@ -185,6 +195,8 @@ Playwright remediation. Check each one during the audit pass.
 | B6  | nuqs URL parameter stability                  | For specs navigating between tabs/views using nuqs URL params: verify the spec does NOT assume URL params persist across full-page navigations (nuqs Pages Router does not preserve params across `router.push` in some edge cases). If testing URL-param-backed state, verify the spec waits for URL to stabilize before asserting.                                                                       |
 | B7  | Check session history for known flaky tests   | Before diagnosing a failing test, query the session database for its run history. A test that passes individually but fails at position 100+ in a long serial run is resource contention, not a code bug. A test that fails only after a specific preceding spec is cross-test pollution. A test that has never passed in any session is a real bug. See build-playwright-test A8 for the exact SQL query. |
 
+<!-- role: emit -->
+
 ## Step 4: Apply fixes
 
 ### 4a. Fix stale selectors
@@ -227,6 +239,8 @@ Replace implementation-detail assertions:
 Prefer Playwright's auto-waiting assertions (`expect(locator).toHaveText()`)
 over manual `innerText()` + `expect().toBe()`.
 
+<!-- role: workflow -->
+
 ## Step 5: Verify
 
 1. Run ONLY the refactored spec -- never the full suite:
@@ -258,6 +272,8 @@ Check the output:
    the pass/fail result with counts (not "not run"), and intention
    matcher results (matched/unmatched/novel counts).
 
+<!-- role: workflow -->
+
 ## Interpreter Calibration Gate
 
 If any interpreter classification is wrong and the misclassification
@@ -269,6 +285,8 @@ affected a decision in this skill's workflow:
 
 Do NOT create a fixture if you are unsure or the error did not affect
 a decision.
+
+<!-- role: avoid -->
 
 ## What NOT to do
 

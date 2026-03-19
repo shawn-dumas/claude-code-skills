@@ -9,6 +9,8 @@ argument-hint: <path/to/api/handler.ts>
 Audit the API handler at `$ARGUMENTS`. This is a read-only diagnostic -- do not modify
 any files. Produce a complete violation report.
 
+<!-- role: workflow -->
+
 ## Step 0: Run AST analysis tools and interpreters
 
 ```bash
@@ -65,6 +67,8 @@ identify unused handler exports (rare but possible in API handlers).
 | G2 Explicit I/O         | ast-env-access   | `PROCESS_ENV_ACCESS` (violation) vs `ENV_WRAPPER_ACCESS` (compliant)   |
 | Endpoint tracing        | ast-data-layer   | `FETCH_API_CALL` observations with `url` evidence                      |
 
+<!-- role: guidance -->
+
 ## Report Policy
 
 ### AST-confirmed tagging
@@ -90,6 +94,8 @@ Examples that qualify:
 identifying the source (`JSON.parse`, `.json()`, `localStorage`, etc.).
 Use this to populate the G5 violations table.
 
+<!-- role: workflow -->
+
 ## Step 1: Locate handler and schema
 
 Given the handler path (e.g., `src/pages/api/users/user-data.ts`), find:
@@ -106,6 +112,8 @@ Read all located files. Also read:
 - Any server-side processing modules the handler calls (from `src/server/`)
 - The fetchApi configuration if the handler is called by a service hook (trace the
   consumer chain)
+
+<!-- role: detect -->
 
 ## Step 2: Audit the schema file
 
@@ -141,6 +149,8 @@ WARN if branded types are missing but the field semantics match a branded type.
   rather than redefined per endpoint?
 
 WARN if shared shapes are redefined locally.
+
+<!-- role: detect -->
 
 ## Step 3: Audit the handler structure
 
@@ -197,6 +207,8 @@ WARN if error responses are unstructured (bare strings instead of `{ error: ... 
 WARN if ambient dependencies exist but are documented at module top.
 FAIL if ambient dependencies are scattered throughout the handler body.
 
+<!-- role: detect -->
+
 ## Step 4: Audit against remaining G principles
 
 ### G1 -- Single job
@@ -229,6 +241,8 @@ FAIL if ambient dependencies are scattered throughout the handler body.
 
 - Does the handler compose focused functions or does it have a monolithic body?
 
+<!-- role: detect -->
+
 ## Step 5: Cross-reference with consumers
 
 Trace the handler's consumer chain:
@@ -241,6 +255,8 @@ FAIL if the client-side schema and server-side schema define different shapes fo
 same data.
 WARN if schemas are compatible but defined independently (duplication risk).
 
+<!-- role: detect -->
+
 ## Step 6: Check the mock handler
 
 If a mock handler exists in `src/pages/api/mock/`:
@@ -251,6 +267,8 @@ If a mock handler exists in `src/pages/api/mock/`:
 
 WARN if the mock handler returns hardcoded data instead of fixture builders.
 WARN if the mock response shape has drifted from the real handler's schema.
+
+<!-- role: emit -->
 
 ## Step 7: Produce the report
 
@@ -336,6 +354,8 @@ Output a structured report:
 2. [ ] <next fix>
 3. [ ] ...
 ```
+
+<!-- role: workflow -->
 
 ## Interpreter Calibration Gate
 

@@ -11,6 +11,8 @@ Generate a new React custom hook. `$ARGUMENTS`
 The first token is the hook name (e.g., `useDebounce`). Everything after the first
 whitespace is the description of what the hook does.
 
+<!-- role: workflow -->
+
 ## Step 1: Parse the argument
 
 Extract the hook name. Validate that it starts with `use`. If the description
@@ -26,6 +28,8 @@ Classify the hook:
 - **State utility** if it encapsulates a reusable state pattern (debounce, toggle,
   previous value, undo/redo, form field, etc.) with no browser API dependency.
 
+<!-- role: workflow -->
+
 ## Step 2: Survey the codebase
 
 - Read `src/shared/hooks/index.ts` (or the barrel file for shared hooks) to
@@ -36,6 +40,8 @@ Classify the hook:
   duplicates. If a similar hook already exists, stop and report: "A hook with
   similar functionality already exists at `<path>`. Consider using or extending
   it instead."
+
+<!-- role: guidance -->
 
 ## Step 3: Design the hook interface
 
@@ -55,6 +61,8 @@ Based on the description, design the hook's parameters and return value:
     consumer)
   - Fire toasts
   - Import query keys
+
+<!-- role: emit -->
 
 ## Step 4: Generate the files
 
@@ -143,6 +151,8 @@ export { useHookName } from './<useHookName>';
 
 If the barrel file uses a different pattern, match it.
 
+<!-- role: reference -->
+
 ## Type touchpoints
 
 Before defining any new type or interface inline, check first:
@@ -154,6 +164,8 @@ Before defining any new type or interface inline, check first:
    `OrganizationId`).
 4. For new shared types, add them to the appropriate domain module in
    `src/shared/types/`, not inline in the hook file.
+
+<!-- role: workflow -->
 
 ## Step 5: Verify
 

@@ -35,15 +35,19 @@ directory (and `$PLANS_DIR/prompts/`) if it does not exist.
 
 ---
 
+<!-- role: workflow -->
+
 ## Preconditions
 
 Before proceeding, verify:
 
 1. **The PRD exists.** Look for:
+
    - `$PLANS_DIR/poc-<slug>-prd.md`
    - Or: `$PLANS_DIR/poc-<slug>.md`
 
    If the PRD cannot be found:
+
    > I cannot find the PRD at `$PLANS_DIR/poc-<slug>-prd.md` or
    > `$PLANS_DIR/poc-<slug>.md`. This skill requires a PRD produced by
    > `orchestrate-poc`.
@@ -58,6 +62,8 @@ Before proceeding, verify:
    If the directory does not exist, the PRD is orphaned -- warn the PM.
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 1: Parse the Feedback
 
@@ -82,11 +88,14 @@ clarifying question. Examples of ambiguity worth asking about:
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 2: Read Current State
 
 ### 2.1 Read the PRD
 
 Read the full PRD. Build a mental model of:
+
 - What the feature does (Section 1, 2)
 - How users interact with it (Section 3)
 - What data it uses (Section 4, 5)
@@ -101,19 +110,21 @@ source files to verify the PRD accurately describes the current code.
 This catches drift -- previous `iterate-poc` runs or manual edits may
 have changed the code without updating the PRD.
 
-| PRD Section | Code to Verify |
-|-------------|---------------|
-| Section 2 (FRs) | Container + components (does the behavior match?) |
-| Section 3 (UX Flows) | Container event handlers, component props |
-| Section 4 (Data Model) | Type definitions in `src/shared/types/` |
-| Section 5 (API Contracts) | Mock routes, service hooks |
-| Section 7 (Permissions) | Container role check, page file |
+| PRD Section               | Code to Verify                                    |
+| ------------------------- | ------------------------------------------------- |
+| Section 2 (FRs)           | Container + components (does the behavior match?) |
+| Section 3 (UX Flows)      | Container event handlers, component props         |
+| Section 4 (Data Model)    | Type definitions in `src/shared/types/`           |
+| Section 5 (API Contracts) | Mock routes, service hooks                        |
+| Section 7 (Permissions)   | Container role check, page file                   |
 
 Record any existing divergences (PRD says X, code does Y) separately
 from the feedback-driven changes. These are pre-existing issues the PM
 should know about.
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 3: Plan the PRD Updates
 
@@ -138,24 +149,29 @@ Present the plan to the PM:
 > **PRD update plan for: "<feedback summary>"**
 >
 > **Text-only updates:**
+>
 > - Section N: <what changes>
 > - ...
 >
 > **Code-divergent updates:**
+>
 > - Section N: <what the PRD will say vs. what the code does>
 > - ...
 >
 > **Pre-existing divergences found:**
+>
 > - Section N: <PRD says X, code does Y>
 > - ...
-> _(or "None found")_
+>   _(or "None found")_
 
 If there are code-divergent updates:
+
 > These PRD changes describe behavior the code does not currently
 > implement. After updating the PRD, I recommend running
 > `iterate-poc <slug> <change description>` to bring the code in line.
 
 Ask:
+
 ```
 Question: Proceed with updating the PRD?
 Header: Confirm updates
@@ -166,6 +182,8 @@ Options:
 ```
 
 ---
+
+<!-- role: guidance -->
 
 ## Step 4: Apply the Updates
 
@@ -193,6 +211,7 @@ scope changes. If a feature was cut, remove its bullet. If a new
 feature was added, add a bullet.
 
 **Section 2 (FRs):** When modifying an FR:
+
 - Update the behavior description.
 - Update all acceptance criteria that are affected.
 - If a new AC is needed, add it with the `- [ ]` checkbox format.
@@ -200,20 +219,24 @@ feature was added, add a bullet.
   the changelog.
 
 **Section 3 (UX Flows):** When modifying flows:
+
 - Update the step-by-step walkthrough.
 - If UI states changed (new empty state, different error message),
   update Section 3.4.
 
 **Section 4 (Data Model):** When modifying types:
+
 - Update the TypeScript code block.
 - Update the Calculated & Derived Values table if formulas changed.
 - Mark as code-divergent (types must change in source code too).
 
 **Section 5 (API Contracts):** When modifying endpoints:
+
 - Update the request/response TypeScript blocks.
 - Mark as code-divergent.
 
 **Section 7 (Permissions):** When modifying access control:
+
 - Update the role list.
 - Mark as code-divergent if the code's role check needs to change.
 
@@ -223,6 +246,7 @@ during feedback review.
 ### 4.3 Terminology Changes
 
 If the feedback involves renaming a concept across the PRD:
+
 - Use the Edit tool with `replaceAll: true` for consistent renames
   within the PRD file.
 - Note in the divergence list whether code identifiers (component names,
@@ -231,6 +255,8 @@ If the feedback involves renaming a concept across the PRD:
   differ from code identifiers.
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 5: Update Changelog and Metadata
 
@@ -252,6 +278,8 @@ exist):
 
 ---
 
+<!-- role: emit -->
+
 ## Step 6: Divergence Summary
 
 If any code-divergent updates or pre-existing divergences were found,
@@ -262,15 +290,15 @@ produce a divergence summary:
 
 ### New (from this feedback)
 
-| PRD Section | What PRD Says | What Code Does | iterate-poc Prompt |
-|-------------|---------------|----------------|-------------------|
-| Section N | <new behavior> | <current behavior or "not implemented"> | <suggested change description for iterate-poc> |
+| PRD Section | What PRD Says  | What Code Does                          | iterate-poc Prompt                             |
+| ----------- | -------------- | --------------------------------------- | ---------------------------------------------- |
+| Section N   | <new behavior> | <current behavior or "not implemented"> | <suggested change description for iterate-poc> |
 
 ### Pre-existing
 
-| PRD Section | What PRD Says | What Code Does |
-|-------------|---------------|----------------|
-| Section N | <PRD claim> | <actual behavior> |
+| PRD Section | What PRD Says | What Code Does    |
+| ----------- | ------------- | ----------------- |
+| Section N   | <PRD claim>   | <actual behavior> |
 ```
 
 Write this summary to `$PLANS_DIR/poc-<slug>-divergences.md` (create or
@@ -281,20 +309,22 @@ If no divergences exist, skip this step.
 
 ---
 
+<!-- role: emit -->
+
 ## Step 7: Report
 
 Report to the PM:
 
 > **PRD updated: "<feedback summary>"**
 >
-> **Sections updated:** <list>
-> **Changelog entry added.**
+> **Sections updated:** <list> > **Changelog entry added.**
 >
 > <If divergences exist:>
 > **Code divergences found:** N items. Written to
 > `$PLANS_DIR/poc-<slug>-divergences.md`.
 >
 > To bring the code in line with the updated PRD, run:
+>
 > ```
 > /iterate-poc <slug> <suggested change descriptions>
 > ```
@@ -305,6 +335,8 @@ Report to the PM:
 > divergences file.
 
 ---
+
+<!-- role: guidance -->
 
 ## Scope Boundaries
 

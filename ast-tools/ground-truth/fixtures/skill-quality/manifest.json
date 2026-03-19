@@ -3,7 +3,7 @@
   "created": "2026-03-19",
   "source": "mixed",
   "status": "verified",
-  "notes": "Ground-truth fixtures for ast-interpret-skill-quality interpreter. All 11 assessment kinds have both synthetic and real-world grounding. Real-world negative-path fixtures use pre-fix git snapshots of skill files that had the defects before they were fixed.",
+  "notes": "Ground-truth fixtures for ast-interpret-skill-quality interpreter. All 14 assessment kinds have both synthetic and real-world grounding. Real-world negative-path fixtures use pre-fix git snapshots of skill files that had the defects before they were fixed. Role-related kinds (MISSING_SECTION_ROLE, ROLE_REQUIREMENT_MET, ROLE_REQUIREMENT_MISSING) added in the structured skill format work.",
   "fixtures": [
     {
       "file": ".claude/skills/spawn-satan/SKILL.md",
@@ -215,6 +215,59 @@
           }
         ]
       }
+    },
+    {
+      "file": "scripts/AST/__tests__/fixtures/skill-analysis/synth-role-partial/SKILL.md",
+      "source": "synthetic",
+      "expected": {
+        "skillName": "synth-role-partial",
+        "category": "other",
+        "score": 98,
+        "assessments": [
+          {
+            "expectedKind": "MISSING_SECTION_ROLE",
+            "count": 1,
+            "notes": "Has 2 annotated headings and 1 unannotated heading ('Step 2: Generate output'). Because at least one annotation exists, the unannotated heading is flagged. Score: -2."
+          }
+        ]
+      }
+    },
+    {
+      "file": "scripts/AST/__tests__/fixtures/skill-analysis/build-synth-role-missing-required/SKILL.md",
+      "source": "synthetic",
+      "expected": {
+        "skillName": "build-synth-role-missing-required",
+        "category": "build",
+        "score": 97,
+        "assessments": [
+          {
+            "expectedKind": "ROLE_REQUIREMENT_MISSING",
+            "count": 1,
+            "notes": "Build skill with workflow and guidance roles but no emit role. Category 'build' requires emit. Score: -3."
+          },
+          {
+            "expectedKind": "ROLE_REQUIREMENT_MET",
+            "count": 1,
+            "notes": "The 'workflow' required role is present."
+          }
+        ]
+      }
+    },
+    {
+      "file": ".claude/skills/build-fixture/SKILL.md",
+      "source": "real-world (post-migration with role annotations)",
+      "expected": {
+        "skillName": "build-fixture",
+        "category": "build",
+        "score": 100,
+        "assessments": [
+          {
+            "expectedKind": "ROLE_REQUIREMENT_MET",
+            "count": 2,
+            "notes": "Both 'emit' and 'workflow' required roles are present after migration. Real-world grounding for ROLE_REQUIREMENT_MET."
+          }
+        ]
+      }
     }
   ],
   "coverageMatrix": {
@@ -232,6 +285,21 @@
       "synthetic": true,
       "realWorld": false,
       "notes": "CONVENTION_ALIGNED assessment kind is defined in types but not emitted by interpreter. Positive fixture validates no-drift behavior."
+    },
+    "MISSING_SECTION_ROLE": {
+      "synthetic": true,
+      "realWorld": false,
+      "notes": "Synthetic fixture synth-role-partial has one unannotated heading among annotated ones. No real-world fixture because all 58 skills are now fully annotated."
+    },
+    "ROLE_REQUIREMENT_MET": {
+      "synthetic": true,
+      "realWorld": true,
+      "source": "build-fixture/SKILL.md (post-migration, both emit and workflow present)"
+    },
+    "ROLE_REQUIREMENT_MISSING": {
+      "synthetic": true,
+      "realWorld": false,
+      "notes": "Synthetic fixture build-synth-role-missing-required is a build skill without an emit section. No real-world fixture because all 58 skills meet their category requirements."
     }
   }
 }

@@ -6,6 +6,8 @@ allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Task, TodoWrite
 argument-hint: "The plan file name (e.g., 'authz-enforcement' or 'authz-enforcement.md')"
 ---
 
+<!-- role: guidance -->
+
 # Skill: archive-plan
 
 Archive a completed orchestration plan. `$ARGUMENTS`
@@ -29,6 +31,8 @@ Use `$PLANS_DIR` for all paths below.
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 0: Locate plan files
 
 Parse `$ARGUMENTS` to get the plan basename (strip `.md` if present).
@@ -46,6 +50,8 @@ If the plan file is already in `$PLANS_DIR/archive/`, it was moved
 early. Read it from there instead.
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 1: Collect execution metrics
 
@@ -91,6 +97,8 @@ Proceed with git-only metrics.
 
 ---
 
+<!-- role: detect -->
+
 ## Step 2: Post-execution calibration
 
 Compare predicted scores against actual execution data.
@@ -99,22 +107,22 @@ Compare predicted scores against actual execution data.
 
 Compare predicted F against actual failed-tool count:
 
-| Predicted F | Expected failed tools | Action if divergent |
-|---|---|---|
-| 1-2 | 0-2 | No action |
-| 3-4 | 0-49 | If actual is 0, consider F adjustment to 2 |
-| 5-6 | 27-99 | Adjust if actual is far outside range |
-| 7+ | 40+ | Adjust if actual is far outside range |
+| Predicted F | Expected failed tools | Action if divergent                        |
+| ----------- | --------------------- | ------------------------------------------ |
+| 1-2         | 0-2                   | No action                                  |
+| 3-4         | 0-49                  | If actual is 0, consider F adjustment to 2 |
+| 5-6         | 27-99                 | Adjust if actual is far outside range      |
+| 7+          | 40+                   | Adjust if actual is far outside range      |
 
 ### 2b. C (Calendar risk) calibration
 
 Compare predicted C against actual calendar span:
 
-| Predicted C | Expected wall clock | Action if divergent |
-|---|---|---|
-| 1 | 0.3h - 4.5h | No action if within range |
-| 2 | 3h - 6h | Adjust if under 2h or over 8h |
-| 3-4 | 5h - 25h | Adjust if far outside range |
+| Predicted C | Expected wall clock | Action if divergent           |
+| ----------- | ------------------- | ----------------------------- |
+| 1           | 0.3h - 4.5h         | No action if within range     |
+| 2           | 3h - 6h             | Adjust if under 2h or over 8h |
+| 3-4         | 5h - 25h            | Adjust if far outside range   |
 
 ### 2c. D/S/Z calibration
 
@@ -146,6 +154,8 @@ If the plan audit was accurate, skip this step.
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 3: Handle cleanup file items
 
 Read the cleanup file. For each item:
@@ -158,6 +168,8 @@ Read the cleanup file. For each item:
 Record the disposition of each item. Do not leave items unaccounted for.
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 4: Archive files
 
@@ -190,6 +202,8 @@ ls -la "$PLANS_DIR/archive/<basename>"*
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 5: Update historical-reference.md
 
 Read `$PLANS_DIR/historical-reference.md`. All edits go in this file.
@@ -204,6 +218,7 @@ Assign the next available rank number (find the highest existing rank
 and add 1).
 
 Format:
+
 ```
 | <rank> | <plan name> | <blended> | <adj> | <D> | <S> | <Z> | <F> | <C> | <status> |
 ```
@@ -268,6 +283,8 @@ Update the F and C anchor tables in `$PLANS_DIR/CLAUDE.md`:
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 6: Update active plans table
 
 In `$PLANS_DIR/CLAUDE.md`, find the Active Plans table. Either:
@@ -277,6 +294,8 @@ In `$PLANS_DIR/CLAUDE.md`, find the Active Plans table. Either:
 - Or remove the row entirely if the plan is fully archived
 
 ---
+
+<!-- role: workflow -->
 
 ## Step 7: Cross-repo updates (if applicable)
 
@@ -290,6 +309,8 @@ they were completed. If not, complete them now.
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 8: Commit and push
 
 Commit all changes to the plans repo:
@@ -302,6 +323,8 @@ git push origin main
 ```
 
 ---
+
+<!-- role: workflow -->
 
 ## Verification
 
@@ -326,6 +349,8 @@ grep '<plan-name>' "$PLANS_DIR/CLAUDE.md" | grep -i 'complete'
 ```
 
 ---
+
+<!-- role: emit -->
 
 ## Output summary
 

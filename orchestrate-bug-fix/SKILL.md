@@ -23,14 +23,19 @@ if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans";
 Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
 directory (and `$PLANS_DIR/prompts/`) if it does not exist.
 
+<!-- role: workflow -->
+
 ## Step 1: Parse the bug description
 
 Extract from the argument:
+
 - What is broken (the symptom)
 - Where the user observed it (page, route, interaction)
 - Any file paths or component names mentioned
 
 If the description is vague, ask clarifying questions before proceeding.
+
+<!-- role: workflow -->
 
 ## Step 2: Investigate the codebase
 
@@ -56,6 +61,8 @@ Then investigate the bug:
 5. **Check for existing tests.** Read any specs covering the affected code.
    Note which behaviors are already tested and which are not.
 
+<!-- role: workflow -->
+
 ## Step 3: Decide whether to orchestrate
 
 If the fix touches fewer than 3 files in the same domain, do NOT
@@ -64,6 +71,8 @@ instead of orchestrating." Then output the fix as a single prompt.
 
 If the fix spans 3+ files across different domains, or requires phased
 implementation, proceed with orchestration.
+
+<!-- role: workflow -->
 
 ## Step 4: Assess integration test scope
 
@@ -81,6 +90,8 @@ integration tests. Read the integration test scope rules in
 Record the scope in the master plan header. Reference it when generating
 prompt verification sections and the orchestrator verification loop.
 
+<!-- role: emit -->
+
 ## Step 5: Generate the master plan
 
 Create `$PLANS_DIR/<bug-name>-fix.md` with:
@@ -96,8 +107,8 @@ Create `$PLANS_DIR/<bug-name>-fix.md` with:
 
 ## Affected Files
 
-| File | Role | What changes |
-|------|------|-------------|
+| File   | Role                            | What changes           |
+| ------ | ------------------------------- | ---------------------- |
 | <path> | <container/component/hook/etc.> | <what needs to change> |
 
 ## Fix Strategy
@@ -106,10 +117,10 @@ Create `$PLANS_DIR/<bug-name>-fix.md` with:
 
 ## Prompt Sequence
 
-| # | Prompt | What | Status |
-|---|--------|------|--------|
-| 1 | <name> | <summary> | pending |
-| 2 | <name> | <summary> | pending |
+| #   | Prompt | What      | Status  |
+| --- | ------ | --------- | ------- |
+| 1   | <name> | <summary> | pending |
+| 2   | <name> | <summary> | pending |
 
 ## Verification
 
@@ -119,16 +130,20 @@ Create `$PLANS_DIR/<bug-name>-fix.md` with:
 
 <if integration scope is per-prompt or final-only, include this table>
 
-| # | Agent Ran PW? | Orchestrator Ran PW? | Results Match? | PASS/FAIL |
-|---|---------------|----------------------|----------------|-----------|
-| 1 | | | | |
-| 2 | | | | |
+| #   | Agent Ran PW? | Orchestrator Ran PW? | Results Match? | PASS/FAIL |
+| --- | ------------- | -------------------- | -------------- | --------- |
+| 1   |               |                      |                |           |
+| 2   |               |                      |                |           |
 ```
+
+<!-- role: guidance -->
 
 ## Step 5: Generate the master plan
 
 NOTE: Include the integration test scope in the master plan header, e.g.:
 `> Integration scope: per-prompt | final-only | none`
+
+<!-- role: emit -->
 
 ## Step 6: Generate fix prompts
 
@@ -140,6 +155,7 @@ Each prompt follows this structure:
 # Fix Prompt: <title>
 
 ## Context
+
 - Repo: ~/github/user-frontend
 - Branch: <current branch>
 - Master plan: $PLANS_DIR/<bug-name>-fix.md
@@ -150,6 +166,7 @@ Read ~/github/user-frontend/CLAUDE.md before starting.
 ## Fixes
 
 ### Fix N: <title>
+
 <file path and line> -- <what is wrong>.
 
 <what to do to fix it>
@@ -163,6 +180,7 @@ Use /build-react-test or /build-module-test as appropriate.
 No test needed (<reason>).
 
 ## Commit Strategy
+
 <how many commits, what goes in each>
 
 ## Verification
@@ -188,7 +206,9 @@ pnpm test:integration
 Prompt-specific checks:
 
 \`\`\`bash
+
 # <description of what this verification checks>
+
 <search command (AST tool --count, sg, or rg per tool hierarchy) that should return 0 hits after the fix>
 \`\`\`
 
@@ -208,10 +228,10 @@ ESLint: <clean | N errors, M warnings>
 Integration: <N passed, M failed (Xm) | not run | skipped (scope: none)>
 
 Prompt-Specific:
-  <each verification result>
+<each verification result>
 
 Behavioral Changes:
-  <1-3 lines describing what changed in user-visible terms>
+<1-3 lines describing what changed in user-visible terms>
 
 Cleanup Items Added: <N items>
 Subsequent Prompts Modified: <none | list>
@@ -231,6 +251,8 @@ Work Left Undone: <none | list>
 - Include the work agent rules from CLAUDE.md: stay on task, document
   discovered issues in cleanup file, use skills where required
 
+<!-- role: emit -->
+
 ## Step 6: Create the cleanup file
 
 Create `$PLANS_DIR/<bug-name>-fix-cleanup.md`:
@@ -241,6 +263,8 @@ Create `$PLANS_DIR/<bug-name>-fix-cleanup.md`:
 Items discovered during fix prompts that are non-blocking but should
 be addressed.
 ```
+
+<!-- role: workflow -->
 
 ## Step 7: Pre-flight audit (MANDATORY)
 
@@ -268,6 +292,8 @@ done
 If any tool has 3+ pending fixtures, run `/calibrate-ast-interpreter
 --tool <name>` before proceeding.
 
+<!-- role: workflow -->
+
 ## Step 8: Validate the plan (MANDATORY)
 
 Launch `/validate-plan` on the plan file. This replaces the previous
@@ -288,9 +314,12 @@ proceed to Step 9 until the verdict is READY.
 If /validate-plan modifies any prompt files (fixing accepted findings),
 it re-runs pre-flight automatically to maintain structural certification.
 
+<!-- role: workflow -->
+
 ## Step 9: Present the plan to the user
 
 Show the user:
+
 - The root cause analysis
 - The number of prompts
 - The prompt sequence with summaries
@@ -301,6 +330,8 @@ Show the user:
 - Ask: "Ready to start?"
 
 Wait for the user's go-ahead.
+
+<!-- role: workflow -->
 
 ## Step 9: Execute the orchestrator loop
 
@@ -330,51 +361,57 @@ For each prompt:
    to paste the reconciliation output.
 
 4. **Verify independently.** Run in `~/github/user-frontend`:
-    ```
-    git log --oneline -10
-    pnpm tsc --noEmit -p tsconfig.check.json
-    pnpm test --run 2>&1 | tail -5
-    pnpm build 2>&1 | tail -5
-    npx eslint . --max-warnings 0 2>&1 | tail -3
-    ```
-    When integration scope is `per-prompt`, also run:
-    ```
-    pnpm test:integration 2>&1 | tail -5
-    ```
-    Plus the prompt-specific verification searches.
 
-    **Independent verification rule.** When integration scope is
-    `per-prompt` or `final-only`, the orchestrator independently runs
-    the same integration tests the work agent was asked to run. Do not
-    trust the agent's self-reported Playwright results. Run the specs
-    yourself, compare the output, and fill in the verification checklist
-    in the master plan. A prompt is not PASS until the orchestrator's
-    row is filled in.
+   ```
+   git log --oneline -10
+   pnpm tsc --noEmit -p tsconfig.check.json
+   pnpm test --run 2>&1 | tail -5
+   pnpm build 2>&1 | tail -5
+   npx eslint . --max-warnings 0 2>&1 | tail -3
+   ```
+
+   When integration scope is `per-prompt`, also run:
+
+   ```
+   pnpm test:integration 2>&1 | tail -5
+   ```
+
+   Plus the prompt-specific verification searches.
+
+   **Independent verification rule.** When integration scope is
+   `per-prompt` or `final-only`, the orchestrator independently runs
+   the same integration tests the work agent was asked to run. Do not
+   trust the agent's self-reported Playwright results. Run the specs
+   yourself, compare the output, and fill in the verification checklist
+   in the master plan. A prompt is not PASS until the orchestrator's
+   row is filled in.
 
 5. **Compare results.** Check the work agent's reconciliation against
-    your own verification. Every field must match.
+   your own verification. Every field must match.
 
 6. **Gate.** If all checks pass: update the master plan, report PASS,
-    move to the next prompt. If any check fails: report FAIL, list every
-    discrepancy, recommend a fix (re-run the prompt, or apply a targeted
-    fix).
+   move to the next prompt. If any check fails: report FAIL, list every
+   discrepancy, recommend a fix (re-run the prompt, or apply a targeted
+   fix).
 
-    **Cannot-run gate.** If integration scope is `per-prompt` and the
-    work agent's reconciliation reports integration tests as "not run"
-    or "cannot run," this is NOT a PASS. Mark the prompt PARTIAL. Before
-    dispatching the next prompt, either fix the environment (start the
-    Firebase emulator and dev/prod server) and re-verify, or insert a
-    verification-only prompt that runs the affected specs. Do not
-    proceed with unverified integration test changes.
+   **Cannot-run gate.** If integration scope is `per-prompt` and the
+   work agent's reconciliation reports integration tests as "not run"
+   or "cannot run," this is NOT a PASS. Mark the prompt PARTIAL. Before
+   dispatching the next prompt, either fix the environment (start the
+   Firebase emulator and dev/prod server) and re-verify, or insert a
+   verification-only prompt that runs the affected specs. Do not
+   proceed with unverified integration test changes.
 
-    For auto prompts: if the Task agent reports Playwright as "not run"
-    or "cannot run," escalate to manual immediately.
+   For auto prompts: if the Task agent reports Playwright as "not run"
+   or "cannot run," escalate to manual immediately.
 
 7. **Read the cleanup file** after each prompt to track accumulated items.
-    If integration tests could not be independently verified, append an
-    integration verification item: `- [ ] INTEGRATION VERIFY: Prompt N
-    -- <specs not verified, reason>`. The cleanup prompt must resolve
-    all such items before the plan is marked complete.
+   If integration tests could not be independently verified, append an
+   integration verification item: `- [ ] INTEGRATION VERIFY: Prompt N
+-- <specs not verified, reason>`. The cleanup prompt must resolve
+   all such items before the plan is marked complete.
+
+<!-- role: workflow -->
 
 ## Step 10: Generate the cleanup prompt
 
@@ -389,6 +426,8 @@ After all planned prompts complete:
 6. Present to the user: "Here is the cleanup prompt with N items. Review
    and approve, or edit before I run it."
 7. Run only after the user approves
+
+<!-- role: workflow -->
 
 ## Step 11: Final verification and plan update
 
@@ -421,6 +460,8 @@ Skip this if the automated checks are sufficient.
 ```
 
 Report the final result to the user.
+
+<!-- role: workflow -->
 
 ## Step 12: Archive the plan
 

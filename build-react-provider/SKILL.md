@@ -12,6 +12,8 @@ The first token is the scope name (e.g., `FilterScope`, `SelectionScope`).
 Everything after the first whitespace is the description of what shared state
 the provider holds.
 
+<!-- role: workflow -->
+
 ## Step 1: Parse the argument
 
 Extract the scope name. Derive:
@@ -20,6 +22,8 @@ Extract the scope name. Derive:
 - **HookName**: `useXxxScope` (e.g., `useFilterScope`)
 - **ContextName**: `XxxScopeContext` (e.g., `FilterScopeContext`)
 - **TypeName**: `XxxScopeValue` (e.g., `FilterScopeValue`)
+
+<!-- role: guidance -->
 
 ## Step 2: Validate against escape-hatch criteria
 
@@ -57,6 +61,8 @@ check the five escape-hatch criteria. Stop and redirect if any check fails:
    - Data-fetching: "Use `build-react-service-hook` for data needs."
    - Toasts/navigation/storage: "These belong in the container, not a provider."
 
+<!-- role: workflow -->
+
 ## Step 3: Survey the codebase
 
 - Read 1-2 existing context/provider files to match conventions: createContext
@@ -65,6 +71,8 @@ check the five escape-hatch criteria. Stop and redirect if any check fails:
   with overlapping purpose exists, stop and report: "A provider with similar
   purpose already exists at `<path>`. Consider extending it instead."
 - Identify the feature directory where this provider should be colocated.
+
+<!-- role: guidance -->
 
 ## Step 4: Design the context value interface
 
@@ -84,6 +92,8 @@ Based on the description, design `XxxScopeValue`:
 
 The provider receives its value as props from the container. It does not compute
 or fetch its own value. This keeps the provider DDAU-compliant at its own level.
+
+<!-- role: emit -->
 
 ## Step 5: Generate the files
 
@@ -163,6 +173,8 @@ describe('XxxScopeContext', () => {
 });
 ```
 
+<!-- role: reference -->
+
 ## Type touchpoints
 
 Before defining any new type or interface inline, check first:
@@ -174,6 +186,8 @@ Before defining any new type or interface inline, check first:
    `OrganizationId`).
 4. For new shared types, add them to the appropriate domain module in
    `src/shared/types/`, not inline in the context file.
+
+<!-- role: workflow -->
 
 ## Step 6: Verify
 

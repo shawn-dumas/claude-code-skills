@@ -13,6 +13,8 @@ and agent session databases, establish what actually happened, compare it
 against what the agent was told to do, and produce a structured postmortem
 report. You do NOT edit production code. This is a read-only investigation.
 
+<!-- role: workflow -->
+
 ## Step 0: Determine scope and data sources
 
 If `$ARGUMENTS` provides a clear incident (date, session ID, commit SHA,
@@ -56,6 +58,8 @@ forensic reference(s) using the Read tool:
 Do NOT read the forensic references until you need them. Read git
 forensics at Phase 2a. Read the session database reference at Phase 2b.
 
+<!-- role: workflow -->
+
 ## Step 1: Identify the incident
 
 **Goal:** Define what went wrong in one sentence. Identify the time
@@ -89,6 +93,8 @@ window, sessions, branch, and commits involved.
 **Output:** Session IDs, time window, branch, commit range, one-sentence
 incident description.
 
+<!-- role: workflow -->
+
 ## Step 2: Establish the objective record
 
 **Goal:** Build a timeline from sources the agent cannot manipulate: git
@@ -115,6 +121,8 @@ Now read the appropriate session database forensic reference.
 **Output:** A factual timeline with commit timestamps, compaction events,
 file edits, and commands run. No interpretation yet.
 
+<!-- role: workflow -->
+
 ## Step 3: Read the prompt rules
 
 **Goal:** Establish what the agent was told to do (and not do).
@@ -126,6 +134,8 @@ file edits, and commands run. No interpretation yet.
 16. Note any Mode designation (Auto vs. Manual).
 
 **Output:** A checklist of rules the agent was bound by.
+
+<!-- role: workflow -->
 
 ## Step 4: Trace the decision points
 
@@ -144,6 +154,8 @@ understand why.
 **Output:** For each violation, the trigger, the agent's reasoning (if
 visible), and whether context loss was a factor.
 
+<!-- role: detect -->
+
 ## Step 5: Evaluate the changes
 
 **Goal:** Determine whether out-of-scope changes are correct, regardless
@@ -159,6 +171,8 @@ of the process failure.
 
 **Output:** Per-change verdict: correct / incorrect / uncertain, with
 evidence.
+
+<!-- role: detect -->
 
 ## Step 6: Root cause analysis
 
@@ -181,6 +195,8 @@ evidence.
     whether tool-level enforcement would have prevented it.
 
 **Output:** Numbered root causes (RC1, RC2, ...) with evidence citations.
+
+<!-- role: emit -->
 
 ## Step 7: Write the report
 
@@ -235,6 +251,8 @@ evidence.
 32. Distinguish findings of fact (objective, from git/DB) from
     interpretation. Label interpretations as such.
 
+<!-- role: emit -->
+
 ## Step 8: Extract protocol improvements
 
 **Goal:** Turn lessons into concrete changes.
@@ -251,6 +269,8 @@ evidence.
 
 35. Prioritize improvements that move from prompt-level to tool-level
     enforcement.
+
+<!-- role: workflow -->
 
 ## Step 9: Independent verification
 
@@ -271,6 +291,8 @@ The verification protocol (claim classification, omission checks,
 activity gap verification) is documented in the postmortem workflow.
 See `docs/forensics/` for the forensic reference docs.
 
+<!-- role: workflow -->
+
 ## Step 10: Publish
 
 **Goal:** Update the postmortem repo.
@@ -284,6 +306,8 @@ See `docs/forensics/` for the forensic reference docs.
     git -C ~/postmortem commit -m "Add postmortem: YYYY-MM-DD-<short-name>"
     git -C ~/postmortem push
     ```
+
+<!-- role: avoid -->
 
 ## Anti-patterns
 

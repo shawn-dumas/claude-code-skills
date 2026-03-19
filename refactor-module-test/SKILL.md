@@ -9,6 +9,8 @@ argument-hint: <path/to/spec-file.spec.ts>
 Refactor the test file at `$ARGUMENTS` to comply with the contract-first testing
 philosophy adapted for non-React modules. Read the spec, score it, fix or replace it.
 
+<!-- role: workflow -->
+
 ## Step 0: Run AST analysis tools
 
 ```bash
@@ -44,6 +46,8 @@ it manually. The interpreter classifies observations into assessments:
 
 - `DELETE_CANDIDATE` assessment triggers delete-and-rebuild
 
+<!-- role: workflow -->
+
 ## Step 1: Read the spec and its production file
 
 Read the spec file completely. Identify:
@@ -59,6 +63,8 @@ Then read the production file completely. Record:
 - Current exports: function signatures (parameters, return types, async)
 - Whether each export is pure or performs I/O
 - What it imports (to understand boundaries)
+
+<!-- role: detect -->
 
 ## Step 2: Score against the 10 principles
 
@@ -78,6 +84,8 @@ Score the spec against each principle (OK or VIOLATION with count):
 | 10  | Total Cleanup     | OK / N violations |
 
 Total score = number of principles with zero violations (0-10).
+
+<!-- role: workflow -->
 
 ## Step 3: Apply the delete threshold
 
@@ -117,6 +125,8 @@ If the score is 5-6/10, apply the gray-zone tiebreaker:
 - Does the test have meaningful behavioral assertions? -> Fix
 - Is > 60% of the file mock setup (count `MOCK_DECLARATION` observations)? -> Delete and rebuild
 - Are there < 3 actual test cases (count `TEST_BLOCK` observations)? -> Delete and rebuild
+
+<!-- role: emit -->
 
 ## Step 4: Fix violations (targeted, in-place)
 
@@ -191,6 +201,8 @@ Do NOT add redundant `vi.clearAllMocks()`.
 - For I/O tests: asserting on boundary call arguments (URL, path, body) IS
   acceptable -- these are part of the observable contract
 
+<!-- role: guidance -->
+
 ## Step 5: Restructure if needed
 
 After applying fixes, check file structure:
@@ -200,6 +212,8 @@ After applying fixes, check file structure:
 - **One test per behavior**: Each `it` block tests one input-output behavior
 - **Separate pure and I/O**: If the module exports both, use separate `describe`
   blocks with clear labels
+
+<!-- role: workflow -->
 
 ## Step 6: Verify
 
@@ -246,6 +260,8 @@ Check the output:
 Report: original score, new score, changes made, tests passing, intention
 matcher results (matched/unmatched/novel counts), parity results
 (matched/reduced/not-ported counts).
+
+<!-- role: workflow -->
 
 ## Interpreter Calibration Gate
 

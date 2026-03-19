@@ -52,6 +52,8 @@ directory (and `$PLANS_DIR/prompts/`) if it does not exist.
 
 ---
 
+<!-- role: reference -->
+
 ## How This Skill Works
 
 This wizard handles two scenarios: greenfield PoCs (no code yet) and
@@ -104,6 +106,8 @@ a grep). Annotate judgments and claims that the PM might reasonably
 question or that could be wrong.
 
 ---
+
+<!-- role: workflow -->
 
 ## Phase 0: Triage
 
@@ -217,6 +221,8 @@ Record the branch name in the PRD header's `Source Branch` field.
 Step 1 below), then proceed to Phase 0E (Spike Audit).
 
 ---
+
+<!-- role: detect -->
 
 ## Phase 0E: Spike Audit (existing spikes only)
 
@@ -512,6 +518,8 @@ refactor prompts instead of build prompts. The prompt sequence becomes:
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 1: Parse the Feature Idea
 
 Extract whatever the PM provided in `$ARGUMENTS`. It might be:
@@ -548,6 +556,8 @@ Items discovered during implementation that are non-blocking but should be addre
 Then proceed to Phase 1.
 
 ---
+
+<!-- role: workflow -->
 
 ## Phase 1: Discovery
 
@@ -634,6 +644,8 @@ Ask as free text:
 - Record the problem category for use in Phase 2
 
 ---
+
+<!-- role: workflow -->
 
 ## Phase 2: Placement
 
@@ -809,6 +821,8 @@ Options:
 - Record the similar tab choice for template selection in Phase 7
 
 ---
+
+<!-- role: workflow -->
 
 ## Phase 3: Data Assessment
 
@@ -1008,6 +1022,8 @@ section for `docs/upcoming-poc-features-needing-bff-work.md`.
 
 ---
 
+<!-- role: workflow -->
+
 ## Phase 4: UX Design
 
 ### Q14: Primary Visualization
@@ -1128,6 +1144,8 @@ Ask as free text (or present as a structured form):
 
 ---
 
+<!-- role: workflow -->
+
 ## Phase 5: Gating and Analytics
 
 ### Q18: Feature Flag
@@ -1201,6 +1219,8 @@ If "Need changes": ask what should change.
 
 ---
 
+<!-- role: workflow -->
+
 ## Phase 6: PRD Finalization
 
 At this point the PRD should have all sections filled except:
@@ -1243,6 +1263,8 @@ Ask as free text:
 - Apply corrections if given.
 
 ---
+
+<!-- role: emit -->
 
 ## Phase 7: Implementation Planning
 
@@ -1381,29 +1403,29 @@ orchestrate-feature for the exact format). Key rules:
   section with the following text (fill in `<slug>` and `<phase>` for
   each prompt):
 
-  > ## Commit Protocol
-  >
-  > You are on a `poc/*` branch. All commits must follow
-  > `docs/git-protocol.md`. The commit-msg hook will reject
-  > non-conforming messages. Use this format:
-  >
-  > ```
-  > <type>(<scope>): <subject>
-  >
-  > [body]
-  >
-  > PoC: <slug>
-  > PRD: $PLANS_DIR/poc-<slug>.md
-  > Phase: <phase>
-  > Prompt: <prompt-filename>
-  > Components: <comma-separated from: types, schemas, fixtures,
-  >   mock-routes, service-hooks, container, components, page-file,
-  >   navigation, feature-flags, tests, providers, wiring, docs>
-  > [Side-quest: <description>]  (only if you add a TODO(production-bug))
-  > ```
-  >
-  > If a commit is rejected by the hook, read the error message, fix
-  > the commit message, and retry. Do not use `--no-verify`.
+  ```
+  ## Commit Protocol
+
+  You are on a `poc/*` branch. All commits must follow
+  `docs/git-protocol.md`. The commit-msg hook will reject
+  non-conforming messages. Use this format:
+
+  <type>(<scope>): <subject>
+
+  [body]
+
+  PoC: <slug>
+  PRD: $PLANS_DIR/poc-<slug>.md
+  Phase: <phase>
+  Prompt: <prompt-filename>
+  Components: <comma-separated from: types, schemas, fixtures,
+    mock-routes, service-hooks, container, components, page-file,
+    navigation, feature-flags, tests, providers, wiring, docs>
+  [Side-quest: <description>]  (only if you add a TODO(production-bug))
+
+  If a commit is rejected by the hook, read the error message, fix
+  the commit message, and retry. Do not use `--no-verify`.
+  ```
 
 ### Step 7.5: Generate the BFF handoff document (if applicable)
 
@@ -1499,6 +1521,8 @@ production/development/staging, and to /api/mock/ in mocked mode only).
 **What changes from the base:** <concise diff: new fields, changed grouping, different aggregation window>
 **Mock route strategy:** <one of: adapted from existing mock route at [path] | new mock route>
 
+<!-- role: reference -->
+
 ## Zod Schemas
 
 The frontend Zod schemas for these types live in:
@@ -1507,6 +1531,8 @@ The frontend Zod schemas for these types live in:
 
 The BFF route handler MUST validate its output against these same
 schemas before returning (see existing routes for the pattern).
+
+<!-- role: reference -->
 
 ## Mock Routes (already built)
 
@@ -1532,6 +1558,7 @@ Wait for the PM's go-ahead.
 
 ---
 
+<!-- role: workflow -->
 ## Step 8: Execute the Orchestrator Loop
 
 Follow the IDENTICAL orchestrator loop from `orchestrate-feature`:
@@ -1578,6 +1605,7 @@ After each prompt completes, update the PRD:
 
 ---
 
+<!-- role: workflow -->
 ## Step 9: Generate the Cleanup Prompt
 
 After all planned prompts complete:
@@ -1696,6 +1724,8 @@ When either threshold is triggered:
 
 ---
 
+<!-- role: workflow -->
+
 ## Step 10: Final Verification and PRD Completion
 
 1. Run the full verification suite
@@ -1716,6 +1746,8 @@ When either threshold is triggered:
    - The PRD file path for future reference
 
 ---
+
+<!-- role: emit -->
 
 ## Reference: PRD Template
 
@@ -1898,6 +1930,8 @@ where the value comes from, and any constraints.]
 
 ---
 
+<!-- role: reference -->
+
 ## Reference: Dashboard Structure
 
 The agent executing this skill needs this context to ask informed questions.
@@ -1984,6 +2018,8 @@ _app.tsx > Providers > getLayout
 | Test mock         | `insightsContext/mocks/MockedInsightsContext.tsx`                          |
 
 ---
+
+<!-- role: reference -->
 
 ## Reference: Available Data and API Endpoints
 

@@ -12,6 +12,8 @@ The first token is the path to the production file. An optional second token
 forces the test strategy (`unit` or `integration`). If omitted, the skill
 infers the strategy from the file's classification (see Step 2).
 
+<!-- role: workflow -->
+
 ## Step 0: Pre-flight — delete-or-build decision
 
 Before generating, check whether a spec file already exists for this
@@ -35,6 +37,8 @@ why, then continue to generate fresh. If the existing spec is close to
 compliant (scores 7+/10), report that and suggest using a future
 `refactor-react-test` skill instead of rebuilding.
 
+<!-- role: workflow -->
+
 ## Step 0b: Run AST analysis on the production file
 
 ```bash
@@ -54,6 +58,8 @@ file as `CONTAINER`, `DDAU_COMPONENT`, or `LEAF_VIOLATION`:
 
 The ownership assessments directly inform the test strategy decision in Step 2.
 
+<!-- role: workflow -->
+
 ## Step 1: Read the production file
 
 Read the target file completely. Record:
@@ -69,6 +75,8 @@ Read the target file completely. Record:
   - Own project imports (components, hooks, utils)
   - External library imports (react, tanstack, etc.)
   - Boundary imports (fetchApi, firebase, storage, router)
+
+<!-- role: workflow -->
 
 ## Step 2: Classify and select strategy
 
@@ -93,6 +101,8 @@ For providers, use **Integration test** strategy with consumer components.
 
 If the user forced a strategy via the second argument, use that instead.
 
+<!-- role: workflow -->
+
 ## Step 3: Survey surrounding conventions
 
 Read 1-2 existing spec files near the target to match:
@@ -113,6 +123,8 @@ Also check the global test setup:
 - `posthog-mock.ts` and `nextRouterMocks.ts` are pre-loaded
 - Vitest globals are auto-imported (`describe`, `it`, `expect`, `vi`, etc.)
 - jsdom environment is configured globally
+
+<!-- role: workflow -->
 
 ## Step 4: Design the test plan
 
@@ -173,6 +185,8 @@ The public API is: **arguments in → return value out**.
 - Test edge cases (empty, null, boundary values)
 - Test error cases
 
+<!-- role: workflow -->
+
 ## Step 5: Check for fixture builders
 
 Before writing inline mock data, check `src/fixtures/domains/` for an
@@ -189,6 +203,8 @@ objects and keep test data in sync with production types (Principle 6).
 
 If no fixture exists for a needed type, use inline data with explicit type
 annotations and `satisfies` to ensure type safety.
+
+<!-- role: emit -->
 
 ## Step 6: Generate the spec file
 
@@ -324,6 +340,7 @@ function setup(overrides?: Partial<ContainerProps>) {
   fetchMock.mockResponseOnce(JSON.stringify(teamFixtures.buildMany(3)));
   ```
 - No `as any`. Type hierarchy for test data (use the first that works):
+
   1. **Fixture builder**: `teamFixtures.build({ name: 'Ops' })` -- preferred,
      always type-safe, produces complete objects
   2. **`satisfies`**: `{ id: '1', name: 'Ops' } satisfies Team` -- for inline
@@ -609,6 +626,8 @@ describe('myFunction', () => {
 });
 ```
 
+<!-- role: workflow -->
+
 ## Step 7: Verify
 
 1. Run `npx tsc --noEmit -p tsconfig.check.json` — fix any type errors in the new spec file.
@@ -636,6 +655,8 @@ describe('myFunction', () => {
 
 Report: file path, test count, pass/fail, and whether any principle
 violations remain.
+
+<!-- role: avoid -->
 
 ## What NOT to do
 
@@ -665,14 +686,16 @@ violations remain.
     expect.objectContaining({ enabled: true }),
   );
 
-   // RIGHT: use fetchMock at the HTTP boundary
-   fetchMock.mockResponseOnce(JSON.stringify(systemFixtures.buildMany(2)));
-   expect(fetchMock).toHaveBeenCalledWith(
-     expect.stringContaining('/api/systems/overview?teams=1,2'),
-     expect.any(Object),
-   );
-   expect(screen.getByText('System Name')).toBeInTheDocument();
-   ```
+  // RIGHT: use fetchMock at the HTTP boundary
+  fetchMock.mockResponseOnce(JSON.stringify(systemFixtures.buildMany(2)));
+  expect(fetchMock).toHaveBeenCalledWith(
+    expect.stringContaining('/api/systems/overview?teams=1,2'),
+    expect.any(Object),
+  );
+  expect(screen.getByText('System Name')).toBeInTheDocument();
+  ```
+
+<!-- role: workflow -->
 
 ## Interpreter Calibration Gate
 

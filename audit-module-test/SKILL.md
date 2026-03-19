@@ -14,6 +14,8 @@ If the argument is a directory, audit all `.spec.ts` and `.test.ts` files in
 that directory and its subdirectories. If it is a single file, audit that file
 only.
 
+<!-- role: reference -->
+
 ## Background: The 10 Principles (Module Adaptation)
 
 These are the same contract-first principles used by `audit-react-test`, adapted
@@ -31,6 +33,8 @@ for non-React code (utilities, server processors, API handlers, data transformer
 | P8  | Output Assertions | Assert on return values, resolved/rejected promises, thrown errors. Not on console output or internal function call counts |
 | P9  | Determinism       | Mock `Date`, `Math.random`, timers, faker seed. No flaky time-dependent tests                                              |
 | P10 | Total Cleanup     | Pair every mock/spy/timer/storage write with cleanup in `afterEach`                                                        |
+
+<!-- role: workflow -->
 
 ## Step 0: Run AST analysis tools and interpreters
 
@@ -80,6 +84,8 @@ npx tsx scripts/AST/ast-interpret-test-quality.ts $ARGUMENTS --pretty
 You still need to read files for P7 (refactor sync -- comparing mock shapes
 against current production signatures) and P1 (nuanced public API violations).
 
+<!-- role: guidance -->
+
 ## Report Policy
 
 ### AST-confirmed tagging
@@ -117,6 +123,8 @@ Use assessments to populate the per-file scorecard:
 - P8: Count `ASSERTION_IMPLEMENTATION` assessments
 - P10: Use `CLEANUP_INCOMPLETE` assessments
 
+<!-- role: workflow -->
+
 ## Step 1: Inventory test files
 
 Glob for all `.spec.ts`, `.test.ts` files in the target path. For each file, record:
@@ -127,12 +135,16 @@ Glob for all `.spec.ts`, `.test.ts` files in the target path. For each file, rec
 - Number of `describe` blocks, `test`/`it` blocks
 - Test runner detected (Vitest or other -- check imports)
 
+<!-- role: detect -->
+
 ## Step 2: Check for orphaned tests
 
 For each test file, verify the production file it imports still exists:
 
 - If the test imports from a path that does not resolve, flag as **ORPHANED**
 - Check whether any `vi.mock()` target module still exists
+
+<!-- role: detect -->
 
 ## Step 3: Audit P1 -- Public API Only
 
@@ -146,6 +158,8 @@ For each test, check whether it asserts on internal implementation details:
 
 The public API is: exported function arguments in, return value (or thrown error) out.
 
+<!-- role: detect -->
+
 ## Step 4: Audit P2 -- Boundary Mocking
 
 Use `MOCK_BOUNDARY_COMPLIANT`, `MOCK_INTERNAL_VIOLATION`, and `MOCK_DOMAIN_BOUNDARY`
@@ -158,6 +172,8 @@ assessments from ast-interpret-test-quality. The interpreter classifies each
 | `MOCK_INTERNAL_VIOLATION` | Mocking a pure utility or unexported helper from the same codebase        | P2 violation |
 | `MOCK_DOMAIN_BOUNDARY`    | Mocking an I/O module from the same codebase                              | Review       |
 
+<!-- role: detect -->
+
 ## Step 5: Audit P3 -- System Isolation
 
 Check whether tests mock modules from the same codebase that are pure (no I/O):
@@ -168,6 +184,8 @@ Check whether tests mock modules from the same codebase that are pure (no I/O):
 | P3_MOCKED_SIBLING     | `vi.mock('./helperModule')` where helper has no I/O         | Remove mock, use real module   |
 
 If the mocked sibling DOES perform I/O (file reads, API calls), the mock is acceptable.
+
+<!-- role: detect -->
 
 ## Step 6: Audit P4 -- Strict Strategies
 
@@ -185,6 +203,8 @@ Classify each test file's strategy:
 | P4_IO_MOCKING_INTERNALS | I/O test mocks own pure functions instead of just I/O boundaries            | Mock only the I/O boundary                   |
 | P4_MIXED_STRATEGY       | Same `describe` block has both pure and I/O tests with inconsistent mocking | Split into separate describe blocks or files |
 
+<!-- role: detect -->
+
 ## Step 7: Audit P5 -- Data Ownership
 
 | Code               | Pattern                                                | Fix                               |
@@ -192,6 +212,8 @@ Classify each test file's strategy:
 | P5_SHARED_MUTABLE  | Imports mutable test data from another file            | Wrap in factory or inline         |
 | P5_CROSS_FILE_DATA | Test file imports data from another test file          | Move to fixture builder or inline |
 | P5_STALE_MOCK_DATA | Mock data shape does not match current production type | Update to match                   |
+
+<!-- role: detect -->
 
 ## Step 8: Audit P6 -- Type-Safe Mocks
 
@@ -205,6 +227,8 @@ Use `DATA_SOURCING_VIOLATION` assessments with `asAnyCount` evidence, and
 | Untyped mock      | `DATA_SOURCING_VIOLATION` assessment | Add type annotation                    |
 | Partial mock      | `DATA_SOURCING_VIOLATION` assessment | Use fixture builder or complete object |
 
+<!-- role: detect -->
+
 ## Step 9: Audit P7 -- Refactor Sync
 
 | Code              | Pattern                                                     | Fix                    |
@@ -212,6 +236,8 @@ Use `DATA_SOURCING_VIOLATION` assessments with `asAnyCount` evidence, and
 | P7_DELETED_MODULE | Mock targets a module path that no longer exists            | Remove mock            |
 | P7_STALE_SHAPE    | Mock return shape does not match current function signature | Update mock            |
 | P7_RENAMED_EXPORT | Test calls a function that was renamed or removed           | Update to current name |
+
+<!-- role: detect -->
 
 ## Step 10: Audit P8 -- Output Assertions
 
@@ -223,6 +249,8 @@ Use `ASSERTION_IMPLEMENTATION` assessments from ast-interpret-test-quality.
 | Internal call cnt | `ASSERTION_IMPLEMENTATION` | Assert on output instead                  |
 | Large snapshot    | `ASSERTION_SNAPSHOT`       | Replace with targeted property assertions |
 
+<!-- role: detect -->
+
 ## Step 11: Audit P9 -- Determinism
 
 | Code                 | Pattern                                                           | Fix                                             |
@@ -232,6 +260,8 @@ Use `ASSERTION_IMPLEMENTATION` assessments from ast-interpret-test-quality.
 | P9_UNSEEDED_FAKER    | `faker.*` calls without `faker.seed()` or pool                    | Add seed                                        |
 | P9_TIMER_NO_CLEANUP  | `vi.useFakeTimers()` without `vi.useRealTimers()` in cleanup      | Add cleanup                                     |
 | P9_FS_PATH_DEPENDENT | Tests depend on absolute paths or `process.cwd()` without mocking | Mock `process.cwd()` or use relative paths      |
+
+<!-- role: detect -->
 
 ## Step 12: Audit P10 -- Total Cleanup
 
@@ -246,6 +276,8 @@ The interpreter analyzes `AFTER_EACH_BLOCK` and `CLEANUP_CALL` observations.
 | Env leak        | `CLEANUP_INCOMPLETE` | Save and restore in `afterEach` |
 | Timer leak      | `CLEANUP_INCOMPLETE` | Add `vi.useRealTimers()`        |
 
+<!-- role: detect -->
+
 ## Step 13: Coverage gap analysis
 
 For each production file in the target directory (or the production file's directory)
@@ -255,6 +287,8 @@ that has NO corresponding test file:
 - Classify it (utility, server processor, API handler, etc.)
 - Estimate complexity (line count, function count, branching)
 - Flag as UNTESTED with priority based on complexity and consumer count
+
+<!-- role: emit -->
 
 ## Step 14: Produce the audit report
 
@@ -310,6 +344,8 @@ Score = number of principles with zero violations (0-10, higher is better).
 | 1 | ... | 8 | P2 (3), P6 (3) | Rewrite (use build-module-test) |
 | 2 | ... | 3 | P10 (2), P9 (1) | Fix in place |
 ```
+
+<!-- role: workflow -->
 
 ## Interpreter Calibration Gate
 

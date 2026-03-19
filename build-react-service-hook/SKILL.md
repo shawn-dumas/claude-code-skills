@@ -12,6 +12,8 @@ The first token is the hook path: `<domain>/<useHookName>` (e.g.,
 `insights/useTopUsedQuery`). Everything after the first whitespace is the
 description of what data to fetch or mutate.
 
+<!-- role: workflow -->
+
 ## Step 1: Parse the argument
 
 Extract the domain name and hook name. Classify the hook:
@@ -26,6 +28,8 @@ If the target directory does not exist, it will be created. This is normal -- th
 `services/hooks/` directory structure is established incrementally by the first
 invocations of build and refactor skills.
 
+<!-- role: workflow -->
+
 ## Step 2: Survey the codebase
 
 - Grep for `<domain>QueryKeys` or a query keys file for this domain. Read it if
@@ -39,6 +43,8 @@ invocations of build and refactor skills.
 - Read 1-2 existing query or mutation hooks anywhere in the codebase to match
   conventions (even if they use the old factory pattern, the data shapes and API
   contracts are informative)
+
+<!-- role: guidance -->
 
 ## Step 3: Design the query key
 
@@ -57,6 +63,8 @@ export const domainQueryKeys = {
 
 If no query keys file exists for the domain, create one at the same directory level
 as the hook file.
+
+<!-- role: emit -->
 
 ## Step 4: Generate the files
 
@@ -205,6 +213,8 @@ internal state, query key construction, or effect execution.
 - Tests that mock own utility functions or own query key files.
 - Snapshot tests.
 
+<!-- role: reference -->
+
 ## Type touchpoints
 
 Before defining any new type or interface for request/response shapes, check first:
@@ -232,6 +242,8 @@ corresponding branded type (`UserId`, `TeamId`, `WorkstreamId`,
 This check catches the most common branded type omission: ID fields
 typed as bare `string` in props interfaces, function parameters, and
 type definitions.
+
+<!-- role: workflow -->
 
 ## Step 5: Verify
 

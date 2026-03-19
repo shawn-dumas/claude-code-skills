@@ -23,6 +23,8 @@ if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans";
 Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
 directory (and `$PLANS_DIR/prompts/`) if it does not exist.
 
+<!-- role: workflow -->
+
 ## Step 1: Parse the argument
 
 Determine the input:
@@ -36,6 +38,8 @@ Determine the input:
 If the input is a file, read it completely. If it is a description,
 investigate the codebase to enumerate specific items.
 
+<!-- role: workflow -->
+
 ## Step 2: Inventory and classify items
 
 For each backlog item:
@@ -44,6 +48,7 @@ For each backlog item:
    or code mentioned. Items from old audits may have been fixed already.
 
 2. **Classify the work type:**
+
    - Structural dedup (merging near-identical code)
    - Migration (replacing one pattern with another across files)
    - Test improvement (coverage gaps, mock migration, infrastructure)
@@ -61,12 +66,16 @@ For each backlog item:
    go together. A single prompt should be completable in one work session
    (roughly: under 15 fixes, under 30 files changed).
 
+<!-- role: workflow -->
+
 ## Step 3: Decide whether to orchestrate
 
 If there are fewer than 3 items, all independent, do NOT orchestrate.
 Output them as a single prompt or do them directly.
 
 If items number 3+ or have dependencies between them, proceed.
+
+<!-- role: workflow -->
 
 ## Step 4: Assess integration test scope
 
@@ -84,6 +93,8 @@ integration tests. Read the integration test scope rules in
 Record the scope in the master plan header. Reference it when generating
 prompt verification sections and the orchestrator verification loop.
 
+<!-- role: emit -->
+
 ## Step 5: Generate the master plan
 
 NOTE: Include the integration test scope in the master plan header, e.g.:
@@ -99,25 +110,25 @@ with:
 
 ## Items
 
-| # | Item | Type | Files | Effort | Prompt | Status |
-|---|------|------|-------|--------|--------|--------|
-| B1 | <description> | structural | ~5 | medium | 01 | pending |
-| B2 | <description> | migration | ~20 | large | 02 | pending |
-| ... | | | | | | |
+| #   | Item          | Type       | Files | Effort | Prompt | Status  |
+| --- | ------------- | ---------- | ----- | ------ | ------ | ------- |
+| B1  | <description> | structural | ~5    | medium | 01     | pending |
+| B2  | <description> | migration  | ~20   | large  | 02     | pending |
+| ... |               |            |       |        |        |         |
 
 ## Dependency Graph
 
 \`\`\`
 Prompt 1 (independent)
 Prompt 2 (independent)
-     |
-     v
+|
+v
 Prompt 3 (depends on 2)
-     |
-     v
+|
+v
 Prompt 4 (depends on 3)
-     |
-     v
+|
+v
 Prompt 5 (final validation)
 \`\`\`
 
@@ -125,20 +136,20 @@ Prompt 5 (final validation)
 
 ## Prompt Sequence
 
-| # | Prompt | Items | Prerequisite | Status |
-|---|--------|-------|-------------|--------|
-| 1 | <name> | B1, B3 | none | pending |
-| 2 | <name> | B2 | none | pending |
-| 3 | <name> | B4, B5 | Prompt 2 | pending |
+| #   | Prompt | Items  | Prerequisite | Status  |
+| --- | ------ | ------ | ------------ | ------- |
+| 1   | <name> | B1, B3 | none         | pending |
+| 2   | <name> | B2     | none         | pending |
+| 3   | <name> | B4, B5 | Prompt 2     | pending |
 
 ## Verification Checklist
 
 <if integration scope is per-prompt or final-only, include this table>
 
-| # | Agent Ran PW? | Orchestrator Ran PW? | Results Match? | PASS/FAIL |
-|---|---------------|----------------------|----------------|-----------|
-| 1 | | | | |
-| 2 | | | | |
+| #   | Agent Ran PW? | Orchestrator Ran PW? | Results Match? | PASS/FAIL |
+| --- | ------------- | -------------------- | -------------- | --------- |
+| 1   |               |                      |                |           |
+| 2   |               |                      |                |           |
 ```
 
 ### Sequencing rules
@@ -150,6 +161,8 @@ Prompt 5 (final validation)
    before items that depend on that infrastructure
 4. The last prompt should be a validation/integration prompt that
    verifies the cumulative effect of all prior prompts
+
+<!-- role: emit -->
 
 ## Step 5: Generate prompts
 
@@ -184,9 +197,11 @@ Check $PLANS_DIR/<backlog-name>-cleanup.md for issues from prior prompts.
 ## Steps
 
 ### Step 1 / Part A: <title>
+
 <detailed instructions>
 
 ### Step 2 / Part B: <title>
+
 <detailed instructions>
 
 ## Implementation Rules
@@ -197,6 +212,7 @@ Check $PLANS_DIR/<backlog-name>-cleanup.md for issues from prior prompts.
   (exception: if a structural change requires updating import paths)
 
 ## Commit Strategy
+
 <one commit per logical unit of work>
 
 ## Cleanup Protocol
@@ -204,17 +220,22 @@ Check $PLANS_DIR/<backlog-name>-cleanup.md for issues from prior prompts.
 Append to $PLANS_DIR/<backlog-name>-cleanup.md:
 
 \`\`\`markdown
+
 ## Prompt N: <title>
+
 - [ ] (list any discovered issues)
-\`\`\`
+      \`\`\`
 
 ## Verification
+
 <standard verification + prompt-specific verification commands>
 
 ## Reconciliation
+
 <standard reconciliation block>
 
 ### Plan File Updates
+
 - $PLANS_DIR/<backlog-name>.md (update item status)
 - $PLANS_DIR/<backlog-name>-cleanup.md (append)
 ```
@@ -231,6 +252,8 @@ Append to $PLANS_DIR/<backlog-name>-cleanup.md:
   search command (AST tool `--count`, `sg`, or `rg` per tool hierarchy)
   that finds remaining instances (target: 0)
 
+<!-- role: emit -->
+
 ## Step 6: Create the cleanup file
 
 Create `$PLANS_DIR/<backlog-name>-cleanup.md`:
@@ -241,6 +264,8 @@ Create `$PLANS_DIR/<backlog-name>-cleanup.md`:
 Items discovered during backlog prompts that are non-blocking but should
 be addressed.
 ```
+
+<!-- role: workflow -->
 
 ## Step 7: Pre-flight audit (MANDATORY)
 
@@ -268,6 +293,8 @@ done
 If any tool has 3+ pending fixtures, run `/calibrate-ast-interpreter
 --tool <name>` before proceeding.
 
+<!-- role: workflow -->
+
 ## Step 8: Validate the plan (MANDATORY)
 
 Launch `/validate-plan` on the plan file. This replaces the previous
@@ -288,9 +315,12 @@ proceed to Step 9 until the verdict is READY.
 If /validate-plan modifies any prompt files (fixing accepted findings),
 it re-runs pre-flight automatically to maintain structural certification.
 
+<!-- role: workflow -->
+
 ## Step 9: Present the plan to the user
 
 Show the user:
+
 - Number of backlog items, grouped by type
 - Items that were already resolved (removed from scope)
 - Dependency graph
@@ -302,6 +332,8 @@ Show the user:
 - Ask: "Ready to start?"
 
 Wait for the user's go-ahead.
+
+<!-- role: workflow -->
 
 ## Step 9: Execute the orchestrator loop
 
@@ -331,50 +363,56 @@ For each prompt:
    paste the reconciliation output.
 
 4. **Verify independently.** Run in `~/github/user-frontend`:
-    ```
-    git log --oneline -10
-    pnpm tsc --noEmit -p tsconfig.check.json
-    pnpm test --run 2>&1 | tail -5
-    pnpm build 2>&1 | tail -5
-    npx eslint . --max-warnings 0 2>&1 | tail -3
-    ```
-    When integration scope is `per-prompt`, also run:
-    ```
-    pnpm test:integration 2>&1 | tail -5
-    ```
-    Plus prompt-specific verification searches.
 
-    **Independent verification rule.** When integration scope is
-    `per-prompt` or `final-only`, the orchestrator independently runs
-    the same integration tests the work agent was asked to run. Do not
-    trust the agent's self-reported Playwright results. Run the specs
-    yourself, compare the output, and fill in the verification checklist
-    in the master plan. A prompt is not PASS until the orchestrator's
-    row is filled in.
+   ```
+   git log --oneline -10
+   pnpm tsc --noEmit -p tsconfig.check.json
+   pnpm test --run 2>&1 | tail -5
+   pnpm build 2>&1 | tail -5
+   npx eslint . --max-warnings 0 2>&1 | tail -3
+   ```
+
+   When integration scope is `per-prompt`, also run:
+
+   ```
+   pnpm test:integration 2>&1 | tail -5
+   ```
+
+   Plus prompt-specific verification searches.
+
+   **Independent verification rule.** When integration scope is
+   `per-prompt` or `final-only`, the orchestrator independently runs
+   the same integration tests the work agent was asked to run. Do not
+   trust the agent's self-reported Playwright results. Run the specs
+   yourself, compare the output, and fill in the verification checklist
+   in the master plan. A prompt is not PASS until the orchestrator's
+   row is filled in.
 
 5. **Compare results** against the reconciliation.
 
 6. **Gate.** PASS: update master plan, move on. FAIL: list discrepancies.
 
-    **Cannot-run gate.** If integration scope is `per-prompt` and the
-    work agent's reconciliation reports integration tests as "not run"
-    or "cannot run," this is NOT a PASS. Mark the prompt PARTIAL. Before
-    dispatching the next prompt, either fix the environment (start the
-    Firebase emulator and dev/prod server) and re-verify, or insert a
-    verification-only prompt that runs the affected specs. Do not
-    proceed with unverified integration test changes.
+   **Cannot-run gate.** If integration scope is `per-prompt` and the
+   work agent's reconciliation reports integration tests as "not run"
+   or "cannot run," this is NOT a PASS. Mark the prompt PARTIAL. Before
+   dispatching the next prompt, either fix the environment (start the
+   Firebase emulator and dev/prod server) and re-verify, or insert a
+   verification-only prompt that runs the affected specs. Do not
+   proceed with unverified integration test changes.
 
-    For auto prompts: if the Task agent reports Playwright as "not run"
-    or "cannot run," escalate to manual immediately.
+   For auto prompts: if the Task agent reports Playwright as "not run"
+   or "cannot run," escalate to manual immediately.
 
 7. **Read the cleanup file** for new items. If integration tests could
-    not be independently verified, append an integration verification
-    item: `- [ ] INTEGRATION VERIFY: Prompt N -- <specs not verified,
-    reason>`. The cleanup prompt must resolve all such items before the
-    plan is marked complete.
+   not be independently verified, append an integration verification
+   item: `- [ ] INTEGRATION VERIFY: Prompt N -- <specs not verified,
+reason>`. The cleanup prompt must resolve all such items before the
+   plan is marked complete.
 
 8. **Check if the work agent modified subsequent prompts.** If so, read
-    the modified prompt files and verify the changes make sense.
+   the modified prompt files and verify the changes make sense.
+
+<!-- role: workflow -->
 
 ## Step 10: Generate the cleanup prompt
 
@@ -388,6 +426,8 @@ After all planned prompts complete:
 6. Present to user for approval
 7. Run only after user approves
 
+<!-- role: workflow -->
+
 ## Step 11: Final verification and plan update
 
 Run the full verification suite. When integration scope is `per-prompt`
@@ -397,6 +437,8 @@ Update the master plan: mark all items DONE or document carry-forward
 items. Update HEAD sha, test/build metrics (including integration test
 results if scope is not `none`). Report to user with a summary of what
 was accomplished.
+
+<!-- role: workflow -->
 
 ## Step 12: Archive the plan
 

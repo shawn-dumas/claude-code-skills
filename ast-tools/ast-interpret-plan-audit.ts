@@ -17,7 +17,6 @@ import fs from 'fs';
 import path from 'path';
 import fg from 'fast-glob';
 import { parseArgs, output, fatal } from './cli';
-import { computeBoundaryConfidence } from './shared';
 import { resolveConfig } from './ast-config';
 import { analyzePlan } from './ast-plan-audit';
 import type {

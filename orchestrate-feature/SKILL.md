@@ -23,14 +23,19 @@ if [ -d ~/plans ]; then echo "PLANS_DIR=~/plans"; else echo "PLANS_DIR=./plans";
 Use `$PLANS_DIR` for all plan/prompt/cleanup file paths below. Create the
 directory (and `$PLANS_DIR/prompts/`) if it does not exist.
 
+<!-- role: workflow -->
+
 ## Step 1: Parse the feature description
 
 Extract from the argument:
+
 - What the feature does (user-visible behavior)
 - Which pages/routes it affects
 - Any technical constraints or preferences mentioned
 
 If the description is vague, ask clarifying questions before proceeding.
+
+<!-- role: workflow -->
 
 ## Step 2: Investigate the codebase
 
@@ -55,6 +60,8 @@ Then investigate the implementation surface:
 5. **Check for conflicts.** Will the feature touch files being modified by
    other in-progress work? Check git status, recent branches.
 
+<!-- role: workflow -->
+
 ## Step 3: Decide whether to orchestrate
 
 If the feature can be implemented in a single prompt (one domain, 3 or
@@ -62,6 +69,8 @@ fewer files), do NOT orchestrate. Tell the user and output a single prompt.
 
 If the feature requires phased implementation across multiple domains,
 proceed with orchestration.
+
+<!-- role: workflow -->
 
 ## Step 4: Assess integration test scope
 
@@ -79,6 +88,8 @@ integration tests. Read the integration test scope rules in
 
 Record the scope in the master plan header. Reference it when generating
 prompt verification sections and the orchestrator verification loop.
+
+<!-- role: emit -->
 
 ## Step 5: Generate the master plan
 
@@ -98,14 +109,14 @@ Create `$PLANS_DIR/<feature-name>.md` with:
 
 ### New Files
 
-| File | Type | Purpose |
-|------|------|---------|
+| File   | Type                                    | Purpose        |
+| ------ | --------------------------------------- | -------------- |
 | <path> | <service hook/container/component/etc.> | <what it does> |
 
 ### Modified Files
 
-| File | What changes |
-|------|-------------|
+| File   | What changes         |
+| ------ | -------------------- |
 | <path> | <summary of changes> |
 
 ### Types
@@ -116,13 +127,13 @@ Create `$PLANS_DIR/<feature-name>.md` with:
 
 The phases follow the dependency graph. Each phase unblocks the next.
 
-| # | Phase | Prompt | What | Depends on | Status |
-|---|-------|--------|------|-----------|--------|
-| 1 | Types | <name> | <summary> | none | pending |
-| 2 | Service hooks | <name> | <summary> | Phase 1 | pending |
-| 3 | Container | <name> | <summary> | Phase 2 | pending |
-| 4 | Components | <name> | <summary> | Phase 3 | pending |
-| 5 | Integration | <name> | <summary> | Phase 4 | pending |
+| #   | Phase         | Prompt | What      | Depends on | Status  |
+| --- | ------------- | ------ | --------- | ---------- | ------- |
+| 1   | Types         | <name> | <summary> | none       | pending |
+| 2   | Service hooks | <name> | <summary> | Phase 1    | pending |
+| 3   | Container     | <name> | <summary> | Phase 2    | pending |
+| 4   | Components    | <name> | <summary> | Phase 3    | pending |
+| 5   | Integration   | <name> | <summary> | Phase 4    | pending |
 
 ## Verification
 
@@ -132,10 +143,10 @@ The phases follow the dependency graph. Each phase unblocks the next.
 
 <if integration scope is per-prompt or final-only, include this table>
 
-| # | Agent Ran PW? | Orchestrator Ran PW? | Results Match? | PASS/FAIL |
-|---|---------------|----------------------|----------------|-----------|
-| 1 | | | | |
-| 2 | | | | |
+| #   | Agent Ran PW? | Orchestrator Ran PW? | Results Match? | PASS/FAIL |
+| --- | ------------- | -------------------- | -------------- | --------- |
+| 1   |               |                      |                |           |
+| 2   |               |                      |                |           |
 ```
 
 ### Phase ordering
@@ -153,6 +164,8 @@ Follow the standard topological order from the codebase conventions:
 
 Not every feature needs all phases. Skip phases that have no work.
 
+<!-- role: emit -->
+
 ## Step 5: Generate prompts
 
 Create prompt files in `$PLANS_DIR/prompts/` named `<feature-name>-NN-<phase>.md`.
@@ -163,6 +176,7 @@ Each prompt follows this structure:
 # Feature Prompt N: <phase title>
 
 ## Context
+
 - Repo: ~/github/user-frontend
 - Branch: <current branch>
 - Master plan: $PLANS_DIR/<feature-name>.md
@@ -181,9 +195,11 @@ Read ~/github/user-frontend/CLAUDE.md before starting.
 ## Steps
 
 ### Step 1: <title>
+
 <detailed instructions with file paths>
 
 ### Step 2: <title>
+
 <detailed instructions>
 
 ## Implementation Rules
@@ -198,6 +214,7 @@ Read ~/github/user-frontend/CLAUDE.md before starting.
   intentionally changes it
 
 ## Commit Strategy
+
 <how many commits, what goes in each -- one logical unit per commit>
 
 ## Verification
@@ -223,7 +240,9 @@ pnpm test:integration
 Prompt-specific checks:
 
 \`\`\`bash
+
 # <description>
+
 <verification command (AST tool --count, sg, or rg per tool hierarchy)>
 \`\`\`
 
@@ -234,13 +253,15 @@ Prompt-specific checks:
 
 ### Prompt generation rules
 
-- Each prompt must reference which skills to use (build-react-*, audit-*)
+- Each prompt must reference which skills to use (build-react-_, audit-_)
 - Each prompt independently passes tsc + tests + build + eslint
 - New production files require tests in the same prompt, not deferred
 - Prompts are sequenced by dependency -- types before hooks before
   containers before components
 - Include verification commands. Use `ast-imports --kind EXPORT_DECLARATION`
   to verify barrel wiring. Use `rg` or `ls` to verify new files exist
+
+<!-- role: emit -->
 
 ## Step 6: Create the cleanup file
 
@@ -252,6 +273,8 @@ Create `$PLANS_DIR/<feature-name>-cleanup.md`:
 Items discovered during implementation that are non-blocking but should
 be addressed.
 ```
+
+<!-- role: workflow -->
 
 ## Step 7: Pre-flight audit (MANDATORY)
 
@@ -279,6 +302,8 @@ done
 If any tool has 3+ pending fixtures, run `/calibrate-ast-interpreter
 --tool <name>` before proceeding.
 
+<!-- role: workflow -->
+
 ## Step 8: Validate the plan (MANDATORY)
 
 Launch `/validate-plan` on the plan file. This replaces the previous
@@ -299,9 +324,12 @@ proceed to Step 9 until the verdict is READY.
 If /validate-plan modifies any prompt files (fixing accepted findings),
 it re-runs pre-flight automatically to maintain structural certification.
 
+<!-- role: workflow -->
+
 ## Step 9: Present the plan to the user
 
 Show the user:
+
 - The feature design summary
 - New files to be created
 - The phase sequence with dependencies
@@ -313,6 +341,8 @@ Show the user:
 - Ask: "Ready to start?"
 
 Wait for the user's go-ahead.
+
+<!-- role: workflow -->
 
 ## Step 9: Execute the orchestrator loop
 
@@ -342,49 +372,55 @@ For each prompt:
    to paste the reconciliation output.
 
 4. **Verify independently.** Run in `~/github/user-frontend`:
-    ```
-    git log --oneline -10
-    pnpm tsc --noEmit -p tsconfig.check.json
-    pnpm test --run 2>&1 | tail -5
-    pnpm build 2>&1 | tail -5
-    npx eslint . --max-warnings 0 2>&1 | tail -3
-    ```
-    When integration scope is `per-prompt`, also run:
-    ```
-    pnpm test:integration 2>&1 | tail -5
-    ```
-    Plus the prompt-specific verification searches.
 
-    **Independent verification rule.** When integration scope is
-    `per-prompt` or `final-only`, the orchestrator independently runs
-    the same integration tests the work agent was asked to run. Do not
-    trust the agent's self-reported Playwright results. Run the specs
-    yourself, compare the output, and fill in the verification checklist
-    in the master plan. A prompt is not PASS until the orchestrator's
-    row is filled in.
+   ```
+   git log --oneline -10
+   pnpm tsc --noEmit -p tsconfig.check.json
+   pnpm test --run 2>&1 | tail -5
+   pnpm build 2>&1 | tail -5
+   npx eslint . --max-warnings 0 2>&1 | tail -3
+   ```
+
+   When integration scope is `per-prompt`, also run:
+
+   ```
+   pnpm test:integration 2>&1 | tail -5
+   ```
+
+   Plus the prompt-specific verification searches.
+
+   **Independent verification rule.** When integration scope is
+   `per-prompt` or `final-only`, the orchestrator independently runs
+   the same integration tests the work agent was asked to run. Do not
+   trust the agent's self-reported Playwright results. Run the specs
+   yourself, compare the output, and fill in the verification checklist
+   in the master plan. A prompt is not PASS until the orchestrator's
+   row is filled in.
 
 5. **Compare results.** Check the work agent's reconciliation against
-    your own verification.
+   your own verification.
 
 6. **Gate.** PASS: update master plan, move to next prompt. FAIL: list
-    discrepancies, recommend fix.
+   discrepancies, recommend fix.
 
-    **Cannot-run gate.** If integration scope is `per-prompt` and the
-    work agent's reconciliation reports integration tests as "not run"
-    or "cannot run," this is NOT a PASS. Mark the prompt PARTIAL. Before
-    dispatching the next prompt, either fix the environment (start the
-    Firebase emulator and dev/prod server) and re-verify, or insert a
-    verification-only prompt that runs the affected specs. Do not
-    proceed with unverified integration test changes.
+   **Cannot-run gate.** If integration scope is `per-prompt` and the
+   work agent's reconciliation reports integration tests as "not run"
+   or "cannot run," this is NOT a PASS. Mark the prompt PARTIAL. Before
+   dispatching the next prompt, either fix the environment (start the
+   Firebase emulator and dev/prod server) and re-verify, or insert a
+   verification-only prompt that runs the affected specs. Do not
+   proceed with unverified integration test changes.
 
-    For auto prompts: if the Task agent reports Playwright as "not run"
-    or "cannot run," escalate to manual immediately.
+   For auto prompts: if the Task agent reports Playwright as "not run"
+   or "cannot run," escalate to manual immediately.
 
 7. **Read the cleanup file** after each prompt. If integration tests
-    could not be independently verified, append an integration
-    verification item: `- [ ] INTEGRATION VERIFY: Prompt N -- <specs
-    not verified, reason>`. The cleanup prompt must resolve all such
-    items before the plan is marked complete.
+   could not be independently verified, append an integration
+   verification item: `- [ ] INTEGRATION VERIFY: Prompt N -- <specs
+not verified, reason>`. The cleanup prompt must resolve all such
+   items before the plan is marked complete.
+
+<!-- role: workflow -->
 
 ## Step 10: Generate the cleanup prompt
 
@@ -398,6 +434,8 @@ After all planned prompts complete:
 6. Present to user for approval
 7. Run only after the user approves
 
+<!-- role: workflow -->
+
 ## Step 11: Final verification and plan update
 
 Run the full verification suite. When integration scope is `per-prompt`
@@ -406,6 +444,8 @@ or `final-only`, run `pnpm test:integration` as a full regression check.
 Update the master plan with final status, HEAD sha, test/build metrics
 (including integration test results if scope is not `none`), and new file
 counts. Report to user.
+
+<!-- role: workflow -->
 
 ## Step 12: Archive the plan
 
