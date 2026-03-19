@@ -110,6 +110,7 @@ npx tsx scripts/AST/ast-interpret-skill-quality.ts .claude/skills/ --pretty \
 | `MISSING_SECTION_ROLE`     | Top-level heading lacks role annotation         | -2 per       |
 | `ROLE_REQUIREMENT_MET`     | Required role for category is present           | (positive)   |
 | `ROLE_REQUIREMENT_MISSING` | Required role for category is absent            | -3 per       |
+| `INVALID_ROLE_ANNOTATION`  | Role annotation has invalid name (typo)         | -5 per       |
 
 <!-- role: detect -->
 
