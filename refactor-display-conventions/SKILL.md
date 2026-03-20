@@ -16,6 +16,20 @@ Run `/audit-display-conventions` first. This skill consumes the audit report.
 
 If no audit report exists, run the audit as Step 0 before proceeding.
 
+<!-- role: guidance -->
+
+## Rules
+
+TOOL OUTPUT: When AST tool output is available for a file being
+refactored, consume it as authoritative input. Do NOT re-evaluate
+or second-guess tool-determined findings. The tool's observation
+is the finding -- your job is to fix it, not to question whether
+it is valid.
+
+GAP.md ENFORCEMENT: If you assign `architecture-smell` as the finding
+kind, you MUST append to scripts/AST/GAPS.md with pattern class,
+file example, and what tool would detect it. No exceptions.
+
 <!-- role: workflow -->
 
 ## Step 0: Run AST analysis (if no prior audit)
@@ -32,6 +46,10 @@ npx tsx scripts/AST/ast-null-display.ts $ARGUMENTS --count
 
 npx tsx scripts/AST/ast-interpret-display-format.ts $ARGUMENTS --pretty
 ```
+
+New tools available for pre-refactor analysis:
+- ast-test-coverage: run after refactoring to verify test coverage
+  status hasn't degraded
 
 <!-- role: workflow -->
 

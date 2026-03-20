@@ -88,6 +88,38 @@ against current production signatures) and P1 (nuanced public API violations).
 
 ## Report Policy
 
+### TEST ANALYSIS AUTHORITY
+
+ast-test-analysis output is authoritative. Every observation marked
+authoritative=true MUST become a finding. Do NOT filter, downgrade,
+or skip authoritative observations. Specifically:
+
+- MOCK_INTERNAL (confidence >= medium): always report
+- MISSING_CLEANUP: always report
+- DATA_SOURCING_VIOLATION: always report
+- IMPLEMENTATION_ASSERTION: always report
+
+### IMPLEMENTATION_ASSERTION detection
+
+ast-test-analysis now detects specs that assert on hook call arguments
+(`expect(useXxx).toHaveBeenCalledWith`) or mutation call arguments
+(`expect(mutateAsync).toHaveBeenCalledWith`) instead of return values
+or thrown errors. These are P1/P8 violations -- testing implementation
+details rather than function output. Report all IMPLEMENTATION_ASSERTION
+observations as findings.
+
+### PRIORITY ASSIGNMENT
+
+Use PRIORITY_RULES from ast-config.ts. Do NOT assign priority
+subjectively. MOCK_INTERNAL high=P3, medium=P4. MISSING_CLEANUP=P4.
+DATA_SOURCING_VIOLATION=P5. IMPLEMENTATION_ASSERTION=P4.
+
+### GAP.md ENFORCEMENT
+
+If you assign `architecture-smell` as the finding kind, you MUST append
+to scripts/AST/GAPS.md with pattern class, file example, and what tool
+would detect it. No exceptions.
+
 ### AST-confirmed tagging
 
 An assessment qualifies for `[AST-confirmed]` tagging when ALL of:

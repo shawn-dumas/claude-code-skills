@@ -16,6 +16,20 @@ If you have not run `audit-module` on this file yet, consider doing so first. Th
 produces a scored report and prioritized fix list that prevents duplicate work. If no
 audit exists, this skill runs the audit internally in Step 2.
 
+<!-- role: guidance -->
+
+## Rules
+
+TOOL OUTPUT: When AST tool output is available for a file being
+refactored, consume it as authoritative input. Do NOT re-evaluate
+or second-guess tool-determined findings. The tool's observation
+is the finding -- your job is to fix it, not to question whether
+it is valid.
+
+GAP.md ENFORCEMENT: If you assign `architecture-smell` as the finding
+kind, you MUST append to scripts/AST/GAPS.md with pattern class,
+file example, and what tool would detect it. No exceptions.
+
 <!-- role: workflow -->
 
 ## Step 0: Run AST analysis tools
@@ -54,6 +68,12 @@ Use side effect observations for G6 (impure code mixed with transformation):
 - `TIMER_CALL` -- async timing in sync-looking code
 - `POSTHOG_CALL` -- analytics in transformation logic
 - `WINDOW_MUTATION` -- DOM/browser state mutation
+
+New tools available for pre-refactor analysis:
+- ast-branded-type-gaps: run before refactoring to identify bare
+  primitives that should use branded types
+- ast-test-coverage: run after refactoring to verify test coverage
+  status hasn't degraded
 
 <!-- role: workflow -->
 

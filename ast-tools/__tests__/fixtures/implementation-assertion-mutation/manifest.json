@@ -1,0 +1,5 @@
+{
+  "description": "Spec with expect(mutateAsync).toHaveBeenCalled* and expect(mutate).toHaveBeenCalled* patterns.",
+  "expectedImplementationAssertionCount": 3,
+  "expectedAssertionType": "mutation-call-args"
+}

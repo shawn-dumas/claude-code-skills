@@ -1,0 +1,4 @@
+{
+  "description": "Functions using branded types correctly in parameters. No UNBRANDED_PARAM observations expected.",
+  "expectedObservations": []
+}

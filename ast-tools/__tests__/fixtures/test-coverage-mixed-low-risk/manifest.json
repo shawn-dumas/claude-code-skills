@@ -1,0 +1,5 @@
+{
+  "description": "Mixed directory: 1 tested, 2 untested (both low complexity, <30 lines). Expect 0 TEST_GAP assessments because both untested files are low risk.",
+  "expectedAssessments": 0,
+  "expectedGapFiles": []
+}

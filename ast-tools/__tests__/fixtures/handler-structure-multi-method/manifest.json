@@ -1,0 +1,9 @@
+{
+  "expectedObservations": [
+    {
+      "type": "HANDLER_MULTI_METHOD",
+      "file": "items.ts",
+      "methods": ["DELETE", "GET", "POST"]
+    }
+  ]
+}

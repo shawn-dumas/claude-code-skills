@@ -1,0 +1,29 @@
+{
+  "description": "Real-world fixture (simplified from user-data.logic.ts): functions using bare primitives where branded types are expected. UNBRANDED_PARAM observations expected for userId and organizationId parameters.",
+  "expectedObservations": [
+    {
+      "kind": "UNBRANDED_PARAM",
+      "parameterName": "userId",
+      "functionName": "fetchActorTeamIds",
+      "expectedType": "UserId"
+    },
+    {
+      "kind": "UNBRANDED_PARAM",
+      "parameterName": "organizationId",
+      "functionName": "fetchActorTeamIds",
+      "expectedType": "OrganizationId"
+    },
+    {
+      "kind": "UNBRANDED_PARAM",
+      "parameterName": "organizationId",
+      "functionName": "fetchTeammateUids",
+      "expectedType": "OrganizationId"
+    },
+    {
+      "kind": "UNBRANDED_PARAM",
+      "parameterName": "organizationId",
+      "functionName": "fetchActiveUsers",
+      "expectedType": "OrganizationId"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "expectedObservations": [
+    {
+      "file": "orphan.ts",
+      "coverage": "UNTESTED"
+    }
+  ]
+}

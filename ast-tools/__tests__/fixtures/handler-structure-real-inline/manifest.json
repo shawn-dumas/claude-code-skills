@@ -1,0 +1,8 @@
+{
+  "expectedObservations": [
+    {
+      "type": "HANDLER_INLINE_LOGIC",
+      "file": "create.ts"
+    }
+  ]
+}

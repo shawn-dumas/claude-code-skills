@@ -14,7 +14,23 @@ If you have not run `audit-api-handler` on this file yet, consider doing so firs
 produces a scored report with a prioritized refactor checklist that prevents duplicate work.
 If no audit exists, this skill runs the audit internally in Step 2.
 
+## Rules
+
+TOOL OUTPUT: When AST tool output is available for a file being
+refactored, consume it as authoritative input. Do NOT re-evaluate
+or second-guess tool-determined findings. The tool's observation
+is the finding -- your job is to fix it, not to question whether
+it is valid.
+
+GAP.md ENFORCEMENT: If you assign `architecture-smell` as the finding
+kind, you MUST append to scripts/AST/GAPS.md with pattern class,
+file example, and what tool would detect it. No exceptions.
+
 ## Step 0: Run AST analysis tools
+
+Before refactoring an API handler, run ast-handler-structure on the
+file to get a deterministic assessment of inline logic and multi-method
+violations. Use this output to guide the refactoring.
 
 ```bash
 # Authorization patterns (emits RAW_ROLE_CHECK observations)
@@ -54,6 +70,12 @@ This is the baseline for the mandatory before/after CC comparison in Step 6.
 | `CONSOLE_CALL`          | G6/G10            | Debug logging mixed into business logic                     |
 | `DEAD_EXPORT_CANDIDATE` | G7                | Exports beyond the required default export                  |
 | `CIRCULAR_DEPENDENCY`   | G1                | Handler participating in a circular import chain            |
+
+New tools available for pre-refactor analysis:
+- ast-handler-structure: run on API handlers before refactoring to
+  identify inline logic that should be extracted to .logic.ts
+- ast-test-coverage: run after refactoring to verify test coverage
+  status hasn't degraded
 
 ## Step 1: Build the dependency picture
 

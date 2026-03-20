@@ -1,0 +1,5 @@
+{
+  "description": "Mixed directory: 2 tested, 1 indirectly tested, 2 untested (high complexity). Expect 2 TEST_GAP assessments for the 2 untested high-risk files.",
+  "expectedAssessments": 2,
+  "expectedGapFiles": ["untested-complex-a.ts", "untested-complex-b.ts"]
+}

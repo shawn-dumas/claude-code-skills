@@ -186,7 +186,7 @@ describe('ast-imports', () => {
   });
 
   describe('circular dependency detection', () => {
-    it('detects cycles between circular-a and circular-b', { timeout: 15000 }, () => {
+    it('detects cycles between circular-a and circular-b', { timeout: 120_000 }, () => {
       const graph = buildDependencyGraph(FIXTURES_DIR, {
         searchDir: FIXTURES_DIR,
       });

@@ -1,9 +1,15 @@
 /**
  * AST tool: Branded Type Check
  *
- * Detects property signatures where a branded type should be used but a
- * primitive base type is used instead. For example, `userId: string`
- * should be `userId: UserId`.
+ * Detects two classes of branded-type gaps:
+ *
+ * 1. UNBRANDED_ID_FIELD: Property signatures in interfaces/type aliases
+ *    where a branded type should be used but a primitive base type is used
+ *    instead. For example, `userId: string` should be `userId: UserId`.
+ *
+ * 2. UNBRANDED_PARAM: Function/method parameters and return types where
+ *    a branded type should be used but a bare primitive is used instead.
+ *    For example, `function getUser(userId: string)` should use `UserId`.
  *
  * The branded field patterns and exclusions are configured in `ast-config.ts`
  * under `brandedCheck`.
@@ -13,9 +19,10 @@
  *   - Test and fixture files
  *   - Wire-format types (names containing Response, Request, etc.)
  *   - Brand definition files
+ *   - Parameter names in paramExcludeNames (generic names like 'name', 'label')
  */
 
-import { SyntaxKind, Node } from 'ts-morph';
+import { Node } from 'ts-morph';
 import path from 'path';
 import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
@@ -31,11 +38,11 @@ import type { BrandedCheckObservation, BrandedCheckAnalysis, ObservationResult }
 // ---------------------------------------------------------------------------
 
 /**
- * Analyze a single file for unbranded ID field patterns.
+ * Analyze a single file for unbranded ID field and parameter patterns.
  */
 export function analyzeBrandedCheck(filePath: string): BrandedCheckAnalysis {
   const config = resolveConfig();
-  const { fieldPatterns, excludePathPatterns, excludeTypeNamePatterns } = config.brandedCheck;
+  const { fieldPatterns, excludePathPatterns, excludeTypeNamePatterns, paramExcludeNames } = config.brandedCheck;
 
   const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(PROJECT_ROOT, filePath);
   const relativePath = path.relative(PROJECT_ROOT, absolute);
@@ -50,27 +57,20 @@ export function analyzeBrandedCheck(filePath: string): BrandedCheckAnalysis {
   const sf = getSourceFile(absolute);
   const observations: BrandedCheckObservation[] = [];
 
-  // Walk all property signatures and property declarations in interfaces and type aliases
+  // --- Pass 1: Property signatures (UNBRANDED_ID_FIELD) ---
   sf.forEachDescendant(node => {
-    // PropertySignature (in interfaces) or PropertyDeclaration (in classes)
     if (!Node.isPropertySignature(node) && !Node.isPropertyDeclaration(node)) return;
 
     const propName = node.getName();
-
-    // Check if this property name matches a branded field pattern
     const pattern = fieldPatterns[propName];
     if (!pattern) return;
 
-    // Get the type annotation
     const typeNode = node.getTypeNode();
     if (!typeNode) return;
 
     const typeText = typeNode.getText().trim();
-
-    // Check if the type is the primitive base type (not the branded type)
     if (typeText !== pattern.baseType) return;
 
-    // Check if the containing type/interface name should be excluded
     const containingType = findContainingTypeName(node);
     if (containingType) {
       for (const excludePattern of excludeTypeNamePatterns) {
@@ -93,7 +93,111 @@ export function analyzeBrandedCheck(filePath: string): BrandedCheckAnalysis {
     });
   });
 
+  // --- Pass 2: Function/method parameters and return types (UNBRANDED_PARAM) ---
+  sf.forEachDescendant(node => {
+    // Match function declarations, arrow functions, and method declarations
+    const isFunctionLike =
+      Node.isFunctionDeclaration(node) || Node.isArrowFunction(node) || Node.isMethodDeclaration(node);
+    if (!isFunctionLike) return;
+
+    const functionName = getFunctionName(node);
+
+    // Check parameters
+    const params = node.getParameters();
+    for (const param of params) {
+      const paramName = param.getName();
+
+      // Skip allowlisted parameter names
+      if (paramExcludeNames.has(paramName)) continue;
+
+      const pattern = fieldPatterns[paramName];
+      if (!pattern) continue;
+
+      const typeNode = param.getTypeNode();
+      if (!typeNode) continue;
+
+      const typeText = typeNode.getText().trim();
+      if (typeText !== pattern.baseType) continue;
+
+      const line = param.getStartLineNumber();
+
+      observations.push({
+        kind: 'UNBRANDED_PARAM',
+        file: relativePath,
+        line,
+        evidence: {
+          functionName,
+          parameterName: paramName,
+          declaredType: pattern.baseType as 'string' | 'number',
+          actualType: typeText,
+          expectedType: pattern.brandedType,
+          evidence: `parameter '${paramName}' in function '${functionName}' uses bare '${pattern.baseType}' where branded type '${pattern.brandedType}' is expected`,
+        },
+      });
+    }
+
+    // Check return type annotation
+    const returnTypeNode = node.getReturnTypeNode();
+    if (returnTypeNode) {
+      const returnText = returnTypeNode.getText().trim();
+
+      // Check if the return type is a bare primitive that matches a branded base type
+      for (const [fieldName, pattern] of Object.entries(fieldPatterns)) {
+        if (returnText === pattern.baseType) {
+          // Only flag return types if the function name ends with the field pattern name
+          // (case-insensitive). e.g., getUserId -> matches 'userId', getTeamId -> matches 'teamId'.
+          // This avoids false positives like getUserName matching UserId.
+          const lowerName = functionName.toLowerCase();
+          const lowerField = fieldName.toLowerCase();
+          if (lowerName.endsWith(lowerField)) {
+            const line = returnTypeNode.getStartLineNumber();
+
+            observations.push({
+              kind: 'UNBRANDED_PARAM',
+              file: relativePath,
+              line,
+              evidence: {
+                functionName,
+                parameterName: 'return',
+                declaredType: pattern.baseType as 'string' | 'number',
+                actualType: returnText,
+                expectedType: pattern.brandedType,
+                evidence: `function '${functionName}' returns bare '${pattern.baseType}' where branded type '${pattern.brandedType}' is expected`,
+              },
+            });
+            break; // Only one return observation per function
+          }
+        }
+      }
+    }
+  });
+
   return { filePath: relativePath, observations };
+}
+
+/**
+ * Extract the name of a function-like node.
+ */
+function getFunctionName(node: Node): string {
+  if (Node.isFunctionDeclaration(node)) {
+    return node.getName() ?? '<anonymous>';
+  }
+  if (Node.isMethodDeclaration(node)) {
+    return node.getName();
+  }
+  if (Node.isArrowFunction(node)) {
+    // Try to get the variable declaration name
+    const parent = node.getParent();
+    if (parent && Node.isVariableDeclaration(parent)) {
+      return parent.getName();
+    }
+    // Try property assignment
+    if (parent && Node.isPropertyDeclaration(parent)) {
+      return parent.getName();
+    }
+    return '<arrow>';
+  }
+  return '<unknown>';
 }
 
 /**
@@ -158,7 +262,8 @@ function main(): void {
     process.stdout.write(
       'Usage: npx tsx scripts/AST/ast-branded-check.ts <path...> [--pretty] [--no-cache] [--kind <kind>] [--count]\n' +
         '\n' +
-        'Detect property signatures using primitive types where branded types should be used.\n' +
+        'Detect property signatures and function parameters using primitive types\n' +
+        'where branded types should be used.\n' +
         '\n' +
         '  <path...>     One or more .ts/.tsx files or directories to analyze\n' +
         '  --pretty      Format JSON output with indentation\n' +
@@ -167,7 +272,8 @@ function main(): void {
         '  --count       Output observation kind counts instead of full data\n' +
         '\n' +
         'Observation kinds:\n' +
-        '  UNBRANDED_ID_FIELD    Property uses primitive type where branded type is expected\n',
+        '  UNBRANDED_ID_FIELD    Property uses primitive type where branded type is expected\n' +
+        '  UNBRANDED_PARAM       Function parameter or return uses primitive where branded type is expected\n',
     );
     process.exit(0);
   }

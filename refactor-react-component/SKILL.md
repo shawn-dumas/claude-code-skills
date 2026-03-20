@@ -17,6 +17,20 @@ consider doing so first. The audit produces a dependency graph and migration che
 that prevents duplicate work and surfaces cross-file issues this skill cannot see in
 isolation.
 
+<!-- role: guidance -->
+
+## Rules
+
+TOOL OUTPUT: When AST tool output is available for a file being
+refactored, consume it as authoritative input. Do NOT re-evaluate
+or second-guess tool-determined findings. The tool's observation
+is the finding -- your job is to fix it, not to question whether
+it is valid.
+
+GAP.md ENFORCEMENT: If you assign `architecture-smell` as the finding
+kind, you MUST append to scripts/AST/GAPS.md with pattern class,
+file example, and what tool would detect it. No exceptions.
+
 <!-- role: workflow -->
 
 ## Step 0: Run AST analysis tools
@@ -70,6 +84,12 @@ functions that look pure, toast calls in wrong layers) and Step 2e
 
 Use import observations for Step 1 (dependency picture, consumer count,
 cross-domain imports) and Step 4 (updating imports after file splits).
+
+New tools available for pre-refactor analysis:
+- ast-branded-type-gaps: run before refactoring to identify bare
+  primitives that should use branded types (especially in prop types)
+- ast-test-coverage: run after refactoring to verify test coverage
+  status hasn't degraded
 
 <!-- role: workflow -->
 

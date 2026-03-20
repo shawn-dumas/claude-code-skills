@@ -1,0 +1,5 @@
+{
+  "description": "Spec with expect(useHook).toHaveBeenCalled* and expect(mockUseHook).toHaveBeenCalled* patterns.",
+  "expectedImplementationAssertionCount": 3,
+  "expectedAssertionType": "hook-call-args"
+}

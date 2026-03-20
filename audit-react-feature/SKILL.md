@@ -74,6 +74,13 @@ npx tsx scripts/AST/ast-error-coverage.ts $ARGUMENTS --kind QUERY_ERROR_UNHANDLE
 npx tsx scripts/AST/ast-concern-matrix.ts $ARGUMENTS --count
 ```
 
+### New tools available
+
+New tools available:
+- ast-test-coverage: maps production files to test coverage status
+- ast-handler-structure: detects inline API handler logic and multi-method handlers
+- ast-branded-type-gaps: detects bare primitives where branded types exist
+
 ### Error handling coverage
 
 Use `QUERY_ERROR_UNHANDLED` and `MUTATION_ERROR_UNHANDLED` observations to
@@ -104,6 +111,24 @@ true`, include the item in the Manual Review section of the report.
 <!-- role: guidance -->
 
 ## Report Policy
+
+### Tool authority
+
+TOOL AUTHORITY: Do NOT filter AST tool output. Every observation with
+confidence >= medium becomes a finding. Report ALL authoritative
+observations from ast-test-analysis, ast-test-coverage, ast-complexity,
+ast-imports, ast-type-safety, ast-interpret-effects, ast-interpret-hooks,
+ast-interpret-ownership, ast-concern-matrix, ast-handler-structure,
+ast-branded-type-gaps, and all other registered AST tools.
+
+### GAP.md enforcement
+
+GAP.md ENFORCEMENT: If you assign `architecture-smell` as the finding
+kind, you MUST simultaneously append to scripts/AST/GAPS.md with:
+- Pattern class name
+- File example
+- What AST tool would need to detect this pattern
+No exceptions. This is the feedback loop for tool development.
 
 ### AST-confirmed tagging
 
@@ -794,10 +819,17 @@ findings:
 | bug | Manual / ast-interpret-effects | TIMER_RACE, ghost state, runtime errors |
 | style | Manual | Code style issues, debug artifacts |
 
+### Priority assignment
+
+PRIORITY ASSIGNMENT: Use PRIORITY_RULES from ast-config.ts to assign
+priority. Do NOT assign priority based on subjective judgment. If no
+rule matches the finding's kind, assign P4 and add a GAP.md entry
+explaining the unmatched pattern.
+
 ### Rules
 
 1. Every finding from the Migration Checklist / Findings section MUST appear in the YAML.
-2. Assign `priority` (P1-P5) based on severity. Do NOT assign `concern` -- it is assigned during the triage pass after all agents complete.
+2. Assign `priority` (P1-P5) using PRIORITY_RULES from ast-config.ts. Do NOT assign `concern` -- it is assigned during the triage pass after all agents complete.
 3. `stableId` should be omitted or set to `"(new)"` -- it is assigned by the pipeline.
 4. `contentHash` can be computed using `npx tsx scripts/audit/finding-id.ts` or by following the algorithm: sha256(file + ':' + line + ':' + kind + ':' + sha256(description)), truncated to 8 hex.
 5. Use the canonical kind vocabulary above. If validation fails on `kind`, pick the closest canonical value and describe the specifics in `description`.

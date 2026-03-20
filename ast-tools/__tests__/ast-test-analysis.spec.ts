@@ -572,4 +572,192 @@ describe('ast-test-analysis', () => {
       expect(timerObs.every(o => (o.evidence.delayMs ?? 0) <= 100)).toBe(true);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Authoritative observations
+  // ---------------------------------------------------------------------------
+
+  describe('authoritative observations', () => {
+    it('clean fixture produces no authoritative observations', () => {
+      const result = analyzeFixture('test-analysis-clean/clean.spec.ts');
+      const authoritative = result.observations.filter(o => o.authoritative === true);
+
+      expect(authoritative.length).toBe(0);
+    });
+
+    it('violations fixture produces MOCK_INTERNAL with authoritative=true', () => {
+      const result = analyzeFixture('test-analysis-violations/violations.spec.ts');
+      const mockInternal = result.observations.filter(o => o.kind === 'MOCK_INTERNAL');
+
+      expect(mockInternal.length).toBe(1);
+      expect(mockInternal[0].authoritative).toBe(true);
+      expect(mockInternal[0].evidence.target).toBe('@/shared/utils/date/formatDate');
+    });
+
+    it('violations fixture produces MISSING_CLEANUP with authoritative=true', () => {
+      const result = analyzeFixture('test-analysis-violations/violations.spec.ts');
+      const missingCleanup = result.observations.filter(o => o.kind === 'MISSING_CLEANUP');
+
+      expect(missingCleanup.length).toBe(1);
+      expect(missingCleanup[0].authoritative).toBe(true);
+      expect(missingCleanup[0].evidence.hasMocks).toBe(true);
+    });
+
+    it('violations fixture produces DATA_SOURCING_VIOLATION with authoritative=true', () => {
+      const result = analyzeFixture('test-analysis-violations/violations.spec.ts');
+      const dataSourcing = result.observations.filter(o => o.kind === 'DATA_SOURCING_VIOLATION');
+
+      expect(dataSourcing.length).toBe(1);
+      expect(dataSourcing[0].authoritative).toBe(true);
+      expect(dataSourcing[0].evidence.asAnyCount).toBe(1);
+    });
+
+    it('violations fixture produces all 3 authoritative observations', () => {
+      const result = analyzeFixture('test-analysis-violations/violations.spec.ts');
+      const authoritative = result.observations.filter(o => o.authoritative === true);
+
+      expect(authoritative.length).toBe(3);
+      const kinds = authoritative.map(o => o.kind).sort();
+      expect(kinds).toEqual(['DATA_SOURCING_VIOLATION', 'MISSING_CLEANUP', 'MOCK_INTERNAL']);
+    });
+
+    it('non-authoritative observations do not have authoritative=true', () => {
+      const result = analyzeFixture('test-analysis-violations/violations.spec.ts');
+      const nonAuthoritative = result.observations.filter(
+        o => o.kind !== 'MOCK_INTERNAL' && o.kind !== 'MISSING_CLEANUP' && o.kind !== 'DATA_SOURCING_VIOLATION',
+      );
+
+      for (const obs of nonAuthoritative) {
+        expect(obs.authoritative).not.toBe(true);
+      }
+    });
+
+    it('MOCK_INTERNAL has confidence evidence field', () => {
+      const result = analyzeFixture('test-analysis-violations/violations.spec.ts');
+      const mockInternal = result.observations.find(o => o.kind === 'MOCK_INTERNAL');
+
+      expect(mockInternal).toBeDefined();
+      // The mock target starts with @/ so it is resolved via path alias (medium confidence)
+      // or resolved to a file (high confidence). Either way, confidence should be set.
+      expect(mockInternal!.evidence.confidence).toBeDefined();
+      expect(['high', 'medium']).toContain(mockInternal!.evidence.confidence);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // IMPLEMENTATION_ASSERTION detection
+  // ---------------------------------------------------------------------------
+
+  describe('IMPLEMENTATION_ASSERTION detection', () => {
+    it('clean fixture produces zero IMPLEMENTATION_ASSERTION observations', () => {
+      const result = analyzeFixture('implementation-assertion-clean/clean.spec.ts');
+      const implAssertions = result.observations.filter(o => o.kind === 'IMPLEMENTATION_ASSERTION');
+
+      expect(implAssertions.length).toBe(0);
+    });
+
+    it('hook-call fixture produces observations with assertionType hook-call-args', () => {
+      const result = analyzeFixture('implementation-assertion-hook-call/hook-call.spec.ts');
+      const implAssertions = result.observations.filter(o => o.kind === 'IMPLEMENTATION_ASSERTION');
+
+      expect(implAssertions.length).toBe(3);
+      for (const obs of implAssertions) {
+        expect(obs.evidence.assertionType).toBe('hook-call-args');
+      }
+    });
+
+    it('hook-call fixture detects useRouter, useTeamsListQuery, and mockUseFeatureFlags', () => {
+      const result = analyzeFixture('implementation-assertion-hook-call/hook-call.spec.ts');
+      const implAssertions = result.observations.filter(o => o.kind === 'IMPLEMENTATION_ASSERTION');
+      const hookNames = implAssertions.map(o => o.evidence.hookName).sort();
+
+      expect(hookNames).toEqual(['mockUseFeatureFlags', 'useRouter', 'useTeamsListQuery']);
+    });
+
+    it('mutation fixture produces observations with assertionType mutation-call-args', () => {
+      const result = analyzeFixture('implementation-assertion-mutation/mutation.spec.ts');
+      const implAssertions = result.observations.filter(o => o.kind === 'IMPLEMENTATION_ASSERTION');
+
+      expect(implAssertions.length).toBe(3);
+      for (const obs of implAssertions) {
+        expect(obs.evidence.assertionType).toBe('mutation-call-args');
+      }
+    });
+
+    it('mutation fixture detects mutateAsync and mutate', () => {
+      const result = analyzeFixture('implementation-assertion-mutation/mutation.spec.ts');
+      const implAssertions = result.observations.filter(o => o.kind === 'IMPLEMENTATION_ASSERTION');
+      const hookNames = implAssertions.map(o => o.evidence.hookName).sort();
+
+      expect(hookNames).toEqual(['mutate', 'mutateAsync', 'mutateAsync']);
+    });
+
+    it('all IMPLEMENTATION_ASSERTION observations have authoritative=true', () => {
+      const hookResult = analyzeFixture('implementation-assertion-hook-call/hook-call.spec.ts');
+      const mutationResult = analyzeFixture('implementation-assertion-mutation/mutation.spec.ts');
+
+      const allImpl = [
+        ...hookResult.observations.filter(o => o.kind === 'IMPLEMENTATION_ASSERTION'),
+        ...mutationResult.observations.filter(o => o.kind === 'IMPLEMENTATION_ASSERTION'),
+      ];
+
+      expect(allImpl.length).toBeGreaterThan(0);
+      for (const obs of allImpl) {
+        expect(obs.authoritative).toBe(true);
+      }
+    });
+
+    it('observations have pattern evidence field', () => {
+      const result = analyzeFixture('implementation-assertion-hook-call/hook-call.spec.ts');
+      const implAssertions = result.observations.filter(o => o.kind === 'IMPLEMENTATION_ASSERTION');
+
+      for (const obs of implAssertions) {
+        expect(obs.evidence.pattern).toBeDefined();
+        expect(obs.evidence.pattern!.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('real-world hook fixture matches manifest expectations', () => {
+      const result = analyzeFixture('implementation-assertion-real-hook/real-hook.spec.ts');
+      const implAssertions = result.observations.filter(o => o.kind === 'IMPLEMENTATION_ASSERTION');
+
+      expect(implAssertions.length).toBe(3);
+      for (const obs of implAssertions) {
+        expect(obs.evidence.assertionType).toBe('hook-call-args');
+        expect(obs.authoritative).toBe(true);
+      }
+    });
+
+    it('real-world mutation fixture matches manifest expectations', () => {
+      const result = analyzeFixture('implementation-assertion-real-mutation/real-mutation.spec.ts');
+      const implAssertions = result.observations.filter(o => o.kind === 'IMPLEMENTATION_ASSERTION');
+
+      expect(implAssertions.length).toBe(3);
+      for (const obs of implAssertions) {
+        expect(obs.evidence.assertionType).toBe('mutation-call-args');
+        expect(obs.authoritative).toBe(true);
+      }
+    });
+
+    it('does not flag callback assertions like expect(onClick).toHaveBeenCalled', () => {
+      const result = analyzeFixture('implementation-assertion-clean/clean.spec.ts');
+      const implAssertions = result.observations.filter(o => o.kind === 'IMPLEMENTATION_ASSERTION');
+
+      // onClick is not a hook (no use prefix) and not a mutation (not mutate/mutateAsync)
+      expect(implAssertions.length).toBe(0);
+    });
+
+    it('detects patterns on real codebase specs', () => {
+      const result = analyzeTestFile('src/ui/page_blocks/teams/__tests__/TeamDetailContainer.spec.tsx');
+      const implAssertions = result.observations.filter(o => o.kind === 'IMPLEMENTATION_ASSERTION');
+
+      // TeamDetailContainer has expect(useUpdateTeamMutation).toHaveBeenCalled()
+      // and expect(mutateAsync).toHaveBeenCalledWith(...)
+      expect(implAssertions.length).toBeGreaterThanOrEqual(1);
+
+      const hookCallAssertions = implAssertions.filter(o => o.evidence.assertionType === 'hook-call-args');
+      const mutationAssertions = implAssertions.filter(o => o.evidence.assertionType === 'mutation-call-args');
+      expect(hookCallAssertions.length + mutationAssertions.length).toBe(implAssertions.length);
+    });
+  });
 });

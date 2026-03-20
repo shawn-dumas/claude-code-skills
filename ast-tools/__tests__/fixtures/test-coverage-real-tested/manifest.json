@@ -1,0 +1,9 @@
+{
+  "description": "Based on src/shared/utils/calculatePeriodEnds/calculatePeriodEnds.ts",
+  "expectedObservations": [
+    {
+      "file": "calculatePeriodEnds.ts",
+      "coverage": "TESTED"
+    }
+  ]
+}

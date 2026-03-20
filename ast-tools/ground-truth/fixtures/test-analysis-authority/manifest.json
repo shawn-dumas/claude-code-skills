@@ -1,0 +1,132 @@
+{
+  "tool": "test-analysis",
+  "created": "2026-03-20",
+  "source": "real-world",
+  "status": "calibrated",
+  "calibratedDate": "2026-03-20",
+  "accuracy": "4/4 (100%)",
+  "notes": "Ground-truth fixtures for ast-test-analysis authoritative observations and IMPLEMENTATION_ASSERTION detection. Files reference real source paths. Covers 4 categories: clean spec (zero authoritative), MOCK_INTERNAL + MISSING_CLEANUP only, IMPLEMENTATION_ASSERTION hook-call-args, and mixed (all authoritative types). Each fixture documents every authoritative observation the tool currently emits.",
+  "fixtures": [
+    {
+      "file": "src/ui/page_blocks/dashboard/systems/SystemsView/SystemsTable/__tests__/SystemsTable.spec.tsx",
+      "expected": {
+        "authoritativeCount": 0,
+        "implementationAssertionCount": 0,
+        "observations": [],
+        "notes": "Clean spec. Uses vi.mock for external boundaries only (services, providers). Assertions are render-based (screen.getByText, screen.getByRole). Zero authoritative observations. This is what a compliant container test looks like."
+      }
+    },
+    {
+      "file": "src/ui/page_blocks/dashboard/chat/__tests__/ChatContainer.spec.tsx",
+      "expected": {
+        "authoritativeCount": 3,
+        "implementationAssertionCount": 0,
+        "observations": [
+          {
+            "expectedKind": "MOCK_INTERNAL",
+            "line": 6,
+            "confidence": "high",
+            "notes": "Mocks an internal module (likely a sibling component or local utility). High confidence because the mock target is within the same feature directory."
+          },
+          {
+            "expectedKind": "MOCK_INTERNAL",
+            "line": 11,
+            "confidence": "medium",
+            "notes": "Second internal mock. Medium confidence -- may be a shared utility that is closer to a boundary."
+          },
+          {
+            "expectedKind": "MISSING_CLEANUP",
+            "line": 1,
+            "notes": "No afterEach cleanup detected. Global vi.restoreAllMocks() in vitest.setup.ts handles this, but the tool does not trace global setup files -- it only checks within the spec file. This is a known false positive pattern for the MISSING_CLEANUP observation."
+          }
+        ],
+        "notes": "Has MOCK_INTERNAL and MISSING_CLEANUP authoritative observations but zero IMPLEMENTATION_ASSERTION. The spec mocks internal modules but asserts on rendered output, not hook call args."
+      }
+    },
+    {
+      "file": "src/ui/page_blocks/dashboard/operational-status/__tests__/RealtimeActivityContainer.spec.tsx",
+      "expected": {
+        "authoritativeCount": 4,
+        "implementationAssertionCount": 3,
+        "observations": [
+          {
+            "expectedKind": "MOCK_INTERNAL",
+            "line": 11,
+            "confidence": "high",
+            "notes": "Mocks an internal module within the operational-status feature."
+          },
+          {
+            "expectedKind": "IMPLEMENTATION_ASSERTION",
+            "line": 84,
+            "hookName": "useTeamRealtimeStatsQuery",
+            "assertionType": "hook-call-args",
+            "notes": "Asserts useTeamRealtimeStatsQuery was called with specific args. This tests hook wiring (implementation detail), not user-visible behavior."
+          },
+          {
+            "expectedKind": "IMPLEMENTATION_ASSERTION",
+            "line": 93,
+            "hookName": "useTeamRealtimeStatsQuery",
+            "assertionType": "hook-call-args",
+            "notes": "Second hook call assertion with different filter args."
+          },
+          {
+            "expectedKind": "IMPLEMENTATION_ASSERTION",
+            "line": 102,
+            "hookName": "useTeamRealtimeStatsQuery",
+            "assertionType": "hook-call-args",
+            "notes": "Third hook call assertion. All three test that the query hook receives the correct filters -- a valid concern but testing at the wrong layer."
+          }
+        ],
+        "notes": "Mixed authoritative observations: 1 MOCK_INTERNAL + 3 IMPLEMENTATION_ASSERTION. The spec tests query hook arg forwarding instead of asserting on rendered data. Classic P1/P8 violation."
+      }
+    },
+    {
+      "file": "src/ui/page_blocks/settings/BPO/__tests__/BPOContainer.spec.tsx",
+      "expected": {
+        "authoritativeCount": 6,
+        "implementationAssertionCount": 3,
+        "observations": [
+          {
+            "expectedKind": "MOCK_INTERNAL",
+            "line": 26,
+            "confidence": "high",
+            "notes": "Internal module mock."
+          },
+          {
+            "expectedKind": "MOCK_INTERNAL",
+            "line": 30,
+            "confidence": "high",
+            "notes": "Second internal module mock."
+          },
+          {
+            "expectedKind": "IMPLEMENTATION_ASSERTION",
+            "line": 324,
+            "hookName": "useCreateBPOMutation",
+            "assertionType": "hook-call-args",
+            "notes": "Asserts mutation hook was called with specific config. Tests hook wiring, not that the form submission produced visible feedback."
+          },
+          {
+            "expectedKind": "IMPLEMENTATION_ASSERTION",
+            "line": 330,
+            "hookName": "useDeleteBPOMutation",
+            "assertionType": "hook-call-args",
+            "notes": "Asserts delete mutation hook call args."
+          },
+          {
+            "expectedKind": "IMPLEMENTATION_ASSERTION",
+            "line": 336,
+            "hookName": "useUpdateBPOMutation",
+            "assertionType": "hook-call-args",
+            "notes": "Asserts update mutation hook call args."
+          },
+          {
+            "expectedKind": "MISSING_CLEANUP",
+            "line": 1,
+            "notes": "No local afterEach cleanup. Same global-setup false positive pattern as ChatContainer."
+          }
+        ],
+        "notes": "Heavy authoritative load: 2 MOCK_INTERNAL + 3 IMPLEMENTATION_ASSERTION (mutation hooks) + 1 MISSING_CLEANUP. All three CRUD mutations are tested by asserting on hook call args instead of user-visible outcomes (toast, table row change, dialog close)."
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "description": "Real-world patterns from ClassificationUrlsContainer and TeamDetailContainer. Hook call assertions on useClassificationUrlsQuery and useUpdateTeamMutation.",
+  "expectedImplementationAssertionCount": 3,
+  "expectedAssertionType": "hook-call-args",
+  "sourceFiles": [
+    "src/ui/page_blocks/settings/Urls/__tests__/ClassificationUrlsContainer.spec.tsx",
+    "src/ui/page_blocks/teams/__tests__/TeamDetailContainer.spec.tsx"
+  ]
+}

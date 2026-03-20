@@ -759,7 +759,11 @@ export type TestObservationKind =
   | 'PLAYWRIGHT_IMPORT' // import from @playwright/test or fixture
   | 'TEST_HELPER_DELEGATION' // call to a helper function that may contain assertions
   | 'SEQUENTIAL_MOCK_RESPONSE' // 3+ sequential mockResponseOnce calls (fragile ordering)
-  | 'TIMER_NEGATIVE_ASSERTION'; // setTimeout used before negative assertion (non-deterministic)
+  | 'TIMER_NEGATIVE_ASSERTION' // setTimeout used before negative assertion (non-deterministic)
+  | 'MOCK_INTERNAL' // vi.mock() targeting a project-internal module (authoritative)
+  | 'MISSING_CLEANUP' // file has mocks or timers but no afterEach cleanup (authoritative)
+  | 'DATA_SOURCING_VIOLATION' // as-any casts or shared mutable imports in test (authoritative)
+  | 'IMPLEMENTATION_ASSERTION'; // asserts on hook/mutation call args instead of rendered output (authoritative)
 
 export type TestObservationEvidence = {
   // For MOCK_DECLARATION:
@@ -806,9 +810,23 @@ export type TestObservationEvidence = {
   sequentialCount?: number; // number of consecutive mockResponseOnce calls
   // For TIMER_NEGATIVE_ASSERTION:
   delayMs?: number; // the delay value in setTimeout
+  // For MOCK_INTERNAL:
+  confidence?: 'high' | 'medium'; // high when resolved, medium when path-heuristic only
+  // For MISSING_CLEANUP:
+  hasMocks?: boolean;
+  hasTimers?: boolean;
+  // For DATA_SOURCING_VIOLATION:
+  asAnyCount?: number;
+  hasSharedMutable?: boolean;
+  // For IMPLEMENTATION_ASSERTION:
+  hookName?: string; // the hook or mutation identifier being asserted on
+  assertionType?: 'hook-call-args' | 'mutation-call-args'; // category of implementation assertion
+  pattern?: string; // the matched code text
 };
 
-export type TestObservation = Observation<TestObservationKind, TestObservationEvidence>;
+export type TestObservation = Observation<TestObservationKind, TestObservationEvidence> & {
+  readonly authoritative?: boolean;
+};
 
 // --- ast-pw-test-parity output (Playwright spec inventory) ---
 
@@ -953,17 +971,25 @@ export interface BffGapAnalysis {
 
 // --- ast-branded-check output ---
 
-export type BrandedCheckObservationKind = 'UNBRANDED_ID_FIELD';
+export type BrandedCheckObservationKind = 'UNBRANDED_ID_FIELD' | 'UNBRANDED_PARAM';
 
 export type BrandedCheckObservationEvidence = {
-  /** The property name (e.g., 'userId') */
-  propertyName: string;
+  /** The property name (e.g., 'userId') -- for UNBRANDED_ID_FIELD */
+  propertyName?: string;
   /** The type annotation found (e.g., 'string') */
   actualType: string;
   /** The branded type that should be used (e.g., 'UserId') */
   expectedType: string;
-  /** The containing type/interface name */
-  containingType: string;
+  /** The containing type/interface name -- for UNBRANDED_ID_FIELD */
+  containingType?: string;
+  /** The function name -- for UNBRANDED_PARAM */
+  functionName?: string;
+  /** The parameter name, or 'return' for return types -- for UNBRANDED_PARAM */
+  parameterName?: string;
+  /** The declared primitive type -- for UNBRANDED_PARAM */
+  declaredType?: 'string' | 'number';
+  /** Describes why the branded type applies -- for UNBRANDED_PARAM */
+  evidence?: string;
 };
 
 export type BrandedCheckObservation = Observation<BrandedCheckObservationKind, BrandedCheckObservationEvidence>;
@@ -1252,6 +1278,78 @@ export interface PeerDepAnalysis {
   };
 }
 
+// --------------------------------------------------------------------------
+// ast-test-coverage observations
+// --------------------------------------------------------------------------
+
+export type TestCoverageObservationKind = 'TEST_COVERAGE';
+
+export type TestCoverageObservationEvidence = {
+  readonly specFile: string | null;
+  readonly indirectSpecs: readonly string[];
+  readonly coverage: 'TESTED' | 'INDIRECTLY_TESTED' | 'UNTESTED';
+  readonly riskScore: number;
+  readonly risk: 'HIGH' | 'MEDIUM' | 'LOW';
+  readonly suggestedPriority: 'P2' | 'P3' | 'P4';
+  readonly maxCC: number;
+  readonly lineCount: number;
+  readonly consumerCount: number;
+};
+
+export type TestCoverageObservation = Observation<TestCoverageObservationKind, TestCoverageObservationEvidence>;
+
+export interface TestCoverageAnalysis {
+  readonly filePath: string;
+  readonly observations: readonly TestCoverageObservation[];
+}
+
+// --------------------------------------------------------------------------
+// ast-interpret-test-coverage assessments
+// --------------------------------------------------------------------------
+
+export type TestGapAssessmentKind = 'TEST_GAP';
+
+export interface TestGapDirectoryStats {
+  readonly directory: string;
+  readonly totalFiles: number;
+  readonly tested: number;
+  readonly indirectlyTested: number;
+  readonly untested: number;
+  readonly coveragePercent: number;
+}
+
+export type TestGapAssessment = Assessment<TestGapAssessmentKind> & {
+  readonly coverage: 'UNTESTED' | 'INDIRECTLY_TESTED';
+  readonly risk: 'HIGH' | 'MEDIUM' | 'LOW';
+  readonly suggestedPriority: 'P2' | 'P3' | 'P4';
+  readonly directoryStats?: TestGapDirectoryStats;
+};
+
+// --------------------------------------------------------------------------
+// ast-handler-structure observations
+// --------------------------------------------------------------------------
+
+export type HandlerStructureObservationKind = 'HANDLER_INLINE_LOGIC' | 'HANDLER_MULTI_METHOD';
+
+export type HandlerInlineLogicEvidence = {
+  readonly handlerLines: number;
+  readonly delegatesTo: string | null;
+  readonly threshold: number;
+};
+
+export type HandlerMultiMethodEvidence = {
+  readonly methods: readonly string[];
+};
+
+export type HandlerStructureObservation =
+  | Observation<'HANDLER_INLINE_LOGIC', HandlerInlineLogicEvidence>
+  | Observation<'HANDLER_MULTI_METHOD', HandlerMultiMethodEvidence>;
+
+export interface HandlerStructureAnalysis {
+  readonly filePath: string;
+  readonly observations: readonly HandlerStructureObservation[];
+}
+
 // ============================================================
 // Unified observation types
 // ============================================================
@@ -1284,7 +1382,9 @@ export type AnyObservation =
   | ExportSurfaceObservation
   | NumberFormatObservation
   | NullDisplayObservation
-  | PeerDepObservation;
+  | PeerDepObservation
+  | TestCoverageObservation
+  | HandlerStructureObservation;
 
 /**
  * Unified result from running one or more observation tools on a single file.

@@ -254,6 +254,34 @@ After completing all recommended updates, what vulnerabilities remain and why
 ...
 ```
 
+<!-- role: guidance -->
+
+## Report Policy
+
+### TEST ANALYSIS AUTHORITY
+
+When this audit includes test file analysis (e.g., checking whether
+test infrastructure deps are actually used), ast-test-analysis output
+is authoritative. Every observation marked authoritative=true MUST
+become a finding. Do NOT filter, downgrade, or skip authoritative
+observations. Specifically:
+
+- MOCK_INTERNAL (confidence >= medium): always report
+- MISSING_CLEANUP: always report
+- DATA_SOURCING_VIOLATION: always report
+
+### PRIORITY ASSIGNMENT
+
+Use PRIORITY_RULES from ast-config.ts. Do NOT assign priority
+subjectively. MOCK_INTERNAL high=P3, medium=P4. MISSING_CLEANUP=P4.
+DATA_SOURCING_VIOLATION=P5.
+
+### GAP.md ENFORCEMENT
+
+If you assign `architecture-smell` as the finding kind, you MUST append
+to scripts/AST/GAPS.md with pattern class, file example, and what tool
+would detect it. No exceptions.
+
 <!-- role: emit -->
 
 ## Step 8: Emit structured findings

@@ -130,6 +130,17 @@ interface AstConfig {
 
   readonly complexity: Record<string, never>;
 
+  readonly handlerStructure: {
+    /** Lines of non-delegation logic in handler body above which HANDLER_INLINE_LOGIC is emitted */
+    readonly inlineLogicThreshold: number;
+  };
+
+  readonly testCoverage: {
+    /** Risk thresholds: riskScore = (maxCC / 5) + (lineCount / 100) + (consumerCount / 10) */
+    readonly riskHighThreshold: number;
+    readonly riskMediumThreshold: number;
+  };
+
   readonly ownership: {
     readonly layoutExceptions: ReadonlySet<string>;
     readonly containerSuffixes: readonly string[];
@@ -198,6 +209,8 @@ interface AstConfig {
     readonly excludePathPatterns: readonly string[];
     /** Containing type/interface name substrings to exclude (e.g., wire-format DTOs) */
     readonly excludeTypeNamePatterns: readonly string[];
+    /** Parameter names to exclude from UNBRANDED_PARAM detection (common generic names that happen to match field patterns) */
+    readonly paramExcludeNames: ReadonlySet<string>;
   };
 
   readonly planAudit: {
@@ -684,6 +697,15 @@ export const astConfig: AstConfig = Object.freeze({
 
   complexity: Object.freeze({}),
 
+  handlerStructure: Object.freeze({
+    inlineLogicThreshold: 15,
+  }),
+
+  testCoverage: Object.freeze({
+    riskHighThreshold: 3.0,
+    riskMediumThreshold: 1.5,
+  }),
+
   ownership: Object.freeze({
     layoutExceptions: new Set([
       'DashboardLayout',
@@ -851,6 +873,22 @@ export const astConfig: AstConfig = Object.freeze({
       'DTO',
       'Payload',
     ] as const,
+
+    paramExcludeNames: new Set([
+      'displayName',
+      'label',
+      'message',
+      'name',
+      'description',
+      'title',
+      'text',
+      'placeholder',
+      'className',
+      'key',
+      'path',
+      'url',
+      'href',
+    ]) as ReadonlySet<string>,
   }),
 
   planAudit: Object.freeze({
@@ -1142,6 +1180,154 @@ export const astConfig: AstConfig = Object.freeze({
     }),
   }),
 }) satisfies AstConfig;
+
+// ---------------------------------------------------------------------------
+// Test analysis priority mapping
+// ---------------------------------------------------------------------------
+
+/**
+ * Priority rules for authoritative test-analysis observations.
+ * Consuming skills and agents use these to assign finding priority.
+ */
+export const TEST_ANALYSIS_PRIORITIES = Object.freeze({
+  MOCK_INTERNAL_HIGH: 'P3',
+  MOCK_INTERNAL_MEDIUM: 'P4',
+  MISSING_CLEANUP: 'P4',
+  DATA_SOURCING_VIOLATION: 'P5',
+  IMPLEMENTATION_ASSERTION: 'P4',
+} as const);
+
+export type TestAnalysisPriorityKey = keyof typeof TEST_ANALYSIS_PRIORITIES;
+
+// ---------------------------------------------------------------------------
+// Centralized priority rules
+// ---------------------------------------------------------------------------
+
+export type FindingPriority = 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
+
+export interface PriorityRule {
+  kind: string;
+  condition: string;
+  priority: FindingPriority;
+}
+
+/**
+ * Single source of truth for finding priority assignment.
+ *
+ * The `condition` field is documentation for human readers. The actual
+ * matching logic is implemented in `lookupPriority` below.
+ */
+export const PRIORITY_RULES: PriorityRule[] = [
+  // P1
+  { kind: 'bug', condition: 'authz OR crash OR CVE-critical', priority: 'P1' },
+  { kind: 'complexity-hotspot', condition: 'CC >= 25', priority: 'P1' },
+  // P2
+  { kind: 'test-gap', condition: 'risk === HIGH', priority: 'P2' },
+  { kind: 'trust-boundary-gap', condition: 'always', priority: 'P2' },
+  { kind: 'complexity-hotspot', condition: 'CC >= 15', priority: 'P2' },
+  { kind: 'bug', condition: 'CVE-high', priority: 'P2' },
+  // P3
+  { kind: 'test-gap', condition: 'risk === MEDIUM', priority: 'P3' },
+  { kind: 'mock-internal', condition: 'confidence >= high', priority: 'P3' },
+  { kind: 'ddau-violation', condition: 'always', priority: 'P3' },
+  { kind: 'eliminable-effect', condition: 'always', priority: 'P3' },
+  { kind: 'cross-domain-coupling', condition: 'always', priority: 'P3' },
+  // P4
+  { kind: 'dead-export', condition: 'always', priority: 'P4' },
+  { kind: 'as-any', condition: 'always', priority: 'P4' },
+  { kind: 'non-null-assertion', condition: 'always', priority: 'P4' },
+  { kind: 'test-gap', condition: 'risk === LOW', priority: 'P4' },
+  { kind: 'missing-concern', condition: 'always', priority: 'P4' },
+  { kind: 'handler-inline-logic', condition: 'always', priority: 'P4' },
+  { kind: 'branded-type-gap', condition: 'always', priority: 'P4' },
+  // P5
+  { kind: 'style', condition: 'always', priority: 'P5' },
+  { kind: 'circular-dep', condition: 'type-only', priority: 'P5' },
+];
+
+const P1_BUG_SUB_KINDS = new Set(['authz', 'crash', 'CVE-critical']);
+const P2_BUG_SUB_KINDS = new Set(['CVE-high']);
+
+const CONFIDENCE_RANK: Record<string, number> = {
+  high: 3,
+  medium: 2,
+  low: 1,
+};
+
+/**
+ * Look up the priority for a finding by kind and optional context.
+ *
+ * Context keys used by specific rules:
+ * - `cyclomaticComplexity` (number): for complexity-hotspot thresholds
+ * - `risk` (string): 'HIGH' | 'MEDIUM' | 'LOW' for test-gap
+ * - `confidence` (string): 'high' | 'medium' | 'low' for mock-internal
+ * - `subKind` (string): for bug sub-classification (authz, crash, CVE-*)
+ * - `isTypeOnly` (boolean): for circular-dep type-only check
+ *
+ * Returns P4 if no rule matches (safe default for unrecognized kinds).
+ */
+export function lookupPriority(kind: string, context?: Record<string, unknown>): FindingPriority {
+  const cc = typeof context?.cyclomaticComplexity === 'number' ? context.cyclomaticComplexity : 0;
+  const risk = typeof context?.risk === 'string' ? context.risk : '';
+  const confidence = typeof context?.confidence === 'string' ? context.confidence : '';
+  const subKind = typeof context?.subKind === 'string' ? context.subKind : '';
+  const isTypeOnly = context?.isTypeOnly === true;
+
+  // bug: P1 if authz/crash/CVE-critical, P2 if CVE-high
+  if (kind === 'bug') {
+    if (P1_BUG_SUB_KINDS.has(subKind)) return 'P1';
+    if (P2_BUG_SUB_KINDS.has(subKind)) return 'P2';
+    // Default bug with no recognized subKind gets P2 (conservative)
+    return 'P2';
+  }
+
+  // complexity-hotspot: P1 if CC >= 25, P2 if CC >= 15
+  if (kind === 'complexity-hotspot') {
+    if (cc >= 25) return 'P1';
+    if (cc >= 15) return 'P2';
+    // Below threshold still gets P3 (notable but not urgent)
+    return 'P3';
+  }
+
+  // test-gap: priority depends on risk level
+  if (kind === 'test-gap') {
+    if (risk === 'HIGH') return 'P2';
+    if (risk === 'MEDIUM') return 'P3';
+    if (risk === 'LOW') return 'P4';
+    // Unknown risk level defaults to P3
+    return 'P3';
+  }
+
+  // mock-internal: P3 if confidence >= high, P4 otherwise
+  if (kind === 'mock-internal') {
+    const confRank = CONFIDENCE_RANK[confidence] ?? 0;
+    if (confRank >= CONFIDENCE_RANK['high']!) return 'P3';
+    return 'P4';
+  }
+
+  // circular-dep: P5 if type-only, P4 otherwise
+  if (kind === 'circular-dep') {
+    if (isTypeOnly) return 'P5';
+    return 'P4';
+  }
+
+  // Unconditional kind-to-priority mappings
+  const unconditionalMap: Record<string, FindingPriority> = {
+    'trust-boundary-gap': 'P2',
+    'ddau-violation': 'P3',
+    'eliminable-effect': 'P3',
+    'cross-domain-coupling': 'P3',
+    'dead-export': 'P4',
+    'as-any': 'P4',
+    'non-null-assertion': 'P4',
+    'missing-concern': 'P4',
+    'handler-inline-logic': 'P4',
+    'branded-type-gap': 'P4',
+    style: 'P5',
+  };
+
+  return unconditionalMap[kind] ?? 'P4';
+}
 
 // ---------------------------------------------------------------------------
 // Config-from-repo override

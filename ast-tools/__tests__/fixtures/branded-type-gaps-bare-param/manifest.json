@@ -1,0 +1,29 @@
+{
+  "description": "Functions using bare primitives where branded types are expected. UNBRANDED_PARAM observations expected for userId, teamId, workstreamId parameters.",
+  "expectedObservations": [
+    {
+      "kind": "UNBRANDED_PARAM",
+      "parameterName": "userId",
+      "functionName": "getUser",
+      "expectedType": "UserId"
+    },
+    {
+      "kind": "UNBRANDED_PARAM",
+      "parameterName": "teamId",
+      "functionName": "getTeamData",
+      "expectedType": "TeamId"
+    },
+    {
+      "kind": "UNBRANDED_PARAM",
+      "parameterName": "workstreamId",
+      "functionName": "fetchWorkstream",
+      "expectedType": "WorkstreamId"
+    },
+    {
+      "kind": "UNBRANDED_PARAM",
+      "parameterName": "userId",
+      "functionName": "lookupUser",
+      "expectedType": "UserId"
+    }
+  ]
+}

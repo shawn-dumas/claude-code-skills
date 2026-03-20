@@ -1,0 +1,9 @@
+{
+  "description": "Based on src/shared/utils/insightsQueryParams/shared.ts (no spec coverage at all)",
+  "expectedObservations": [
+    {
+      "file": "formatTeams.ts",
+      "coverage": "UNTESTED"
+    }
+  ]
+}

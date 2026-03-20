@@ -1,0 +1,95 @@
+{
+  "tool": "interpret-test-coverage",
+  "created": "2026-03-20",
+  "source": "real-world",
+  "status": "calibrated",
+  "calibratedDate": "2026-03-20",
+  "accuracy": "8/8 (100%)",
+  "notes": "Ground-truth fixtures for ast-interpret-test-coverage interpreter. Uses dashboard/systems/ directory which has excellent coverage diversity: 4 TESTED, 3 HIGH UNTESTED, 7+ MEDIUM UNTESTED, 20+ LOW UNTESTED, 0 INDIRECTLY_TESTED+HIGH (known gap C-03-1). Files reference real source paths.",
+  "fixtures": [
+    {
+      "file": "src/ui/page_blocks/dashboard/systems/SystemsContainer.tsx",
+      "expected": {
+        "coverage": "TESTED",
+        "risk": "LOW",
+        "riskScore": 3.39,
+        "shouldEmitTestGap": false,
+        "notes": "Has dedicated spec at __tests__/SystemsContainer.spec.tsx. Despite riskScore 3.39 (above HIGH threshold), TESTED files never emit TEST_GAP regardless of risk."
+      }
+    },
+    {
+      "file": "src/ui/page_blocks/dashboard/systems/useSystemsQueries.ts",
+      "expected": {
+        "coverage": "UNTESTED",
+        "risk": "HIGH",
+        "riskScore": 3.82,
+        "shouldEmitTestGap": true,
+        "expectedPriority": "P2",
+        "notes": "Composite query hook, 131 lines, high CC. No dedicated spec, no indirect coverage. Classic HIGH+UNTESTED -> P2 case."
+      }
+    },
+    {
+      "file": "src/ui/page_blocks/dashboard/systems/useSystemsUrlState.ts",
+      "expected": {
+        "coverage": "UNTESTED",
+        "risk": "HIGH",
+        "riskScore": 4.46,
+        "shouldEmitTestGap": true,
+        "expectedPriority": "P2",
+        "notes": "URL state management hook with nuqs, high complexity. Highest riskScore in the directory."
+      }
+    },
+    {
+      "file": "src/ui/page_blocks/dashboard/systems/PagesTable/useSystemPagesTableColumns.tsx",
+      "expected": {
+        "coverage": "UNTESTED",
+        "risk": "MEDIUM",
+        "riskScore": 2.61,
+        "shouldEmitTestGap": true,
+        "expectedPriority": "P3",
+        "notes": "Column definition hook, moderate complexity. MEDIUM+UNTESTED -> P3."
+      }
+    },
+    {
+      "file": "src/ui/page_blocks/dashboard/systems/ui/UrlsGroup.tsx",
+      "expected": {
+        "coverage": "UNTESTED",
+        "risk": "MEDIUM",
+        "riskScore": 1.59,
+        "shouldEmitTestGap": true,
+        "expectedPriority": "P3",
+        "notes": "Presentational component just above MEDIUM threshold (1.5). Borderline case."
+      }
+    },
+    {
+      "file": "src/ui/page_blocks/dashboard/systems/index.ts",
+      "expected": {
+        "coverage": "UNTESTED",
+        "risk": "LOW",
+        "riskScore": 0.22,
+        "shouldEmitTestGap": false,
+        "notes": "Barrel index file, minimal complexity. LOW+UNTESTED -> no TEST_GAP emission. Not worth testing directly."
+      }
+    },
+    {
+      "file": "src/ui/page_blocks/dashboard/systems/SystemsView/SystemsCards/SystemCardMetric.tsx",
+      "expected": {
+        "coverage": "UNTESTED",
+        "risk": "LOW",
+        "riskScore": 1.25,
+        "shouldEmitTestGap": false,
+        "notes": "Small presentational component below MEDIUM threshold. LOW+UNTESTED -> no TEST_GAP emission."
+      }
+    },
+    {
+      "file": "src/server/handlers/users/user-data.logic.ts",
+      "expected": {
+        "coverage": "INDIRECTLY_TESTED",
+        "risk": "LOW",
+        "riskScore": 4.54,
+        "shouldEmitTestGap": false,
+        "notes": "KNOWN GAP (C-03-1): riskScore 4.54 is well above HIGH threshold (3.0) but classifyRisk() only assigns HIGH/MEDIUM to UNTESTED files. INDIRECTLY_TESTED always gets LOW regardless of riskScore. This file SHOULD emit TEST_GAP but does not. The ground truth records the current (incorrect) behavior; the interpreter needs fixing per cleanup item C-03-1."
+      }
+    }
+  ]
+}

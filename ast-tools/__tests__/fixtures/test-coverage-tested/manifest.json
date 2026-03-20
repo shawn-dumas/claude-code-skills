@@ -1,0 +1,8 @@
+{
+  "expectedObservations": [
+    {
+      "file": "calculator.ts",
+      "coverage": "TESTED"
+    }
+  ]
+}

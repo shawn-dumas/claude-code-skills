@@ -1,0 +1,4 @@
+{
+  "description": "Real-world fixture (simplified from insightsQueryParams/systems.ts): functions using branded types correctly in parameters. No UNBRANDED_PARAM observations expected.",
+  "expectedObservations": []
+}

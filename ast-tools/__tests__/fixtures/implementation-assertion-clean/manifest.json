@@ -1,0 +1,4 @@
+{
+  "description": "Clean spec with render-based assertions only. No implementation-detail hook or mutation call assertions.",
+  "expectedImplementationAssertionCount": 0
+}

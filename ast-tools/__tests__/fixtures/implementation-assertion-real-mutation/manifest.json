@@ -1,0 +1,9 @@
+{
+  "description": "Real-world patterns from AddTeamFormContainer and EditURLsFormContainer. Mutation call assertions on mutateAsync.",
+  "expectedImplementationAssertionCount": 3,
+  "expectedAssertionType": "mutation-call-args",
+  "sourceFiles": [
+    "src/ui/page_blocks/teams/AddTeamForm/__tests__/AddTeamFormContainer.spec.tsx",
+    "src/ui/page_blocks/settings/Urls/EditURLsForm/__tests__/EditURLsFormContainer.spec.tsx"
+  ]
+}

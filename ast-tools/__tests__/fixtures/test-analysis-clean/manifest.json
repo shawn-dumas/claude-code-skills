@@ -1,0 +1,4 @@
+{
+  "description": "Clean spec with no authoritative observations. Third-party mock only, proper cleanup, no as-any.",
+  "expectedAuthoritativeCount": 0
+}

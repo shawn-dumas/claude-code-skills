@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { astConfig } from '../ast-config';
+import { astConfig, PRIORITY_RULES, lookupPriority } from '../ast-config';
 
 describe('ast-config', () => {
   describe('config structure', () => {
@@ -490,6 +490,192 @@ describe('ast-config', () => {
       expect(Object.isFrozen(astConfig.hooks)).toBe(true);
       expect(Object.isFrozen(astConfig.effects)).toBe(true);
       expect(Object.isFrozen(astConfig.testing)).toBe(true);
+    });
+  });
+
+  describe('PRIORITY_RULES', () => {
+    it('is a non-empty array', () => {
+      expect(PRIORITY_RULES.length).toBeGreaterThan(0);
+    });
+
+    it('has 20 entries', () => {
+      expect(PRIORITY_RULES).toHaveLength(20);
+    });
+
+    it('every entry has kind, condition, and priority', () => {
+      for (const rule of PRIORITY_RULES) {
+        expect(rule.kind).toBeTruthy();
+        expect(rule.condition).toBeTruthy();
+        expect(rule.priority).toMatch(/^P[1-5]$/);
+      }
+    });
+
+    it('contains all five priority levels', () => {
+      const priorities = new Set(PRIORITY_RULES.map(r => r.priority));
+      expect(priorities).toEqual(new Set(['P1', 'P2', 'P3', 'P4', 'P5']));
+    });
+  });
+
+  describe('lookupPriority', () => {
+    describe('bug kind', () => {
+      it('returns P1 for authz subKind', () => {
+        expect(lookupPriority('bug', { subKind: 'authz' })).toBe('P1');
+      });
+
+      it('returns P1 for crash subKind', () => {
+        expect(lookupPriority('bug', { subKind: 'crash' })).toBe('P1');
+      });
+
+      it('returns P1 for CVE-critical subKind', () => {
+        expect(lookupPriority('bug', { subKind: 'CVE-critical' })).toBe('P1');
+      });
+
+      it('returns P2 for CVE-high subKind', () => {
+        expect(lookupPriority('bug', { subKind: 'CVE-high' })).toBe('P2');
+      });
+
+      it('returns P2 for bug with no subKind (conservative default)', () => {
+        expect(lookupPriority('bug')).toBe('P2');
+      });
+
+      it('returns P2 for bug with unknown subKind', () => {
+        expect(lookupPriority('bug', { subKind: 'unknown' })).toBe('P2');
+      });
+    });
+
+    describe('complexity-hotspot kind', () => {
+      it('returns P1 when CC >= 25', () => {
+        expect(lookupPriority('complexity-hotspot', { cyclomaticComplexity: 25 })).toBe('P1');
+        expect(lookupPriority('complexity-hotspot', { cyclomaticComplexity: 30 })).toBe('P1');
+      });
+
+      it('returns P2 when 15 <= CC < 25', () => {
+        expect(lookupPriority('complexity-hotspot', { cyclomaticComplexity: 15 })).toBe('P2');
+        expect(lookupPriority('complexity-hotspot', { cyclomaticComplexity: 24 })).toBe('P2');
+      });
+
+      it('returns P3 when CC < 15', () => {
+        expect(lookupPriority('complexity-hotspot', { cyclomaticComplexity: 14 })).toBe('P3');
+        expect(lookupPriority('complexity-hotspot', { cyclomaticComplexity: 0 })).toBe('P3');
+      });
+
+      it('returns P3 when no CC context provided', () => {
+        expect(lookupPriority('complexity-hotspot')).toBe('P3');
+      });
+    });
+
+    describe('test-gap kind', () => {
+      it('returns P2 for HIGH risk', () => {
+        expect(lookupPriority('test-gap', { risk: 'HIGH' })).toBe('P2');
+      });
+
+      it('returns P3 for MEDIUM risk', () => {
+        expect(lookupPriority('test-gap', { risk: 'MEDIUM' })).toBe('P3');
+      });
+
+      it('returns P4 for LOW risk', () => {
+        expect(lookupPriority('test-gap', { risk: 'LOW' })).toBe('P4');
+      });
+
+      it('returns P3 for unknown risk level', () => {
+        expect(lookupPriority('test-gap', { risk: 'UNKNOWN' })).toBe('P3');
+      });
+
+      it('returns P3 for test-gap with no context', () => {
+        expect(lookupPriority('test-gap')).toBe('P3');
+      });
+    });
+
+    describe('mock-internal kind', () => {
+      it('returns P3 for high confidence', () => {
+        expect(lookupPriority('mock-internal', { confidence: 'high' })).toBe('P3');
+      });
+
+      it('returns P4 for medium confidence', () => {
+        expect(lookupPriority('mock-internal', { confidence: 'medium' })).toBe('P4');
+      });
+
+      it('returns P4 for low confidence', () => {
+        expect(lookupPriority('mock-internal', { confidence: 'low' })).toBe('P4');
+      });
+
+      it('returns P4 for mock-internal with no context', () => {
+        expect(lookupPriority('mock-internal')).toBe('P4');
+      });
+    });
+
+    describe('circular-dep kind', () => {
+      it('returns P5 when type-only', () => {
+        expect(lookupPriority('circular-dep', { isTypeOnly: true })).toBe('P5');
+      });
+
+      it('returns P4 when not type-only', () => {
+        expect(lookupPriority('circular-dep', { isTypeOnly: false })).toBe('P4');
+      });
+
+      it('returns P4 for circular-dep with no context', () => {
+        expect(lookupPriority('circular-dep')).toBe('P4');
+      });
+    });
+
+    describe('unconditional kinds', () => {
+      it('returns P2 for trust-boundary-gap', () => {
+        expect(lookupPriority('trust-boundary-gap')).toBe('P2');
+      });
+
+      it('returns P3 for ddau-violation', () => {
+        expect(lookupPriority('ddau-violation')).toBe('P3');
+      });
+
+      it('returns P3 for eliminable-effect', () => {
+        expect(lookupPriority('eliminable-effect')).toBe('P3');
+      });
+
+      it('returns P3 for cross-domain-coupling', () => {
+        expect(lookupPriority('cross-domain-coupling')).toBe('P3');
+      });
+
+      it('returns P4 for dead-export', () => {
+        expect(lookupPriority('dead-export')).toBe('P4');
+      });
+
+      it('returns P4 for as-any', () => {
+        expect(lookupPriority('as-any')).toBe('P4');
+      });
+
+      it('returns P4 for non-null-assertion', () => {
+        expect(lookupPriority('non-null-assertion')).toBe('P4');
+      });
+
+      it('returns P4 for missing-concern', () => {
+        expect(lookupPriority('missing-concern')).toBe('P4');
+      });
+
+      it('returns P4 for handler-inline-logic', () => {
+        expect(lookupPriority('handler-inline-logic')).toBe('P4');
+      });
+
+      it('returns P4 for branded-type-gap', () => {
+        expect(lookupPriority('branded-type-gap')).toBe('P4');
+      });
+
+      it('returns P5 for style', () => {
+        expect(lookupPriority('style')).toBe('P5');
+      });
+    });
+
+    describe('unknown kinds', () => {
+      it('returns P4 for unknown kind', () => {
+        expect(lookupPriority('unknown-kind')).toBe('P4');
+      });
+
+      it('returns P4 for empty string kind', () => {
+        expect(lookupPriority('')).toBe('P4');
+      });
+
+      it('returns P4 for made-up kind', () => {
+        expect(lookupPriority('foo-bar-baz')).toBe('P4');
+      });
     });
   });
 });

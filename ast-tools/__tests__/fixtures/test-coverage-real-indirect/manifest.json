@@ -1,0 +1,9 @@
+{
+  "description": "Based on src/shared/utils/user/mapUserRoleName.ts (imported by UsersTable.spec.tsx, no dedicated spec)",
+  "expectedObservations": [
+    {
+      "file": "mapUserRoleName.ts",
+      "coverage": "INDIRECTLY_TESTED"
+    }
+  ]
+}

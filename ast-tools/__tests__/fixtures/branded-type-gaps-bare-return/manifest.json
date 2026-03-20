@@ -1,0 +1,17 @@
+{
+  "description": "Functions returning bare primitives where branded types are expected. UNBRANDED_PARAM observations expected for getUserId and getTeamId return types.",
+  "expectedObservations": [
+    {
+      "kind": "UNBRANDED_PARAM",
+      "parameterName": "return",
+      "functionName": "getUserId",
+      "expectedType": "UserId"
+    },
+    {
+      "kind": "UNBRANDED_PARAM",
+      "parameterName": "return",
+      "functionName": "getTeamId",
+      "expectedType": "TeamId"
+    }
+  ]
+}

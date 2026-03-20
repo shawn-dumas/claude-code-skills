@@ -35,6 +35,12 @@ import { analyzeExportSurface, extractExportSurfaceObservations } from './ast-ex
 // ast-imports: SourceFile-based extraction for virtual/HEAD content
 import { extractImportObservationsFromSource } from './ast-imports';
 
+// ast-test-coverage: per-file adapter (dedicated spec + local complexity only; indirect specs require directory mode)
+import { analyzeTestCoverageForFile, extractTestCoverageObservations } from './ast-test-coverage';
+
+// ast-handler-structure: handler inline logic + multi-method detection
+import { analyzeHandlerStructure, extractHandlerStructureObservations } from './ast-handler-structure';
+
 // ---------------------------------------------------------------------------
 // Registry types
 // ---------------------------------------------------------------------------
@@ -164,6 +170,20 @@ function typeSafetyAdapter(_sf: SourceFile, filePath: string): AnyObservation[] 
   return extractTypeSafetyObservations(filePath);
 }
 
+function testCoverageAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
+  // Per-file mode: no import graph available, so indirect specs will be empty.
+  // Use analyzeTestCoverageForFile with empty complexity map and edges.
+  const result = analyzeTestCoverageForFile(filePath, new Map(), []);
+  const obsResult = extractTestCoverageObservations(result);
+  return [...obsResult.observations];
+}
+
+function handlerStructureAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
+  const analysis = analyzeHandlerStructure(filePath);
+  const result = extractHandlerStructureObservations(analysis);
+  return [...result.observations];
+}
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
@@ -188,6 +208,8 @@ const entries: ToolEntry[] = [
   { name: 'pw-test-parity', analyze: testParityAdapter },
   { name: 'vitest-parity', analyze: vitestParityAdapter },
   { name: 'type-safety', analyze: typeSafetyAdapter },
+  { name: 'test-coverage', analyze: testCoverageAdapter },
+  { name: 'handler-structure', analyze: handlerStructureAdapter },
 ];
 
 export const TOOL_REGISTRY: ReadonlyMap<string, ToolEntry> = new Map(entries.map(e => [e.name, e]));

@@ -1,3 +1,7 @@
+// AUTHORITY CONTRACT: All observations with authoritative=true MUST be
+// reported as findings by consuming agents. Agents do NOT filter these.
+// Priority assignment comes from PRIORITY_RULES in ast-config.ts.
+
 import { type SourceFile, type CallExpression, Node, SyntaxKind } from 'ts-morph';
 import path from 'path';
 import fs from 'fs';
@@ -930,7 +934,11 @@ function createObservation(
   line: number,
   column: number,
   evidence: TestObservationEvidence,
+  authoritative?: boolean,
 ): TestObservation {
+  if (authoritative) {
+    return { kind, file, line, column, evidence, authoritative };
+  }
   return { kind, file, line, column, evidence };
 }
 
@@ -1448,12 +1456,159 @@ function extractTimerNegativeAssertionObservations(sf: SourceFile, filePath: str
   return observations;
 }
 
+// ---------------------------------------------------------------------------
+// Authoritative observation extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Emit MOCK_INTERNAL for each vi.mock() targeting a project-internal module.
+ * Confidence is 'high' when the target resolves to a file, 'medium' when
+ * the target starts with './' or '@/' but could not be resolved.
+ */
+function extractMockInternalObservations(mocks: MockInfo[], filePath: string): TestObservation[] {
+  const observations: TestObservation[] = [];
+
+  for (const mock of mocks) {
+    const isRelative = mock.target.startsWith('.') || mock.target.startsWith('@/');
+    if (!isRelative) continue;
+
+    const resolvedToFile = mock.resolvedPath !== mock.target;
+    const confidence = resolvedToFile ? ('high' as const) : ('medium' as const);
+
+    observations.push(
+      createObservation(
+        'MOCK_INTERNAL',
+        filePath,
+        mock.line,
+        1,
+        { target: mock.target, resolvedPath: mock.resolvedPath, confidence },
+        true,
+      ),
+    );
+  }
+
+  return observations;
+}
+
+/**
+ * Emit MISSING_CLEANUP when a file has mocks or fake timers but no afterEach block.
+ */
+function extractMissingCleanupObservations(
+  sf: SourceFile,
+  filePath: string,
+  mocks: MockInfo[],
+  cleanup: CleanupInfo,
+): TestObservation[] {
+  if (cleanup.hasAfterEach) return [];
+
+  const hasMocks = mocks.length > 0;
+  const hasTimers = sf.getFullText().includes('useFakeTimers');
+
+  if (!hasMocks && !hasTimers) return [];
+
+  return [createObservation('MISSING_CLEANUP', filePath, 1, 1, { hasMocks, hasTimers }, true)];
+}
+
+/**
+ * Emit DATA_SOURCING_VIOLATION when a test file uses `as any` casts
+ * or imports from shared mutable test constants.
+ */
+function extractDataSourcingViolationObservations(filePath: string, dataSourcing: DataSourcingInfo): TestObservation[] {
+  if (dataSourcing.asAnyCount === 0 && !dataSourcing.usesSharedMutableConstants) return [];
+
+  return [
+    createObservation(
+      'DATA_SOURCING_VIOLATION',
+      filePath,
+      1,
+      1,
+      { asAnyCount: dataSourcing.asAnyCount, hasSharedMutable: dataSourcing.usesSharedMutableConstants },
+      true,
+    ),
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// Implementation assertion patterns
+// ---------------------------------------------------------------------------
+
+/**
+ * Regex patterns for detecting implementation-detail assertions.
+ * These flag tests that assert on hook call arguments or mutation call
+ * arguments instead of rendered output or user-visible behavior.
+ *
+ * Pattern 1: expect(useHookName).toHaveBeenCalled*
+ * Pattern 2: expect(mutate/mutateAsync).toHaveBeenCalled*
+ * Pattern 3: expect(mockUseHookName / mockedUseHookName).toHaveBeenCalled*
+ */
+const IMPLEMENTATION_ASSERTION_PATTERNS: readonly {
+  regex: RegExp;
+  assertionType: 'hook-call-args' | 'mutation-call-args';
+  hookNameGroup: number;
+}[] = [
+  {
+    regex: /expect\((use[A-Z]\w+)\)\.toHaveBeenCalled/,
+    assertionType: 'hook-call-args',
+    hookNameGroup: 1,
+  },
+  {
+    regex: /expect\((mutate(?:Async)?)\)\.toHaveBeenCalled/,
+    assertionType: 'mutation-call-args',
+    hookNameGroup: 1,
+  },
+  {
+    regex: /expect\((mock(?:ed)?(?:Use[A-Z]\w+))\)\.toHaveBeenCalled/,
+    assertionType: 'hook-call-args',
+    hookNameGroup: 1,
+  },
+];
+
+/**
+ * Emit IMPLEMENTATION_ASSERTION for expect() calls that assert on hook
+ * or mutation call arguments instead of rendered output.
+ *
+ * All observations are authoritative. The patterns detect cases where
+ * the test is verifying internal wiring (which hook was called and with
+ * what arguments) rather than user-visible outcomes.
+ */
+function extractImplementationAssertionObservations(sf: SourceFile, filePath: string): TestObservation[] {
+  const observations: TestObservation[] = [];
+  const lines = sf.getFullText().split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    for (const { regex, assertionType, hookNameGroup } of IMPLEMENTATION_ASSERTION_PATTERNS) {
+      const match = regex.exec(line);
+      if (!match) continue;
+
+      observations.push(
+        createObservation(
+          'IMPLEMENTATION_ASSERTION',
+          filePath,
+          i + 1,
+          1,
+          {
+            hookName: match[hookNameGroup],
+            assertionType,
+            pattern: truncateText(line.trim(), 120),
+          },
+          true,
+        ),
+      );
+    }
+  }
+
+  return observations;
+}
+
 export function extractTestObservations(
   sf: SourceFile,
   filePath: string,
   mocks: MockInfo[],
   eachExpansions: EachExpansion[] = [],
   helperDelegations: HelperDelegation[] = [],
+  cleanup?: CleanupInfo,
+  dataSourcing?: DataSourcingInfo,
 ): TestObservation[] {
   const relativePath = path.relative(PROJECT_ROOT, filePath);
 
@@ -1468,6 +1623,10 @@ export function extractTestObservations(
     ...extractHelperDelegationObservations(helperDelegations, relativePath),
     ...extractSequentialMockResponseObservations(sf, relativePath),
     ...extractTimerNegativeAssertionObservations(sf, relativePath),
+    ...extractMockInternalObservations(mocks, relativePath),
+    ...extractImplementationAssertionObservations(sf, relativePath),
+    ...(cleanup ? extractMissingCleanupObservations(sf, relativePath, mocks, cleanup) : []),
+    ...(dataSourcing ? extractDataSourcingViolationObservations(relativePath, dataSourcing) : []),
   ];
 }
 
@@ -1498,7 +1657,15 @@ export function analyzeTestFile(filePath: string): TestAnalysis {
   const localFunctions = buildLocalFunctionSet(sf);
   const helperDelegations = extractHelperDelegations(sf, importMap, localFunctions);
 
-  const observations = extractTestObservations(sf, absolute, mocks, eachExpansions, helperDelegations);
+  const observations = extractTestObservations(
+    sf,
+    absolute,
+    mocks,
+    eachExpansions,
+    helperDelegations,
+    cleanup,
+    dataSourcing,
+  );
 
   return {
     filePath: relativePath,

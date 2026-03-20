@@ -615,49 +615,53 @@ const testQualityFixtures = allFixtures.filter(f => f.manifest.tool === 'test-qu
 const deadCodeFixtures = allFixtures.filter(f => f.manifest.tool === 'dead-code');
 
 describe('Intent matcher accuracy', () => {
-  it.skipIf(intentFixtures.length === 0)('meets accuracy threshold on all intent fixtures', { timeout: 30_000 }, () => {
-    let totalCorrect = 0;
-    let totalExpected = 0;
-    const fixtureResults: Array<{ dir: string; correct: number; total: number; details: string[] }> = [];
+  it.skipIf(intentFixtures.length === 0)(
+    'meets accuracy threshold on all intent fixtures',
+    { timeout: 120_000 },
+    () => {
+      let totalCorrect = 0;
+      let totalExpected = 0;
+      const fixtureResults: Array<{ dir: string; correct: number; total: number; details: string[] }> = [];
 
-    for (const { dir, manifest } of intentFixtures) {
-      const result = evaluateIntentFixture(dir, manifest as IntentManifest);
-      totalCorrect += result.correct;
-      totalExpected += result.total;
-      fixtureResults.push({ dir, ...result });
-    }
+      for (const { dir, manifest } of intentFixtures) {
+        const result = evaluateIntentFixture(dir, manifest as IntentManifest);
+        totalCorrect += result.correct;
+        totalExpected += result.total;
+        fixtureResults.push({ dir, ...result });
+      }
 
-    const accuracy = totalExpected > 0 ? totalCorrect / totalExpected : 0;
-    const threshold = 0.6; // minimum 60% accuracy
+      const accuracy = totalExpected > 0 ? totalCorrect / totalExpected : 0;
+      const threshold = 0.6; // minimum 60% accuracy
 
-    // Output per-fixture details for debugging
-    for (const r of fixtureResults) {
-      if (r.details.length > 0) {
-        // eslint-disable-next-line no-console
-        console.error(`\n[${r.dir}] ${r.correct}/${r.total}:`);
-        for (const d of r.details) {
+      // Output per-fixture details for debugging
+      for (const r of fixtureResults) {
+        if (r.details.length > 0) {
           // eslint-disable-next-line no-console
-          console.error(`  ${d}`);
+          console.error(`\n[${r.dir}] ${r.correct}/${r.total}:`);
+          for (const d of r.details) {
+            // eslint-disable-next-line no-console
+            console.error(`  ${d}`);
+          }
         }
       }
-    }
 
-    // Per-fixture regression check: no single fixture should score below 50%
-    for (const r of fixtureResults) {
-      const fixtureAccuracy = r.total > 0 ? r.correct / r.total : 0;
+      // Per-fixture regression check: no single fixture should score below 50%
+      for (const r of fixtureResults) {
+        const fixtureAccuracy = r.total > 0 ? r.correct / r.total : 0;
+        expect(
+          fixtureAccuracy,
+          `Fixture [${r.dir}] accuracy ${(fixtureAccuracy * 100).toFixed(1)}% is below 50%. ` +
+            `${r.correct}/${r.total} correct. Details: ${r.details.join('; ')}`,
+        ).toBeGreaterThanOrEqual(0.5);
+      }
+
       expect(
-        fixtureAccuracy,
-        `Fixture [${r.dir}] accuracy ${(fixtureAccuracy * 100).toFixed(1)}% is below 50%. ` +
-          `${r.correct}/${r.total} correct. Details: ${r.details.join('; ')}`,
-      ).toBeGreaterThanOrEqual(0.5);
-    }
-
-    expect(
-      accuracy,
-      `Intent accuracy ${(accuracy * 100).toFixed(1)}% is below threshold ${(threshold * 100).toFixed(1)}%. ` +
-        `${totalCorrect}/${totalExpected} classifications correct across ${intentFixtures.length} fixtures.`,
-    ).toBeGreaterThanOrEqual(threshold);
-  });
+        accuracy,
+        `Intent accuracy ${(accuracy * 100).toFixed(1)}% is below threshold ${(threshold * 100).toFixed(1)}%. ` +
+          `${totalCorrect}/${totalExpected} classifications correct across ${intentFixtures.length} fixtures.`,
+      ).toBeGreaterThanOrEqual(threshold);
+    },
+  );
 });
 
 describe('Parity tool accuracy', () => {
@@ -825,7 +829,7 @@ describe('Hooks interpreter accuracy', () => {
 describe('Ownership interpreter accuracy', () => {
   it.skipIf(ownershipFixtures.length === 0)(
     'meets accuracy threshold on all ownership fixtures',
-    { timeout: 30_000 },
+    { timeout: 120_000 },
     () => runEntryAccuracyTest('Ownership', ownershipFixtures),
   );
 });

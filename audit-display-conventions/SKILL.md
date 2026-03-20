@@ -14,6 +14,20 @@ any files. Produce a complete violation report.
 
 <!-- role: guidance -->
 
+## Rules
+
+TOOL OUTPUT: When AST tool output is available for a file being
+audited, consume it as authoritative input. Do NOT re-evaluate
+or second-guess tool-determined findings. The tool's observation
+is the finding -- your job is to report it, not to question whether
+it is valid.
+
+GAP.md ENFORCEMENT: If you assign `architecture-smell` as the finding
+kind, you MUST append to scripts/AST/GAPS.md with pattern class,
+file example, and what tool would detect it. No exceptions.
+
+<!-- role: guidance -->
+
 ## When to use / When NOT to use
 
 **Use when:**
@@ -68,6 +82,9 @@ npx tsx scripts/AST/ast-null-display.ts $ARGUMENTS --count
 # Interpreter (classifies observations into assessments)
 npx tsx scripts/AST/ast-interpret-display-format.ts $ARGUMENTS --pretty
 ```
+
+New tools available for pre-audit analysis:
+- ast-test-coverage: run to identify test coverage gaps
 
 ### Using observations and assessments
 

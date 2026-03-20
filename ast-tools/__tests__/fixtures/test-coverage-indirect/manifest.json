@@ -1,0 +1,8 @@
+{
+  "expectedObservations": [
+    {
+      "file": "formatter.ts",
+      "coverage": "INDIRECTLY_TESTED"
+    }
+  ]
+}

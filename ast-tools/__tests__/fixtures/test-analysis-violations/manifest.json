@@ -1,0 +1,5 @@
+{
+  "description": "Spec with all three authoritative violation types: MOCK_INTERNAL, MISSING_CLEANUP, DATA_SOURCING_VIOLATION.",
+  "expectedAuthoritativeCount": 3,
+  "expectedKinds": ["MOCK_INTERNAL", "MISSING_CLEANUP", "DATA_SOURCING_VIOLATION"]
+}

@@ -95,6 +95,47 @@ describe('ast-concern-matrix', () => {
     });
   });
 
+  describe('CompleteConcernContainer (all concerns handled, dedicated fixture)', () => {
+    it('emits no CONTAINER_MISSING_* observations', () => {
+      const result = analyzeFixture('concern-matrix-complete.tsx');
+      const missing = result.observations.filter(o => o.kind.startsWith('CONTAINER_MISSING_'));
+      expect(missing).toHaveLength(0);
+    });
+
+    it('emits CONTAINER_HANDLES_LOADING, CONTAINER_HANDLES_ERROR, CONTAINER_HANDLES_EMPTY', () => {
+      const result = analyzeFixture('concern-matrix-complete.tsx');
+      const kinds = result.observations.map(o => o.kind);
+      expect(kinds).toContain('CONTAINER_HANDLES_LOADING');
+      expect(kinds).toContain('CONTAINER_HANDLES_ERROR');
+      expect(kinds).toContain('CONTAINER_HANDLES_EMPTY');
+    });
+
+    it('summary score is 3/3', () => {
+      const result = analyzeFixture('concern-matrix-complete.tsx');
+      expect(result.summary.score).toBe('3/3');
+    });
+  });
+
+  describe('PartialConcernContainer (missing error + empty, dedicated fixture)', () => {
+    it('emits CONTAINER_MISSING_ERROR and CONTAINER_MISSING_EMPTY', () => {
+      const result = analyzeFixture('concern-matrix-partial.tsx');
+      const kinds = result.observations.map(o => o.kind);
+      expect(kinds).toContain('CONTAINER_MISSING_ERROR');
+      expect(kinds).toContain('CONTAINER_MISSING_EMPTY');
+    });
+
+    it('emits CONTAINER_HANDLES_LOADING', () => {
+      const result = analyzeFixture('concern-matrix-partial.tsx');
+      const kinds = result.observations.map(o => o.kind);
+      expect(kinds).toContain('CONTAINER_HANDLES_LOADING');
+    });
+
+    it('summary score is 1/3', () => {
+      const result = analyzeFixture('concern-matrix-partial.tsx');
+      expect(result.summary.score).toBe('1/3');
+    });
+  });
+
   describe('evidence structure', () => {
     it('includes query and mutation hook counts', () => {
       const result = analyzeFixture('concern-matrix-samples.tsx');
@@ -148,6 +189,7 @@ describe('extractConcernMatrixObservations', () => {
       'CONTAINER_MISSING_LOADING',
       'CONTAINER_MISSING_ERROR',
       'CONTAINER_MISSING_EMPTY',
+      'CONTAINER_MISSING_PERMISSION',
     ]);
 
     for (const obs of result.observations) {
