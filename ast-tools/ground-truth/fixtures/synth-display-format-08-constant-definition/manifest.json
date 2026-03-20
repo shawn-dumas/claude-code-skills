@@ -1,0 +1,9 @@
+{
+  "tool": "display-format",
+  "created": "2026-03-19",
+  "source": "synthetic",
+  "files": ["constants.ts"],
+  "expectedClassifications": [],
+  "notes": "Negative case: the file that defines NO_VALUE_PLACEHOLDER should not produce HARDCODED_DASH. The constant definition itself is the canonical source, not a violation.",
+  "status": "calibrated"
+}

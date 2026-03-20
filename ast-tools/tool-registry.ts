@@ -17,6 +17,8 @@ import { analyzeDataLayer, extractDataLayerObservations } from './ast-data-layer
 import { extractEnvObservations } from './ast-env-access';
 import { extractFeatureFlagObservations } from './ast-feature-flags';
 import { extractJsxObservations } from './ast-jsx-analysis';
+import { extractNullDisplayObservations } from './ast-null-display';
+import { extractNumberFormatObservations } from './ast-number-format';
 import { analyzeReactFile } from './ast-react-inventory';
 import { extractSideEffectObservations } from './ast-side-effects';
 import { extractStorageObservations } from './ast-storage-access';
@@ -114,6 +116,14 @@ function jsxAnalysisAdapter(_sf: SourceFile, filePath: string): AnyObservation[]
   return extractJsxObservations(filePath);
 }
 
+function nullDisplayAdapter(sf: SourceFile, _filePath: string): AnyObservation[] {
+  return [...extractNullDisplayObservations(sf)];
+}
+
+function numberFormatAdapter(sf: SourceFile, _filePath: string): AnyObservation[] {
+  return [...extractNumberFormatObservations(sf)];
+}
+
 function reactInventoryAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
   const inventory = analyzeReactFile(filePath);
   const observations: AnyObservation[] = [];
@@ -169,6 +179,8 @@ const entries: ToolEntry[] = [
   { name: 'feature-flags', analyze: featureFlagsAdapter },
   { name: 'imports', analyze: importsAdapter },
   { name: 'jsx-analysis', analyze: jsxAnalysisAdapter },
+  { name: 'null-display', analyze: nullDisplayAdapter },
+  { name: 'number-format', analyze: numberFormatAdapter },
   { name: 'react-inventory', analyze: reactInventoryAdapter },
   { name: 'side-effects', analyze: sideEffectsAdapter },
   { name: 'storage-access', analyze: storageAccessAdapter },

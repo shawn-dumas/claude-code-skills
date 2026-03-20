@@ -1,0 +1,8 @@
+{
+  "tool": "display-format",
+  "created": "2026-03-19",
+  "source": "synthetic",
+  "files": ["with-constant.tsx"],
+  "expectedClassifications": [],
+  "status": "calibrated"
+}

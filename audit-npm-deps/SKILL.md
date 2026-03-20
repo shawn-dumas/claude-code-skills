@@ -122,30 +122,36 @@ Conversely, check whether any devDependency is imported from production source f
 
 <!-- role: detect -->
 
-## Step 6: Check React peerDependency compatibility
+## Step 6: Check peerDependency compatibility
 
-If the project uses React, check every React-dependent package for compatibility
-with the installed React version AND the next major React version (if one exists):
-
-For each direct dependency that has `react` in its `peerDependencies`:
+Run the `ast-peer-deps` tool to get structured peerDependency analysis:
 
 ```bash
-# Read the installed package's peerDependencies:
-cat node_modules/<package>/package.json | grep -A5 peerDependencies
+npx tsx scripts/AST/ast-peer-deps.ts . --pretty
 ```
 
-Record:
+This emits three observation kinds:
 
-- The package name and installed version
-- The `react` peerDependency constraint
-- Whether the current React version satisfies it
-- Whether the next major React version (e.g., 19.x) would satisfy it
-- If NOT compatible with the next React version, check whether a newer version of
-  the package exists that IS compatible
+- `PEER_DEP_SATISFIED`: constraint is met by the installed version
+- `PEER_DEP_VIOLATED`: constraint is NOT met (version mismatch or not installed)
+- `PEER_DEP_OPTIONAL_MISSING`: optional peer is not installed (informational)
 
-Classify each library:
+For violations, record the package, peer, constraint, installed version, and reason.
 
-- **COMPATIBLE**: Current version works with next React major
+For the React compatibility matrix specifically, filter to observations where
+`peer` is `react` or `react-dom`:
+
+```bash
+npx tsx scripts/AST/ast-peer-deps.ts . --kind PEER_DEP_SATISFIED --pretty | grep -i react
+npx tsx scripts/AST/ast-peer-deps.ts . --kind PEER_DEP_VIOLATED --pretty | grep -i react
+```
+
+If the project uses React, also check whether the next major React version
+(if one exists) would satisfy the constraints. For each React-dependent library:
+
+Classify:
+
+- **COMPATIBLE**: Current version works with current and next React major
 - **UPGRADE-NEEDED**: A newer version of the package supports the next React major
 - **BLOCKER**: No version of the package supports the next React major
 - **REPLACEMENT-NEEDED**: Package is abandoned/unmaintained and should be replaced
@@ -247,3 +253,84 @@ After completing all recommended updates, what vulnerabilities remain and why
 | Source | Severity | Production? | Fix |
 ...
 ```
+
+<!-- role: emit -->
+
+## Step 8: Emit structured findings
+
+Write a `.findings.yaml` file next to the raw report. The filename pattern is the same as the raw report but with `.findings.yaml` extension (e.g., `npm-deps--user-frontend--raw.findings.yaml`).
+
+### FindingsFile schema
+
+The YAML must validate against the FindingsFile Zod schema in `scripts/audit/schema.ts`.
+
+```yaml
+meta:
+  auditTimestamp: "<timestamp from artifacts directory name>"
+  auditType: "npm-deps"
+  target: "<target directory>"
+  agentId: "<agent ID from orchestrator>"
+  track: "<fe|bff|cross-cutting>"
+  filesAudited: <number>
+  date: "<YYYY-MM-DD>"
+
+headline:
+  productionDeps: <number>
+  devDeps: <number>
+  deadDeps: <number>
+  vulnerabilities: <number>
+  outdated: <number>
+
+findings:
+  - contentHash: "<computed by finding-id.ts or manually>"
+    file: "<file path>"
+    line: <line number>
+    kind: "<from canonical vocabulary>"
+    priority: "<P1-P5>"
+    category: "<bug|dead-code|type-safety|architecture|trust-boundary|test-gap|performance|style>"
+    track: "<fe|bff|cross-cutting>"
+    description: "<finding description>"
+    fix: "<fix action>"
+    astConfirmed: <true|false>
+    astTool: "<tool name if AST-confirmed>"
+    requiresManualReview: <true|false>
+```
+
+### Headline fields for npm-deps
+
+| Field | Type | Description |
+|-------|------|-------------|
+| productionDeps | number | Count of direct production dependencies |
+| devDeps | number | Count of direct dev dependencies |
+| deadDeps | number | Count of dead (unused) dependencies |
+| vulnerabilities | number | Total security vulnerabilities (all severities) |
+| outdated | number | Count of outdated dependencies (patch + minor + major) |
+
+### Canonical kind vocabulary
+
+| kind | Source | Maps from |
+|------|--------|-----------|
+| bug | npm audit | Security vulnerability (critical/high/moderate/low) |
+| dead-file | ast-imports | Dead dependency (zero STATIC_IMPORT observations) |
+| architecture-smell | Manual | Misplaced dependency (prod vs dev) or type-only dependency in wrong location |
+| style | Manual | Outdated dependency (non-security patch/minor/major gap) |
+
+### Rules
+
+1. Every finding from the Tiered Update Plan / Findings section MUST appear in the YAML.
+2. Assign `priority` (P1-P5) based on severity. Do NOT assign `concern` -- it is assigned during the triage pass after all agents complete.
+3. `stableId` should be omitted or set to `"(new)"` -- it is assigned by the pipeline.
+4. `contentHash` can be computed using `npx tsx scripts/audit/finding-id.ts` or by following the algorithm: sha256(file + ':' + line + ':' + kind + ':' + sha256(description)), truncated to 8 hex.
+5. Use the canonical kind vocabulary above. If validation fails on `kind`, pick the closest canonical value and describe the specifics in `description`.
+6. For multi-file findings, set `file` to the primary representative file and list all affected files in the `files` array.
+7. For dependency findings, use `package.json` as the `file` and the line number of the dependency entry.
+
+### Validation
+
+After writing the YAML file, validate it:
+
+```bash
+npx tsx scripts/audit/yaml-io.ts --validate <findings-file.yaml>
+```
+
+If validation fails, fix the YAML before proceeding.

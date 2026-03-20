@@ -1,0 +1,23 @@
+{
+  "tool": "display-format",
+  "created": "2026-03-19",
+  "source": "synthetic",
+  "files": ["numericColumns.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "numericColumns.tsx",
+      "line": 5,
+      "symbol": "falsyCoalesceNumeric",
+      "expectedKind": "FALSY_COALESCE_NUMERIC",
+      "notes": "Uses || on a potentially numeric value, hiding zero"
+    },
+    {
+      "file": "numericColumns.tsx",
+      "line": 15,
+      "symbol": "zeroConflation",
+      "expectedKind": "ZERO_NULL_CONFLATION",
+      "notes": "!value guard treats 0 as missing"
+    }
+  ],
+  "status": "calibrated"
+}

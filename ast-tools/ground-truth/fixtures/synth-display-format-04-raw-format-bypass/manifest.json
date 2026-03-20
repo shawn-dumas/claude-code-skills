@@ -1,0 +1,23 @@
+{
+  "tool": "display-format",
+  "created": "2026-03-19",
+  "source": "synthetic",
+  "files": ["formatters.ts"],
+  "expectedClassifications": [
+    {
+      "file": "formatters.ts",
+      "line": 3,
+      "symbol": "rawToFixed",
+      "expectedKind": "RAW_FORMAT_BYPASS",
+      "notes": "Uses toFixed directly instead of formatNumber"
+    },
+    {
+      "file": "formatters.ts",
+      "line": 8,
+      "symbol": "rawLocaleString",
+      "expectedKind": "RAW_FORMAT_BYPASS",
+      "notes": "Uses toLocaleString directly instead of formatInt or formatNumber"
+    }
+  ],
+  "status": "calibrated"
+}

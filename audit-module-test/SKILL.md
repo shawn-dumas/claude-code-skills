@@ -345,6 +345,88 @@ Score = number of principles with zero violations (0-10, higher is better).
 | 2 | ... | 3 | P10 (2), P9 (1) | Fix in place |
 ```
 
+<!-- role: emit -->
+
+## Step 15: Emit structured findings
+
+Write a `.findings.yaml` file next to the raw report. The filename pattern is the same as the raw report but with `.findings.yaml` extension (e.g., `module-test--fetchApi--raw.findings.yaml`).
+
+### FindingsFile schema
+
+The YAML must validate against the FindingsFile Zod schema in `scripts/audit/schema.ts`.
+
+```yaml
+meta:
+  auditTimestamp: "<timestamp from artifacts directory name>"
+  auditType: "module-test"
+  target: "<target directory>"
+  agentId: "<agent ID from orchestrator>"
+  track: "<fe|bff|cross-cutting>"
+  filesAudited: <number>
+  date: "<YYYY-MM-DD>"
+
+headline:
+  specFiles: <number>
+  tests: <number>
+  violations: <number>
+  cleanFiles: <number>
+  averageScore: <number>
+
+findings:
+  - contentHash: "<computed by finding-id.ts or manually>"
+    file: "<file path>"
+    line: <line number>
+    kind: "<from canonical vocabulary>"
+    priority: "<P1-P5>"
+    category: "<bug|dead-code|type-safety|architecture|trust-boundary|test-gap|performance|style>"
+    track: "<fe|bff|cross-cutting>"
+    description: "<finding description>"
+    fix: "<fix action>"
+    astConfirmed: <true|false>
+    astTool: "<tool name if AST-confirmed>"
+    requiresManualReview: <true|false>
+```
+
+### Headline fields for module-test
+
+| Field | Type | Description |
+|-------|------|-------------|
+| specFiles | number | Total spec files audited |
+| tests | number | Total test/it blocks across all spec files |
+| violations | number | Total principle violations across all spec files |
+| cleanFiles | number | Count of spec files with 0 violations |
+| averageScore | number | Average P1-P10 score across all spec files (0-10 scale) |
+
+### Canonical kind vocabulary
+
+| kind | Source | Maps from |
+|------|--------|-----------|
+| test-gap | Manual / ast-interpret-test-quality | UNTESTED production file (no corresponding spec) |
+| test-violation | ast-interpret-test-quality | Any P1-P10 principle violation |
+| mock-internal | ast-interpret-test-quality | MOCK_INTERNAL_VIOLATION assessment (P2) |
+| missing-cleanup | ast-interpret-test-quality | CLEANUP_INCOMPLETE assessment (P10) |
+| as-any | ast-type-safety | AS_ANY_CAST, EXPLICIT_ANY_ANNOTATION observations in test files (P6) |
+| style | Manual | Debug artifacts, code style issues in test files |
+
+### Rules
+
+1. Every finding from the Migration Priority / Findings section MUST appear in the YAML.
+2. Assign `priority` (P1-P5) based on severity. Do NOT assign `concern` -- it is assigned during the triage pass after all agents complete.
+3. `stableId` should be omitted or set to `"(new)"` -- it is assigned by the pipeline.
+4. `contentHash` can be computed using `npx tsx scripts/audit/finding-id.ts` or by following the algorithm: sha256(file + ':' + line + ':' + kind + ':' + sha256(description)), truncated to 8 hex.
+5. Use the canonical kind vocabulary above. If validation fails on `kind`, pick the closest canonical value and describe the specifics in `description`.
+6. For multi-file findings, set `file` to the primary representative file and list all affected files in the `files` array.
+
+### Validation
+
+After writing the YAML file, validate it:
+
+```bash
+npx tsx scripts/audit/yaml-io.ts --validate <findings-file.yaml>
+```
+
+If validation fails, fix the YAML before proceeding.
+
 <!-- role: workflow -->
 
 ## Interpreter Calibration Gate

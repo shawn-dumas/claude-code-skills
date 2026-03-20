@@ -1,0 +1,23 @@
+{
+  "tool": "display-format",
+  "created": "2026-03-19",
+  "source": "synthetic",
+  "files": ["TableAndProgressColumns.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "TableAndProgressColumns.tsx",
+      "line": 6,
+      "symbol": "tablePercentage",
+      "expectedKind": "PERCENTAGE_PRECISION_MISMATCH",
+      "notes": "Table cell uses toFixed(1) but table context expects 2 decimals"
+    },
+    {
+      "file": "TableAndProgressColumns.tsx",
+      "line": 12,
+      "symbol": "progressPercentage",
+      "expectedKind": "PERCENTAGE_PRECISION_MISMATCH",
+      "notes": "Progress bar uses toFixed(2) but progress bar context expects 1 decimal"
+    }
+  ],
+  "status": "calibrated"
+}

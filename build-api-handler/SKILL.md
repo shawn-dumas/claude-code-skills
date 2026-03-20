@@ -16,8 +16,6 @@ The argument format is: `<endpoint-path> <HTTP-methods> [description]`
 - **description** (optional): What the endpoint does. Used to inform schema design
   and business logic extraction.
 
-<!-- role: workflow -->
-
 ## Step 1: Parse the argument
 
 Extract:
@@ -32,8 +30,6 @@ Extract:
 
 If the argument is ambiguous (no methods specified, unclear whether the endpoint
 is a collection or single resource), ask the user before proceeding.
-
-<!-- role: workflow -->
 
 ## Step 2: Survey the codebase
 
@@ -65,8 +61,6 @@ Read the following to understand existing patterns and the target domain:
    consume this endpoint. If a consumer already exists, the handler's response shape
    must match the client-side Zod schema.
 
-<!-- role: guidance -->
-
 ## Step 3: Design the handler architecture
 
 Plan the separation of concerns before writing any code. The handler follows a
@@ -80,11 +74,9 @@ Request --> [Parse] --> [Process] --> [Respond] --> Response
 
 ### Parse layer (trust boundary)
 
-Every value from `req.body`, `req.query`, and `req.params` passes through
-`parseInput()` from `@/server/errors/ApiErrorResponse`. No bare `Schema.parse()`
--- `parseInput` converts `ZodError` into `BadRequestError` (400). No `as UserId`,
-`as TeamId`, or `as T` casts on request data. The parse layer produces typed,
-trusted values for the process layer.
+Every value from `req.body`, `req.query`, and `req.params` passes through a Zod
+schema. No `as UserId`, `as TeamId`, or `as T` casts on request data. The parse
+layer produces typed, trusted values for the process layer.
 
 ### Process layer (business logic)
 
@@ -145,7 +137,104 @@ authorization if needed.
 **Public endpoints (no auth):** Omit `withAuth`. The handler receives raw
 `(req, res)` instead of `(ctx, req, res)`. This is rare in the BFF.
 
-<!-- role: emit -->
+### ClickHouse data-api authorization
+
+Data-api handlers (under `src/pages/api/users/data-api/`) query ClickHouse for
+insights data. They enforce authorization **inside ClickHouse**, restricting
+results to UIDs the caller may see based on their role and team ownership.
+
+There are two patterns depending on how the handler receives its scope:
+
+**Team-based queries** (handler receives `teams` from the client) use
+`allowed_uids_for_user` with real team IDs:
+
+```sql
+WITH allowed_uids AS (
+  SELECT uid
+  FROM events.allowed_uids_for_user(
+    uid = {callerUid:String},
+    include_unassigned_users = {includeUnassigned:Bool},
+    teams = CAST({teamIds:Array(UInt32)} AS Array(UInt32))
+  )
+)
+SELECT ...
+FROM events.some_table
+WHERE uid IN (SELECT uid FROM allowed_uids)
+  AND ...
+```
+
+Strip the `-1` sentinel from the teams array and set `includeUnassigned`
+accordingly.
+
+**UID-based or broad-scan queries** (handler receives `uids` from the client,
+or scans all authorized UIDs) use inline authz via `logged_in_user_ctx`:
+
+```sql
+-- Single-UID pattern
+WITH
+  caller AS (SELECT * FROM events.logged_in_user_ctx(uid = {callerUid:String})),
+  target_authorized AS (
+    SELECT {uid:String} AS uid
+    WHERE dictHas('events.users', {uid:String})
+      AND dictGetOrDefault('events.users', 'customer', {uid:String}, '') =
+          (SELECT customer FROM caller)
+      AND dictGetOrDefault('events.users', 'active', {uid:String}, false) = true
+      AND NOT has(
+            dictGetOrDefault('events.users', 'roles', {uid:String},
+              CAST([], 'Array(LowCardinality(String))')),
+            'admin')
+      AND (
+        (SELECT is_admin FROM caller)
+        OR (
+          (SELECT is_teamowner FROM caller)
+          AND hasAny(
+            dictGetOrDefault('events.users', 'team_ids', {uid:String},
+              CAST([], 'Array(UInt32)')),
+            (SELECT owned_team_ids FROM caller))
+        )
+      )
+  )
+SELECT ... WHERE uid IN (SELECT uid FROM target_authorized)
+```
+
+```sql
+-- Multi-UID / broad-scan pattern
+WITH
+  caller AS (SELECT * FROM events.logged_in_user_ctx(uid = {callerUid:String})),
+  authorized_uids AS (
+    SELECT u.uid
+    FROM events.users AS u
+    CROSS JOIN caller c
+    WHERE u.customer = c.customer
+      AND u.active = true
+      AND NOT has(u.roles, 'admin')
+      AND (c.is_admin OR (c.is_teamowner AND hasAny(u.team_ids, c.owned_team_ids)))
+  )
+SELECT ... WHERE uid IN (SELECT uid FROM authorized_uids)
+```
+
+**CRITICAL: Do NOT use `allowed_uids_for_user` with empty teams for UID-based
+queries.** The view has a logic gap: admin callers with empty teams +
+`include_unassigned_users=true` only see users with no team assignments.
+Users assigned to teams are silently excluded. Use the inline patterns above.
+
+**Middleware chain for data-api handlers:**
+
+```ts
+export default withErrorHandler(withMethod(['POST'], withAuth(withRole(NON_MEMBER_ROLES, handler))));
+```
+
+All data-api routes use `NON_MEMBER_ROLES`. Never skip `withRole` on data-api.
+
+**Post-query Postgres enrichment:** If the handler needs user profiles, team
+names, or group assignments, extract UIDs from the ClickHouse result set and
+fetch from Postgres. Never resolve UIDs from Postgres first — that bypasses
+ClickHouse-side authorization.
+
+**Shared queries:** When the same ClickHouse query is used by multiple handlers,
+extract it to `src/server/productivity/` (e.g., `fetchProductivityAggregates`).
+For domain-specific shared CTEs (relay-usage, favorite-usage), embed the
+`allowed_uids` CTE in the shared CTE constant.
 
 ## Step 4: Generate the files
 
@@ -263,21 +352,21 @@ import { withRole, MODIFY_ROLES } from '@/server/middleware/withRole';
 import { db } from '@/server/db/postgres';
 import { someTable } from '@/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { NotFoundError, parseInput } from '@/server/errors/ApiErrorResponse';
+import { NotFoundError } from '@/server/errors/ApiErrorResponse';
 import { ResponseSchema } from '@/shared/types/<domain>';
 import { BodySchema, ParamSchema } from './handler-name.schema';
 
 async function handler(ctx: AuthedContext, req: NextApiRequest, res: NextApiResponse) {
-  // 1. Parse -- trust boundary (parseInput converts ZodError -> BadRequestError 400)
-  const { id } = parseInput(ParamSchema, req.query);
-  const body = parseInput(BodySchema, req.body);
+  // 1. Parse -- trust boundary
+  const { id } = ParamSchema.parse(req.query);
+  const body = BodySchema.parse(req.body);
 
   // 2. Process -- business logic (inline for simple CRUD)
   const rows = await db.select().from(someTable).where(eq(someTable.id, id));
 
   if (rows.length === 0) throw new NotFoundError('Resource');
 
-  // 3. Respond -- validate output (bare .parse() is correct here: ZodError = 500)
+  // 3. Respond -- validate output
   const validated = ResponseSchema.parse(rows[0]);
   return res.status(200).json(validated);
 }
@@ -389,8 +478,6 @@ note about which spec file to create. Do not generate the integration test direc
 - `beforeEach` resets mocks. The global `vitest.setup.ts` handles
   `afterEach(() => vi.restoreAllMocks())` (P10).
 
-<!-- role: reference -->
-
 ## Type touchpoints
 
 Before defining any new type:
@@ -405,8 +492,6 @@ Before defining any new type:
    to `src/shared/types/` with a barrel export.
 5. Handler-local types (request body shapes, query param shapes) stay in the co-located
    schema file.
-
-<!-- role: workflow -->
 
 ## Step 5: Verify
 

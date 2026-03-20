@@ -302,6 +302,25 @@ interface AstConfig {
     /** Roles with no broader family -- equality checks against these are expected. */
     readonly singletonRoles: ReadonlySet<string>;
   };
+
+  readonly displayFormat: {
+    readonly placeholderConstant: string;
+    readonly placeholderValue: string;
+    readonly placeholderImport: string;
+    readonly wrongPlaceholders: ReadonlySet<string>;
+    readonly formatFunctions: ReadonlySet<string>;
+    readonly formatterFilePaths: ReadonlySet<string>;
+    readonly rawFormatMethods: ReadonlySet<string>;
+    readonly canonicalEmptyMessage: string;
+    readonly wrongEmptyMessages: ReadonlySet<string>;
+    readonly placeholderStrings: ReadonlySet<string>;
+    readonly percentagePrecision: Readonly<{
+      tableCell: number;
+      chartTooltip: number;
+      progressBar: number;
+      spaceConstrained: number;
+    }>;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1086,6 +1105,41 @@ export const astConfig: AstConfig = Object.freeze({
     rawCheckMethods: new Set(['includes', 'indexOf', 'some', 'find', 'filter', 'every']) as ReadonlySet<string>,
     equalityOperators: new Set(['===', '!==']) as ReadonlySet<string>,
     singletonRoles: new Set(['TEAM_OWNER', 'MEMBER']) as ReadonlySet<string>,
+  }),
+
+  displayFormat: Object.freeze({
+    /** The canonical placeholder constant name */
+    placeholderConstant: 'NO_VALUE_PLACEHOLDER',
+    /** The canonical placeholder value */
+    placeholderValue: '-',
+    /** Import path for the placeholder constant */
+    placeholderImport: '@/shared/constants',
+    /** Wrong placeholder strings to flag -- 'N/A' is included but interpreter marks it requiresManualReview since some usages are semantic "not applicable" */
+    wrongPlaceholders: new Set(['N/A', '--', 'n/a', 'NA', 'None']) as ReadonlySet<string>,
+    /** Standard formatting function names -- used to suppress RAW_TO_FIXED and RAW_TO_LOCALE_STRING inside formatter implementations */
+    formatFunctions: new Set(['formatNumber', 'formatInt', 'formatDuration', 'formatCellValue']) as ReadonlySet<string>,
+    /** Formatter file paths -- files exempt from HARDCODED_PLACEHOLDER (they define the '-' behavior) */
+    formatterFilePaths: new Set([
+      'src/shared/utils/number/formatNumber/formatNumber.ts',
+      'src/shared/utils/number/formatInt/formatInt.ts',
+      'src/shared/utils/time/formatDuration/formatDuration.ts',
+      'src/shared/utils/table/formatCellValue/formatCellValue.ts',
+    ]) as ReadonlySet<string>,
+    /** Raw formatting methods that should go through shared formatters */
+    rawFormatMethods: new Set(['toFixed', 'toLocaleString']) as ReadonlySet<string>,
+    /** Empty state messages -- the canonical table empty message */
+    canonicalEmptyMessage: 'There is no data',
+    /** Wrong empty messages to flag */
+    wrongEmptyMessages: new Set(['No data available', 'No data']) as ReadonlySet<string>,
+    /** Placeholder string values that trigger NULL_COALESCE_FALLBACK (not all strings, just known placeholders) */
+    placeholderStrings: new Set(['-', 'N/A', '--', 'n/a', 'NA', 'None']) as ReadonlySet<string>,
+    /** Percentage context patterns (expected decimal precision per context) */
+    percentagePrecision: Object.freeze({
+      tableCell: 2,
+      chartTooltip: 2,
+      progressBar: 1,
+      spaceConstrained: 0,
+    }),
   }),
 }) satisfies AstConfig;
 

@@ -1144,6 +1144,114 @@ export interface ErrorCoverageAnalysis {
   };
 }
 
+// --------------------------------------------------------------------------
+// ast-number-format observations
+// --------------------------------------------------------------------------
+
+export type NumberFormatObservationKind =
+  | 'FORMAT_NUMBER_CALL'
+  | 'FORMAT_INT_CALL'
+  | 'FORMAT_DURATION_CALL'
+  | 'FORMAT_CELL_VALUE_CALL'
+  | 'RAW_TO_FIXED'
+  | 'RAW_TO_LOCALE_STRING'
+  | 'PERCENTAGE_DISPLAY'
+  | 'INTL_NUMBER_FORMAT';
+
+export type NumberFormatObservationEvidence = {
+  readonly callee: string;
+  readonly args?: readonly string[];
+  readonly decimalPlaces?: number;
+  readonly unitsType?: string;
+  readonly containingFunction?: string;
+  readonly context?: string;
+};
+
+export type NumberFormatObservation = Observation<NumberFormatObservationKind, NumberFormatObservationEvidence>;
+
+export type NumberFormatAnalysis = {
+  readonly filePath: string;
+  readonly observations: readonly NumberFormatObservation[];
+};
+
+// --------------------------------------------------------------------------
+// ast-null-display observations
+// --------------------------------------------------------------------------
+
+export type NullDisplayObservationKind =
+  | 'NULL_COALESCE_FALLBACK'
+  | 'FALSY_COALESCE_FALLBACK'
+  | 'NO_FALLBACK_CELL'
+  | 'HARDCODED_PLACEHOLDER'
+  | 'EMPTY_STATE_MESSAGE'
+  | 'ZERO_CONFLATION';
+
+export type NullDisplayObservationEvidence = {
+  readonly operator?: string;
+  readonly fallbackValue?: string;
+  readonly usesConstant?: boolean;
+  readonly containingFunction?: string;
+  readonly isTableColumn?: boolean;
+  readonly context?: string;
+};
+
+export type NullDisplayObservation = Observation<NullDisplayObservationKind, NullDisplayObservationEvidence>;
+
+export type NullDisplayAnalysis = {
+  readonly filePath: string;
+  readonly observations: readonly NullDisplayObservation[];
+};
+
+// --------------------------------------------------------------------------
+// ast-interpret-display-format assessments
+// --------------------------------------------------------------------------
+
+export type DisplayFormatAssessmentKind =
+  | 'WRONG_PLACEHOLDER'
+  | 'MISSING_PLACEHOLDER'
+  | 'FALSY_COALESCE_NUMERIC'
+  | 'HARDCODED_DASH'
+  | 'RAW_FORMAT_BYPASS'
+  | 'PERCENTAGE_PRECISION_MISMATCH'
+  | 'ZERO_NULL_CONFLATION'
+  | 'INCONSISTENT_EMPTY_MESSAGE';
+
+export type DisplayFormatAssessment = Assessment<DisplayFormatAssessmentKind>;
+
+// --------------------------------------------------------------------------
+// ast-peer-deps observations
+// --------------------------------------------------------------------------
+
+export type PeerDepObservationKind = 'PEER_DEP_SATISFIED' | 'PEER_DEP_VIOLATED' | 'PEER_DEP_OPTIONAL_MISSING';
+
+export type PeerDepObservationEvidence = {
+  /** The direct dependency that declares the peerDependency */
+  readonly package: string;
+  /** The installed version of the direct dependency */
+  readonly packageVersion: string;
+  /** The peer package name */
+  readonly peer: string;
+  /** The semver constraint declared in peerDependencies */
+  readonly constraint: string;
+  /** The installed version of the peer (undefined for not-installed) */
+  readonly installedPeerVersion?: string;
+  /** Reason for violation (only on PEER_DEP_VIOLATED) */
+  readonly reason?: 'version-mismatch' | 'not-installed';
+};
+
+export type PeerDepObservation = Observation<PeerDepObservationKind, PeerDepObservationEvidence>;
+
+export interface PeerDepAnalysis {
+  readonly projectRoot: string;
+  readonly observations: readonly PeerDepObservation[];
+  readonly summary: {
+    readonly satisfied: number;
+    readonly violated: number;
+    readonly optionalMissing: number;
+    readonly totalPeers: number;
+  };
+}
+
 // ============================================================
 // Unified observation types
 // ============================================================
@@ -1173,7 +1281,10 @@ export type AnyObservation =
   | AuthZObservation
   | ErrorCoverageObservation
   | ConcernMatrixObservation
-  | ExportSurfaceObservation;
+  | ExportSurfaceObservation
+  | NumberFormatObservation
+  | NullDisplayObservation
+  | PeerDepObservation;
 
 /**
  * Unified result from running one or more observation tools on a single file.

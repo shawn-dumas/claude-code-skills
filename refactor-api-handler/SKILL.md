@@ -8,15 +8,11 @@ argument-hint: "The API handler file path (e.g., 'src/pages/api/users/update.ts'
 
 Refactor the API route handler at `$ARGUMENTS`.
 
-<!-- role: guidance -->
-
 ## Prerequisite
 
 If you have not run `audit-api-handler` on this file yet, consider doing so first. The audit
 produces a scored report with a prioritized refactor checklist that prevents duplicate work.
 If no audit exists, this skill runs the audit internally in Step 2.
-
-<!-- role: workflow -->
 
 ## Step 0: Run AST analysis tools
 
@@ -59,8 +55,6 @@ This is the baseline for the mandatory before/after CC comparison in Step 6.
 | `DEAD_EXPORT_CANDIDATE` | G7                | Exports beyond the required default export                  |
 | `CIRCULAR_DEPENDENCY`   | G1                | Handler participating in a circular import chain            |
 
-<!-- role: workflow -->
-
 ## Step 1: Build the dependency picture
 
 Read the handler file. Then read every file it imports -- schemas, server modules,
@@ -86,8 +80,6 @@ Build a map:
 
 This map determines what changes are safe. The handler's HTTP API contract (request
 shape, response shape, status codes, error format) must not change.
-
-<!-- role: detect -->
 
 ## Step 2: Audit (internal)
 
@@ -130,8 +122,6 @@ re-auditing. Output the audit results before proceeding to the rewrite.
 
 - Are all DB queries scoped to `ctx.organizationId`?
 
-<!-- role: guidance -->
-
 ## Step 3: Classify and plan
 
 Based on the audit, determine the specific refactoring actions. For each failing
@@ -173,20 +163,15 @@ Target: every function in the refactored handler has CC <= 10. Aim for CC <= 5.
 
 ### If G5 fails (missing parse at boundary)
 
-Add Zod schemas for all request data. Replace `as T` casts with
-`parseInput()` calls from `@/server/errors/ApiErrorResponse`. Specific actions:
+Add Zod schemas for all request data. Replace `as T` casts with `.parse()` calls.
+Specific actions:
 
-- `req.body` without validation -> add body schema, call `parseInput(BodySchema, req.body)`
-- `req.query` without validation -> add query schema, call `parseInput(QuerySchema, req.query)`
-- Bare `Schema.parse(req.body)` -> replace with `parseInput(Schema, req.body)`
-  (`parseInput` converts `ZodError` into `BadRequestError` 400; bare `ZodError`
-  reaching `withErrorHandler` is treated as output validation failure 500)
+- `req.body` without validation -> add body schema, call `.parse(req.body)`
+- `req.query` without validation -> add query schema, call `.parse(req.query)`
 - `req.query.id as string` -> add route param schema with `z.coerce`
 - `as UserId`, `as TeamId` on request data -> use branded type constructors in
   Zod schema transforms
-- Response not validated -> add `.parse()` before `res.json()` (bare `.parse()`
-  is correct for output validation -- `ZodError` here = 500, which is the right
-  status for a response that fails its own contract)
+- Response not validated -> add `.parse()` before `res.json()`
 
 If no schema file exists, create one at `<handler>.schema.ts` (co-located, same
 directory). Follow the schema file structure from `build-api-handler`.
@@ -239,7 +224,33 @@ export default withErrorHandler(withMethod(['GET'], withAuth(handler)));
 export default withErrorHandler(withMethod(['GET'], withAuth(withRole(ROLES, handler))));
 ```
 
-<!-- role: emit -->
+### If data-api handler lacks ClickHouse-side authorization
+
+Data-api handlers (under `src/pages/api/users/data-api/`) must enforce
+authorization inside ClickHouse. Specific actions:
+
+- **Add `withRole(NON_MEMBER_ROLES)`** if missing from the middleware chain.
+- **Add an authorization CTE** to every ClickHouse query that lacks one.
+  Use the pattern matching the query type:
+  - **Team-based queries** (handler receives `teams` from client): use
+    `allowed_uids_for_user` with real team IDs.
+  - **UID-based or broad-scan queries** (handler receives `uids` or scans
+    all users): use inline authz via `logged_in_user_ctx` and direct
+    dictionary lookups on the target UIDs. Do NOT use
+    `allowed_uids_for_user` with empty teams — it has a logic gap that
+    silently drops team-assigned users for admin callers.
+    See CLAUDE.md "Data scoping (ClickHouse authorization)" for the full
+    CTE patterns.
+- **Remove `resolveTeamIdsToUids` and `filterOutAdminUids`** if present. These
+  perform BFF-side UID resolution that bypasses ClickHouse authorization.
+- **If handler uses `allowed_uids_for_user` with empty teams**: replace with
+  the inline `logged_in_user_ctx` + dictionary lookup pattern. This is the
+  most common authorization bug in existing handlers.
+- **Extract post-query UIDs for Postgres enrichment**: replace upfront Postgres UID
+  resolution with `[...new Set(rows.map(r => r.uid))]` from the ClickHouse result.
+- **Extract shared queries**: if the same ClickHouse query is used by multiple
+  handlers, extract to `src/server/productivity/` or embed the authorization CTE
+  in a shared CTE constant (relay-usage, favorite-usage pattern).
 
 ## Step 4: Rewrite
 
@@ -345,15 +356,20 @@ When reducing CC:
 
 ### Error handling normalization
 
-Replace all raw `res.status(N).json()` error responses with typed error
-classes from `src/server/errors/ApiErrorResponse.ts`. `withErrorHandler`
-catches them and maps to the correct HTTP status and response envelope.
+Replace all raw `res.status(N).json()` error responses with typed error classes:
 
 ```ts
+// Before
+if (!user) {
+  return res.status(404).json({ error: 'User not found' });
+}
+
+// After
 if (!user) throw new NotFoundError('User');
-if (!ctx.roles.includes('admin')) throw new ForbiddenError('Admin role required');
-if (!isValid) throw new BadRequestError('Invalid input');
 ```
+
+The typed error classes are in `src/server/errors/ApiErrorResponse.ts`.
+`withErrorHandler` catches them and maps to the correct HTTP status and envelope.
 
 ### Consumer updates
 
@@ -361,8 +377,6 @@ If you extract schemas from inline definitions to a `.schema.ts` file, no consum
 updates are needed (the handler's HTTP contract is unchanged). If you change the
 middleware composition (add `withRole`), verify that existing consumers handle the
 new 403 case.
-
-<!-- role: reference -->
 
 ## Type touchpoints
 
@@ -376,8 +390,6 @@ Before defining any new type:
    from `@/shared/types/brand`.
 4. Handler-local types (request body shapes, query param shapes) stay in the
    co-located schema file.
-
-<!-- role: workflow -->
 
 ## Step 5: Verify
 
@@ -441,8 +453,6 @@ Before defining any new type:
 
 Report all results in the summary. A refactoring is not complete until tsc passes,
 all functions have CC <= 10, and existing tests pass.
-
-<!-- role: emit -->
 
 ## Step 6: Summary
 

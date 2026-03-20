@@ -1,0 +1,38 @@
+{
+  "tool": "display-format",
+  "created": "2026-03-19",
+  "source": "production",
+  "sourceFile": "src/ui/page_blocks/dashboard/usage/constants.ts",
+  "files": ["constants.ts"],
+  "expectedClassifications": [
+    {
+      "file": "constants.ts",
+      "line": 23,
+      "symbol": "getValue",
+      "expectedKind": "ZERO_NULL_CONFLATION",
+      "notes": "data?.activeUsers truthy check conflates 0 with null -- formatInt(0) is '0', a valid value"
+    },
+    {
+      "file": "constants.ts",
+      "line": 23,
+      "symbol": "getValue",
+      "expectedKind": "HARDCODED_DASH",
+      "notes": "Hardcoded '-' without NO_VALUE_PLACEHOLDER import"
+    },
+    {
+      "file": "constants.ts",
+      "line": 31,
+      "symbol": "getValue",
+      "expectedKind": "ZERO_NULL_CONFLATION",
+      "notes": "data?.totalUsage truthy check conflates 0 with null -- formatInt(0) is '0', a valid value"
+    },
+    {
+      "file": "constants.ts",
+      "line": 31,
+      "symbol": "getValue",
+      "expectedKind": "HARDCODED_DASH",
+      "notes": "Hardcoded '-' without NO_VALUE_PLACEHOLDER import"
+    }
+  ],
+  "status": "calibrated"
+}

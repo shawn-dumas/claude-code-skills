@@ -714,6 +714,105 @@ For each item, if the target file is UNTESTED, prepend: **[UNTESTED -- write tes
 - Production files with no test coverage: <N>
 ```
 
+<!-- role: emit -->
+
+## Step 9: Emit structured findings
+
+Write a `.findings.yaml` file next to the raw report. The filename pattern is the same as the raw report but with `.findings.yaml` extension (e.g., `react-feature--chat--raw.findings.yaml`).
+
+### FindingsFile schema
+
+The YAML must validate against the FindingsFile Zod schema in `scripts/audit/schema.ts`.
+
+```yaml
+meta:
+  auditTimestamp: "<timestamp from artifacts directory name>"
+  auditType: "react-feature"
+  target: "<target directory>"
+  agentId: "<agent ID from orchestrator>"
+  track: "<fe|bff|cross-cutting>"
+  filesAudited: <number>
+  date: "<YYYY-MM-DD>"
+
+headline:
+  ddauViolations: <number>
+  useEffects: <number>
+  eliminableEffects: <number>
+  rawLocalStorage: <number>
+  nonNullAssertions: <number>
+  trustBoundaryGaps: <number>
+  crossDomainCoupling: <number>
+  deadExports: <number>
+  deadFiles: <number>
+
+findings:
+  - contentHash: "<computed by finding-id.ts or manually>"
+    file: "<file path>"
+    line: <line number>
+    kind: "<from canonical vocabulary>"
+    priority: "<P1-P5>"
+    category: "<bug|dead-code|type-safety|architecture|trust-boundary|test-gap|performance|style>"
+    track: "<fe|bff|cross-cutting>"
+    description: "<finding description>"
+    fix: "<fix action>"
+    astConfirmed: <true|false>
+    astTool: "<tool name if AST-confirmed>"
+    requiresManualReview: <true|false>
+```
+
+### Headline fields for react-feature
+
+| Field | Type | Description |
+|-------|------|-------------|
+| ddauViolations | number | Count of DDAU boundary violations (service/context hooks in non-containers) |
+| useEffects | number | Total useEffect count in the feature |
+| eliminableEffects | number | Count of useEffects classified as DERIVED_STATE or EVENT_HANDLER_DISGUISED |
+| rawLocalStorage | number | Count of DIRECT_STORAGE_CALL observations |
+| nonNullAssertions | number | Count of unguarded NON_NULL_ASSERTION observations |
+| trustBoundaryGaps | number | Count of TRUST_BOUNDARY_CAST observations |
+| crossDomainCoupling | number | Count of cross-domain import violations |
+| deadExports | number | Count of DEAD_EXPORT assessments with high confidence |
+| deadFiles | number | Count of files where all exports are dead |
+
+### Canonical kind vocabulary
+
+| kind | Source | Maps from |
+|------|--------|-----------|
+| dead-export | ast-interpret-dead-code | DEAD_EXPORT assessment |
+| dead-file | ast-interpret-dead-code | All exports dead in a file |
+| eliminable-effect | ast-interpret-effects | DERIVED_STATE, EVENT_HANDLER_DISGUISED assessments |
+| ddau-violation | ast-interpret-hooks, ast-interpret-ownership | LIKELY_SERVICE_HOOK, LIKELY_CONTEXT_HOOK in non-container; LEAF_VIOLATION |
+| jsx-complexity | ast-jsx-analysis, ast-interpret-template | COMPLEXITY_HOTSPOT, JSX_RETURN_BLOCK > 100 lines |
+| as-any | ast-type-safety | AS_ANY_CAST, EXPLICIT_ANY_ANNOTATION observations |
+| non-null-assertion | ast-type-safety | NON_NULL_ASSERTION observation (unguarded) |
+| trust-boundary-gap | ast-type-safety | TRUST_BOUNDARY_CAST observation |
+| raw-storage | ast-storage-access | DIRECT_STORAGE_CALL observation |
+| cross-domain-coupling | ast-imports | Cross-domain import violations |
+| console-leak | ast-side-effects | CONSOLE_CALL (log/debug/info) observation |
+| test-gap | Manual / ast-interpret-test-quality | UNTESTED file classification |
+| architecture-smell | Manual | Structural issues not covered by other kinds |
+| bug | Manual / ast-interpret-effects | TIMER_RACE, ghost state, runtime errors |
+| style | Manual | Code style issues, debug artifacts |
+
+### Rules
+
+1. Every finding from the Migration Checklist / Findings section MUST appear in the YAML.
+2. Assign `priority` (P1-P5) based on severity. Do NOT assign `concern` -- it is assigned during the triage pass after all agents complete.
+3. `stableId` should be omitted or set to `"(new)"` -- it is assigned by the pipeline.
+4. `contentHash` can be computed using `npx tsx scripts/audit/finding-id.ts` or by following the algorithm: sha256(file + ':' + line + ':' + kind + ':' + sha256(description)), truncated to 8 hex.
+5. Use the canonical kind vocabulary above. If validation fails on `kind`, pick the closest canonical value and describe the specifics in `description`.
+6. For multi-file findings, set `file` to the primary representative file and list all affected files in the `files` array.
+
+### Validation
+
+After writing the YAML file, validate it:
+
+```bash
+npx tsx scripts/audit/yaml-io.ts --validate <findings-file.yaml>
+```
+
+If validation fails, fix the YAML before proceeding.
+
 <!-- role: workflow -->
 
 ## Interpreter Calibration Gate
@@ -728,3 +827,10 @@ affected a decision in this audit:
 
 Do NOT create a fixture if you are unsure or the error did not affect
 a decision. See the skill for the full pre-conditions.
+
+<!-- role: reference -->
+## Related skills
+
+- `/audit-display-conventions` -- for display convention violations (number formatting, null/empty handling, percentage precision). Run on the same target directory after this audit.
+- `/audit-module` -- for non-React modules (utilities, transformers, validators).
+- `/audit-api-handler` -- for Next.js API route handlers.

@@ -1,0 +1,23 @@
+{
+  "tool": "display-format",
+  "created": "2026-03-19",
+  "source": "synthetic",
+  "files": ["states.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "states.tsx",
+      "line": 5,
+      "symbol": "wrongEmptyMessage",
+      "expectedKind": "INCONSISTENT_EMPTY_MESSAGE",
+      "notes": "Uses 'No data available' instead of canonical 'There is no data'"
+    },
+    {
+      "file": "states.tsx",
+      "line": 18,
+      "symbol": "noFallbackCell",
+      "expectedKind": "MISSING_PLACEHOLDER",
+      "notes": "getValue() returned directly with no null check inside columnHelper.accessor()"
+    }
+  ],
+  "status": "calibrated"
+}

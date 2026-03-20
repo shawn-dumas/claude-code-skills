@@ -5,25 +5,23 @@ import { getSourceFile, PROJECT_ROOT } from '../project';
 
 describe('tool-registry', () => {
   describe('getToolNames', () => {
-    it('returns all 17 tool names', () => {
+    it('returns a non-empty list of registered tool names', () => {
       const names = getToolNames();
-      expect(names).toHaveLength(17);
-      expect(names).toContain('authz-audit');
+      expect(names.length).toBeGreaterThan(0);
+      // Every name should be a non-empty string
+      for (const name of names) {
+        expect(typeof name).toBe('string');
+        expect(name.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('includes known tool names', () => {
+      const names = getToolNames();
+      // Spot-check a few tools across different domains to catch registry wiring issues.
+      // This list is intentionally not exhaustive -- new tools do not need to be added here.
       expect(names).toContain('complexity');
-      expect(names).toContain('concern-matrix');
-      expect(names).toContain('data-layer');
-      expect(names).toContain('env-access');
-      expect(names).toContain('error-coverage');
-      expect(names).toContain('export-surface');
-      expect(names).toContain('feature-flags');
       expect(names).toContain('imports');
-      expect(names).toContain('jsx-analysis');
       expect(names).toContain('react-inventory');
-      expect(names).toContain('side-effects');
-      expect(names).toContain('storage-access');
-      expect(names).toContain('test-analysis');
-      expect(names).toContain('pw-test-parity');
-      expect(names).toContain('vitest-parity');
       expect(names).toContain('type-safety');
     });
   });

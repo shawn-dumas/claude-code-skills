@@ -1,0 +1,30 @@
+{
+  "tool": "display-format",
+  "created": "2026-03-19",
+  "source": "synthetic",
+  "files": ["columns.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "columns.tsx",
+      "line": 5,
+      "symbol": "naPlaceholder",
+      "expectedKind": "WRONG_PLACEHOLDER",
+      "notes": "Uses 'N/A' instead of '-'"
+    },
+    {
+      "file": "columns.tsx",
+      "line": 10,
+      "symbol": "doubleDash",
+      "expectedKind": "WRONG_PLACEHOLDER",
+      "notes": "Uses '--' instead of '-'"
+    },
+    {
+      "file": "columns.tsx",
+      "line": 15,
+      "symbol": "hardcodedDash",
+      "expectedKind": "HARDCODED_DASH",
+      "notes": "Uses literal '-' without NO_VALUE_PLACEHOLDER constant"
+    }
+  ],
+  "status": "calibrated"
+}

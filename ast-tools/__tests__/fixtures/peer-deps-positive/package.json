@@ -1,0 +1,12 @@
+{
+  "name": "peer-deps-positive-fixture",
+  "version": "1.0.0",
+  "dependencies": {
+    "dep-a": "^2.0.0",
+    "dep-violated": "^1.0.0",
+    "dep-optional": "^1.0.0",
+    "dep-not-installed": "^1.0.0",
+    "@scope/dep-scoped": "^3.0.0"
+  },
+  "devDependencies": {}
+}

@@ -429,6 +429,93 @@ Refactor risk: HIGH/MEDIUM/LOW (based on coverage level + complexity)
 3. [ ] ...
 ```
 
+<!-- role: emit -->
+
+## Step 6: Emit structured findings
+
+Write a `.findings.yaml` file next to the raw report. The filename pattern is the same as the raw report but with `.findings.yaml` extension (e.g., `module--formatDate--raw.findings.yaml`).
+
+### FindingsFile schema
+
+The YAML must validate against the FindingsFile Zod schema in `scripts/audit/schema.ts`.
+
+```yaml
+meta:
+  auditTimestamp: "<timestamp from artifacts directory name>"
+  auditType: "module"
+  target: "<target file>"
+  agentId: "<agent ID from orchestrator>"
+  track: "<fe|bff|cross-cutting>"
+  filesAudited: <number>
+  date: "<YYYY-MM-DD>"
+
+headline:
+  g1to10Pass: <number>
+  g1to10Warn: <number>
+  g1to10Fail: <number>
+  deadExports: <number>
+  cyclomaticMax: <number>
+
+findings:
+  - contentHash: "<computed by finding-id.ts or manually>"
+    file: "<file path>"
+    line: <line number>
+    kind: "<from canonical vocabulary>"
+    priority: "<P1-P5>"
+    category: "<bug|dead-code|type-safety|architecture|trust-boundary|test-gap|performance|style>"
+    track: "<fe|bff|cross-cutting>"
+    description: "<finding description>"
+    fix: "<fix action>"
+    astConfirmed: <true|false>
+    astTool: "<tool name if AST-confirmed>"
+    requiresManualReview: <true|false>
+```
+
+### Headline fields for module
+
+| Field | Type | Description |
+|-------|------|-------------|
+| g1to10Pass | number | Count of G1-G10 principles scored PASS |
+| g1to10Warn | number | Count of G1-G10 principles scored WARN |
+| g1to10Fail | number | Count of G1-G10 principles scored FAIL |
+| deadExports | number | Count of DEAD_EXPORT assessments with high confidence |
+| cyclomaticMax | number | Maximum cyclomatic complexity across all functions in the module |
+
+### Canonical kind vocabulary
+
+| kind | Source | Maps from |
+|------|--------|-----------|
+| dead-export | ast-interpret-dead-code | DEAD_EXPORT assessment |
+| dead-file | ast-interpret-dead-code | All exports dead in the module |
+| circular-dep | ast-interpret-dead-code | CIRCULAR_DEPENDENCY assessment |
+| complexity-hotspot | ast-complexity | FUNCTION_COMPLEXITY observation (complexity > 7) |
+| as-any | ast-type-safety | AS_ANY_CAST, EXPLICIT_ANY_ANNOTATION observations |
+| as-unknown | ast-type-safety | AS_UNKNOWN_AS_CAST observation |
+| non-null-assertion | ast-type-safety | NON_NULL_ASSERTION observation (unguarded) |
+| trust-boundary-gap | ast-type-safety, ast-storage-access | TRUST_BOUNDARY_CAST, JSON_PARSE_CALL observations |
+| architecture-smell | Manual | G1-G10 violations (single job, explicit I/O, composition, etc.) |
+| bug | Manual | G10 fail-fast violations, empty catch blocks, silent error swallowing |
+| style | Manual | Debug artifacts, commented-out code, stale TODOs |
+
+### Rules
+
+1. Every finding from the Violations / Refactor Checklist section MUST appear in the YAML.
+2. Assign `priority` (P1-P5) based on severity. Do NOT assign `concern` -- it is assigned during the triage pass after all agents complete.
+3. `stableId` should be omitted or set to `"(new)"` -- it is assigned by the pipeline.
+4. `contentHash` can be computed using `npx tsx scripts/audit/finding-id.ts` or by following the algorithm: sha256(file + ':' + line + ':' + kind + ':' + sha256(description)), truncated to 8 hex.
+5. Use the canonical kind vocabulary above. If validation fails on `kind`, pick the closest canonical value and describe the specifics in `description`.
+6. For multi-file findings, set `file` to the primary representative file and list all affected files in the `files` array.
+
+### Validation
+
+After writing the YAML file, validate it:
+
+```bash
+npx tsx scripts/audit/yaml-io.ts --validate <findings-file.yaml>
+```
+
+If validation fails, fix the YAML before proceeding.
+
 <!-- role: workflow -->
 
 ## Interpreter Calibration Gate

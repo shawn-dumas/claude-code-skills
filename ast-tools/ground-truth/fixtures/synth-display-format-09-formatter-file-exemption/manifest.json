@@ -1,0 +1,9 @@
+{
+  "tool": "display-format",
+  "created": "2026-03-19",
+  "source": "synthetic",
+  "files": ["formatUtils.ts"],
+  "expectedClassifications": [],
+  "notes": "Negative case: toFixed and toLocaleString inside a formatter file (matched by formatterFilePaths config) should not produce RAW_FORMAT_BYPASS, even when the containing function is an anonymous arrow.",
+  "status": "calibrated"
+}

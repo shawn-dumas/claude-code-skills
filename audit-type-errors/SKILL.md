@@ -343,3 +343,83 @@ Ordered by errors eliminated per fix (highest leverage first):
 | Phase 2 (next 10 root causes) | 10 | ~<N> | ~<N>/<total> |
 | Phase 3 (remaining) | <N> | ~<N> | <total>/<total> |
 ```
+
+<!-- role: emit -->
+
+## Step 6: Emit structured findings
+
+Write a `.findings.yaml` file next to the raw report. The filename pattern is the same as the raw report but with `.findings.yaml` extension (e.g., `type-errors--src--raw.findings.yaml`).
+
+### FindingsFile schema
+
+The YAML must validate against the FindingsFile Zod schema in `scripts/audit/schema.ts`.
+
+```yaml
+meta:
+  auditTimestamp: "<timestamp from artifacts directory name>"
+  auditType: "type-errors"
+  target: "<target directory>"
+  agentId: "<agent ID from orchestrator>"
+  track: "<fe|bff|cross-cutting>"
+  filesAudited: <number>
+  date: "<YYYY-MM-DD>"
+
+headline:
+  tscErrors: <number>
+  eslintErrors: <number>
+  productionAny: <number>
+  nonNullAssertions: <number>
+
+findings:
+  - contentHash: "<computed by finding-id.ts or manually>"
+    file: "<file path>"
+    line: <line number>
+    kind: "<from canonical vocabulary>"
+    priority: "<P1-P5>"
+    category: "<bug|dead-code|type-safety|architecture|trust-boundary|test-gap|performance|style>"
+    track: "<fe|bff|cross-cutting>"
+    description: "<finding description>"
+    fix: "<fix action>"
+    astConfirmed: <true|false>
+    astTool: "<tool name if AST-confirmed>"
+    requiresManualReview: <true|false>
+```
+
+### Headline fields for type-errors
+
+| Field | Type | Description |
+|-------|------|-------------|
+| tscErrors | number | Total tsc error count |
+| eslintErrors | number | Total ESLint error count |
+| productionAny | number | Count of AS_ANY_CAST + EXPLICIT_ANY_ANNOTATION observations in production files |
+| nonNullAssertions | number | Count of NON_NULL_ASSERTION observations |
+
+### Canonical kind vocabulary
+
+| kind | Source | Maps from |
+|------|--------|-----------|
+| as-any | ast-type-safety | AS_ANY_CAST, EXPLICIT_ANY_ANNOTATION observations |
+| as-unknown | ast-type-safety | AS_UNKNOWN_AS_CAST observation (double casts) |
+| non-null-assertion | ast-type-safety | NON_NULL_ASSERTION observation |
+| trust-boundary-gap | ast-type-safety | TRUST_BOUNDARY_CAST observation (silent type safety gap) |
+| bug | Manual / tsc | Cascading root causes, unsound type guards, circular dependency type errors |
+| style | Manual | Stale @ts-expect-error directives, duplicate type definitions |
+
+### Rules
+
+1. Every finding from the Prioritized Fix Plan section MUST appear in the YAML.
+2. Assign `priority` (P1-P5) based on severity. Do NOT assign `concern` -- it is assigned during the triage pass after all agents complete.
+3. `stableId` should be omitted or set to `"(new)"` -- it is assigned by the pipeline.
+4. `contentHash` can be computed using `npx tsx scripts/audit/finding-id.ts` or by following the algorithm: sha256(file + ':' + line + ':' + kind + ':' + sha256(description)), truncated to 8 hex.
+5. Use the canonical kind vocabulary above. If validation fails on `kind`, pick the closest canonical value and describe the specifics in `description`.
+6. For multi-file findings, set `file` to the primary representative file and list all affected files in the `files` array.
+
+### Validation
+
+After writing the YAML file, validate it:
+
+```bash
+npx tsx scripts/audit/yaml-io.ts --validate <findings-file.yaml>
+```
+
+If validation fails, fix the YAML before proceeding.

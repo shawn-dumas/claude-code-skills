@@ -1,0 +1,17 @@
+{
+  "tool": "display-format",
+  "created": "2026-03-19",
+  "source": "production",
+  "sourceFile": "src/ui/page_blocks/dashboard/systems/SystemsView/SystemsTable/useSystemsTableColumns.tsx",
+  "files": ["columns.tsx"],
+  "expectedClassifications": [
+    {
+      "file": "columns.tsx",
+      "line": 18,
+      "symbol": "defaultColumn",
+      "expectedKind": "HARDCODED_DASH",
+      "notes": "Uses literal '-' in ?? without NO_VALUE_PLACEHOLDER import"
+    }
+  ],
+  "status": "calibrated"
+}

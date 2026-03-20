@@ -1,0 +1,7 @@
+{
+  "name": "peer-deps-negative-fixture",
+  "version": "1.0.0",
+  "dependencies": {
+    "dep-no-peers": "^1.0.0"
+  }
+}
