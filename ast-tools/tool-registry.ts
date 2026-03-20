@@ -41,6 +41,9 @@ import { analyzeTestCoverageForFile, extractTestCoverageObservations } from './a
 // ast-handler-structure: handler inline logic + multi-method detection
 import { analyzeHandlerStructure, extractHandlerStructureObservations } from './ast-handler-structure';
 
+// ast-branded-check: unbranded ID fields + unbranded function params
+import { analyzeBrandedCheck, extractBrandedCheckObservations } from './ast-branded-check';
+
 // ---------------------------------------------------------------------------
 // Registry types
 // ---------------------------------------------------------------------------
@@ -184,6 +187,12 @@ function handlerStructureAdapter(_sf: SourceFile, filePath: string): AnyObservat
   return [...result.observations];
 }
 
+function brandedCheckAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
+  const analysis = analyzeBrandedCheck(filePath);
+  const result = extractBrandedCheckObservations(analysis);
+  return [...result.observations];
+}
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
@@ -210,6 +219,7 @@ const entries: ToolEntry[] = [
   { name: 'type-safety', analyze: typeSafetyAdapter },
   { name: 'test-coverage', analyze: testCoverageAdapter },
   { name: 'handler-structure', analyze: handlerStructureAdapter },
+  { name: 'branded-check', analyze: brandedCheckAdapter },
 ];
 
 export const TOOL_REGISTRY: ReadonlyMap<string, ToolEntry> = new Map(entries.map(e => [e.name, e]));
