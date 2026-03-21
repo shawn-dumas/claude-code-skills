@@ -105,12 +105,13 @@ const RAW_FORMAT_METHODS = new Set([
   'toISOString',
   'toLocaleDateString',
   'toLocaleTimeString',
-  'toLocaleString',
   'toDateString',
   'toTimeString',
   'toUTCString',
-  'toJSON',
 ]);
+
+// Methods shared between Date and Number/Object -- only flag when receiver is Date-typed
+const AMBIGUOUS_FORMAT_METHODS = new Set(['toLocaleString', 'toJSON']);
 
 const FORMAT_UTILS = new Set([
   'formatDate',
@@ -197,6 +198,18 @@ function analyzeFile(filePath: string): DateObservation[] {
           const method = expr.getName();
           if (RAW_FORMAT_METHODS.has(method)) {
             emit('RAW_DATE_FORMAT', node.getStartLineNumber(), `.${method}()`, node.getText().slice(0, 80));
+          } else if (AMBIGUOUS_FORMAT_METHODS.has(method)) {
+            // toLocaleString/toJSON exist on Number and Object too.
+            // Use the type checker to confirm the receiver is Date.
+            const receiver = expr.getExpression();
+            try {
+              const typeName = receiver.getType().getText();
+              if (typeName === 'Date' || typeName.includes('Date')) {
+                emit('RAW_DATE_FORMAT', node.getStartLineNumber(), `.${method}()`, node.getText().slice(0, 80));
+              }
+            } catch {
+              // Type checker unavailable -- skip ambiguous method
+            }
           }
         }
       }
