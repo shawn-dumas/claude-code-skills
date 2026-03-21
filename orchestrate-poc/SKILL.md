@@ -1462,10 +1462,10 @@ production/development/staging, and to /api/mock/ in mocked mode only).
 ```typescript
 // Query parameters
 {
-  startTime: string;   // ISO timestamp -- period start
-  endTime: string;     // ISO timestamp -- period end
+  startDate: string;   // Plain date (YYYY-MM-DD) -- period start
+  endDate: string;     // Plain date (YYYY-MM-DD) -- period end, nullable
   teamId?: number;     // Optional team filter
-  timezone?: string;   // IANA timezone for date bucketing
+  timezone: string;    // IANA timezone (required) -- used for fixed-offset day bucketing
 }
 ```
 ````
@@ -1501,8 +1501,8 @@ production/development/staging, and to /api/mock/ in mocked mode only).
 ```typescript
 // Query parameters -- note differences from base endpoint
 {
-  startTime: string;
-  endTime: string;
+  startDate: string;   // Plain date (YYYY-MM-DD)
+  endDate: string;     // Plain date (YYYY-MM-DD), nullable
   // ... additional or changed params
 }
 ```

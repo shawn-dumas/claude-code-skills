@@ -202,9 +202,7 @@ Exceptions: `ast-test-analysis` omits `--test-files` (always scans test
 files by design). `ast-imports` omits `--no-cache` (builds a cross-file
 dependency graph, no per-file cache).
 
-## 6. Authority Rules
-
-## 3. Authority Rules
+## 5. Authority Rules
 
 1. **Authoritative observations MUST become findings.** When an AST tool
    emits an observation, the consuming agent MUST report it. Agents do not
@@ -225,7 +223,7 @@ dependency graph, no per-file cache).
    `scripts/AST/GAPS.md`. This tracks un-relocated judgments for future
    tool development.
 
-## 7. Ground Truth Fixtures
+## 6. Ground Truth Fixtures
 
 Fixtures live in `scripts/AST/__tests__/fixtures/`. Each fixture is a
 minimal TypeScript/TSX file that exercises specific observation or
@@ -247,7 +245,7 @@ The tests validate that:
 - Interpreters produce assessments matching ground truth classifications
 - Edge cases (negative fixtures) produce zero observations
 
-## 8. Adding New Tools
+## 7. Adding New Tools
 
 Checklist:
 

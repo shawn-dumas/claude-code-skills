@@ -1445,4 +1445,45 @@ export function resolveConfig(): AstConfig {
   return resolvedConfig;
 }
 
+// ---------------------------------------------------------------------------
+// CLI entry point (--dump-priority-rules)
+// ---------------------------------------------------------------------------
+
+function main(): void {
+  const args = process.argv.slice(2);
+
+  if (args.includes('--dump-priority-rules')) {
+    const header = ['Kind', 'Condition', 'Priority'];
+    const rows = PRIORITY_RULES.map(r => [r.kind, r.condition, r.priority]);
+    const colWidths = header.map((h, i) => Math.max(h.length, ...rows.map(r => (r[i] ?? '').length)));
+    const fmt = (row: string[]) => '| ' + row.map((cell, i) => cell.padEnd(colWidths[i] ?? 0)).join(' | ') + ' |';
+
+    process.stdout.write(fmt(header) + '\n');
+    process.stdout.write('| ' + colWidths.map(w => '-'.repeat(w)).join(' | ') + ' |\n');
+    for (const row of rows) {
+      process.stdout.write(fmt(row) + '\n');
+    }
+    process.exit(0);
+  }
+
+  if (args.includes('--help') || args.includes('-h')) {
+    process.stdout.write(
+      'Usage: npx tsx scripts/AST/ast-config.ts [--dump-priority-rules]\n' +
+        '\n' +
+        '  --dump-priority-rules  Print the PRIORITY_RULES table to stdout\n',
+    );
+    process.exit(0);
+  }
+
+  process.stderr.write('No action specified. Use --help for usage.\n');
+  process.exit(1);
+}
+
+const isDirectRun =
+  process.argv[1] && (process.argv[1].endsWith('ast-config.ts') || process.argv[1].endsWith('ast-config'));
+
+if (isDirectRun) {
+  main();
+}
+
 export type { AstConfig };

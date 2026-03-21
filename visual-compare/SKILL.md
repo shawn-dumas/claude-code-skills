@@ -2,7 +2,7 @@
 name: visual-compare
 description: Side-by-side visual comparison of the local dev environment vs. a remote app environment. Autonomously navigates both browsers through every dashboard page, exercises all filters and interactions, and documents discrepancies in a session report.
 context: fork
-allowed-tools: Bash(playwright-cli:*), Read, Write, Bash(date:*), Bash(mkdir:*)
+allowed-tools: Bash(playwright-cli:*), Read, Write, Bash(date:*), Bash(mkdir:*), Bash(sed:*), Bash(diff:*), Bash(cat:*)
 argument-hint: <app|app-staging|app-development>
 ---
 
@@ -20,18 +20,19 @@ Each session has independent cookies, localStorage, and auth state so Firebase t
 
 ### Validate argument
 
-If `$ARGUMENTS` is empty or not one of `app`, `app-staging`, `app-development`, ask:
+`$ARGUMENTS` contains the remote environment name. Parse it:
 
-```
-Question: Which remote environment do you want to compare against?
-Header: Remote environment
-Options:
-  - "app" -- Production: https://app.8flow.com
-  - "app-staging" -- Staging: https://app-staging.8flow.com
-  - "app-development" -- Development: https://app-development.8flow.com
-```
+- If `$ARGUMENTS` contains `app-staging` → `REMOTE_ENV=app-staging`
+- If `$ARGUMENTS` contains `app-development` → `REMOTE_ENV=app-development`
+- If `$ARGUMENTS` contains `app` (and not `app-staging` or `app-development`) → `REMOTE_ENV=app`
+- If `$ARGUMENTS` is empty or does not match any of the above, **only then** ask the user:
 
-Set `REMOTE_ENV` to the validated argument. Set `REMOTE_BASE` to `https://$REMOTE_ENV.8flow.com`.
+  > Which remote environment? `app` (Production), `app-staging` (Staging), or `app-development` (Development)?
+
+**Do NOT ask if the argument is already valid.** The user typed `/visual-compare app`
+— that means `REMOTE_ENV=app`. Proceed immediately.
+
+Set `REMOTE_BASE` to `https://$REMOTE_ENV.8flow.com`.
 
 ### Create session file
 

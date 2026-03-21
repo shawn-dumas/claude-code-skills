@@ -21,6 +21,7 @@ Use the `/build-ast-tool` skill to fill gaps from this list.
 | 2026-03-18 | Skill file structural analysis (stale paths, broken cross-refs, command inventory, section structure)  | `rg 'tsc --noEmit' .claude/skills/` + manual grep for file paths             | ast-skill-analysis SKILL\_\*                      | doc audit found 40 stale tsc commands and 15+ stale type paths across skills     | filled (ast-skill-analysis)      |
 | 2026-03-19 | Number formatting and null/empty display pattern detection (toFixed bypass, wrong placeholders, falsy coalescing on numeric columns, zero/null conflation) | `sg -p '$X.toFixed($$$)' src/` (rg-based detection also used: `rg 'N/A\|--\|toFixed' src/`) | ast-number-format + ast-null-display | display-conventions plan, audit-display-conventions skill | filled (ast-number-format, ast-null-display) |
 | 2026-03-20 | Object field/property reference lookup (find all files referencing a specific field name like `active_time_ms` in object access, destructuring, or type definitions) | `rg 'active_time_ms\|idle_time_ms' src/` | ast-field-refs | restore-workstreams P08 standing elements, cleanup normalization work | filled (ast-field-refs) |
+| 2026-03-21 | Branded type constructor call-site detection (find all files calling a branded type constructor like `ISOTimestamp()` or `toISOTimestamp()`) | `sg -p 'ISOTimestamp($A)' -l ts src/`, `sg -p 'toISOTimestamp($A)' -l ts src/` | ast-branded-check BRANDED_CONSTRUCTOR_CALL | audit-react-feature dashboard-usage agent, verifying branded type adoption | open |
 
 ## Rules
 

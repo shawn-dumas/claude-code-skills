@@ -5,7 +5,7 @@ import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
 import { getFilesInDirectory, truncateText, getContainingFunctionName } from './shared';
 import type { FileFilter } from './shared';
-import type { NumberFormatAnalysis, NumberFormatObservation, NumberFormatObservationKind } from './types';
+import type { NumberFormatAnalysis, NumberFormatObservation } from './types';
 import { astConfig } from './ast-config';
 import { cached, getCacheStats } from './ast-cache';
 

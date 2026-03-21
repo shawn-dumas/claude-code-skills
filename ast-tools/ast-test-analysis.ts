@@ -7,7 +7,7 @@ import path from 'path';
 import fs from 'fs';
 import { getProject, getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
-import { truncateText, findExpectInChain, resolveCallName, resolvePrintfTemplate, getFilesInDirectory } from './shared';
+import { truncateText, findExpectInChain, resolveCallName, getFilesInDirectory } from './shared';
 import { cached, getCacheStats } from './ast-cache';
 import { astConfig } from './ast-config';
 import type {

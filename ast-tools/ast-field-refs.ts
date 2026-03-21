@@ -19,7 +19,7 @@
  *   npx tsx scripts/AST/ast-field-refs.ts src/shared/types/ --field workstream_value --pretty
  */
 
-import { Node, SyntaxKind } from 'ts-morph';
+import { Node } from 'ts-morph';
 import path from 'path';
 import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';

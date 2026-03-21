@@ -94,6 +94,30 @@ Use `CONTAINER_MISSING_*` observations to identify containers that lack
 loading, error, or empty state handling. Containers scoring below 2/3
 (missing 2+ of loading/error/empty) should be flagged in the audit findings.
 
+### Tool hierarchy -- do NOT use grep on TypeScript source
+
+For any codebase query on TS/TSX files, use AST tools. Do NOT use
+`rg`, `grep`, `sg`, or the built-in Grep tool on TypeScript source.
+
+Common queries and the correct tool:
+
+| Query | Tool | Command |
+|---|---|---|
+| Who imports symbol X? | ast-imports | `npx tsx scripts/AST/ast-imports.ts src/ --symbol <name> --pretty` |
+| Who consumes file X? | ast-imports | `npx tsx scripts/AST/ast-imports.ts --consumers <file> --pretty` |
+| What's the CC of function X? | ast-complexity | `npx tsx scripts/AST/ast-complexity.ts <path> --pretty` |
+| Any `as any` casts? | ast-type-safety | `npx tsx scripts/AST/ast-type-safety.ts <path> --kind AS_ANY_CAST --pretty` |
+| Where is field X referenced? | ast-field-refs | `npx tsx scripts/AST/ast-field-refs.ts src/ --field <name> --pretty` |
+
+Full recipe book: `scripts/AST/docs/ast-recipes.md`
+
+If you use `rg` or `sg` on TypeScript source because no AST tool
+covers the pattern, you MUST append an entry to `scripts/AST/GAPS.md`.
+
+Acceptable grep usage: file inventory counting (`find | wc -l`),
+non-code files (markdown, JSON, YAML, SQL), and reading config values
+from non-TS files.
+
 ### Using observations and assessments
 
 **Observations** are structural facts with no classification (line X has
@@ -821,10 +845,40 @@ findings:
 
 ### Priority assignment
 
-PRIORITY ASSIGNMENT: Use PRIORITY_RULES from ast-config.ts to assign
+PRIORITY ASSIGNMENT: Use the PRIORITY_RULES table below to assign
 priority. Do NOT assign priority based on subjective judgment. If no
 rule matches the finding's kind, assign P4 and add a GAP.md entry
 explaining the unmatched pattern.
+
+**PRIORITY_RULES (from ast-config.ts):**
+
+| Kind | Condition | Priority |
+|---|---|---|
+| bug | authz OR crash OR CVE-critical | P1 |
+| complexity-hotspot | CC >= 25 | P1 |
+| test-gap | risk === HIGH | P2 |
+| trust-boundary-gap | always | P2 |
+| complexity-hotspot | CC >= 15 | P2 |
+| bug | CVE-high | P2 |
+| test-gap | risk === MEDIUM | P3 |
+| mock-internal | confidence >= high | P3 |
+| ddau-violation | always | P3 |
+| eliminable-effect | always | P3 |
+| cross-domain-coupling | always | P3 |
+| dead-export | always | P4 |
+| as-any | always | P4 |
+| non-null-assertion | always | P4 |
+| test-gap | risk === LOW | P4 |
+| missing-concern | always | P4 |
+| handler-inline-logic | always | P4 |
+| branded-type-gap | always | P4 |
+| style | always | P5 |
+| circular-dep | type-only | P5 |
+
+Additional rules in `lookupPriority()`: bug defaults to P2 when no
+sub-kind matches; complexity-hotspot below CC 15 gets P3; test-gap
+with unknown risk gets P3; mock-internal below high confidence gets P4;
+circular-dep non-type-only gets P4; unrecognized kinds get P4.
 
 ### Rules
 

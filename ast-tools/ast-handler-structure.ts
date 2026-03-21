@@ -9,7 +9,7 @@
 
 import path from 'path';
 import fs from 'fs';
-import { Node, SyntaxKind } from 'ts-morph';
+import { Node } from 'ts-morph';
 import type { SourceFile } from 'ts-morph';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';

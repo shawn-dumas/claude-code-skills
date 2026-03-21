@@ -13,9 +13,7 @@
  *   - Score = sum(matched_weight) / sum(total_weight) * 100
  */
 
-import path from 'path';
 import { parseArgs, output, fatal } from './cli';
-import { PROJECT_ROOT } from './project';
 import { analyzeVitestParityDirectory, analyzeVitestParityBranch } from './ast-vitest-parity';
 import type {
   VtSpecInventory,

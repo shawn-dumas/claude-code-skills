@@ -28,15 +28,14 @@
  *   npx tsx scripts/AST/ast-date-handling.ts src/ --summary --pretty
  */
 
-import { Node, SyntaxKind } from 'ts-morph';
-import type { SourceFile } from 'ts-morph';
+import { Node } from 'ts-morph';
 import path from 'path';
 import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
 import { getFilesInDirectory } from './shared';
 import type { FileFilter } from './shared';
-import { cached, getCacheStats } from './ast-cache';
+import { cached } from './ast-cache';
 
 // ---------------------------------------------------------------------------
 // Types

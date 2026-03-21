@@ -10,7 +10,6 @@ import { cached, getCacheStats } from './ast-cache';
 import type {
   ConcernMatrixAnalysis,
   ConcernMatrixObservation,
-  ConcernMatrixObservationKind,
   ObservationResult,
   ReactInventory,
   ComponentInfo,

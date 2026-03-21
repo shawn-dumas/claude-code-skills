@@ -13,14 +13,7 @@ import fs from 'fs';
 import { parseArgs, output, fatal } from './cli';
 import { computeBoundaryConfidence } from './shared';
 import { astConfig } from './ast-config';
-import type {
-  AnyObservation,
-  AuditContext,
-  IntentClassification,
-  IntentSignal,
-  IntentReport,
-  RefactorSignalPair,
-} from './types';
+import type { AnyObservation, AuditContext, IntentSignal, IntentReport, RefactorSignalPair } from './types';
 
 // ---------------------------------------------------------------------------
 // Refactor-type heuristic rules

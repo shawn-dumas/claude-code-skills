@@ -5,7 +5,7 @@ import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
 import { getFilesInDirectory, getContainingFunctionName } from './shared';
 import type { FileFilter } from './shared';
-import type { NullDisplayAnalysis, NullDisplayObservation, NullDisplayObservationKind } from './types';
+import type { NullDisplayAnalysis, NullDisplayObservation } from './types';
 import { astConfig } from './ast-config';
 import { cached, getCacheStats } from './ast-cache';
 
@@ -71,10 +71,7 @@ function isInsideColumnHelperCall(node: Node): boolean {
       if (Node.isPropertyAccessExpression(expr)) {
         const methodName = expr.getName();
         const objText = expr.getExpression().getText();
-        if (
-          (methodName === 'accessor' || methodName === 'display') &&
-          objText.endsWith('columnHelper')
-        ) {
+        if ((methodName === 'accessor' || methodName === 'display') && objText.endsWith('columnHelper')) {
           return true;
         }
       }
@@ -188,10 +185,7 @@ export function extractNullDisplayObservations(sf: SourceFile): NullDisplayObser
       if (Node.isPropertyAccessExpression(expr)) {
         const methodName = expr.getName();
         const objText = expr.getExpression().getText();
-        if (
-          (methodName === 'accessor' || methodName === 'display') &&
-          objText.endsWith('columnHelper')
-        ) {
+        if ((methodName === 'accessor' || methodName === 'display') && objText.endsWith('columnHelper')) {
           detectNoFallbackCell(node, relativePath, observations);
         }
       }
@@ -304,11 +298,7 @@ function isDisplayContext(node: Node): boolean {
  * Detect NO_FALLBACK_CELL inside a columnHelper.accessor() or .display() call.
  * Fires only when getValue() is the sole return value of the cell property.
  */
-function detectNoFallbackCell(
-  callNode: Node,
-  filePath: string,
-  observations: NullDisplayObservation[],
-): void {
+function detectNoFallbackCell(callNode: Node, filePath: string, observations: NullDisplayObservation[]): void {
   if (!Node.isCallExpression(callNode)) return;
 
   const args = callNode.getArguments();
@@ -442,7 +432,8 @@ function detectZeroConflation(
       // truthy branch calls a format function -> numeric context proven
       if (provesNumericContext(whenTrue)) {
         // Additionally verify the falsy branch is a placeholder string or has one
-        const falsyIsPlaceholder = Node.isStringLiteral(whenFalse) &&
+        const falsyIsPlaceholder =
+          Node.isStringLiteral(whenFalse) &&
           astConfig.displayFormat.placeholderStrings.has(whenFalse.getLiteralValue());
 
         if (falsyIsPlaceholder) {

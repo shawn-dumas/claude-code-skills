@@ -22,13 +22,7 @@ import { parseArgs, outputFiltered, fatal } from './cli';
 import { getFilesInDirectory } from './shared';
 import { resolveConfig } from './ast-config';
 import { getCacheStats } from './ast-cache';
-import type {
-  BffGapObservation,
-  BffGapObservationKind,
-  BffGapObservationEvidence,
-  BffGapAnalysis,
-  ObservationResult,
-} from './types';
+import type { BffGapObservation, BffGapAnalysis, ObservationResult } from './types';
 
 // ---------------------------------------------------------------------------
 // Path helpers
