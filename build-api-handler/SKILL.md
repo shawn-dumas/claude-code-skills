@@ -521,3 +521,56 @@ Before defining any new type:
 
 Report all results in the summary. A generation is not complete until tsc passes and
 all functions have CC <= 10.
+
+## Step 6: Fixture Fidelity Check
+
+After verification passes, check fixture alignment for the handler's response domain.
+This prevents drift between handler output shape and test fixture data.
+
+### 6a. Check for an existing fixture builder
+
+Search `src/fixtures/domains/` for a fixture file covering the handler's response
+domain. If no fixture builder exists, note in the summary that `/build-fixture`
+should be run for this domain.
+
+### 6b. Verify field-by-field fidelity (when a fixture builder exists)
+
+Trace the handler's data pipeline end-to-end:
+
+1. **CH wire format:** Run the handler's ClickHouse query against describe:
+   ```
+   curl -s 'http://localhost:8133/' --data-binary "DESCRIBE events.<table> FORMAT JSONEachRow"
+   ```
+   Compare CH column types against the row type in `queries.types.ts`.
+
+2. **UInt64 fields:** ClickHouse serializes UInt64 as a JSON string. Verify
+   that the row type in `queries.types.ts` types these fields as `string`,
+   not `number`. If the handler converts them via `Number()`, the fixture
+   must produce numbers (post-mapping shape), not strings.
+
+3. **Percentage fields:** Check whether the SQL multiplies by 100 (0-100
+   scale) or returns a raw fraction (0-1 scale). Document the scale in a
+   type comment on the row type field. The fixture must match the
+   post-mapping scale.
+
+4. **Duration fields:** Check whether the SQL returns milliseconds or
+   seconds. Document the unit in a type comment on the row type field.
+   If the handler formats via `formatDurationSeconds()` or similar, the
+   fixture must produce formatted duration strings (post-mapping shape).
+
+5. **Fixture builder shape:** Verify that the fixture builder produces
+   values matching the handler's post-mapping output shape, not just the
+   raw CH wire format. The handler may rename fields, convert types, or
+   compute derived values -- the fixture must reflect these transforms.
+
+### 6c. Fidelity checklist
+
+Add this block to the handler's reconciliation output:
+
+```
+Fixture Fidelity:
+  Row type matches CH wire format: <yes|no>
+  Fixture builder matches handler output shape: <yes|no|no fixture>
+  Percentage scale documented: <yes|N/A>
+  Duration units documented: <yes|N/A>
+```

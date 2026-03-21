@@ -70,6 +70,42 @@ Skip types that are:
 - Union type aliases with no structure (e.g., `type DatasetKey = 'process' | 'systems'`)
 - Types already covered by an existing fixture in another domain
 
+<!-- role: workflow -->
+
+## Step 3b: Trace the BFF handler chain
+
+Before generating field values, trace the full data pipeline for the domain
+to understand the post-mapping shape. This prevents fixture drift.
+
+1. **CH query SQL:** Read `src/server/db/queries.ts` for the ClickHouse query
+   that feeds the domain. Note column names, aggregations, and expressions.
+
+2. **Row type:** Read `src/server/db/queries.types.ts` for the row type. Note
+   which fields are `string` (UInt64 wire format) vs `number`.
+
+3. **Handler logic mapping:** Read the BFF handler(s) that process the query
+   results. Trace every field through the mapping:
+   - Field renames (e.g., `total_count` -> `totalCount`)
+   - Type conversions (e.g., `Number(row.uint64Field)`)
+   - Formatting (e.g., `formatDurationSeconds(row.seconds)`)
+   - Computed/derived fields (e.g., `timeSaved = usage * CONSTANT`)
+   - Percentage scale (0-100 from CH vs 0-1 fraction)
+
+4. **Response Zod schema:** Read the Zod schema that validates the handler
+   output. This is the contract the fixture must satisfy.
+
+The fixture must match the **post-mapping** shape (after the handler transforms
+the data), not the raw CH wire format. Key rules:
+
+- If the handler converts UInt64 strings to numbers via `Number()`, the
+  fixture must produce numbers (not strings).
+- If the handler formats durations via `formatDurationSeconds()`, the
+  fixture must produce formatted duration strings.
+- If the handler computes `timeSaved = usage * CONSTANT`, the fixture
+  must maintain that invariant.
+- If percentages come from CH at 0-100 scale, the fixture must produce
+  0-100 (not 0-1).
+
 <!-- role: emit -->
 
 ## Step 4: Generate the fixture file
@@ -207,10 +243,19 @@ individual tests without needing scenario integration.
    Zero `as any` casts. Fixture builders should use `satisfies`, not
    bare `as T` casts. Non-null assertions are acceptable only with a
    comment explaining why the value is guaranteed non-null.
-4. Check for lint issues — especially `no-duplicate-imports` (merge type and
+4. Check for lint issues -- especially `no-duplicate-imports` (merge type and
    value imports from the same module) and `no-unused-vars` (remove unused
    imports, or prefix intentionally unused params with `_`).
-5. Report the file path and whether verification passed.
+5. **Fidelity spot-check:** Call `build()` mentally (or in a scratch test)
+   and compare one sample item against the Zod schema field-by-field. For
+   each field, note the expected wire type:
+   - `z.number()` -- is the production value always integer? Float? What range?
+   - `z.string()` -- is it a formatted duration? An ISO timestamp? A UInt64?
+   - Percentage fields -- is the value 0-100 or 0-1?
+   - Duration fields -- milliseconds or seconds?
+   If any field's fixture value would not survive a round-trip through the
+   BFF handler's mapping logic, fix the builder before proceeding.
+6. Report the file path and whether verification passed.
 
 <!-- role: avoid -->
 
@@ -224,3 +269,9 @@ individual tests without needing scenario integration.
   fields should accept `pool` for consistency.
 - Do not create Zod validation tests inside the fixture file. Validation tests
   belong in a separate test file if needed.
+
+**FIXTURE FIDELITY:** Every field in the fixture builder must match the
+post-mapping shape of the BFF handler, not just pass the Zod schema.
+`z.number()` is not sufficient -- check: is the production value always
+integer? Is it milliseconds or seconds? Is it 0-100 or 0-1? Match
+the handler output exactly.
