@@ -204,6 +204,55 @@ objects and keep test data in sync with production types (Principle 6).
 If no fixture exists for a needed type, use inline data with explicit type
 annotations and `satisfies` to ensure type safety.
 
+<!-- role: anti-patterns -->
+
+## Step 5b: Anti-patterns -- `as unknown as` casts
+
+**Do NOT use `as unknown as T` to create mock data.** Use fixture builders
+or `satisfies Partial<T>`. There are three replacement patterns:
+
+### Pattern 1: Fixture builder (for domain objects)
+
+```typescript
+// BAD
+const user = { id: '1', name: 'Test' } as unknown as User;
+
+// GOOD -- fixture builder produces a complete, type-safe object
+import { userFixtures } from '@/fixtures';
+const user = userFixtures.build({ name: 'Test' });
+```
+
+Fixture builders live in `src/fixtures/domains/` and are re-exported from
+`src/fixtures/index.ts`. They accept partial overrides and return complete
+objects. Use `build()` for singles, `buildMany(n)` for arrays.
+
+### Pattern 2: `satisfies` with partial type (for subset objects)
+
+```typescript
+// BAD
+const row = { active_time_ms: 1000 } as unknown as HostTimeRow;
+
+// GOOD -- when the consuming function accepts Partial<T> or you only
+// need a subset of fields for the assertion
+const row = { active_time_ms: 1000 } satisfies Partial<HostTimeRow>;
+```
+
+### Pattern 3: Typed literal (when cast is unnecessary)
+
+```typescript
+// BAD
+const result = formatInt(42 as unknown as number);
+
+// GOOD -- the value already IS the correct type
+const result = formatInt(42);
+```
+
+If none of these patterns work, the fixture builder almost certainly has
+an `overrides` parameter that handles it: `build({ category: 'unclassified' })`.
+Check before casting. The ONLY acceptable use of `as unknown as` is for
+intentionally invalid data in error-path tests, with a comment explaining
+the intent.
+
 <!-- role: emit -->
 
 ## Step 6: Generate the spec file
@@ -508,6 +557,75 @@ it('does not fetch when no teams are selected', async () => {
 correctly WITHOUT mocking own hooks. The rendered output confirms the data
 flows through the component tree correctly.
 
+#### Scenario C: Container with multiple endpoints (URL router pattern)
+
+When a container fires several queries on mount, use `mockResponse` with
+a URL router instead of chaining `mockResponseOnce`. This avoids order
+sensitivity and handles concurrent requests:
+
+```typescript
+import { workstreamsFixtures } from '@/fixtures';
+
+const wsResponse = [workstreamsFixtures.buildWorkstreamItem({ workstream_value: 'ws-alpha' })];
+const timelineResponse = workstreamsFixtures.buildWorkstreamsTimelineResponse();
+
+const jsonHeaders = { 'content-type': 'application/json' };
+
+function mockAllApiResponses() {
+  fetchMock.mockResponse(req => {
+    const url = req.url;
+    if (url.includes('/getWorkstreams')) {
+      return Promise.resolve({ body: JSON.stringify(wsResponse), headers: jsonHeaders });
+    }
+    if (url.includes('/getActivityTimeline')) {
+      return Promise.resolve({ body: JSON.stringify(timelineResponse), headers: jsonHeaders });
+    }
+    return Promise.resolve({ body: '{}', headers: jsonHeaders });
+  });
+}
+
+describe('WorkstreamsContainer', () => {
+  beforeEach(() => {
+    fetchMock.resetMocks();
+  });
+
+  it('fetches workstreams with correct endpoint', async () => {
+    mockAllApiResponses();
+    setup();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/workstreams/getWorkstreams'),
+        expect.any(Object),
+      );
+    });
+  });
+});
+```
+
+This pattern replaces mock-the-hook-and-assert-call-args:
+
+```typescript
+// WRONG: mocking service hooks and asserting on their call arguments
+vi.mock('@/services/hooks/queries/workstreams', () => ({
+  useWorkstreamsQuery: vi.fn().mockReturnValue({ data: [], isLoading: false }),
+}));
+expect(useWorkstreamsQuery).toHaveBeenCalledWith(
+  expect.objectContaining({ users: ['user-1'] }),
+);
+
+// RIGHT: mock at HTTP boundary, assert on rendered output + URL
+mockAllApiResponses();
+setup();
+await waitFor(() => {
+  expect(screen.getByText('ws-alpha')).toBeVisible();
+});
+expect(fetchMock).toHaveBeenCalledWith(
+  expect.stringContaining('/getWorkstreams'),
+  expect.any(Object),
+);
+```
+
 #### "Nothing happened" assertions (no setTimeout)
 
 Never use `await new Promise(resolve => setTimeout(resolve, N))` to assert
@@ -643,6 +761,14 @@ describe('myFunction', () => {
    fixture builder or use `satisfies` instead.
    Non-null assertions are acceptable only with a comment explaining why
    the value is guaranteed non-null.
+
+   Also run the targeted check:
+   ```bash
+   npx tsx scripts/AST/ast-type-safety.ts <path-to-new-spec> --test-files --kind AS_UNKNOWN_AS_CAST --pretty
+   ```
+   This must report zero findings. If it reports any, replace each cast
+   using the patterns from Step 5b (fixture builder, `satisfies`, or typed
+   literal).
 4. Run `pnpm vitest run <path-to-new-spec>` — all tests must pass.
 5. If tests fail because the component needs providers or context that the
    unit test does not supply:

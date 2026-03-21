@@ -703,7 +703,7 @@ export const astConfig: AstConfig = Object.freeze({
 
   testCoverage: Object.freeze({
     riskHighThreshold: 3.0,
-    riskMediumThreshold: 1.5,
+    riskMediumThreshold: 1.2,
   }),
 
   ownership: Object.freeze({

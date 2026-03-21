@@ -69,6 +69,8 @@ Then read the production file completely. Record:
 
 ## Step 2: Score against the 10 principles
 
+Check for `as unknown as` casts and replace with fixture builders or `satisfies`.
+
 Quickly score the spec against each principle (OK or VIOLATION with count):
 
 | #   | Principle         | Score             |
@@ -135,6 +137,11 @@ If the score is 5-6/10, apply the gray-zone tiebreaker:
 For each violated principle, apply the fix patterns below. Work in this
 order (each fix may resolve violations in later principles):
 
+**Anti-pattern: `as unknown as T` casts.** Do NOT preserve `as unknown as T`
+casts when refactoring. Replace with fixture builders
+(`build('domain', { overrides })` from `src/fixtures/`) or
+`satisfies Partial<T>` where the function accepts partials.
+
 ### 4a. Fix P7 — Refactor Sync (stale references)
 
 Fix these first because they block other fixes:
@@ -175,8 +182,15 @@ Fix these first because they block other fixes:
   - A fixture builder call: `teamFixtures.build({ name: 'Test' })`
   - An explicit type: `const data: Team = { ... }`
   - A `satisfies`: `{ ... } satisfies ReturnType<typeof useMyHook>`
-- Replace every `as unknown as T` with a properly shaped object
-- Remove `eslint-disable` for type safety rules — fix the underlying issue
+- Replace every `as unknown as T` using one of three patterns:
+  1. **Fixture builder** for domain objects:
+     `build('user', { name: 'Test' })` instead of
+     `{ id: '1', name: 'Test' } as unknown as User`
+  2. **`satisfies Partial<T>`** for partial objects where the function
+     accepts partials
+  3. **Remove the cast entirely** where the value is already the correct
+     type (the cast was unnecessary)
+- Remove `eslint-disable` for type safety rules -- fix the underlying issue
 
 ### 4e. Fix P5 — Data Ownership
 
@@ -229,8 +243,9 @@ After applying fixes, check if the file structure is sound:
 
 1. Run `npx tsc --noEmit -p tsconfig.check.json` -- fix type errors in the spec.
 2. Run `pnpm vitest run <path-to-spec>` -- all tests must pass.
-3. Re-score against the 10 principles. Must be 10/10.
-4. If any principle still has violations after fixes, report which ones
+3. Run `npx tsx scripts/AST/ast-type-safety.ts <path-to-spec> --test-files --kind AS_UNKNOWN_AS_CAST --pretty` -- must report 0 occurrences.
+4. Re-score against the 10 principles. Must be 10/10.
+5. If any principle still has violations after fixes, report which ones
    and why they cannot be fixed without production-code changes.
 
 ### Step 6b: Intention matcher (MANDATORY -- do not skip)

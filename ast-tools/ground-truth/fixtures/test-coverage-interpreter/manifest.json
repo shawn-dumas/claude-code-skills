@@ -3,9 +3,9 @@
   "created": "2026-03-20",
   "source": "real-world",
   "status": "calibrated",
-  "calibratedDate": "2026-03-20",
+  "calibratedDate": "2026-03-21",
   "accuracy": "8/8 (100%)",
-  "notes": "Ground-truth fixtures for ast-interpret-test-coverage interpreter. Uses dashboard/systems/ directory which has excellent coverage diversity: 4 TESTED, 3 HIGH UNTESTED, 7+ MEDIUM UNTESTED, 20+ LOW UNTESTED, 0 INDIRECTLY_TESTED+HIGH (known gap C-03-1). Files reference real source paths.",
+  "notes": "Ground-truth fixtures for ast-interpret-test-coverage interpreter. Uses dashboard/systems/ directory which has excellent coverage diversity: 4 TESTED, 3 HIGH UNTESTED, 7+ MEDIUM UNTESTED, 20+ LOW UNTESTED, 1 INDIRECTLY_TESTED+MEDIUM (C-03-1 gap now fixed). Files reference real source paths.",
   "fixtures": [
     {
       "file": "src/ui/page_blocks/dashboard/systems/SystemsContainer.tsx",
@@ -75,20 +75,22 @@
       "file": "src/ui/page_blocks/dashboard/systems/SystemsView/SystemsCards/SystemCardMetric.tsx",
       "expected": {
         "coverage": "UNTESTED",
-        "risk": "LOW",
+        "risk": "MEDIUM",
         "riskScore": 1.25,
-        "shouldEmitTestGap": false,
-        "notes": "Small presentational component below MEDIUM threshold. LOW+UNTESTED -> no TEST_GAP emission."
+        "shouldEmitTestGap": true,
+        "expectedPriority": "P3",
+        "notes": "Small presentational component now above lowered MEDIUM threshold (1.2). MEDIUM+UNTESTED -> P3 TEST_GAP emission."
       }
     },
     {
       "file": "src/server/handlers/users/user-data.logic.ts",
       "expected": {
         "coverage": "INDIRECTLY_TESTED",
-        "risk": "LOW",
+        "risk": "MEDIUM",
         "riskScore": 4.54,
-        "shouldEmitTestGap": false,
-        "notes": "KNOWN GAP (C-03-1): riskScore 4.54 is well above HIGH threshold (3.0) but classifyRisk() only assigns HIGH/MEDIUM to UNTESTED files. INDIRECTLY_TESTED always gets LOW regardless of riskScore. This file SHOULD emit TEST_GAP but does not. The ground truth records the current (incorrect) behavior; the interpreter needs fixing per cleanup item C-03-1."
+        "shouldEmitTestGap": true,
+        "expectedPriority": "P4",
+        "notes": "C-03-1 FIXED: riskScore 4.54 is above HIGH threshold (3.0). classifyRisk() now assigns MEDIUM to INDIRECTLY_TESTED files with riskScore >= riskHighThreshold. The interpreter emits TEST_GAP with P4 priority (MEDIUM risk + INDIRECTLY_TESTED)."
       }
     }
   ]

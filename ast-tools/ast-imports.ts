@@ -994,7 +994,14 @@ function main(): void {
     return;
   }
 
-  const result = allGraphs.length === 1 ? allGraphs[0] : allGraphs;
+  const useObservations = args.options.kind || args.flags.has('count');
+  const result = useObservations
+    ? allGraphs.length === 1
+      ? extractImportObservations(allGraphs[0])
+      : allGraphs.map(g => extractImportObservations(g))
+    : allGraphs.length === 1
+      ? allGraphs[0]
+      : allGraphs;
   outputFiltered(result, args.pretty, {
     kind: args.options.kind,
     count: args.flags.has('count'),

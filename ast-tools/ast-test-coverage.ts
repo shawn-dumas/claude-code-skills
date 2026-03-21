@@ -79,6 +79,10 @@ function classifyRisk(
 
   if (coverage === 'UNTESTED' && riskScore >= riskHighThreshold) return 'HIGH';
   if (coverage === 'UNTESTED' && riskScore >= riskMediumThreshold) return 'MEDIUM';
+  // INDIRECTLY_TESTED files only escalate to MEDIUM at the HIGH threshold.
+  // Medium-risk INDIRECTLY_TESTED files stay LOW because indirect coverage
+  // provides sufficient safety for moderate complexity.
+  if (coverage === 'INDIRECTLY_TESTED' && riskScore >= riskHighThreshold) return 'MEDIUM';
   return 'LOW';
 }
 
@@ -180,7 +184,9 @@ export function analyzeTestCoverageDirectory(
   options: { filter?: FileFilter } = {},
 ): TestCoverageResult[] {
   const absolute = path.isAbsolute(dirPath) ? dirPath : path.resolve(PROJECT_ROOT, dirPath);
-  const filePaths = getFilesInDirectory(absolute, options.filter ?? 'production');
+  const filePaths = getFilesInDirectory(absolute, options.filter ?? 'production').filter(
+    fp => !fp.endsWith('.stories.ts') && !fp.endsWith('.stories.tsx'),
+  );
 
   // Pre-compute complexity for all files
   const complexityResults = analyzeComplexityDirectory(dirPath, { filter: options.filter ?? 'production' });
