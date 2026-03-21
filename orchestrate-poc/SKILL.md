@@ -687,7 +687,7 @@ Question: Which navigation group should this tab belong to?
 Header: Navigation group
 Options:
   - "People" -- User-focused insights. Current tabs: Realtime, User Productivity, Team Productivity
-  - "Process" -- Workflow insights. Current tabs: Workstream Analysis, Systems, Microworkflows
+  - "Process" -- Workflow insights. Current tabs: Workstreams, Systems, Microworkflows
   - "Platform" -- Integration insights. Current tabs: Relays, Favorites, Details, Intelligence
 ```
 
@@ -702,7 +702,7 @@ Options:
   - "Realtime" -- Real-time activity dashboard. No filters. Cards + status indicators. Live-updating data.
   - "User Productivity" -- Table of users with productivity metrics. Date/team/timezone filters. CSV export. Row drill-down.
   - "Team Productivity" -- Aggregated team metrics. Date/team filters. Charts + summary cards.
-  - "Workstream Analysis" -- Workstream timing and flow analysis. Workstream-specific filters. Charts + timeline.
+  - "Workstreams" -- Workstream timing and flow analysis. Workstream-specific filters. Charts + timeline.
   - "Systems" -- System overview with drill-down to pages and activities. Opportunity filters. Nested tables.
   - "Microworkflows" -- Aggregated microworkflow patterns. Opportunity filters. Table with expandable rows.
   - "Relays" -- Relay usage KPIs + user detail table. Date/team filters. KPI cards + table.
@@ -882,7 +882,7 @@ Options:
   - "SystemData" -- Per-system usage: name, host, user count, page count, time spent. Available via /api/mock/users/data-api/systems/overview
   - "CompanyKPIs" -- Org-wide KPIs: automation opportunities, total systems, efficiency scores. Available via systems endpoint.
   - "OperationalHours" -- Team operational hours: scheduled vs. actual, by day/week. Available via /api/mock/users/data-api/productivity/getOperationalAnalysis
-  - "WorkstreamData" -- Workstream timing and load info. Available via /api/mock/users/data-api/workstream-analysis/*
+  - "WorkstreamData" -- Workstream timing and load info. Available via /api/mock/users/data-api/workstreams/*
   - "RelayUsage" -- Relay system usage KPIs + per-user breakdown. Available via /api/mock/users/data-api/relay-usage/*
   - "FavoriteUsage" -- Favorite system usage KPIs + per-user breakdown. Available via /api/mock/users/data-api/favorite-usage/*
 
@@ -1946,7 +1946,7 @@ Sidebar
   |     |     |-- User Productivity        (always visible)
   |     |     |-- Team Productivity        (always visible)
   |     |-- Process group
-  |     |     |-- Workstream Analysis      flag: workstream_analysis_insights_enabled
+  |     |     |-- Workstreams              flag: workstream_analysis_insights_enabled
   |     |     |-- Systems                  flag: systems_insights_enabled
   |     |     |-- Microworkflows           flag: opportunities_insights_enabled
   |     |-- Platform group
@@ -1995,7 +1995,7 @@ _app.tsx > Providers > getLayout
 | Realtime            | operational-status/  | RealtimeActivityContainer              | null               |
 | User Productivity   | team/                | ProductivityBlock (variant='basic')    | userProductivity   |
 | Team Productivity   | operational-hours/   | TeamProductivityContainer              | teamProductivity   |
-| Workstream Analysis | workstream-analysis/ | WorkstreamAnalysisContainer            | workstreamAnalysis |
+| Workstreams          | workstreams/         | WorkstreamsContainer                   | workstreamAnalysis |
 | Systems             | systems/             | SystemsContainer                       | systems            |
 | Microworkflows      | opportunities/       | OpportunityBlock                       | opportunities      |
 | Relays              | usage/               | RelayUsageBlock                        | relayUsage         |
@@ -2032,8 +2032,8 @@ _app.tsx > Providers > getLayout
 | Productivity   | /users/data-api/productivity/getHostTime              | UserStats[]               | Per-host time breakdown             |
 | Productivity   | /users/data-api/productivity/getOperationalAnalysis   | OperationalHoursData      | Team operational hours analysis     |
 | Productivity   | /users/data-api/productivity/getTtmForDays            | TTM data                  | Time-to-first-action metrics        |
-| Workstreams    | /users/data-api/workstream-analysis/getWorkstreamList | WorkstreamData[]          | Workstream listing                  |
-| Workstreams    | /users/data-api/workstream-analysis/getTimingInfo     | TimingInfo                | Workstream timing analysis          |
+| Workstreams    | /users/data-api/workstreams/getWorkstreams            | WorkstreamData[]          | Workstream listing                  |
+| Workstreams    | /users/data-api/workstreams/getActivityTimeline       | ActivityTimeline          | Workstream activity timeline        |
 | Microworkflows | /users/data-api/opportunities/microworkflows          | AggregatedMicroworkflow[] | Aggregated workflow patterns        |
 | Microworkflows | /users/data-api/opportunities/microworkflows/details  | MicroworkflowDetail[]     | Individual workflow instances       |
 | Microworkflows | /users/data-api/opportunities/microworkflows/by-user  | MicroworkflowByUser[]     | Per-user workflow breakdown         |

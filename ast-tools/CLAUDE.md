@@ -33,6 +33,7 @@ These tools are registered in `tool-registry.ts` and can be run via
 | ast-type-safety | `npx tsx scripts/AST/ast-type-safety.ts <path>` | Detects as-any, as-unknown, non-null assertions, trust boundary casts |
 | ast-pw-test-parity | `npx tsx scripts/AST/ast-pw-test-parity.ts <path>` | Inventories Playwright spec structure, assertions, route intercepts |
 | ast-vitest-parity | `npx tsx scripts/AST/ast-vitest-parity.ts <path>` | Inventories Vitest spec structure, assertions, mocks, renders |
+| ast-branded-check | `npx tsx scripts/AST/ast-branded-check.ts <path>` | Detects unbranded ID fields and unbranded function params (UNBRANDED_PARAM) |
 
 ### Standalone Tools (not in registry)
 
@@ -41,7 +42,6 @@ These tools operate on non-TypeScript inputs or have specialized APIs.
 | Tool | CLI | Description |
 |---|---|---|
 | ast-bff-gaps | `npx tsx scripts/AST/ast-bff-gaps.ts` | Compares BFF routes vs mock routes, finds missing/stub endpoints |
-| ast-branded-check | `npx tsx scripts/AST/ast-branded-check.ts <path>` | Detects unbranded ID fields and unbranded function params (UNBRANDED_PARAM) |
 | ast-peer-deps | `npx tsx scripts/AST/ast-peer-deps.ts` | Checks peer dependency satisfaction across all installed packages |
 | ast-plan-audit | `npx tsx scripts/AST/ast-plan-audit.ts <path>` | Audits orchestration plan markdown (MDAST-based, not TypeScript AST) |
 | ast-skill-analysis | `npx tsx scripts/AST/ast-skill-analysis.ts <path>` | Analyzes skill file structure, stale paths, broken cross-refs |
@@ -80,17 +80,127 @@ Interpreters consume observations and emit assessments with confidence levels.
 | tool-registry.ts | Tool name to analyzer function mapping |
 | types.ts | All observation and assessment type definitions |
 
-## 2. Observation Types
+## 2. Observation/Assessment Architecture
 
-All observation types are defined in `types.ts`. Each observation has
-`kind`, `file`, `line`, and `evidence` (a typed record specific to the kind).
+The AST tools follow a three-layer architecture:
 
-Assessments add `confidence` (high/medium/low), `rationale`, `basedOn`
-(observation references), `isCandidate`, and `requiresManualReview`.
+1. **Observations** (emitted by tools): Line-anchored structural facts.
+   Every observation has a `kind` (e.g., `HOOK_CALL`, `JSX_TERNARY_CHAIN`),
+   `file`, `line`, and `evidence` (structured details). Observations are
+   objective -- no classifications or judgments.
 
-Reference `types.ts` for the canonical field definitions. The CLAUDE.md
-in the project root lists observation kinds per tool in the "Tool inventory"
-table.
+2. **Assessments** (emitted by interpreters): Interpretations over
+   observations plus repo config. Every assessment has `confidence`
+   (high/medium/low), `rationale`, `basedOn` (which observations), and
+   `requiresManualReview`. Assessments answer "is this a violation?"
+
+3. **Report policy** (owned by skills): Skills decide when to mark
+   `[AST-confirmed]`, bump severity, or force manual review.
+
+The `ast-config.ts` file centralizes all repo conventions (hook lists,
+path patterns, thresholds). Interpreters read from `astConfig` to make
+classifications.
+
+All observation types are defined in `types.ts`. Reference it for
+canonical field definitions.
+
+### Observation kinds per tool
+
+| Tool                  | Observations emitted                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Interpreter                                                               |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `ast-imports`         | `STATIC_IMPORT`, `DYNAMIC_IMPORT`, `EXPORT_DECLARATION`, `CIRCULAR_DEPENDENCY`, `DEAD_EXPORT_CANDIDATE`                                                                                                                                                                                                                                                                                                                                                                                                        | `ast-interpret-dead-code`                                                 |
+| `ast-react-inventory` | `HOOK_CALL`, `EFFECT_LOCATION`, `EFFECT_*`, `COMPONENT_DECLARATION`, `PROP_FIELD`                                                                                                                                                                                                                                                                                                                                                                                                                              | `ast-interpret-effects`, `ast-interpret-hooks`, `ast-interpret-ownership` |
+| `ast-jsx-analysis`    | `JSX_TERNARY_CHAIN`, `JSX_GUARD_CHAIN`, `JSX_TRANSFORM_CHAIN`, `JSX_IIFE`, `JSX_INLINE_HANDLER`, `JSX_RETURN_BLOCK`                                                                                                                                                                                                                                                                                                                                                                                            | `ast-interpret-template`                                                  |
+| `ast-test-analysis`   | `MOCK_DECLARATION`, `ASSERTION_CALL`, `RENDER_CALL`, `CLEANUP_CALL`, `FIXTURE_IMPORT`                                                                                                                                                                                                                                                                                                                                                                                                                          | `ast-interpret-test-quality`                                              |
+| `ast-complexity`      | `FUNCTION_COMPLEXITY`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | (observation-only)                                                        |
+| `ast-data-layer`      | `QUERY_HOOK_DEFINITION`, `MUTATION_HOOK_DEFINITION`, `FETCH_API_CALL`, `QUERY_KEY_FACTORY`                                                                                                                                                                                                                                                                                                                                                                                                                     | (observation-only)                                                        |
+| `ast-side-effects`    | `CONSOLE_CALL`, `TOAST_CALL`, `TIMER_CALL`, `POSTHOG_CALL`, `WINDOW_MUTATION`                                                                                                                                                                                                                                                                                                                                                                                                                                  | (observation-only)                                                        |
+| `ast-storage-access`  | `DIRECT_STORAGE_CALL`, `TYPED_STORAGE_CALL`, `JSON_PARSE_CALL`, `COOKIE_CALL`                                                                                                                                                                                                                                                                                                                                                                                                                                  | (observation-only)                                                        |
+| `ast-env-access`      | `PROCESS_ENV_ACCESS`, `ENV_WRAPPER_ACCESS`, `ENV_WRAPPER_IMPORT`                                                                                                                                                                                                                                                                                                                                                                                                                                               | (observation-only)                                                        |
+| `ast-feature-flags`   | `FLAG_HOOK_CALL`, `FLAG_READ`, `PAGE_GUARD`, `CONDITIONAL_RENDER`                                                                                                                                                                                                                                                                                                                                                                                                                                              | (observation-only)                                                        |
+| `ast-type-safety`     | `AS_ANY_CAST`, `NON_NULL_ASSERTION`, `TS_DIRECTIVE`, `TRUST_BOUNDARY_CAST`                                                                                                                                                                                                                                                                                                                                                                                                                                     | (observation-only)                                                        |
+| `ast-pw-test-parity`  | `PW_TEST_BLOCK`, `PW_ASSERTION`, `PW_ROUTE_INTERCEPT`, `PW_NAVIGATION`, `PW_POM_USAGE`, `PW_AUTH_CALL`, `PW_SERIAL_MODE`, `PW_BEFORE_EACH`                                                                                                                                                                                                                                                                                                                                                                     | `ast-interpret-pw-test-parity`                                            |
+| `ast-refactor-intent` | `INTENT_SIGNAL_BEFORE`, `INTENT_SIGNAL_AFTER`, `INTENT_SIGNAL_PAIR`                                                                                                                                                                                                                                                                                                                                                                                                                                            | `ast-interpret-refactor-intent`                                           |
+| `ast-authz-audit`     | `RAW_ROLE_CHECK`, `RAW_ROLE_EQUALITY`                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | (observation-only)                                                        |
+| `ast-bff-gaps`        | `BFF_STUB_ROUTE`, `MOCK_ROUTE`, `BFF_MISSING_ROUTE`, `QUERY_HOOK_BFF_GAP`                                                                                                                                                                                                                                                                                                                                                                                                                                      | (observation-only)                                                        |
+| `ast-branded-check`   | `UNBRANDED_ID_FIELD`, `UNBRANDED_PARAM`                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | (observation-only)                                                        |
+| `ast-vitest-parity`   | `VT_DESCRIBE_BLOCK`, `VT_TEST_BLOCK`, `VT_ASSERTION`, `VT_MOCK_DECLARATION`, `VT_RENDER_CALL`, `VT_FIXTURE_IMPORT`, `VT_BEFORE_EACH`, `VT_AFTER_EACH`                                                                                                                                                                                                                                                                                                                                                          | `ast-interpret-vitest-parity`                                             |
+| `ast-error-coverage`  | `QUERY_ERROR_HANDLED`, `QUERY_ERROR_UNHANDLED`, `MUTATION_ERROR_HANDLED`, `MUTATION_ERROR_UNHANDLED`, `GLOBAL_ERROR_HANDLER`                                                                                                                                                                                                                                                                                                                                                                                   | (observation-only)                                                        |
+| `ast-concern-matrix`  | `CONTAINER_HANDLES_LOADING`, `CONTAINER_HANDLES_ERROR`, `CONTAINER_HANDLES_EMPTY`, `CONTAINER_HANDLES_PERMISSION`, `CONTAINER_MISSING_LOADING`, `CONTAINER_MISSING_ERROR`, `CONTAINER_MISSING_EMPTY`, `CONTAINER_MISSING_PERMISSION`                                                                                                                                                                                                                                                                           | (observation-only)                                                        |
+| `ast-export-surface`  | `EXPORT_SURFACE`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | (observation-only)                                                        |
+| `ast-plan-audit`      | `PLAN_HEADER_MISSING`, `PLAN_HEADER_INVALID`, `VERIFICATION_BLOCK_MISSING`, `CLEANUP_FILE_MISSING`, `PROMPT_FILE_MISSING`, `PROMPT_VERIFICATION_MISSING`, `PROMPT_DEPENDENCY_CYCLE`, `PROMPT_MODE_UNSET`, `STANDING_ELEMENT_MISSING`, `RECONCILIATION_TEMPLATE_MISSING`, `PRE_FLIGHT_CERTIFIED`, `PRE_FLIGHT_CONDITIONAL`, `PRE_FLIGHT_BLOCKED`, `PRE_FLIGHT_MARK_MISSING`, `NAMING_CONVENTION_INSTRUCTION`, `CLIENT_SIDE_AGGREGATION`, `DEFERRED_CLEANUP_REFERENCE`, `FILE_PATH_REFERENCE`, `SKILL_REFERENCE` | (observation-only, MDAST-based)                                           |
+| `ast-skill-analysis`  | `SKILL_SECTION`, `SKILL_STEP`, `SKILL_SECTION_ROLE`, `SKILL_CODE_BLOCK`, `SKILL_COMMAND_REF`, `SKILL_FILE_PATH_REF`, `SKILL_CROSS_REF`, `SKILL_DOC_REF`, `SKILL_TABLE`, `SKILL_CHECKLIST_ITEM`, `SKILL_SUPERSEDED_PATTERN`, `SKILL_MISSING_CONVENTION`, `SKILL_CONVENTION_ALIGNED`, `SKILL_INVALID_ROLE`                                                                                                                                                                                                       | `ast-interpret-skill-quality`                                             |
+| `ast-number-format`   | `FORMAT_NUMBER_CALL`, `FORMAT_INT_CALL`, `FORMAT_DURATION_CALL`, `FORMAT_CELL_VALUE_CALL`, `RAW_TO_FIXED`, `RAW_TO_LOCALE_STRING`, `PERCENTAGE_DISPLAY`, `INTL_NUMBER_FORMAT`                                                                                                                                                                                                                                                                                                                                  | `ast-interpret-display-format`                                            |
+| `ast-null-display`    | `NULL_COALESCE_FALLBACK`, `FALSY_COALESCE_FALLBACK`, `NO_FALLBACK_CELL`, `HARDCODED_PLACEHOLDER`, `EMPTY_STATE_MESSAGE`, `ZERO_CONFLATION`                                                                                                                                                                                                                                                                                                                                                                    | `ast-interpret-display-format`                                            |
+| `ast-peer-deps`       | `PEER_DEP_SATISFIED`, `PEER_DEP_VIOLATED`, `PEER_DEP_OPTIONAL_MISSING`                                                                                                                                                                                                                                                                                                                                                                                                                                        | (observation-only, JSON metadata)                                         |
+
+## 3. Calibration
+
+All 9+ interpreter tools have ground-truth calibration fixtures in
+`scripts/AST/ground-truth/`. The `/calibrate-ast-interpreter` skill
+introduces a feedback loop: interpreters emit assessments, the calibration
+skill measures accuracy against fixture ground truth, and tunes the
+weights/thresholds in `ast-config.ts`. The skill follows a diagnostic-first
+approach: it checks for algorithmic defects (hard ceilings, double-counting)
+before tuning weights. Consuming skills (audit, build, refactor) create
+feedback fixtures when they encounter misclassifications, and the calibration
+skill consumes them in batches (3+ pending fixtures). See
+`scripts/AST/docs/ast-calibration.md` for accuracy baselines and calibration
+history.
+
+**Calibration cadence check.** Before starting any orchestration plan that
+runs audit, refactor, or build skills, check pending fixture count:
+
+```bash
+for f in scripts/AST/ground-truth/fixtures/*/manifest.json; do
+  tool=$(python3 -c "import json; print(json.load(open('$f')).get('status',''))")
+  [ "$tool" = "pending" ] && echo "PENDING: $f"
+done
+```
+
+If any interpreter tool has 3+ pending fixtures, run
+`/calibrate-ast-interpreter --tool <name>` before proceeding.
+
+## 4. Running AST Tools
+
+```bash
+# Observation output (JSON by default)
+npx tsx scripts/AST/ast-complexity.ts src/shared/utils/date/formatDate.ts
+
+# Pretty-printed observation output
+npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/dashboard/team/**/*.tsx --pretty
+
+# Filter by observation kind
+npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/ --kind MOCK_DECLARATION
+
+# Count mode for verification
+npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/ --kind TIMER_NEGATIVE_ASSERTION --count
+
+# Scan test files with any tool
+npx tsx scripts/AST/ast-type-safety.ts src/ui/page_blocks/dashboard/ --test-files --kind AS_UNKNOWN_AS_CAST
+
+# Multi-file
+npx tsx scripts/AST/ast-type-safety.ts src/shared/utils/date/*.ts src/shared/utils/string/*.ts
+
+# Run an interpreter
+npx tsx scripts/AST/ast-interpret-effects.ts src/ui/page_blocks/dashboard/team/
+```
+
+### CLI flags
+
+All observation tools accept these flags:
+
+- `--pretty` -- human-readable JSON output
+- `--kind <KIND>` -- filter observations to a single kind
+- `--count` -- output observation kind counts (e.g., `{"MOCK_DECLARATION": 5}`)
+- `--test-files` -- scan test/spec files instead of production files
+- `--no-cache` -- bypass the file-content cache
+
+Exceptions: `ast-test-analysis` omits `--test-files` (always scans test
+files by design). `ast-imports` omits `--no-cache` (builds a cross-file
+dependency graph, no per-file cache).
+
+## 6. Authority Rules
 
 ## 3. Authority Rules
 
@@ -113,7 +223,7 @@ table.
    `scripts/AST/GAPS.md`. This tracks un-relocated judgments for future
    tool development.
 
-## 4. Ground Truth Fixtures
+## 7. Ground Truth Fixtures
 
 Fixtures live in `scripts/AST/__tests__/fixtures/`. Each fixture is a
 minimal TypeScript/TSX file that exercises specific observation or
@@ -135,7 +245,7 @@ The tests validate that:
 - Interpreters produce assessments matching ground truth classifications
 - Edge cases (negative fixtures) produce zero observations
 
-## 5. Adding New Tools
+## 8. Adding New Tools
 
 Checklist:
 

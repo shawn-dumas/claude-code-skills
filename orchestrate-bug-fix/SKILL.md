@@ -451,7 +451,7 @@ description and root cause analysis. Example:
 
 If you want to confirm the fix in the browser:
 
-1. Open /insights/workstream-analysis
+1. Open /insights/workstreams
 2. Select two workstreams via checkbox
 3. Navigate away, then press browser back button
 4. Confirm: row checkboxes match the workstreams in the URL

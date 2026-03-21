@@ -360,7 +360,7 @@ Local BFF bugs: <N>
 | Team Productivity   | `/insights/team-productivity`   |
 | Systems             | `/insights/systems`             |
 | Microworkflows      | `/insights/microworkflows`      |
-| Workstream Analysis | `/insights/workstream-analysis` |
+| Workstreams          | `/insights/workstreams`         |
 | Relays              | `/insights/relays`              |
 | Favorites           | `/insights/favorites`           |
 | Chat                | `/insights/chat`                |
@@ -504,7 +504,7 @@ before clicking).
    (match by SOURCE SYSTEM + TARGET SYSTEM). Diff. Document.
 6. **Navigate back** to the main table.
 
-### Workstream Analysis (`/insights/workstream-analysis`)
+### Workstreams (`/insights/workstreams`)
 
 1. This page loads without requiring a team filter — it shows all
    workstream definitions. Wait for load.

@@ -1057,7 +1057,7 @@ skill that embeds codebase-specific reference data, create a companion
 Coordinates a multi-file bug fix. You describe the bug; the skill investigates the codebase, identifies affected files, generates targeted fix prompts with verification commands, and runs them in sequence.
 
 ```
-/orchestrate-bug-fix Row selection desyncs from URL state when using browser back button on workstream analysis page
+/orchestrate-bug-fix Row selection desyncs from URL state when using browser back button on systems page
 ```
 
 ### orchestrate-feature
