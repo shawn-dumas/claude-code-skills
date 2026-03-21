@@ -47,6 +47,7 @@ These tools operate on non-TypeScript inputs or have specialized APIs.
 | ast-skill-analysis | `npx tsx scripts/AST/ast-skill-analysis.ts <path>` | Analyzes skill file structure, stale paths, broken cross-refs |
 | ast-refactor-intent | `npx tsx scripts/AST/ast-refactor-intent.ts --before <dir> --after <dir>` | Compares before/after observation sets to detect accidental behavioral drops |
 | ast-field-refs | `npx tsx scripts/AST/ast-field-refs.ts <path> --field <name>` | Finds all structural references to a field/property name (access, destructuring, type defs, string literals) |
+| ast-date-handling | `npx tsx scripts/AST/ast-date-handling.ts <path> [--summary]` | Detects raw Date usage vs. Temporal/formatDate. Classifies by layer (fe/bff/shared). Use `--summary` for raw/proper ratio. |
 
 ### Interpreters
 
