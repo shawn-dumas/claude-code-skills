@@ -1249,6 +1249,8 @@ source, check whether an AST tool handles the query:
 | "How is X mocked in tests?"        | `ast-test-analysis --test-files`           | Mock patterns, cleanup gaps                                     |
 | "Cyclomatic complexity?"           | `ast-complexity`                           | Per-function CC scores                                          |
 | "Circular dependencies?"           | `ast-imports --kind CIRCULAR_DEPENDENCY`   | Cross-file cycle detection                                      |
+| "Which files import symbol X?"     | `ast-imports --symbol <name>`              | `ast-imports src/ --symbol BadRequestError --pretty`            |
+| "Where is field `foo` used?"       | `ast-field-refs --field <name>`            | `ast-field-refs src/ --field active_time_ms --pretty`           |
 
 **Gap-flagging (mandatory).** When using `sg` OR `rg` on TypeScript source
 because no AST tool covers the pattern, append an entry to

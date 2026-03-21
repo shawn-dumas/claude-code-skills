@@ -902,13 +902,14 @@ export { traceBarrelChain, isBarrelFile };
 
 function main(): void {
   const args = parseArgs(process.argv, {
-    namedOptions: ['--consumers'],
+    namedOptions: ['--consumers', '--symbol'],
   });
 
   if (args.help) {
     process.stdout.write(
       'Usage: npx tsx scripts/AST/ast-imports.ts <path...> [--pretty] [--no-cache] [--test-files] [--kind <kind>] [--count]\n' +
         '       npx tsx scripts/AST/ast-imports.ts --consumers <file> [--pretty]\n' +
+        '       npx tsx scripts/AST/ast-imports.ts <path...> --symbol <name> [--pretty]\n' +
         '\n' +
         'Analyze imports, exports, and dependency relationships.\n' +
         '\n' +
@@ -918,7 +919,9 @@ function main(): void {
         '  --test-files  Scan test files instead of production files\n' +
         '  --kind        Filter observations to a specific kind\n' +
         '  --count       Output observation kind counts instead of full data\n' +
-        '  --consumers   Find all files that import the given file (reverse lookup)\n',
+        '  --consumers   Find all files that import the given file (reverse lookup)\n' +
+        '  --symbol      Filter STATIC_IMPORT to files importing a specific named export\n' +
+        '                e.g., --symbol filterOutAdminUids shows only files that import that symbol\n',
     );
     process.exit(0);
   }
@@ -960,6 +963,35 @@ function main(): void {
     }
 
     allGraphs.push(buildDependencyGraph(targetPath, { filter: testFiles ? 'test' : 'production' }));
+  }
+
+  // --symbol mode: filter to files importing a specific named export
+  if (args.options.symbol) {
+    const symbol = args.options.symbol;
+    const matchingFiles: Array<{ file: string; source: string; line: number; specifiers: string[] }> = [];
+
+    for (const graph of allGraphs) {
+      for (const file of graph.files) {
+        for (const imp of file.imports) {
+          if (imp.specifiers.some(s => s === symbol || s.startsWith(`${symbol} as `))) {
+            matchingFiles.push({
+              file: file.relativePath,
+              source: imp.source,
+              line: imp.line,
+              specifiers: imp.specifiers,
+            });
+          }
+        }
+      }
+    }
+
+    const output = {
+      symbol,
+      consumers: matchingFiles.length,
+      files: matchingFiles,
+    };
+    process.stdout.write(JSON.stringify(output, null, args.pretty ? 2 : 0) + '\n');
+    return;
   }
 
   const result = allGraphs.length === 1 ? allGraphs[0] : allGraphs;
