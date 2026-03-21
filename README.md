@@ -1223,18 +1223,39 @@ policy.
 query. Never use a lower-tier tool when a higher-tier tool handles the
 pattern.
 
-| Tier | Tool                               | Use for                                         | Examples                                                                                                         |
-| ---- | ---------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| 1    | AST tools (`scripts/AST/ast-*.ts`) | Domains with purpose-built analyzers            | `ast-imports` for import graph, `ast-complexity` for cyclomatic complexity, `ast-type-safety` for cast detection |
-| 2    | `sg` (ast-grep)                    | Structural code patterns with no AST tool       | `sg -p 'createColumnHelper()' src/`, `sg -p 'useHookName($$$)' src/`                                             |
-| 3    | `rg` (ripgrep)                     | Fast text search when structure does not matter | Config values, string literals, non-code content                                                                 |
-| 4    | `grep`                             | Fallback only                                   | Piped output filtering, environments without rg                                                                  |
+| Tier | Tool                               | Use for                                            | Examples                                                                                                         |
+| ---- | ---------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 1    | AST tools (`scripts/AST/ast-*.ts`) | Domains with purpose-built analyzers               | `ast-imports` for import graph, `ast-complexity` for cyclomatic complexity, `ast-type-safety` for cast detection |
+| 2    | `sg` (ast-grep) via Bash           | Structural code patterns with no AST tool          | `sg -p 'createColumnHelper()' src/`, `sg -p 'useHookName($$$)' src/`                                             |
+| 3    | `rg` (ripgrep) via Bash            | Non-code text (docs, plans, config, SQL, SKILL.md) | Config values, string literals, markdown content                                                                 |
 
-**Gap-flagging.** When using `sg` because no AST tool covers the pattern,
-append an entry to `scripts/AST/GAPS.md`. One row per pattern class, not
-per invocation. Before reaching for `sg`, check GAPS.md -- if the pattern
-has a `filled` entry, use that AST tool instead. Use `/build-ast-tool` to
-fill gaps from the registry.
+**Do NOT use the Grep tool** (the Claude Code built-in) for TypeScript
+source code. The Grep tool bypasses the tool hierarchy -- agents default
+to it because it is convenient, skipping the AST tools entirely. For
+TS/TSX files in `src/`, `integration/`, and `scripts/`, use AST tools
+(Tier 1) or `sg`/`rg` via Bash (Tier 2-3). The Grep tool is acceptable
+only for non-code files (docs, plans, markdown, JSON, SQL, SKILL.md).
+
+**AST tool lookup.** Before reaching for `rg` or `sg` on TypeScript
+source, check whether an AST tool handles the query:
+
+| Query type                         | AST tool                                   | CLI example                                                     |
+| ---------------------------------- | ------------------------------------------ | --------------------------------------------------------------- |
+| "Where is `FooBar` used/imported?" | `ast-imports`                              | `npx tsx scripts/AST/ast-imports.ts src/ --pretty`              |
+| "Who exports X? Dead exports?"     | `ast-imports --kind DEAD_EXPORT_CANDIDATE` | Finds exports with no consumers                                 |
+| "Where is `useMyHook` called?"     | `ast-react-inventory`                      | `npx tsx scripts/AST/ast-react-inventory.ts src/path/ --pretty` |
+| "Any `as any` or `!` assertions?"  | `ast-type-safety`                          | `npx tsx scripts/AST/ast-type-safety.ts src/path/ --pretty`     |
+| "What does this useEffect do?"     | `ast-interpret-effects`                    | Classifies each useEffect                                       |
+| "How is X mocked in tests?"        | `ast-test-analysis --test-files`           | Mock patterns, cleanup gaps                                     |
+| "Cyclomatic complexity?"           | `ast-complexity`                           | Per-function CC scores                                          |
+| "Circular dependencies?"           | `ast-imports --kind CIRCULAR_DEPENDENCY`   | Cross-file cycle detection                                      |
+
+**Gap-flagging (mandatory).** When using `sg` OR `rg` on TypeScript source
+because no AST tool covers the pattern, append an entry to
+`scripts/AST/GAPS.md`. This applies to BOTH Tier 2 and Tier 3. One row
+per pattern class, not per invocation. Before reaching for `sg` or `rg`,
+check GAPS.md -- if the pattern has a `filled` entry, use that AST tool
+instead. Use `/build-ast-tool` to fill gaps from the registry.
 
 ### Three-layer architecture
 

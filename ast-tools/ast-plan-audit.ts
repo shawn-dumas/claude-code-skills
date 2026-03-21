@@ -315,13 +315,16 @@ function checkStandingElements(tree: MdNode, file: string, obs: PlanAuditObserva
   const config = resolveConfig();
   const answerPatterns = config.planAudit.standingElementAnswerPatterns.map(p => toRegex(p));
 
+  // --- Approach 1: Heading + list format (## Standing Elements / - NAME: Yes) ---
   const children = tree.children ?? [];
+  let foundViaHeading = false;
   for (let i = 0; i < children.length; i++) {
     const child = children[i];
     if (child.type !== 'heading') continue;
     const text = nodeText(child).toLowerCase();
     if (!text.includes('standing') || !text.includes('element')) continue;
 
+    foundViaHeading = true;
     const headingDepth = child.depth ?? 2;
 
     for (let j = i + 1; j < children.length; j++) {
@@ -346,6 +349,42 @@ function checkStandingElements(tree: MdNode, file: string, obs: PlanAuditObserva
       }
     }
     break; // only process first standing elements section
+  }
+
+  // --- Approach 2: Blockquote header format (> Standing elements: NAME (Yes), ...) ---
+  // Plans commonly use this compact format in the blockquote header.
+  if (!foundViaHeading) {
+    const content = children.map(c => nodeText(c)).join('\n');
+    const lines = content.split('\n');
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li];
+      const headerMatch = line.match(/Standing elements?:\s*(.*)/i);
+      if (!headerMatch) continue;
+
+      // Collect the full standing elements text (may span continuation lines)
+      let fullText = headerMatch[1];
+      for (let k = li + 1; k < lines.length; k++) {
+        const contLine = lines[k].replace(/^\s*>\s?/, '').trim();
+        if (/^[A-Z][A-Z\s_]+?\s*\(/.test(contLine)) {
+          fullText += ', ' + contLine;
+        } else {
+          break;
+        }
+      }
+
+      // Parse individual elements: "NAME (answer), NAME (answer), ..."
+      const elementPattern = /([A-Z][A-Z\s_]+?)\s*\(([^)]*)\)/g;
+      let em;
+      while ((em = elementPattern.exec(fullText)) !== null) {
+        const name = em[1].trim();
+        const val = em[2].trim();
+        const isFilled = answerPatterns.some(p => p.test(val));
+        if (!isFilled) {
+          emit(obs, 'STANDING_ELEMENT_MISSING', file, li + 1, { elementName: name });
+        }
+      }
+      break;
+    }
   }
 }
 

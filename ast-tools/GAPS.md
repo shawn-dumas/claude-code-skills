@@ -20,6 +20,7 @@ Use the `/build-ast-tool` skill to fill gaps from this list.
 | 2026-03-18 | Export surface extraction from isolated files (no import resolution, works on git refs)                | `git show <ref>:<path> \| grep '^export '`                                   | ast-export-surface EXPORT_SURFACE                 | rewrite verification provenance audit (202 deleted files)                        | filled (ast-export-surface)      |
 | 2026-03-18 | Skill file structural analysis (stale paths, broken cross-refs, command inventory, section structure)  | `rg 'tsc --noEmit' .claude/skills/` + manual grep for file paths             | ast-skill-analysis SKILL\_\*                      | doc audit found 40 stale tsc commands and 15+ stale type paths across skills     | filled (ast-skill-analysis)      |
 | 2026-03-19 | Number formatting and null/empty display pattern detection (toFixed bypass, wrong placeholders, falsy coalescing on numeric columns, zero/null conflation) | `sg -p '$X.toFixed($$$)' src/` (rg-based detection also used: `rg 'N/A\|--\|toFixed' src/`) | ast-number-format + ast-null-display | display-conventions plan, audit-display-conventions skill | filled (ast-number-format, ast-null-display) |
+| 2026-03-20 | Object field/property reference lookup (find all files referencing a specific field name like `active_time_ms` in object access, destructuring, or type definitions) | `rg 'active_time_ms\|idle_time_ms' src/` | ast-field-refs or sg pattern | restore-workstreams P08 standing elements, cleanup normalization work | open |
 
 ## Rules
 
@@ -30,5 +31,10 @@ Use the `/build-ast-tool` skill to fill gaps from this list.
    "find all consumers of a hook by call-site matching."
 3. **Status values:** `open`, `filled (<tool-name>)`, `wont-fix (<reason>)`.
    `wont-fix` is for patterns too narrow or too infrequent to justify a tool.
-4. **Before using sg**, check this registry. If the pattern already has a
-   `filled` entry, use the AST tool instead.
+4. **Before using sg or rg on TypeScript source**, check this registry. If
+   the pattern already has a `filled` entry, use the AST tool instead.
+5. **Both sg and rg trigger gap-flagging.** The old rule only required
+   gap entries for `sg`. As of 2026-03-20, any `rg` or Grep tool use on
+   TypeScript source files (`src/`, `integration/`, `scripts/`) where the
+   query is structural (identifier lookup, import/export search, hook call
+   detection, mock pattern analysis) also requires a gap entry.
