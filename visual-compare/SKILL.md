@@ -2,7 +2,7 @@
 name: visual-compare
 description: Side-by-side visual comparison of the local dev environment vs. a remote app environment. Autonomously navigates both browsers through every dashboard page, exercises all filters and interactions, and documents discrepancies in a session report.
 context: fork
-allowed-tools: Bash(playwright-cli:*), Read, Write, Bash(date:*), Bash(mkdir:*), Bash(sed:*), Bash(diff:*), Bash(cat:*)
+allowed-tools: Bash(playwright-cli:*), Read, Write, Bash(date:*), Bash(mkdir:*), Bash(sed:*), Bash(diff:*), Bash(cat:*), Bash(grep:*), Bash(sort:*), Bash(wc:*), Bash(head:*), Bash(tail:*), Bash(sleep:*), Bash(bash .claude/skills/visual-compare/scripts/*:*)
 argument-hint: <app|app-staging|app-development>
 ---
 
@@ -149,17 +149,59 @@ playwright-cli -s=remote eval "document.querySelectorAll('[role=\"radio\"]')[1].
 fresh snapshot of each browser before interacting, and use the refs from THAT snapshot.
 The same element will likely have different ref IDs in local vs remote.
 
+### Browser-side JS helpers
+
+Reusable JS snippets are in `.claude/skills/visual-compare/scripts/vc-browser-helpers.js`.
+These use testids and DOM queries instead of snapshot ref IDs, so they work
+without needing to discover refs from a snapshot first. Read the file for
+the full list. Key snippets:
+
+| Snippet | What it does | Usage |
+|---|---|---|
+| `PAGE_STATUS` | Returns `loaded:N results`, `error:...`, `empty:...`, or `loading` | Check before diffing |
+| `OPEN_TEAM_DROPDOWN` | Opens the FilterSelect team dropdown | Then `SEARCH_TEAM` + `CLICK_TEAM_OPTION` |
+| `CLICK_UPDATE` | Clicks the Update button (most pages) | After filter alignment |
+| `CLICK_REFRESH` | Clicks the Refresh button (Realtime) | After filter alignment |
+| `CLICK_SEARCH` | Clicks the Search button (Workstreams) | After filter alignment |
+| `CLICK_SHOW_FILTERS` | Expands collapsed filter panel | After Update collapses filters |
+| `CLICK_COLUMN_HEADER` | Sorts by column name | Replace `COLUMN_NAME` placeholder |
+| `CLICK_TABLE_ROW` | Clicks a row matching text | Replace `MATCH_TEXT` placeholder |
+| `CLICK_TAB` | Clicks a tab by name | Replace `TAB_NAME` placeholder |
+| `TOGGLE_HIDE_NO_EVENTS` | Toggles the checkbox (Realtime) | Uses `input[type="checkbox"]` |
+
+**Example: Select "Scaled Ops" team on any insight page:**
+
+```bash
+playwright-cli -s=local eval "document.querySelector('[data-testid=\"filter-select-open-button\"]')?.click()"
+sleep 1
+playwright-cli -s=local eval "(function() { var input = document.querySelector('[data-testid=\"filter-select-search-input\"]'); if (!input) return 'no-input'; var s = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; s.call(input, 'Scaled Ops'); input.dispatchEvent(new Event('input', { bubbles: true })); return 'ok'; })()"
+sleep 1
+playwright-cli -s=local eval "(function() { var labels = document.querySelectorAll('[data-testid=\"filter-select-option-label\"]'); for (var i = 0; i < labels.length; i++) { if (labels[i].textContent.trim() === 'Scaled Ops') { labels[i].closest('[data-testid=\"filter-select-option\"]')?.click(); return 'ok'; } } return 'not-found'; })()"
+```
+
+**Example: Check page status after navigation:**
+
+```bash
+playwright-cli -s=local eval "(function() { var main = document.querySelector('main'); if (!main) return 'loading'; var text = main.innerText; if (text.includes('Something went wrong')) return 'error'; var m = text.match(/(Showing \\\\d+ to \\\\d+ of [\\\\d,]+ results)/); return m ? 'loaded:' + m[1] : 'loaded'; })()"
+```
+
 ### Filter alignment protocol
 
 **Before comparing ANY data, all filters must be identical in both browsers.**
 
 1. After loading a page, snapshot both browsers to read the current filter state
-2. If any filter defaults differ (e.g., timezone), change the LOCAL browser to
+2. Compare EVERY filter — teams, timezone, period/date range, shift length,
+   report level, analyzing-by mode, selected users. Check both the displayed
+   value AND the URL query params. A mismatch between the displayed value and
+   the URL param is itself a bug worth documenting.
+3. If any filter defaults differ (e.g., timezone), change the LOCAL browser to
    match the REMOTE browser's defaults — prod is the source of truth
-3. Note any default differences as findings (these are local BFF bugs)
-4. Only after all filters match, click Update/Refresh to load data
-5. When testing a filter change, change the SAME filter to the SAME value in
+4. Note any default differences as findings (these are local BFF bugs)
+5. Only after all filters match, click Update/Refresh/Search to load data
+6. When testing a filter change, change the SAME filter to the SAME value in
    both browsers simultaneously, then Update both
+7. After Update/Search collapses filters, re-expand them ("Show Filters") and
+   verify they still match — the act of submitting can change displayed values
 
 ### Interaction checklist
 
@@ -181,36 +223,50 @@ For each page, exercise ALL of the following that are present:
 
 ### Snapshot diffing (primary comparison method)
 
-**Never read both full YAML snapshots into context.** Instead, normalize
-and diff them. This catches everything — missing elements, different
-labels, extra buttons, wrong data values — not just table content.
+**Never read both full YAML snapshots into context.** Use the helper
+scripts in `.claude/skills/visual-compare/scripts/` instead.
 
-After snapshotting both browsers, run:
+After snapshotting both browsers, use the one-line diff:
 
 ```bash
-# Get the snapshot file paths from the playwright-cli output
-LOCAL_SNAP=".playwright-cli/<local-snapshot>.yml"
-REMOTE_SNAP=".playwright-cli/<remote-snapshot>.yml"
+# Basic diff (strips refs, cursor, active, dev-only elements, indentation)
+bash .claude/skills/visual-compare/scripts/vc-diff.sh "$LOCAL_SNAP" "$REMOTE_SNAP"
 
-# Normalize: strip ref IDs, cursor attributes, and dev-only elements
-sed -E \
-  -e 's/\[ref=e[0-9]+\]//g' \
-  -e 's/ \[cursor=pointer\]//g' \
-  -e '/Open Tanstack query devtools/d' \
-  -e '/Open Next.js Dev Tools/d' \
-  -e '/Notifications alt\+T/d' \
-  "$LOCAL_SNAP" > /tmp/vc-local.yml
+# Realtime page (also normalizes ticking durations)
+bash .claude/skills/visual-compare/scripts/vc-diff.sh "$LOCAL_SNAP" "$REMOTE_SNAP" --realtime
 
-sed -E \
-  -e 's/\[ref=e[0-9]+\]//g' \
-  -e 's/ \[cursor=pointer\]//g' \
-  -e '/Open Tanstack query devtools/d' \
-  -e '/Open Next.js Dev Tools/d' \
-  -e '/Notifications alt\+T/d' \
-  "$REMOTE_SNAP" > /tmp/vc-remote.yml
+# Data-focused (compare only table rows, ignores sidebar nesting noise)
+bash .claude/skills/visual-compare/scripts/vc-diff.sh "$LOCAL_SNAP" "$REMOTE_SNAP" --rows-only
 
-# Diff — empty output means identical
-diff /tmp/vc-local.yml /tmp/vc-remote.yml
+# Order-independent (same data, different sort = IDENTICAL)
+bash .claude/skills/visual-compare/scripts/vc-diff.sh "$LOCAL_SNAP" "$REMOTE_SNAP" --rows-only --sorted
+```
+
+Exit codes: `0` = IDENTICAL, `1` = differences found, `2` = error.
+
+**Health check before diffing** — detect errors, loading, empty states:
+
+```bash
+bash .claude/skills/visual-compare/scripts/vc-check-health.sh "$LOCAL_SNAP" --session-name local
+bash .claude/skills/visual-compare/scripts/vc-check-health.sh "$REMOTE_SNAP" --session-name remote
+```
+
+Output: `STATUS:<session>:loaded|error|empty|signin` + `DETAIL:` line.
+
+**Extract specific data** for targeted comparison:
+
+```bash
+# Table rows (stripped of indentation)
+bash .claude/skills/visual-compare/scripts/vc-extract-rows.sh "$SNAP" --limit 10
+
+# Unique email addresses
+bash .claude/skills/visual-compare/scripts/vc-extract-rows.sh "$SNAP" --emails --limit 25
+
+# Result counts
+bash .claude/skills/visual-compare/scripts/vc-extract-rows.sh "$SNAP" --results
+
+# Group headings (Per Project/Per BPO names)
+bash .claude/skills/visual-compare/scripts/vc-extract-rows.sh "$SNAP" --headings --sorted
 ```
 
 **Interpreting the diff:**
@@ -222,26 +278,19 @@ diff /tmp/vc-local.yml /tmp/vc-remote.yml
 - Changed lines: same element with different content — compare the values.
   For tables, this surfaces cell-by-cell differences directly.
 
-**Expected diff noise** (ignore these):
+**Expected diff noise** (ignore these — `[active]` is already stripped
+by the normalization sed above):
 
-- `[active]` attribute (which element has focus differs between sessions)
 - `[expanded]` / `[disabled]` on the Refresh button (cooldown timer state)
 - Duration values on the Realtime page (tick every second)
 - `alert` element content differences
 - `[selected]` on tabs (if you clicked different tabs)
 - Pagination button state (`[disabled]` on first/last page)
 - Open tab lists (remote may have extra browser tabs)
-
-**For Realtime specifically**, also strip ticking durations before diffing:
-
-```bash
-# Additional normalization for Realtime — strip duration values
-sed -E 's/[0-9]+h [0-9]+min [0-9]+sec/Xh Xmin Xsec/g; s/[0-9]+min [0-9]+sec/Xmin Xsec/g; s/[0-9]+sec/Xsec/g' \
-  /tmp/vc-local.yml > /tmp/vc-local-rt.yml
-sed -E 's/[0-9]+h [0-9]+min [0-9]+sec/Xh Xmin Xsec/g; s/[0-9]+min [0-9]+sec/Xmin Xsec/g; s/[0-9]+sec/Xsec/g' \
-  /tmp/vc-remote.yml > /tmp/vc-remote-rt.yml
-diff /tmp/vc-local-rt.yml /tmp/vc-remote-rt.yml
-```
+- Indentation differences from sidebar nesting depth (local has one extra
+  `generic` wrapper around sidebar content — this causes ALL content lines
+  to differ by indentation, making raw full-YAML diff useless for data
+  comparison)
 
 **When the diff is large**, triage by category:
 
@@ -360,19 +409,12 @@ Local BFF bugs: <N>
 | User Productivity   | `/insights/user-productivity`   |
 | Team Productivity   | `/insights/team-productivity`   |
 | Systems             | `/insights/systems`             |
+| Workstreams         | `/insights/workstreams`         |
 | Microworkflows      | `/insights/microworkflows`      |
-| Workstreams          | `/insights/workstreams`         |
 | Relays              | `/insights/relays`              |
 | Favorites           | `/insights/favorites`           |
 | Chat                | `/insights/chat`                |
 | User Detail         | `/insights/details`             |
-| Users               | `/users`                        |
-| Teams               | `/teams`                        |
-| Team Detail         | `/teams/[id]`                   |
-| Settings: Account   | `/settings/account`             |
-| Settings: BPOs      | `/settings/bpos`                |
-| Settings: Projects  | `/settings/projects`            |
-| Settings: URLs      | `/settings/urls`                |
 
 ---
 
@@ -505,17 +547,6 @@ before clicking).
    (match by SOURCE SYSTEM + TARGET SYSTEM). Diff. Document.
 6. **Navigate back** to the main table.
 
-### Workstreams (`/insights/workstreams`)
-
-1. This page loads without requiring a team filter — it shows all
-   workstream definitions. Wait for load.
-2. **Diff default state**: diff catches row count, column headers,
-   and all row content differences. Document.
-3. **Sort by each sortable column**: click headers in both, diff
-   after each. At minimum: WORKSTREAM NAME, ACTIVE TIME, USERS.
-4. **Search**: type the same search term in both search boxes. Diff
-   filtered results. Document.
-
 ### Relays (`/insights/relays`)
 
 1. Select the same team in both, click Update in both.
@@ -532,51 +563,71 @@ before clicking).
 3. **Sort by 2 columns**: click header in both, diff after each.
 4. **Drill into a row** if rows are clickable. Diff. Document.
 
-### Users (`/users`)
+### Workstreams (`/insights/workstreams`)
 
-1. Page loads automatically with user list.
-2. **Diff default state**: diff catches row count, column headers,
-   and all user rows. Document.
-3. **Sort by NAME**: click header in both. Diff.
-4. **Sort by EMAIL**: click header in both. Diff.
-5. **Search**: type the same user name in both search boxes. Diff
-   filtered results. Document.
-6. **Click a user row**: diff the user detail/edit view. Verify
-   all fields match. Document.
-7. **Close** the detail view without making changes.
-
-### Teams (`/teams`)
-
-1. Page loads with team list.
-2. **Diff default state**: diff catches row count, columns, and all
-   team rows. Document.
-3. **Sort by team name**: click header in both. Diff.
-4. **Click a team row**: navigate to team detail (`/teams/[id]`).
-   Diff — verify member list, team metadata. Document.
-5. **Navigate back** to teams list.
-
-### Settings pages (`/settings/account`, `/settings/bpos`, `/settings/projects`, `/settings/urls`)
-
-For each settings page:
-
-1. Navigate both browsers to the page.
-2. **Diff**: catches all form field, label, and value differences.
+1. Navigate both browsers to `/insights/workstreams`.
+2. **Verify Period filter**: before selecting a user or clicking Search,
+   snapshot both browsers and compare the Period date range textbox.
+   Also compare the URL query params (`dateStart`, `dateEnd`,
+   `startTime`, `endTime`). If the displayed date range differs from
+   the URL params, that is a display bug. If the defaults differ
+   between local and remote, that is a date boundary bug. Document
+   both. Align the Period to match remote before proceeding.
+3. **Analyzing by User**: both default to "User" mode. Select the same
+   user in both (use the search textbox to filter by email). Click
+   Search in both.
+4. **Re-expand filters**: after Search, click "Show Filters" on both
+   browsers and re-verify the Period filter matches. Document any
+   post-Search changes.
+5. **Diff default state**: use data-focused row extraction. Check
+   result counts match. Document.
+6. **Drill into a workstream row**: click the same workstream row
+   (match by workstream ID) in both browsers. Diff the detail view.
    Document.
-3. **Do NOT modify** any settings — read-only comparison.
+7. **Navigate back** to the main Workstreams table.
+8. **LAST VISITED column**: check date formatting. Local BFF may return
+   raw ClickHouse DateTime64 (`2026-03-20 17:08:52.189`) instead of
+   formatted dates (`Mar 20, 2026 5:08 PM`). Note as a display bug.
+9. **Sort by WORKSTREAM**: click header in both. Diff rows.
+10. **Sort by ACTIVE TIME**: click header in both. Diff rows.
+11. **Pagination**: verify result counts match. Navigate to page 2 in
+    both, diff.
+12. **Analyzing by Workstream**: switch both to "Workstream" mode.
+    Enter the same workstream ID in both (use a numeric ID from the
+    user view, e.g., `00316998`). Click Search.
+13. **Diff Workstream view**: check result counts. If local returns 0
+    while remote has data, the BFF endpoint is failing. Check console
+    for 500 errors. Document.
+14. **Switch back** to User mode for any further tests.
+
+### Users, Teams, Settings — EXCLUDED
+
+**NEVER navigate to `/users`, `/teams`, `/teams/[id]`, or `/settings/*`.**
+These are management pages where accidental clicks can modify user roles,
+team assignments, or org settings in production. The risk of data
+mutation is too high for automated comparison.
 
 ### Implementation notes
 
+- **Team re-selection**: Local does NOT persist team selection across
+  page navigations. You must re-select the team on EVERY page. Remote
+  (prod) persists team selection. This is a known behavior difference —
+  note it once in the first page's report, do not re-report it.
+- **"Hide users with no events" toggle**: This is an `input[type="checkbox"]`,
+  not a `role="switch"`. The ref-based click on the label does not toggle
+  it. Use `eval "document.querySelector('input[type=\"checkbox\"]')?.click()"`.
 - System cards use `cursor-pointer` class, not `role="button"` — use
   `eval` with `querySelectorAll('[class*="cursor-pointer"]')` to click
   if ref-based click fails.
 - The Table radio in Systems is a `[role="radio"]` element — use `eval`
   with `querySelectorAll('[role="radio"]')` to click it if needed.
-- Filters collapse after clicking Update on User Productivity — click
-  "Show Filters" to re-expand for filter changes.
-- State persistence: Remote may persist team selection across page
-  reloads; local may not. Note this if it occurs.
+- Filters collapse after clicking Update — click "Show Filters" to
+  re-expand for filter changes.
 - Default period: May differ by 1 day between local and remote (known
   date boundary bug class).
+- **Console error checking**: When a page shows "Something went wrong",
+  read the console log file to identify which BFF endpoint returned 500.
+  The console log path is in the playwright-cli output under "Events".
 
 ---
 
@@ -606,6 +657,11 @@ to interact with the app (click filters, fill forms, expand panels, etc.).
 
 ## What NOT to do
 
+- **NEVER navigate to `/users`, `/teams`, `/teams/[id]`, or `/settings/*`.**
+  These are management pages where clicks can modify production data.
+- **NEVER use MCP browser tools.** All browser interaction must go through
+  `playwright-cli` via the Bash tool. Do not use `mcp__dashboard-local__*`
+  or `mcp__dashboard-remote__*` tools.
 - Do not use a single browser session for both environments — Firebase auth tokens will collide.
 - Do not compare data before aligning ALL filters — timezone, team, period,
   shift length, etc. must all match. Prod is the source of truth for defaults.
@@ -621,3 +677,7 @@ to interact with the app (click filters, fill forms, expand panels, etc.).
 - Do NOT CHANGE ANY DATA (do NOT manipulate users, teams, or URL classifications).
 - Do not guess URL paths — use the route map. If a path 404s, check the
   route map before asking the user.
+- Do not read full YAML snapshots into context for comparison — use the
+  data-focused diffing techniques (row extraction, email extraction,
+  result count grep) instead of the raw YAML diff when the full diff is
+  dominated by indentation noise.

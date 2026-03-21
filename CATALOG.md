@@ -352,6 +352,8 @@ Both **Persistent** and **Ephemeral** tiers must be accessed exclusively through
 
 sessionStorage for ephemeral drill-down state is not a DDAU violation. It is external-system sync (same category as ResizeObserver or scroll position) -- the container or inner container that owns the drill-down state is the appropriate owner of the storage read/write, using the typedStorage helpers.
 
+**Why not session storage for filters?** Route-shaping state (what a page shows) must be inspectable. Session storage is invisible in the URL bar, invisible in shared links, and invisible in bug reports. It creates version skew when app updates leave stale keys behind, and the fix becomes "clear storage" -- an unacceptable failure mode. Worse, mixing URL params and session storage for the same state domain forces a precedence rule (which source wins?) that is hidden from users and hard to test. One state channel with one policy surface is simpler than two channels with reconciliation.
+
 ### No factory indirection
 
 Service hooks are direct useQuery/useMutation calls. No `createQueryFactory`, no curried wrappers. The hook owns its own `useFetchApi()` call, query key, query function, and options. Factories hide what the hook does and make per-call-site customization harder.

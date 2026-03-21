@@ -288,6 +288,7 @@ Check the spike against the full wiring checklist from
 | Layout visibility state                       | Present / Missing / N/A |       |
 | `resolveFilterComponent` registration         | Present / Missing / N/A |       |
 | `MockedInsightsContext` update                | Present / Missing / N/A |       |
+| `_ctx` transfer policy registration            | Present / Missing / N/A |       |
 
 Report the gap count to the PM.
 

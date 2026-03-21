@@ -498,8 +498,8 @@ describe('ast-config', () => {
       expect(PRIORITY_RULES.length).toBeGreaterThan(0);
     });
 
-    it('has 20 entries', () => {
-      expect(PRIORITY_RULES).toHaveLength(20);
+    it('has 25 entries', () => {
+      expect(PRIORITY_RULES).toHaveLength(25);
     });
 
     it('every entry has kind, condition, and priority', () => {

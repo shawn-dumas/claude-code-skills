@@ -275,6 +275,9 @@ Apply all fixes. Follow these rules:
   as data props. It creates navigation callbacks and param-setter callbacks and
   passes them as callback props. Children never call useRouter, usePathname,
   useSearchParams, or useQueryState.
+- **If the page's URL params change, update `PAGE_PARAMS` in
+  `src/shared/utils/ctxTransferMatrix.ts`** and verify the transfer rules are
+  still correct. Run `npx vitest run src/shared/utils/__tests__/ctxTransferMatrix.spec.ts`.
 - **The container owns storage.** It reads stored defaults at mount (via
   `readStorage` with a Zod schema), passes them as props, and writes back on
   changes (via `writeStorage`/`removeStorage`). Children never touch storage.

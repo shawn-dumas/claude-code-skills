@@ -1212,23 +1212,29 @@ export interface PriorityRule {
 }
 
 /**
- * Single source of truth for finding priority assignment.
+ * Declarative listing of every priority rule. The `condition` field is
+ * documentation for human readers. The actual matching logic lives in
+ * `lookupPriority` below.
  *
- * The `condition` field is documentation for human readers. The actual
- * matching logic is implemented in `lookupPriority` below.
+ * This table includes default/fallback rows so every code path in
+ * `lookupPriority` has a corresponding entry. When adding a new rule,
+ * add both the entry here and the matching branch in `lookupPriority`.
  */
 export const PRIORITY_RULES: PriorityRule[] = [
   // P1
   { kind: 'bug', condition: 'authz OR crash OR CVE-critical', priority: 'P1' },
   { kind: 'complexity-hotspot', condition: 'CC >= 25', priority: 'P1' },
   // P2
+  { kind: 'bug', condition: 'CVE-high', priority: 'P2' },
+  { kind: 'bug', condition: 'default (no recognized subKind)', priority: 'P2' },
   { kind: 'test-gap', condition: 'risk === HIGH', priority: 'P2' },
   { kind: 'trust-boundary-gap', condition: 'always', priority: 'P2' },
-  { kind: 'complexity-hotspot', condition: 'CC >= 15', priority: 'P2' },
-  { kind: 'bug', condition: 'CVE-high', priority: 'P2' },
+  { kind: 'complexity-hotspot', condition: '15 <= CC < 25', priority: 'P2' },
   // P3
   { kind: 'test-gap', condition: 'risk === MEDIUM', priority: 'P3' },
-  { kind: 'mock-internal', condition: 'confidence >= high', priority: 'P3' },
+  { kind: 'test-gap', condition: 'default (no recognized risk)', priority: 'P3' },
+  { kind: 'complexity-hotspot', condition: 'CC < 15 (default)', priority: 'P3' },
+  { kind: 'mock-internal', condition: 'confidence === high', priority: 'P3' },
   { kind: 'ddau-violation', condition: 'always', priority: 'P3' },
   { kind: 'eliminable-effect', condition: 'always', priority: 'P3' },
   { kind: 'cross-domain-coupling', condition: 'always', priority: 'P3' },
@@ -1237,6 +1243,8 @@ export const PRIORITY_RULES: PriorityRule[] = [
   { kind: 'as-any', condition: 'always', priority: 'P4' },
   { kind: 'non-null-assertion', condition: 'always', priority: 'P4' },
   { kind: 'test-gap', condition: 'risk === LOW', priority: 'P4' },
+  { kind: 'mock-internal', condition: 'confidence < high (default)', priority: 'P4' },
+  { kind: 'circular-dep', condition: 'not type-only (default)', priority: 'P4' },
   { kind: 'missing-concern', condition: 'always', priority: 'P4' },
   { kind: 'handler-inline-logic', condition: 'always', priority: 'P4' },
   { kind: 'branded-type-gap', condition: 'always', priority: 'P4' },
@@ -1252,6 +1260,21 @@ const CONFIDENCE_RANK: Record<string, number> = {
   high: 3,
   medium: 2,
   low: 1,
+};
+
+/** Unconditional kind-to-priority mappings (no context needed). */
+const UNCONDITIONAL_PRIORITY: Record<string, FindingPriority> = {
+  'trust-boundary-gap': 'P2',
+  'ddau-violation': 'P3',
+  'eliminable-effect': 'P3',
+  'cross-domain-coupling': 'P3',
+  'dead-export': 'P4',
+  'as-any': 'P4',
+  'non-null-assertion': 'P4',
+  'missing-concern': 'P4',
+  'handler-inline-logic': 'P4',
+  'branded-type-gap': 'P4',
+  style: 'P5',
 };
 
 /**
@@ -1311,22 +1334,7 @@ export function lookupPriority(kind: string, context?: Record<string, unknown>):
     return 'P4';
   }
 
-  // Unconditional kind-to-priority mappings
-  const unconditionalMap: Record<string, FindingPriority> = {
-    'trust-boundary-gap': 'P2',
-    'ddau-violation': 'P3',
-    'eliminable-effect': 'P3',
-    'cross-domain-coupling': 'P3',
-    'dead-export': 'P4',
-    'as-any': 'P4',
-    'non-null-assertion': 'P4',
-    'missing-concern': 'P4',
-    'handler-inline-logic': 'P4',
-    'branded-type-gap': 'P4',
-    style: 'P5',
-  };
-
-  return unconditionalMap[kind] ?? 'P4';
+  return UNCONDITIONAL_PRIORITY[kind] ?? 'P4';
 }
 
 // ---------------------------------------------------------------------------

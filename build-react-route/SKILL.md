@@ -284,7 +284,22 @@ type definitions.
 
 <!-- role: workflow -->
 
-## Step 5: Verify
+## Step 5: Register in _ctx transfer policy (insight pages only)
+
+If the page uses `EightFlowDashboardLayout` (i.e., it is an insight page):
+
+1. Add the page's URL slug to `INSIGHT_PAGE_KEYS` in
+   `src/shared/constants/dashboard.ts`
+2. Add the page's URL params to `PAGE_PARAMS` in
+   `src/shared/utils/ctxTransferMatrix.ts`
+3. The default transfer rule (`tz` only) applies automatically. Add an
+   override in `OVERRIDES` only if this page needs to share more params
+   with a specific sibling page.
+4. Run `npx vitest run src/shared/utils/__tests__/ctxTransferMatrix.spec.ts`
+
+Skip this step for non-insight pages (Settings, Teams, Users, etc.).
+
+## Step 6: Verify
 
 1. Run `pnpm tsc --noEmit -p tsconfig.check.json` scoped to the new files (or the whole project if scoping
    is not practical). If TypeScript errors appear, fix them before finishing.
