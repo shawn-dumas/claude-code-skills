@@ -143,7 +143,7 @@ Available query types:
     date-summary   Summary stats of raw/proper ratio by layer
 
   Side effects:
-    side-effects   Find console, TODO, storage, DOM side effects
+    side-effects   Find console, toast, timer, PostHog, window mutation side effects
 
   Type safety:
     type-safety    All type safety observations
@@ -324,7 +324,7 @@ function parseDispatcherArgs(argv: string[]): {
 
     if (arg.startsWith('--')) {
       // Named options consume the next arg as their value
-      const namedOptions = ['--kind', '--source-branch', '--field', '--symbol', '--consumers', '--before', '--after'];
+      const namedOptions = ['--kind', '--source-branch', '--field', '--before', '--after'];
       if (namedOptions.includes(arg) && i + 1 < raw.length) {
         extraFlags.push(arg, raw[i + 1]);
         i++;
@@ -343,6 +343,45 @@ function parseDispatcherArgs(argv: string[]): {
   }
 
   return { queryType, positionalArgs, extraFlags, help, list, validate };
+}
+
+// ---------------------------------------------------------------------------
+// Dispatch resolution (testable, no side effects)
+// ---------------------------------------------------------------------------
+
+interface DispatchResult {
+  tool: string;
+  args: string[];
+}
+
+function resolveDispatch(queryType: string, positionalArgs: string[], extraFlags: string[]): DispatchResult | null {
+  // Standard routes
+  const standardRoute = ROUTES.get(queryType);
+  if (standardRoute) {
+    return { tool: standardRoute.tool, args: [...positionalArgs, ...standardRoute.flags, ...extraFlags] };
+  }
+
+  // Arg-rewriting routes
+  if (queryType === 'consumers') {
+    const file = positionalArgs[0];
+    if (!file) {
+      process.stderr.write('Error: consumers requires a file path argument.\n');
+      process.exit(1);
+    }
+    return { tool: 'ast-imports', args: ['--consumers', file, ...extraFlags] };
+  }
+
+  if (queryType === 'symbol') {
+    const symbolName = positionalArgs[0];
+    const paths = positionalArgs.slice(1);
+    if (!symbolName) {
+      process.stderr.write('Error: symbol requires a symbol name argument.\n');
+      process.exit(1);
+    }
+    return { tool: 'ast-imports', args: [...paths, '--symbol', symbolName, ...extraFlags] };
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -378,40 +417,11 @@ export function main(
     process.exit(0);
   }
 
-  // Check standard routes
-  const standardRoute = ROUTES.get(queryType);
-  if (standardRoute) {
-    const args = [...positionalArgs, ...standardRoute.flags, ...extraFlags];
-    runTool(standardRoute.tool, args);
+  // Resolve dispatch target
+  const dispatch = resolveDispatch(queryType, positionalArgs, extraFlags);
+  if (dispatch) {
+    runTool(dispatch.tool, dispatch.args);
     return;
-  }
-
-  // Check arg-rewriting routes
-  if (ARG_REWRITE_QUERY_TYPES.has(queryType)) {
-    if (queryType === 'consumers') {
-      // ast-query consumers src/file.ts -> ast-imports --consumers src/file.ts
-      const file = positionalArgs[0];
-      if (!file) {
-        process.stderr.write('Error: consumers requires a file path argument.\n');
-        process.exit(1);
-      }
-      const args = ['--consumers', file, ...extraFlags];
-      runTool('ast-imports', args);
-      return;
-    }
-
-    if (queryType === 'symbol') {
-      // ast-query symbol MyComponent src/ -> ast-imports src/ --symbol MyComponent
-      const symbolName = positionalArgs[0];
-      const paths = positionalArgs.slice(1);
-      if (!symbolName) {
-        process.stderr.write('Error: symbol requires a symbol name argument.\n');
-        process.exit(1);
-      }
-      const args = [...paths, '--symbol', symbolName, ...extraFlags];
-      runTool('ast-imports', args);
-      return;
-    }
   }
 
   // Check known unroutable tools
@@ -434,13 +444,22 @@ export function main(
 // Exports for testing
 // ---------------------------------------------------------------------------
 
-export { ROUTES, KNOWN_UNROUTABLE, ARG_REWRITE_QUERY_TYPES, validateRoutes, HELP_TEXT, SCRIPTS_AST_DIR };
+export {
+  ROUTES,
+  KNOWN_UNROUTABLE,
+  ARG_REWRITE_QUERY_TYPES,
+  validateRoutes,
+  resolveDispatch,
+  HELP_TEXT,
+  SCRIPTS_AST_DIR,
+};
 
 // ---------------------------------------------------------------------------
 // Direct run guard
 // ---------------------------------------------------------------------------
 
-const isDirectRun = process.argv[1] && fileURLToPath(import.meta.url).includes(process.argv[1]);
+const isDirectRun =
+  process.argv[1] && (process.argv[1].endsWith('ast-query.ts') || process.argv[1].endsWith('ast-query'));
 if (isDirectRun) {
   main();
 }

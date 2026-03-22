@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -7,6 +7,8 @@ import {
   KNOWN_UNROUTABLE,
   ARG_REWRITE_QUERY_TYPES,
   validateRoutes,
+  resolveDispatch,
+  main,
   HELP_TEXT,
   SCRIPTS_AST_DIR,
 } from '../ast-query';
@@ -82,22 +84,75 @@ describe('ast-query dispatcher', () => {
     });
   });
 
+  describe('dispatch resolution', () => {
+    it('standard route constructs correct tool and args', () => {
+      const result = resolveDispatch('imports', ['src/shared/'], ['--pretty']);
+      expect(result).toEqual({ tool: 'ast-imports', args: ['src/shared/', '--pretty'] });
+    });
+
+    it('standard route with preset flags prepends them before extra flags', () => {
+      const result = resolveDispatch('dead-exports', ['src/'], ['--pretty']);
+      expect(result).toEqual({
+        tool: 'ast-imports',
+        args: ['src/', '--kind', 'DEAD_EXPORT_CANDIDATE', '--pretty'],
+      });
+    });
+
+    it('as-any route presets --kind AS_ANY_CAST', () => {
+      const result = resolveDispatch('as-any', ['src/'], []);
+      expect(result).toEqual({ tool: 'ast-type-safety', args: ['src/', '--kind', 'AS_ANY_CAST'] });
+    });
+
+    it('consumers rewrites to ast-imports --consumers', () => {
+      const result = resolveDispatch('consumers', ['src/file.ts'], ['--pretty']);
+      expect(result).toEqual({ tool: 'ast-imports', args: ['--consumers', 'src/file.ts', '--pretty'] });
+    });
+
+    it('symbol rewrites with symbol name before path', () => {
+      const result = resolveDispatch('symbol', ['BadRequestError', 'src/'], ['--pretty']);
+      expect(result).toEqual({
+        tool: 'ast-imports',
+        args: ['src/', '--symbol', 'BadRequestError', '--pretty'],
+      });
+    });
+
+    it('symbol with multiple paths passes all paths', () => {
+      const result = resolveDispatch('symbol', ['MyType', 'src/shared/', 'src/ui/'], []);
+      expect(result).toEqual({
+        tool: 'ast-imports',
+        args: ['src/shared/', 'src/ui/', '--symbol', 'MyType'],
+      });
+    });
+
+    it('unknown query type returns null', () => {
+      const result = resolveDispatch('nonexistent', ['src/'], []);
+      expect(result).toBeNull();
+    });
+
+    it('known unroutable query type returns null', () => {
+      const result = resolveDispatch('bff-gaps', ['src/'], []);
+      expect(result).toBeNull();
+    });
+  });
+
   describe('gap logging', () => {
     let tmpDir: string;
     let gapsFile: string;
+    let stderrSpy: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
       tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ast-query-test-'));
       gapsFile = path.join(tmpDir, 'GAPS.md');
       fs.writeFileSync(gapsFile, '# Test GAPS\n');
+      stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     });
 
     afterEach(() => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
+      stderrSpy.mockRestore();
     });
 
-    it('main() appends to GAPS.md on unknown query type', async () => {
-      const { main } = await import('../ast-query');
+    it('main() appends to GAPS.md on unknown query type', () => {
       const origExit = process.exit;
       let exitCode: number | undefined;
       process.exit = ((code: number) => {
@@ -119,8 +174,7 @@ describe('ast-query dispatcher', () => {
       expect(content).toContain('auto-logged by ast-query');
     });
 
-    it('main() does NOT append to GAPS.md for known unroutable query', async () => {
-      const { main } = await import('../ast-query');
+    it('main() does NOT append to GAPS.md for known unroutable query', () => {
       const origExit = process.exit;
       let exitCode: number | undefined;
       process.exit = ((code: number) => {
@@ -144,7 +198,6 @@ describe('ast-query dispatcher', () => {
 
   describe('flag passthrough', () => {
     it('standard route includes route flags and extra flags', () => {
-      // Verify the route structure for dead-exports includes --kind flag
       const route = ROUTES.get('dead-exports');
       expect(route).toBeDefined();
       expect(route!.flags).toEqual(['--kind', 'DEAD_EXPORT_CANDIDATE']);

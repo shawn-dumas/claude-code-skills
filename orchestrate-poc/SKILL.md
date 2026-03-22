@@ -1573,7 +1573,10 @@ Follow the IDENTICAL orchestrator loop from `orchestrate-feature`:
 2. **Auto mode:** Launch a work agent via the Task tool. Pass the full
    prompt file contents. The task prompt must begin with: "You are a
    work agent. Execute the following prompt exactly. Read
-   ~/github/user-frontend/CLAUDE.md first."
+   ~/github/user-frontend/CLAUDE.md first.
+   For any TS/TSX source query, run: npx tsx scripts/AST/ast-query.ts <query-type> <path>
+   Do NOT use rg, sg, or the Grep tool on TS/TSX source.
+   Run: npx tsx scripts/AST/ast-query.ts --help for available query types."
 
 3. **Manual mode:** Output the prompt file contents. Wait for the user
    to paste the reconciliation output.

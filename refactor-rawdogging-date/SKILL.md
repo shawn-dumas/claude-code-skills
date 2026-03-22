@@ -37,11 +37,10 @@ append to `scripts/AST/GAPS.md`.
 - Test files -- unless the test is asserting on raw Date behavior that
   changed due to the migration
 
-**Tool hierarchy:** For TS/TSX source queries, use AST tools
-(`npx tsx scripts/AST/ast-*.ts`) before `sg` or `rg`. See the AST tool
-lookup table in CLAUDE.md. Do NOT use the Grep tool on source code.
-If you use `rg` or `sg` on TS source where no AST tool covers the
-pattern, append an entry to `scripts/AST/GAPS.md`.
+**Tool hierarchy:** For any TS/TSX source query, run:
+`npx tsx scripts/AST/ast-query.ts <query-type> <path>`.
+Do NOT use `rg`, `sg`, or the Grep tool on TS/TSX source.
+Run: `npx tsx scripts/AST/ast-query.ts --help` for available query types.
 
 <!-- role: reference -->
 
