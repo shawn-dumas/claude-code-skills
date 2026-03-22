@@ -20,9 +20,9 @@ to test.
 After identifying the page and container files (see Step 1), run:
 
 ```bash
-npx tsx scripts/AST/ast-data-layer.ts <container-path> --pretty
-npx tsx scripts/AST/ast-react-inventory.ts <container-path> --pretty
-npx tsx scripts/AST/ast-interpret-ownership.ts <container-path> --pretty
+npx tsx scripts/AST/ast-query.ts data-layer <container-path> --pretty
+npx tsx scripts/AST/ast-query.ts hooks <container-path> --pretty
+npx tsx scripts/AST/ast-query.ts interpret-ownership <container-path> --pretty
 ```
 
 Use data-layer observations to systematically identify every API endpoint
@@ -376,10 +376,10 @@ history of every command run in every session.
 1. Run `npx tsc --noEmit -p tsconfig.check.json` on the new spec (it imports from `@/fixtures`
    which resolves via vitest aliases -- check if Playwright config also
    resolves these, and add a `tsconfig` path if needed).
-2. Run `npx tsx scripts/AST/ast-complexity.ts <new-spec-file> --pretty`.
+2. Run `npx tsx scripts/AST/ast-query.ts complexity <new-spec-file> --pretty`.
    Every function must have cyclomatic complexity <= 10. If any function
    exceeds 10, decompose it before proceeding.
-3. Run `npx tsx scripts/AST/ast-type-safety.ts <new-spec-file> --pretty`.
+3. Run `npx tsx scripts/AST/ast-query.ts type-safety <new-spec-file> --pretty`.
    Zero `as any` casts. Non-null assertions are acceptable only with a
    comment explaining why the value is guaranteed non-null. Note:
    Playwright's `page.evaluate()` return values sometimes require type
@@ -389,9 +389,9 @@ history of every command run in every session.
    parity interpreter to verify structural coverage:
 
    ```bash
-   npx tsx scripts/AST/ast-pw-test-parity.ts <source-e2e-spec> --pretty
-   npx tsx scripts/AST/ast-pw-test-parity.ts <new-integration-spec> --pretty
-   npx tsx scripts/AST/ast-interpret-pw-test-parity.ts \
+   npx tsx scripts/AST/ast-query.ts pw-parity <source-e2e-spec> --pretty
+   npx tsx scripts/AST/ast-query.ts pw-parity <new-integration-spec> --pretty
+   npx tsx scripts/AST/ast-query.ts interpret-parity \
       --source-dir $(dirname <source-e2e-spec>) \
       --target-dir $(dirname <new-integration-spec>) \
       --pretty

@@ -43,16 +43,16 @@ for non-React code (utilities, server processors, API handlers, data transformer
 
 # Test file analysis (emits MOCK_DECLARATION, ASSERTION_CALL, AFTER_EACH_BLOCK,
 # CLEANUP_CALL, FIXTURE_IMPORT, SHARED_MUTABLE_IMPORT, TEST_SUBJECT_IMPORT observations)
-npx tsx scripts/AST/ast-test-analysis.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts test-quality $ARGUMENTS --pretty
 
 # Type safety in test files (emits AS_ANY_CAST, EXPLICIT_ANY_ANNOTATION observations)
-npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts type-safety $ARGUMENTS --pretty
 
 # --- Interpreters ---
 
 # Test quality assessment (emits assessments for mock, assertion, strategy,
 # cleanup, data sourcing, and triage)
-npx tsx scripts/AST/ast-interpret-test-quality.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-test-quality $ARGUMENTS --pretty
 ```
 
 ### Using observations and assessments

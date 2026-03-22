@@ -36,7 +36,7 @@ nothing to refactor.
 npx tsx scripts/AST/ast-skill-analysis.ts $ARGUMENTS --pretty
 
 # Current state -- quality scoring
-npx tsx scripts/AST/ast-interpret-skill-quality.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-skill $ARGUMENTS --pretty
 ```
 
 Record the current score and missing role count before making changes.
@@ -191,7 +191,7 @@ or code generation (emit). Always read the content.
 
 ```bash
 # Re-run the interpreter to check the score
-npx tsx scripts/AST/ast-interpret-skill-quality.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-skill $ARGUMENTS --pretty
 
 # Verify no score decrease
 # The score should be >= the pre-refactor score

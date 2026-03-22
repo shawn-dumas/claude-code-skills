@@ -20,9 +20,9 @@ violation signal names if applicable.]
 
 ```bash
 # Adjust tools to the domain
-npx tsx scripts/AST/ast-complexity.ts <target> --pretty
-npx tsx scripts/AST/ast-type-safety.ts <target> --pretty
-npx tsx scripts/AST/ast-imports.ts <target> --pretty
+npx tsx scripts/AST/ast-query.ts complexity <target> --pretty
+npx tsx scripts/AST/ast-query.ts type-safety <target> --pretty
+npx tsx scripts/AST/ast-query.ts imports <target> --pretty
 ```
 
 <!-- role: reference -->

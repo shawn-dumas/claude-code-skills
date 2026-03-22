@@ -24,17 +24,17 @@ isolation.
 Run the inventory on the page file AND its children (2-3 levels deep):
 
 ```bash
-npx tsx scripts/AST/ast-authz-audit.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts authz $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts imports $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts hooks $ARGUMENTS --pretty
 # Also run on direct child components (from the imports output)
-npx tsx scripts/AST/ast-jsx-analysis.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-storage-access.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-interpret-ownership.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-interpret-hooks.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-interpret-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts jsx $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts side-effects $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts storage $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts data-layer $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-ownership $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-hooks $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-effects $ARGUMENTS --pretty
 ```
 
 Use ownership assessments for Step 2b (hooks in leaves detection):
@@ -232,7 +232,7 @@ If `ast-behavioral` is available, run it first to pre-populate categories
 inspection -- the tool provides partial signals but cannot fully cover them.
 
 ```bash
-npx tsx scripts/AST/ast-behavioral.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts behavioral $ARGUMENTS --pretty
 ```
 
 | # | Category | Concrete values from this file | Preserved after rewrite? |
@@ -383,7 +383,7 @@ investigated and resolved.
 3. Run the interpreter:
 
    ```bash
-   npx tsx scripts/AST/ast-interpret-refactor-intent.ts \
+   npx tsx scripts/AST/ast-query.ts interpret-intent \
      --signal-pair /tmp/signal-pair.json \
      --refactor-type route \
      --pretty
@@ -407,10 +407,10 @@ investigated and resolved.
 After refactoring, verify no behavioral concerns were dropped:
 
 ```bash
-npx tsx scripts/AST/ast-error-coverage.ts <refactored-container> --count
+npx tsx scripts/AST/ast-query.ts errors <refactored-container> --count
 # Expect: QUERY_ERROR_UNHANDLED count not increased vs. pre-refactor
 
-npx tsx scripts/AST/ast-concern-matrix.ts <refactored-container> --pretty
+npx tsx scripts/AST/ast-query.ts concerns <refactored-container> --pretty
 # Expect: score not decreased vs. pre-refactor
 ```
 

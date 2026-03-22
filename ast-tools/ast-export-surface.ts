@@ -49,10 +49,7 @@ function classifyVariableInit(decl: Node): ExportInfo['kind'] {
   return 'const';
 }
 
-function classifyExportKind(
-  name: string,
-  declarations: ExportedDeclarations[],
-): ExportInfo['kind'] {
+function classifyExportKind(name: string, declarations: ExportedDeclarations[]): ExportInfo['kind'] {
   if (name === 'default') return 'default';
   if (declarations.length === 0) return 'const';
   const decl = declarations[0];

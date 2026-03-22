@@ -26,8 +26,8 @@ run, files to read, patterns to check.]
 
 ```bash
 # Adjust tools to the domain
-npx tsx scripts/AST/ast-imports.ts <target-dir> --pretty
-npx tsx scripts/AST/ast-react-inventory.ts <target-dir> --pretty
+npx tsx scripts/AST/ast-query.ts imports <target-dir> --pretty
+npx tsx scripts/AST/ast-query.ts hooks <target-dir> --pretty
 ```
 
 <!-- role: guidance -->

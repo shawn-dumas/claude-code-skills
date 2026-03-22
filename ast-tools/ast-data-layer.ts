@@ -3,7 +3,13 @@ import path from 'path';
 import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
-import { getFilesInDirectory, truncateText, getContainingFunctionName, resolveTemplateLiteral, type FileFilter } from './shared';
+import {
+  getFilesInDirectory,
+  truncateText,
+  getContainingFunctionName,
+  resolveTemplateLiteral,
+  type FileFilter,
+} from './shared';
 import { astConfig } from './ast-config';
 import { cached, getCacheStats } from './ast-cache';
 import type {

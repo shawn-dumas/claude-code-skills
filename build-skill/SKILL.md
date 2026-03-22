@@ -131,7 +131,7 @@ run `ast-refactor-intent` for behavioral preservation.
 
 ```bash
 # Run the skill quality interpreter on the new skill
-npx tsx scripts/AST/ast-interpret-skill-quality.ts .claude/skills/$SKILL_NAME/SKILL.md --pretty
+npx tsx scripts/AST/ast-query.ts interpret-skill .claude/skills/$SKILL_NAME/SKILL.md --pretty
 
 # Verify score is 100/100
 # If below 100, fix the issues and re-run

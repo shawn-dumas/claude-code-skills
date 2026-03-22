@@ -35,10 +35,10 @@ file example, and what tool would detect it. No exceptions.
 ## Step 0: Run AST analysis tools
 
 ```bash
-npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts imports $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts complexity $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts type-safety $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts side-effects $ARGUMENTS --pretty
 ```
 
 Use import observations for G7 (dead exports, consumer count):
@@ -108,7 +108,7 @@ If `ast-behavioral` is available, run it first to pre-populate categories
 inspection -- the tool provides partial signals but cannot fully cover them.
 
 ```bash
-npx tsx scripts/AST/ast-behavioral.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts behavioral $ARGUMENTS --pretty
 ```
 
 | # | Category | Concrete values from this file | Preserved after rewrite? |
@@ -311,7 +311,7 @@ investigated and resolved.
 3. Run the interpreter:
 
    ```bash
-   npx tsx scripts/AST/ast-interpret-refactor-intent.ts \
+   npx tsx scripts/AST/ast-query.ts interpret-intent \
      --signal-pair /tmp/signal-pair.json \
      --refactor-type module \
      --pretty

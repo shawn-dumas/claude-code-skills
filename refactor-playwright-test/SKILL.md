@@ -33,9 +33,9 @@ Relevant testing philosophy principles for integration tests:
 ## Step 0: Run AST analysis tools
 
 ```bash
-npx tsx scripts/AST/ast-test-analysis.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-interpret-test-quality.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-pw-test-parity.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts test-quality $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-test-quality $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts pw-parity $ARGUMENTS --pretty
 ```
 
 Use the test quality assessments to get structured data on mock

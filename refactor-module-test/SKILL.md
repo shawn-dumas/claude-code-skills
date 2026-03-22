@@ -14,9 +14,9 @@ philosophy adapted for non-React modules. Read the spec, score it, fix or replac
 ## Step 0: Run AST analysis tools
 
 ```bash
-npx tsx scripts/AST/ast-test-analysis.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-interpret-test-quality.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts test-quality $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts type-safety $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-test-quality $ARGUMENTS --pretty
 ```
 
 Use the test quality assessments to pre-score the spec before reading
@@ -99,7 +99,7 @@ If `ast-behavioral` is available, run it first to pre-populate categories
 inspection -- the tool provides partial signals but cannot fully cover them.
 
 ```bash
-npx tsx scripts/AST/ast-behavioral.ts <production-file-path> --pretty
+npx tsx scripts/AST/ast-query.ts behavioral <production-file-path> --pretty
 ```
 
 | # | Category | Concrete values from this file | Preserved after rewrite? |
@@ -283,7 +283,7 @@ Run vitest parity to verify the refactored spec preserves test coverage
 relative to the original.
 
 ```bash
-npx tsx scripts/AST/ast-interpret-vitest-parity.ts \
+npx tsx scripts/AST/ast-query.ts interpret-vitest \
   --source <path-to-original-spec> \
   --target <path-to-refactored-spec> \
   --pretty

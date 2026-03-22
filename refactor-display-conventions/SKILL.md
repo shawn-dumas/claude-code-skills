@@ -38,13 +38,13 @@ If an audit report already exists, skip to Step 1. Otherwise, run the
 same AST tool commands as the audit skill Step 0 on `$ARGUMENTS`:
 
 ```bash
-npx tsx scripts/AST/ast-number-format.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-number-format.ts $ARGUMENTS --count
+npx tsx scripts/AST/ast-query.ts number-format $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts number-format $ARGUMENTS --count
 
-npx tsx scripts/AST/ast-null-display.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-null-display.ts $ARGUMENTS --count
+npx tsx scripts/AST/ast-query.ts null-display $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts null-display $ARGUMENTS --count
 
-npx tsx scripts/AST/ast-interpret-display-format.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-display $ARGUMENTS --pretty
 ```
 
 New tools available for pre-refactor analysis:
@@ -215,7 +215,7 @@ affected a decision, create a feedback fixture via
 Re-run the display format interpreter on the target to verify reduction:
 
 ```bash
-npx tsx scripts/AST/ast-interpret-display-format.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-display $ARGUMENTS --pretty
 ```
 
 The assessment count should be lower than before the refactor.

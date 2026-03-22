@@ -20,7 +20,7 @@ npm packages are actually imported and from where.
 
 ```bash
 # Emits STATIC_IMPORT observations with source, specifiers, and isTypeOnly evidence
-npx tsx scripts/AST/ast-imports.ts src/ --pretty
+npx tsx scripts/AST/ast-query.ts imports src/ --pretty
 ```
 
 ### Using observations

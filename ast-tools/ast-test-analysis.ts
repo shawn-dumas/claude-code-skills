@@ -87,7 +87,10 @@ function isPackageImport(source: string): boolean {
 // Subject detection
 // ---------------------------------------------------------------------------
 
-interface SubjectResult { subjectPath: string; subjectExists: boolean }
+interface SubjectResult {
+  subjectPath: string;
+  subjectExists: boolean;
+}
 
 function resolveImportToSubject(source: string, filePath: string): SubjectResult {
   const resolved = resolveModulePath(source, filePath);

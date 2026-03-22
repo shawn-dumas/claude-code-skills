@@ -20,8 +20,8 @@ AST tools to run:
 
 ```bash
 # Adjust tools to the domain
-npx tsx scripts/AST/ast-imports.ts <target-dir> --pretty
-npx tsx scripts/AST/ast-complexity.ts <target-dir> --pretty
+npx tsx scripts/AST/ast-query.ts imports <target-dir> --pretty
+npx tsx scripts/AST/ast-query.ts complexity <target-dir> --pretty
 ```
 
 <!-- role: guidance -->
@@ -85,8 +85,8 @@ type modules to check before creating new types.]
 pnpm tsc --noEmit -p tsconfig.check.json
 pnpm vitest run <spec-file>
 # Domain-specific AST checks
-npx tsx scripts/AST/ast-complexity.ts <generated-file> --pretty
-npx tsx scripts/AST/ast-type-safety.ts <generated-file> --pretty
+npx tsx scripts/AST/ast-query.ts complexity <generated-file> --pretty
+npx tsx scripts/AST/ast-query.ts type-safety <generated-file> --pretty
 ```
 
 <!-- role: emit -->

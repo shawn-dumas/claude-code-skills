@@ -72,15 +72,15 @@ Run the two observation tools and the interpreter on the target path.
 
 ```bash
 # Number formatting observations
-npx tsx scripts/AST/ast-number-format.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-number-format.ts $ARGUMENTS --count
+npx tsx scripts/AST/ast-query.ts number-format $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts number-format $ARGUMENTS --count
 
 # Null/empty display observations
-npx tsx scripts/AST/ast-null-display.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-null-display.ts $ARGUMENTS --count
+npx tsx scripts/AST/ast-query.ts null-display $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts null-display $ARGUMENTS --count
 
 # Interpreter (classifies observations into assessments)
-npx tsx scripts/AST/ast-interpret-display-format.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-display $ARGUMENTS --pretty
 ```
 
 New tools available for pre-audit analysis:

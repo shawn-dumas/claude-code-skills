@@ -497,16 +497,16 @@ Before defining any new type:
 
 1. **TypeScript:** Run `pnpm tsc --noEmit -p tsconfig.check.json`. Fix any type errors in generated files.
 
-2. **Authorization patterns:** Run `npx tsx scripts/AST/ast-authz-audit.ts <generated-files> --pretty`.
+2. **Authorization patterns:** Run `npx tsx scripts/AST/ast-query.ts authz <generated-files> --pretty`.
    Flag any `RAW_ROLE_CHECK` observations -- new handlers must use the canonical
    authorization utilities, not inline role checks.
 
-3. **Complexity:** Run `npx tsx scripts/AST/ast-complexity.ts <generated-files> --pretty`.
+3. **Complexity:** Run `npx tsx scripts/AST/ast-query.ts complexity <generated-files> --pretty`.
    Every function must have cyclomatic complexity <= 10. Target CC <= 5 for each
    function. If any function exceeds 10, decompose it (extract per-method handlers,
    split complex queries into separate functions, use lookup maps instead of branching).
 
-4. **Type safety:** Run `npx tsx scripts/AST/ast-type-safety.ts <generated-files> --pretty`.
+4. **Type safety:** Run `npx tsx scripts/AST/ast-query.ts type-safety <generated-files> --pretty`.
    Zero `as any` casts. Zero bare `as T` casts at trust boundaries. The only acceptable
    casts are `as const` and type narrowing after runtime checks.
 

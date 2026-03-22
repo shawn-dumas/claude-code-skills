@@ -97,9 +97,9 @@ Extract target directories from `FILE_PATH_REFERENCE` observations.
 #  to identify the target directories)
 
 # Example for a plan touching src/ui/services/hooks/ and src/pages/api/:
-npx tsx scripts/AST/ast-imports.ts src/ui/services/hooks/ src/pages/api/ --pretty
-npx tsx scripts/AST/ast-data-layer.ts src/ui/services/hooks/ --pretty
-npx tsx scripts/AST/ast-react-inventory.ts 'src/ui/page_blocks/**/*.tsx' --pretty
+npx tsx scripts/AST/ast-query.ts imports src/ui/services/hooks/ src/pages/api/ --pretty
+npx tsx scripts/AST/ast-query.ts data-layer src/ui/services/hooks/ --pretty
+npx tsx scripts/AST/ast-query.ts hooks 'src/ui/page_blocks/**/*.tsx' --pretty
 ```
 
 Cross-reference the AST tool output against prompt instructions:
@@ -141,7 +141,7 @@ Cross-reference the AST tool output against prompt instructions:
 
    ```bash
    # For each referenced skill (extract names from SKILL_REFERENCE observations)
-   npx tsx scripts/AST/ast-interpret-skill-quality.ts \
+   npx tsx scripts/AST/ast-query.ts interpret-skill \
      .claude/skills/<skill-name>/SKILL.md --pretty
    ```
 
@@ -168,10 +168,10 @@ If a source codebase IS referenced:
 
 ```bash
 # Run quality tools on the source directories
-npx tsx scripts/AST/ast-type-safety.ts <source-dirs> --pretty
-npx tsx scripts/AST/ast-complexity.ts <source-dirs> --pretty
-npx tsx scripts/AST/ast-side-effects.ts <source-dirs> --pretty
-npx tsx scripts/AST/ast-imports.ts <source-dirs> --pretty
+npx tsx scripts/AST/ast-query.ts type-safety <source-dirs> --pretty
+npx tsx scripts/AST/ast-query.ts complexity <source-dirs> --pretty
+npx tsx scripts/AST/ast-query.ts side-effects <source-dirs> --pretty
+npx tsx scripts/AST/ast-query.ts imports <source-dirs> --pretty
 ```
 
 Flag and record:

@@ -117,7 +117,7 @@ that only documents the misclassified signal while ignoring the others.
 **Run the interpreter to see all assessments:**
 
 ```bash
-npx tsx scripts/AST/ast-interpret-effects.ts <fixture-file> --pretty
+npx tsx scripts/AST/ast-query.ts interpret-effects <fixture-file> --pretty
 ```
 
 **Fixture files:** Copy the source file (plain name, no prefix).
@@ -155,7 +155,7 @@ npx tsx scripts/AST/ast-interpret-effects.ts <fixture-file> --pretty
 **Run the interpreter to see all assessments:**
 
 ```bash
-npx tsx scripts/AST/ast-interpret-hooks.ts <fixture-file> --pretty
+npx tsx scripts/AST/ast-query.ts interpret-hooks <fixture-file> --pretty
 ```
 
 **Fixture files:** Copy the source file (plain name, no prefix).
@@ -197,7 +197,7 @@ with realistic import statements intact.
 **Run the interpreter to see all assessments:**
 
 ```bash
-npx tsx scripts/AST/ast-interpret-ownership.ts <fixture-file> --pretty
+npx tsx scripts/AST/ast-query.ts interpret-ownership <fixture-file> --pretty
 ```
 
 **Fixture files:** Copy the source file (plain name, no prefix).
@@ -239,7 +239,7 @@ into ownership classification. Copy the file with realistic imports.
 **Run the interpreter to see all assessments:**
 
 ```bash
-npx tsx scripts/AST/ast-interpret-template.ts <fixture-file> --pretty
+npx tsx scripts/AST/ast-query.ts interpret-template <fixture-file> --pretty
 ```
 
 **Fixture files:** Copy the source file (plain name, no prefix).
@@ -279,7 +279,7 @@ the interpreter produces any.
 **Run the interpreter to see all assessments:**
 
 ```bash
-npx tsx scripts/AST/ast-interpret-test-quality.ts <fixture-file> --pretty
+npx tsx scripts/AST/ast-query.ts interpret-test-quality <fixture-file> --pretty
 ```
 
 **Fixture files:** Copy the test file. If the misclassification involves
@@ -323,7 +323,7 @@ testing is needed (e.g., `domain-a/`, `domain-b/`).
 **Run the interpreter to see all assessments:**
 
 ```bash
-npx tsx scripts/AST/ast-interpret-dead-code.ts <fixture-directory> --pretty
+npx tsx scripts/AST/ast-query.ts interpret-dead-code <fixture-directory> --pretty
 ```
 
 Note: the dead-code interpreter runs on an **entire directory**, not a
@@ -371,14 +371,14 @@ All files go in the fixture directory as plain copies (no prefix).
 **Run the observation tool then the interpreter:**
 
 ```bash
-# Step 1: collect signal pairs
+# Step 1: collect signal pairs (unroutable -- use direct invocation)
 npx tsx scripts/AST/ast-refactor-intent.ts \
   --before <before-files...> \
   --after <after-files...> \
   > /tmp/signal-pair.json
 
 # Step 2: interpret
-npx tsx scripts/AST/ast-interpret-refactor-intent.ts \
+npx tsx scripts/AST/ast-query.ts interpret-intent \
   --signal-pair /tmp/signal-pair.json \
   --refactor-type <type> \
   --pretty
@@ -436,11 +436,11 @@ to see which evidence fields it uses for matching.
 
 ```bash
 # Observe source and target specs
-npx tsx scripts/AST/ast-pw-test-parity.ts <source-spec> --pretty
-npx tsx scripts/AST/ast-pw-test-parity.ts <target-spec> --pretty
+npx tsx scripts/AST/ast-query.ts pw-parity <source-spec> --pretty
+npx tsx scripts/AST/ast-query.ts pw-parity <target-spec> --pretty
 
 # Interpret
-npx tsx scripts/AST/ast-interpret-pw-test-parity.ts \
+npx tsx scripts/AST/ast-query.ts interpret-parity \
   --source-dir <source-dir> \
   --target-dir <target-dir> \
   --pretty
@@ -487,7 +487,7 @@ this, but only if the helper file is included in `helperFiles`.
 **Run the interpreter:**
 
 ```bash
-npx tsx scripts/AST/ast-interpret-vitest-parity.ts \
+npx tsx scripts/AST/ast-query.ts interpret-vitest \
   --source <path-to-original-spec> \
   --target <path-to-refactored-spec> \
   --pretty
@@ -527,7 +527,7 @@ npx tsx scripts/AST/ast-interpret-vitest-parity.ts \
 **Run the observation tool then the interpreter:**
 
 ```bash
-npx tsx scripts/AST/ast-interpret-plan-audit.ts <plan-file> \
+npx tsx scripts/AST/ast-query.ts interpret-plan-audit <plan-file> \
   --prompts '<glob>' --pretty --verbose
 ```
 

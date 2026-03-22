@@ -33,9 +33,9 @@ If no spec exists or the old one was deleted, continue to generate fresh.
 ## Step 0b: Run AST analysis on the production file
 
 ```bash
-npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts imports $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts complexity $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts side-effects $ARGUMENTS --pretty
 ```
 
 Use import observations to classify dependencies for mock strategy:
@@ -363,11 +363,11 @@ describe('buildSystemsOverviewFast', () => {
 ## Step 7: Verify
 
 1. Run `npx tsc --noEmit -p tsconfig.check.json` -- fix any type errors in the new spec file.
-2. Run `npx tsx scripts/AST/ast-complexity.ts <path-to-new-spec> --pretty`.
+2. Run `npx tsx scripts/AST/ast-query.ts complexity <path-to-new-spec> --pretty`.
    Every function must have cyclomatic complexity <= 10. Test setup
    functions can be complex -- if any exceed 10, decompose them before
    proceeding.
-3. Run `npx tsx scripts/AST/ast-type-safety.ts <path-to-new-spec> --pretty`.
+3. Run `npx tsx scripts/AST/ast-query.ts type-safety <path-to-new-spec> --pretty`.
    Zero `as any` casts -- test mocks that use `as any` undermine type
    safety (P6). Use `satisfies`, fixture `build()`, or
    `as unknown as WrongType` with a comment for intentionally invalid data.

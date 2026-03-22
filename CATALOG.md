@@ -930,15 +930,15 @@ Skills use static analysis tools in `scripts/AST/` instead of grep for code stru
 
 | Query type                         | AST tool                                   | CLI example                                                     |
 | ---------------------------------- | ------------------------------------------ | --------------------------------------------------------------- |
-| "Where is `FooBar` used/imported?" | `ast-imports`                              | `npx tsx scripts/AST/ast-imports.ts src/ --pretty`              |
-| "Who exports X? Dead exports?"     | `ast-imports --kind DEAD_EXPORT_CANDIDATE` | Finds exports with no consumers                                 |
-| "Where is `useMyHook` called?"     | `ast-react-inventory`                      | `npx tsx scripts/AST/ast-react-inventory.ts src/path/ --pretty` |
-| "Any `as any` or `!` assertions?"  | `ast-type-safety`                          | `npx tsx scripts/AST/ast-type-safety.ts src/path/ --pretty`     |
+| "Where is `FooBar` used/imported?" | `ast-imports`                              | `npx tsx scripts/AST/ast-query.ts imports src/ --pretty`              |
+| "Who exports X? Dead exports?"     | `ast-query dead-exports`                   | `npx tsx scripts/AST/ast-query.ts dead-exports src/ --pretty`   |
+| "Where is `useMyHook` called?"     | `ast-react-inventory`                      | `npx tsx scripts/AST/ast-query.ts hooks src/path/ --pretty` |
+| "Any `as any` or `!` assertions?"  | `ast-type-safety`                          | `npx tsx scripts/AST/ast-query.ts type-safety src/path/ --pretty`     |
 | "What does this useEffect do?"     | `ast-interpret-effects`                    | Classifies each useEffect                                       |
 | "How is X mocked in tests?"        | `ast-test-analysis --test-files`           | Mock patterns, cleanup gaps                                     |
 | "Cyclomatic complexity?"           | `ast-complexity`                           | Per-function CC scores                                          |
-| "Circular dependencies?"           | `ast-imports --kind CIRCULAR_DEPENDENCY`   | Cross-file cycle detection                                      |
-| "Which files import symbol X?"     | `ast-imports --symbol <name>`              | `ast-imports src/ --symbol BadRequestError --pretty`            |
+| "Circular dependencies?"           | `ast-query circular`                       | `npx tsx scripts/AST/ast-query.ts circular src/ --pretty`       |
+| "Which files import symbol X?"     | `ast-query symbol`                         | `npx tsx scripts/AST/ast-query.ts symbol BadRequestError src/ --pretty` |
 | "Where is field `foo` used?"       | `ast-field-refs --field <name>`            | `ast-field-refs src/ --field active_time_ms --pretty`           |
 
 **Gap-flagging (mandatory).** When using `sg` OR `rg` on TypeScript source because no AST tool covers the pattern, append an entry to `scripts/AST/GAPS.md`. This applies to BOTH Tier 2 and Tier 3. One row per pattern class, not per invocation. Before reaching for `sg` or `rg`, check GAPS.md -- if the pattern has a `filled` entry, use that AST tool instead. Use `/build-ast-tool` to fill gaps from the registry.
@@ -1011,29 +1011,29 @@ Interpreters read from `astConfig` to make classifications. When repo convention
 
 ```bash
 # Observation output (JSON by default)
-npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/dashboard/team/
+npx tsx scripts/AST/ast-query.ts hooks src/ui/page_blocks/dashboard/team/
 
 # Pretty-printed
-npx tsx scripts/AST/ast-jsx-analysis.ts src/ui/components/8flow/Table/ --pretty
+npx tsx scripts/AST/ast-query.ts jsx src/ui/components/8flow/Table/ --pretty
 
 # Filter by observation kind
-npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/ --kind MOCK_DECLARATION
+npx tsx scripts/AST/ast-query.ts test-quality src/ui/page_blocks/dashboard/ --kind MOCK_DECLARATION
 
 # Count mode for verification queries
-npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/ --kind TIMER_NEGATIVE_ASSERTION --count
+npx tsx scripts/AST/ast-query.ts test-quality src/ui/page_blocks/dashboard/ --kind TIMER_NEGATIVE_ASSERTION --count
 
 # Scan test files with any tool
-npx tsx scripts/AST/ast-type-safety.ts src/ui/page_blocks/dashboard/ --test-files --kind AS_UNKNOWN_AS_CAST
+npx tsx scripts/AST/ast-query.ts type-safety src/ui/page_blocks/dashboard/ --test-files --kind AS_UNKNOWN_AS_CAST
 
 # Glob patterns
-npx tsx scripts/AST/ast-type-safety.ts "src/ui/page_blocks/dashboard/systems/**/*.tsx" --pretty
+npx tsx scripts/AST/ast-query.ts type-safety "src/ui/page_blocks/dashboard/systems/**/*.tsx" --pretty
 
 # Multi-file
-npx tsx scripts/AST/ast-type-safety.ts src/shared/utils/date/*.ts src/shared/utils/string/*.ts
+npx tsx scripts/AST/ast-query.ts type-safety src/shared/utils/date/*.ts src/shared/utils/string/*.ts
 
 # Run an interpreter
-npx tsx scripts/AST/ast-interpret-effects.ts src/ui/page_blocks/dashboard/team/
-npx tsx scripts/AST/ast-interpret-ownership.ts src/ui/page_blocks/dashboard/team/
+npx tsx scripts/AST/ast-query.ts interpret-effects src/ui/page_blocks/dashboard/team/
+npx tsx scripts/AST/ast-query.ts interpret-ownership src/ui/page_blocks/dashboard/team/
 ```
 
 All observation tools accept these flags:

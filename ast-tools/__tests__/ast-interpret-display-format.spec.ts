@@ -319,9 +319,7 @@ describe('ast-interpret-display-format', () => {
 
   describe('PERCENTAGE_PRECISION_MISMATCH classification', () => {
     it('flags table context with wrong precision', () => {
-      const numberObs = [
-        makePercentageDisplay('useTableColumns.tsx', 6, 1, { containingFunction: 'tablePercentage' }),
-      ];
+      const numberObs = [makePercentageDisplay('useTableColumns.tsx', 6, 1, { containingFunction: 'tablePercentage' })];
       const result = interpretDisplayFormat(numberObs, []);
 
       expect(result.assessments).toHaveLength(1);
@@ -330,9 +328,7 @@ describe('ast-interpret-display-format', () => {
     });
 
     it('does not flag correct precision for context', () => {
-      const numberObs = [
-        makePercentageDisplay('useTableColumns.tsx', 6, 2, { containingFunction: 'tablePercentage' }),
-      ];
+      const numberObs = [makePercentageDisplay('useTableColumns.tsx', 6, 2, { containingFunction: 'tablePercentage' })];
       const result = interpretDisplayFormat(numberObs, []);
 
       const mismatch = result.assessments.filter(a => a.kind === 'PERCENTAGE_PRECISION_MISMATCH');
@@ -340,9 +336,7 @@ describe('ast-interpret-display-format', () => {
     });
 
     it('flags progress bar context with wrong precision', () => {
-      const numberObs = [
-        makePercentageDisplay('ProgressBar.tsx', 12, 2, { containingFunction: 'progressPercentage' }),
-      ];
+      const numberObs = [makePercentageDisplay('ProgressBar.tsx', 12, 2, { containingFunction: 'progressPercentage' })];
       const result = interpretDisplayFormat(numberObs, []);
 
       expect(result.assessments).toHaveLength(1);
@@ -389,10 +383,7 @@ describe('ast-interpret-display-format', () => {
   describe('basedOn tracing', () => {
     it('every assessment basedOn refs match input observations', () => {
       const numberObs = [makeRawToFixed('utils.ts', 3, 2)];
-      const nullObs = [
-        makeNullCoalesce('columns.tsx', 5, 'N/A'),
-        makeHardcodedPlaceholder('table.tsx', 10, false),
-      ];
+      const nullObs = [makeNullCoalesce('columns.tsx', 5, 'N/A'), makeHardcodedPlaceholder('table.tsx', 10, false)];
       const result = interpretDisplayFormat(numberObs, nullObs);
 
       const allObs = [...numberObs, ...nullObs];

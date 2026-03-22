@@ -20,9 +20,9 @@ Run the matching audit skill first for a prioritized violation report:
 
 ```bash
 # Adjust tools to the domain
-npx tsx scripts/AST/ast-complexity.ts <target> --pretty
-npx tsx scripts/AST/ast-react-inventory.ts <target> --pretty
-npx tsx scripts/AST/ast-type-safety.ts <target> --pretty
+npx tsx scripts/AST/ast-query.ts complexity <target> --pretty
+npx tsx scripts/AST/ast-query.ts hooks <target> --pretty
+npx tsx scripts/AST/ast-query.ts type-safety <target> --pretty
 ```
 
 <!-- role: workflow -->
@@ -107,7 +107,7 @@ pnpm vitest run <spec-file>
 # Behavioral preservation check
 npx tsx scripts/AST/ast-refactor-intent.ts <before-file> <after-file> --pretty
 # Domain-specific AST checks
-npx tsx scripts/AST/ast-complexity.ts <target> --pretty
+npx tsx scripts/AST/ast-query.ts complexity <target> --pretty
 ```
 
 <!-- role: emit -->

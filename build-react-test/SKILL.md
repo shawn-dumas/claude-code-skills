@@ -42,9 +42,9 @@ compliant (scores 7+/10), report that and suggest using a future
 ## Step 0b: Run AST analysis on the production file
 
 ```bash
-npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-interpret-ownership.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts hooks $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts data-layer $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-ownership $ARGUMENTS --pretty
 ```
 
 Use react-inventory to extract component and hook observations (props,
@@ -749,11 +749,11 @@ describe('myFunction', () => {
 ## Step 7: Verify
 
 1. Run `npx tsc --noEmit -p tsconfig.check.json` — fix any type errors in the new spec file.
-2. Run `npx tsx scripts/AST/ast-complexity.ts <path-to-new-spec> --pretty`.
+2. Run `npx tsx scripts/AST/ast-query.ts complexity <path-to-new-spec> --pretty`.
    Every function must have cyclomatic complexity <= 10. Test setup
    functions can be complex — if any exceed 10, decompose them before
    proceeding.
-3. Run `npx tsx scripts/AST/ast-type-safety.ts <path-to-new-spec> --pretty`.
+3. Run `npx tsx scripts/AST/ast-query.ts type-safety <path-to-new-spec> --pretty`.
    Zero `as any` casts. Zero `as unknown as` casts on valid test data.
    Every `as unknown as` must have a comment explaining why the data is
    intentionally invalid (error-path testing). If the cast exists because
@@ -764,7 +764,7 @@ describe('myFunction', () => {
 
    Also run the targeted check:
    ```bash
-   npx tsx scripts/AST/ast-type-safety.ts <path-to-new-spec> --test-files --kind AS_UNKNOWN_AS_CAST --pretty
+   npx tsx scripts/AST/ast-query.ts type-safety <path-to-new-spec> --test-files --kind AS_UNKNOWN_AS_CAST --pretty
    ```
    This must report zero findings. If it reports any, replace each cast
    using the patterns from Step 5b (fixture builder, `satisfies`, or typed

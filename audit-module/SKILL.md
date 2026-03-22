@@ -17,27 +17,27 @@ modify any files. Produce a complete violation report.
 # --- Observation-producing tools ---
 
 # Dependency graph (emits STATIC_IMPORT, DEAD_EXPORT_CANDIDATE observations)
-npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts imports $ARGUMENTS --pretty
 
 # Complexity (emits FUNCTION_COMPLEXITY observations)
-npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts complexity $ARGUMENTS --pretty
 
 # Type safety (emits AS_ANY_CAST, NON_NULL_ASSERTION, TRUST_BOUNDARY_CAST, EXPLICIT_ANY_ANNOTATION observations)
-npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts type-safety $ARGUMENTS --pretty
 
 # Side effects (emits CONSOLE_CALL, TOAST_CALL, TIMER_CALL, POSTHOG_CALL observations)
-npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts side-effects $ARGUMENTS --pretty
 
 # Environment access (emits PROCESS_ENV_ACCESS, ENV_WRAPPER_ACCESS, ENV_WRAPPER_IMPORT observations)
-npx tsx scripts/AST/ast-env-access.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts env $ARGUMENTS --pretty
 
 # Storage access (emits DIRECT_STORAGE_CALL, TYPED_STORAGE_CALL, JSON_PARSE_CALL observations)
-npx tsx scripts/AST/ast-storage-access.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts storage $ARGUMENTS --pretty
 
 # --- Interpreters ---
 
 # Dead code detection (emits DEAD_EXPORT, POSSIBLY_DEAD_EXPORT, CIRCULAR_DEPENDENCY assessments)
-npx tsx scripts/AST/ast-interpret-dead-code.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-dead-code $ARGUMENTS --pretty
 ```
 
 ### New tools available

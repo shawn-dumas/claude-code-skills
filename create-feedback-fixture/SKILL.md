@@ -159,22 +159,22 @@ Run the interpreter on the copied files and collect all assessments:
 
 ```bash
 # effects
-npx tsx scripts/AST/ast-interpret-effects.ts <fixture-dir> --json
+npx tsx scripts/AST/ast-query.ts interpret-effects <fixture-dir> --json
 
 # hooks
-npx tsx scripts/AST/ast-interpret-hooks.ts <fixture-dir> --json
+npx tsx scripts/AST/ast-query.ts interpret-hooks <fixture-dir> --json
 
 # ownership
-npx tsx scripts/AST/ast-interpret-ownership.ts <fixture-dir> --json
+npx tsx scripts/AST/ast-query.ts interpret-ownership <fixture-dir> --json
 
 # template
-npx tsx scripts/AST/ast-interpret-template.ts <fixture-dir> --json
+npx tsx scripts/AST/ast-query.ts interpret-template <fixture-dir> --json
 
 # test-quality
-npx tsx scripts/AST/ast-interpret-test-quality.ts <fixture-dir> --json
+npx tsx scripts/AST/ast-query.ts interpret-test-quality <fixture-dir> --json
 
 # dead-code
-npx tsx scripts/AST/ast-interpret-dead-code.ts <fixture-dir> --json
+npx tsx scripts/AST/ast-query.ts interpret-dead-code <fixture-dir> --json
 ```
 
 Parse the JSON output. Each assessment has `kind`, `subject.file`,
@@ -185,7 +185,7 @@ Parse the JSON output. Each assessment has `kind`, `subject.file`,
 ```bash
 npx tsx scripts/AST/ast-refactor-intent.ts \
   --before <before-files> --after <after-files> --json
-npx tsx scripts/AST/ast-interpret-refactor-intent.ts \
+npx tsx scripts/AST/ast-query.ts interpret-intent \
   --signal-pair <output-json> --refactor-type <type> --json
 ```
 
@@ -193,24 +193,24 @@ npx tsx scripts/AST/ast-interpret-refactor-intent.ts \
 
 ```bash
 # parity
-npx tsx scripts/AST/ast-interpret-pw-test-parity.ts \
+npx tsx scripts/AST/ast-query.ts interpret-parity \
   --source-dir <fixture-dir> --target-dir <fixture-dir> --json
 
 # vitest-parity
-npx tsx scripts/AST/ast-interpret-vitest-parity.ts \
+npx tsx scripts/AST/ast-query.ts interpret-vitest \
   --source-dir <fixture-dir> --target-dir <fixture-dir> --json
 ```
 
 ### Plan-audit tool
 
 ```bash
-npx tsx scripts/AST/ast-interpret-plan-audit.ts <plan-file> --json
+npx tsx scripts/AST/ast-query.ts interpret-plan-audit <plan-file> --json
 ```
 
 ### Skill-quality tool
 
 ```bash
-npx tsx scripts/AST/ast-interpret-skill-quality.ts <skill-file-or-dir>
+npx tsx scripts/AST/ast-query.ts interpret-skill <skill-file-or-dir>
 ```
 
 <!-- role: emit -->

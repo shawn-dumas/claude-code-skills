@@ -34,26 +34,26 @@ violations. Use this output to guide the refactoring.
 
 ```bash
 # Authorization patterns (emits RAW_ROLE_CHECK observations)
-npx tsx scripts/AST/ast-authz-audit.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts authz $ARGUMENTS --pretty
 
 # Complexity hotspots (emits FUNCTION_COMPLEXITY observations)
-npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts complexity $ARGUMENTS --pretty
 
 # Type safety (emits AS_ANY_CAST, TRUST_BOUNDARY_CAST, NON_NULL_ASSERTION observations)
-npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts type-safety $ARGUMENTS --pretty
 
 # Import graph (emits STATIC_IMPORT, DEAD_EXPORT_CANDIDATE, CIRCULAR_DEPENDENCY observations)
-npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts imports $ARGUMENTS --pretty
 
 # Side effects (emits CONSOLE_CALL, TOAST_CALL, TIMER_CALL observations)
-npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts side-effects $ARGUMENTS --pretty
 ```
 
 If a co-located schema file exists (`.schema.ts` sibling), run the same tools on it:
 
 ```bash
-npx tsx scripts/AST/ast-complexity.ts <schema-file> --pretty
-npx tsx scripts/AST/ast-type-safety.ts <schema-file> --pretty
+npx tsx scripts/AST/ast-query.ts complexity <schema-file> --pretty
+npx tsx scripts/AST/ast-query.ts type-safety <schema-file> --pretty
 ```
 
 Record the **before** cyclomatic complexity for every function in the handler.
@@ -158,7 +158,7 @@ If `ast-behavioral` is available, run it first to pre-populate categories
 inspection -- the tool provides partial signals but cannot fully cover them.
 
 ```bash
-npx tsx scripts/AST/ast-behavioral.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts behavioral $ARGUMENTS --pretty
 ```
 
 | # | Category | Concrete values from this file | Preserved after rewrite? |
@@ -480,7 +480,7 @@ Before defining any new type:
     c. Run the interpreter:
 
     ```bash
-    npx tsx scripts/AST/ast-interpret-refactor-intent.ts \
+    npx tsx scripts/AST/ast-query.ts interpret-intent \
       --signal-pair /tmp/signal-pair.json \
       --refactor-type api-handler \
       --pretty
@@ -499,10 +499,10 @@ Before defining any new type:
     investigation confirms it was actually intentional, run
     `/create-feedback-fixture --tool intent --file <before-file> --files <after-files> --expected INTENTIONALLY_REMOVED --actual ACCIDENTALLY_DROPPED`.
 
-3.  **Complexity (mandatory before/after):** Run `npx tsx scripts/AST/ast-complexity.ts <all-changed-files> --pretty`.
+3.  **Complexity (mandatory before/after):** Run `npx tsx scripts/AST/ast-query.ts complexity <all-changed-files> --pretty`.
     Every function must have CC <= 10. Compare against the baseline recorded in Step 0.
 
-4.  **Type safety:** Run `npx tsx scripts/AST/ast-type-safety.ts <all-changed-files> --pretty`.
+4.  **Type safety:** Run `npx tsx scripts/AST/ast-query.ts type-safety <all-changed-files> --pretty`.
     Zero `as any` casts. Zero bare `as T` casts at trust boundaries (use Zod `.parse()` instead).
 
 5.  **Tests:** If existing unit or integration tests cover the handler, run them.

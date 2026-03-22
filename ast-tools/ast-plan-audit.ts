@@ -132,7 +132,10 @@ function parsePromptTable(content: string): PromptTableRow[] | null {
   // Collect all candidate tables that have a "prompt" column.
   // Prefer the table that also has a "mode" column (the actual prompt/phase
   // table), falling back to the first candidate if none has mode.
-  interface Candidate { rows: PromptTableRow[]; hasMode: boolean }
+  interface Candidate {
+    rows: PromptTableRow[];
+    hasMode: boolean;
+  }
   const candidates: Candidate[] = [];
   let i = 0;
 
@@ -485,7 +488,7 @@ function checkPromptVerification(promptPath: string, obs: PlanAuditObservation[]
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const isFenceLine = line.startsWith("```");
+    const isFenceLine = line.startsWith('```');
 
     if (isFenceLine) {
       if (foundVerifyHeading) hasRunnableContent = true;

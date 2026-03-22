@@ -14,9 +14,9 @@ testing philosophy. Read the spec, score it, fix or replace it.
 ## Step 0: Run AST analysis tools
 
 ```bash
-npx tsx scripts/AST/ast-test-analysis.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-interpret-test-quality.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts test-quality $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts type-safety $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-test-quality $ARGUMENTS --pretty
 ```
 
 Use the test quality assessments to pre-score the spec before reading
@@ -102,7 +102,7 @@ If `ast-behavioral` is available, run it first to pre-populate categories
 inspection -- the tool provides partial signals but cannot fully cover them.
 
 ```bash
-npx tsx scripts/AST/ast-behavioral.ts <production-file-path> --pretty
+npx tsx scripts/AST/ast-query.ts behavioral <production-file-path> --pretty
 ```
 
 | # | Category | Concrete values from this file | Preserved after rewrite? |
@@ -281,7 +281,7 @@ After applying fixes, check if the file structure is sound:
 
 1. Run `npx tsc --noEmit -p tsconfig.check.json` -- fix type errors in the spec.
 2. Run `pnpm vitest run <path-to-spec>` -- all tests must pass.
-3. Run `npx tsx scripts/AST/ast-type-safety.ts <path-to-spec> --test-files --kind AS_UNKNOWN_AS_CAST --pretty` -- must report 0 occurrences.
+3. Run `npx tsx scripts/AST/ast-query.ts type-safety <path-to-spec> --test-files --kind AS_UNKNOWN_AS_CAST --pretty` -- must report 0 occurrences.
 4. Re-score against the 10 principles. Must be 10/10.
 5. If any principle still has violations after fixes, report which ones
    and why they cannot be fixed without production-code changes.
@@ -311,7 +311,7 @@ that the intent matcher may miss (intent sees observation-level signals;
 parity sees test-level structure).
 
 ```bash
-npx tsx scripts/AST/ast-interpret-vitest-parity.ts \
+npx tsx scripts/AST/ast-query.ts interpret-vitest \
   --source <path-to-original-spec> \
   --target <path-to-refactored-spec> \
   --pretty

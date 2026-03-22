@@ -169,7 +169,7 @@ function resolvePathRef(refPath: string): string | null {
   // Skip ellipsis placeholders (e.g., @/components/...)
   if (/\.{3}/.test(refPath)) return null;
   // Skip truncated template paths ending with - (e.g., scripts/AST/ast-)
-  if (refPath.endsWith("-")) return null;
+  if (refPath.endsWith('-')) return null;
   // Skip relative paths (./shared, ./handler-name.schema, ../utils)
   // These are relative imports shown in code examples, not resolvable from project root
   if (/^\.\.?\//.test(refPath)) return null;
@@ -367,7 +367,7 @@ function buildFencedLineSet(content: string): Set<number> {
   const fenced = new Set<number>();
   let inBlock = false;
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trimStart().startsWith("```")) {
+    if (lines[i].trimStart().startsWith('```')) {
       if (inBlock) {
         // closing fence -- this line is part of the block
         fenced.add(i);
@@ -802,7 +802,7 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
     const lineNum = i + 1;
 
     // Toggle fenced code block state
-    if (line.trimStart().startsWith("```")) {
+    if (line.trimStart().startsWith('```')) {
       inFencedBlock = !inFencedBlock;
       continue;
     }
@@ -861,10 +861,10 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
   const codeBlockData = codeBlocks.map(cb => ({
     content: cb.value ?? '',
     line: nodeLine(cb),
-    lang: (cb.lang!) ?? '',
+    lang: cb.lang! ?? '',
   }));
   const inlineCodeNodes = findAll(tree, 'inlineCode');
-  const inlineCodeText = inlineCodeNodes.map(ic => (ic.value!) ?? '').join('\n');
+  const inlineCodeText = inlineCodeNodes.map(ic => ic.value! ?? '').join('\n');
   scanConventions(content, codeBlockData, inlineCodeText, relPath, obs, sortedHeadings, headingRoles);
 
   return { filePath: relPath, skillName, category, observations: obs };

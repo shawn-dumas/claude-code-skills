@@ -144,9 +144,9 @@ import { getStartEndTimes } from '@/shared/utils/date/getStartEndTimes';
 ## Step 0: Run AST analysis (if no prior audit)
 
 ```bash
-npx tsx scripts/AST/ast-date-handling.ts $ARGUMENTS --summary --pretty
-npx tsx scripts/AST/ast-date-handling.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-date-handling.ts $ARGUMENTS --count
+npx tsx scripts/AST/ast-query.ts date-summary $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts date-usage $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts date-usage $ARGUMENTS --count
 ```
 
 <!-- role: workflow -->
@@ -202,7 +202,7 @@ pnpm tsc --noEmit -p tsconfig.check.json
 pnpm test --run
 
 # Re-run the date handling audit to verify reduction
-npx tsx scripts/AST/ast-date-handling.ts $ARGUMENTS --summary --pretty
+npx tsx scripts/AST/ast-query.ts date-summary $ARGUMENTS --pretty
 
 # Build
 pnpm build

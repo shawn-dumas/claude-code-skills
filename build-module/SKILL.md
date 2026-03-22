@@ -292,7 +292,7 @@ Fix any errors in the generated files before proceeding.
 ### 5b. Cyclomatic complexity
 
 ```bash
-npx tsx scripts/AST/ast-complexity.ts <generated-module-file> --pretty
+npx tsx scripts/AST/ast-query.ts complexity <generated-module-file> --pretty
 ```
 
 Every function must have CC <= 10. If any function exceeds 10, decompose
@@ -301,7 +301,7 @@ it before proceeding.
 ### 5c. Type safety
 
 ```bash
-npx tsx scripts/AST/ast-type-safety.ts <generated-module-file> --pretty
+npx tsx scripts/AST/ast-query.ts type-safety <generated-module-file> --pretty
 ```
 
 Zero `as any` casts. Zero bare `as T` at trust boundaries (use Zod
@@ -313,7 +313,7 @@ comment explaining why the value is guaranteed non-null.
 Use ast-branded-check to verify branded type usage:
 
 ```bash
-npx tsx scripts/AST/ast-branded-check.ts <generated-files> --pretty
+npx tsx scripts/AST/ast-query.ts branded <generated-files> --pretty
 ```
 
 If any matches are found, replace the bare `string` with the
@@ -332,7 +332,7 @@ All tests must pass. If any fail, fix the production code or the test
 ### 5f. Side effects audit (for modules claiming purity)
 
 ```bash
-npx tsx scripts/AST/ast-side-effects.ts <generated-module-file> --pretty
+npx tsx scripts/AST/ast-query.ts side-effects <generated-module-file> --pretty
 ```
 
 If the module was designed as pure (G6), this must return zero

@@ -37,7 +37,7 @@ After identifying the container file (follow imports from the page file
 into `src/ui/page_blocks/`), run:
 
 ```bash
-npx tsx scripts/AST/ast-data-layer.ts <container-path> --pretty
+npx tsx scripts/AST/ast-query.ts data-layer <container-path> --pretty
 ```
 
 The tool emits data layer observations with structured evidence:

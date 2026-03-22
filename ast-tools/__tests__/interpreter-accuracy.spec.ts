@@ -636,10 +636,8 @@ describe('Intent matcher accuracy', () => {
       // Output per-fixture details for debugging
       for (const r of fixtureResults) {
         if (r.details.length > 0) {
-           
           console.error(`\n[${r.dir}] ${r.correct}/${r.total}:`);
           for (const d of r.details) {
-             
             console.error(`  ${d}`);
           }
         }
@@ -683,10 +681,8 @@ describe('Parity tool accuracy', () => {
     // Output per-fixture details for debugging
     for (const r of fixtureResults) {
       if (r.details.length > 0) {
-         
         console.error(`\n[${r.dir}] ${r.correct}/${r.total}:`);
         for (const d of r.details) {
-           
           console.error(`  ${d}`);
         }
       }
@@ -732,10 +728,8 @@ describe('Vitest parity tool accuracy', () => {
       // Output per-fixture details for debugging
       for (const r of fixtureResults) {
         if (r.details.length > 0) {
-           
           console.error(`\n[${r.dir}] ${r.correct}/${r.total}:`);
           for (const d of r.details) {
-             
             console.error(`  ${d}`);
           }
         }
@@ -786,10 +780,8 @@ function runEntryAccuracyTest(toolName: string, fixtures: { dir: string; manifes
   // Output per-fixture details for debugging
   for (const r of fixtureResults) {
     if (r.details.length > 0) {
-       
       console.error(`\n[${r.dir}] ${r.correct}/${r.total}:`);
       for (const d of r.details) {
-         
         console.error(`  ${d}`);
       }
     }

@@ -79,16 +79,16 @@ The codebase is mid-migration from raw `Date` to `Temporal` (via
 
 ```bash
 # Summary with raw/proper ratio by layer
-npx tsx scripts/AST/ast-date-handling.ts $ARGUMENTS --summary --pretty
+npx tsx scripts/AST/ast-query.ts date-summary $ARGUMENTS --pretty
 
 # Full observation list
-npx tsx scripts/AST/ast-date-handling.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts date-usage $ARGUMENTS --pretty
 
 # Count by kind
-npx tsx scripts/AST/ast-date-handling.ts $ARGUMENTS --count
+npx tsx scripts/AST/ast-query.ts date-usage $ARGUMENTS --count
 
 # Also scan test files for completeness
-npx tsx scripts/AST/ast-date-handling.ts $ARGUMENTS --test-files --count
+npx tsx scripts/AST/ast-query.ts date-usage $ARGUMENTS --test-files --count
 ```
 
 <!-- role: workflow -->

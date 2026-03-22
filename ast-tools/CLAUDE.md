@@ -10,31 +10,31 @@ See `README.md` for design philosophy and architecture overview.
 These tools are registered in `tool-registry.ts` and can be run via
 `runAllObservers` or `runObservers` programmatically.
 
-| Tool | CLI | Description |
+| Tool | ast-query route | Description |
 |---|---|---|
-| ast-authz-audit | `npx tsx scripts/AST/ast-authz-audit.ts <path>` | Detects raw role checks and role equality checks outside canonical files |
-| ast-behavioral | `npx tsx scripts/AST/ast-behavioral.ts <path>` | Extracts behavioral fingerprint: defaults, render caps, null coercion, string literals, column defs, state init, type coercion, conditional guards |
-| ast-complexity | `npx tsx scripts/AST/ast-complexity.ts <path>` | Measures cyclomatic complexity per function |
-| ast-concern-matrix | `npx tsx scripts/AST/ast-concern-matrix.ts <path>` | Checks containers for loading/error/empty/permission handling |
-| ast-data-layer | `npx tsx scripts/AST/ast-data-layer.ts <path>` | Maps service hooks, query keys, fetchApi calls, API endpoints |
-| ast-env-access | `npx tsx scripts/AST/ast-env-access.ts <path>` | Detects process.env, clientEnv, serverEnv access patterns |
-| ast-error-coverage | `npx tsx scripts/AST/ast-error-coverage.ts <path>` | Checks query/mutation error handling coverage per container |
-| ast-export-surface | `npx tsx scripts/AST/ast-export-surface.ts <path>` | Extracts export surface from isolated files (works on git refs) |
-| ast-feature-flags | `npx tsx scripts/AST/ast-feature-flags.ts <path>` | Maps PostHog feature flag usage, page guards, flag reads |
-| ast-handler-structure | `npx tsx scripts/AST/ast-handler-structure.ts <path>` | Detects inline handler logic and multi-method handlers in BFF routes |
-| ast-imports | `npx tsx scripts/AST/ast-imports.ts <path>` | Builds import graph, detects circular deps and dead exports |
-| ast-jsx-analysis | `npx tsx scripts/AST/ast-jsx-analysis.ts <path>` | Measures JSX return complexity, ternary chains, inline handlers |
-| ast-null-display | `npx tsx scripts/AST/ast-null-display.ts <path>` | Detects null/empty display patterns, wrong placeholders, zero conflation |
-| ast-number-format | `npx tsx scripts/AST/ast-number-format.ts <path>` | Detects raw toFixed/toLocaleString, percentage display, format function usage |
-| ast-react-inventory | `npx tsx scripts/AST/ast-react-inventory.ts <path>` | Inventories hooks, effects, components, and props per file |
-| ast-side-effects | `npx tsx scripts/AST/ast-side-effects.ts <path>` | Detects console, toast, timer, PostHog, and window mutation calls |
-| ast-storage-access | `npx tsx scripts/AST/ast-storage-access.ts <path>` | Detects localStorage, sessionStorage, typedStorage, cookie access |
-| ast-test-analysis | `npx tsx scripts/AST/ast-test-analysis.ts <path>` | Analyzes test file structure: mocks, assertions, cleanup, data sourcing |
-| ast-test-coverage | `npx tsx scripts/AST/ast-test-coverage.ts <path>` | Maps production files to spec files, computes risk scores |
-| ast-type-safety | `npx tsx scripts/AST/ast-type-safety.ts <path>` | Detects as-any, as-unknown, non-null assertions, trust boundary casts |
-| ast-pw-test-parity | `npx tsx scripts/AST/ast-pw-test-parity.ts <path>` | Inventories Playwright spec structure, assertions, route intercepts |
-| ast-vitest-parity | `npx tsx scripts/AST/ast-vitest-parity.ts <path>` | Inventories Vitest spec structure, assertions, mocks, renders |
-| ast-branded-check | `npx tsx scripts/AST/ast-branded-check.ts <path>` | Detects unbranded ID fields and unbranded function params (UNBRANDED_PARAM) |
+| ast-authz-audit | `ast-query.ts authz <path>` | Detects raw role checks and role equality checks outside canonical files |
+| ast-behavioral | `ast-query.ts behavioral <path>` | Extracts behavioral fingerprint: defaults, render caps, null coercion, string literals, column defs, state init, type coercion, conditional guards |
+| ast-complexity | `ast-query.ts complexity <path>` | Measures cyclomatic complexity per function |
+| ast-concern-matrix | `ast-query.ts concerns <path>` | Checks containers for loading/error/empty/permission handling |
+| ast-data-layer | `ast-query.ts data-layer <path>` | Maps service hooks, query keys, fetchApi calls, API endpoints |
+| ast-env-access | `ast-query.ts env <path>` | Detects process.env, clientEnv, serverEnv access patterns |
+| ast-error-coverage | `ast-query.ts errors <path>` | Checks query/mutation error handling coverage per container |
+| ast-export-surface | `ast-query.ts exports <path>` | Extracts export surface from isolated files (works on git refs) |
+| ast-feature-flags | `ast-query.ts feature-flags <path>` | Maps PostHog feature flag usage, page guards, flag reads |
+| ast-handler-structure | `ast-query.ts handler <path>` | Detects inline handler logic and multi-method handlers in BFF routes |
+| ast-imports | `ast-query.ts imports <path>` | Builds import graph, detects circular deps and dead exports |
+| ast-jsx-analysis | `ast-query.ts jsx <path>` | Measures JSX return complexity, ternary chains, inline handlers |
+| ast-null-display | `ast-query.ts null-display <path>` | Detects null/empty display patterns, wrong placeholders, zero conflation |
+| ast-number-format | `ast-query.ts number-format <path>` | Detects raw toFixed/toLocaleString, percentage display, format function usage |
+| ast-react-inventory | `ast-query.ts hooks <path>` / `effects <path>` | Inventories hooks, effects, components, and props per file |
+| ast-side-effects | `ast-query.ts side-effects <path>` | Detects console, toast, timer, PostHog, and window mutation calls |
+| ast-storage-access | `ast-query.ts storage <path>` | Detects localStorage, sessionStorage, typedStorage, cookie access |
+| ast-test-analysis | `ast-query.ts test-quality <path>` | Analyzes test file structure: mocks, assertions, cleanup, data sourcing |
+| ast-test-coverage | `ast-query.ts test-coverage <path>` | Maps production files to spec files, computes risk scores |
+| ast-type-safety | `ast-query.ts type-safety <path>` / `as-any <path>` | Detects as-any, as-unknown, non-null assertions, trust boundary casts |
+| ast-pw-test-parity | `ast-query.ts pw-parity <path>` | Inventories Playwright spec structure, assertions, route intercepts |
+| ast-vitest-parity | `ast-query.ts vitest-parity <path>` | Inventories Vitest spec structure, assertions, mocks, renders |
+| ast-branded-check | `ast-query.ts branded <path>` | Detects unbranded ID fields and unbranded function params (UNBRANDED_PARAM) |
 
 ### Standalone Tools (not in registry)
 
@@ -82,6 +82,48 @@ Interpreters consume observations and emit assessments with confidence levels.
 | shared.ts | Shared AST traversal utilities |
 | tool-registry.ts | Tool name to analyzer function mapping |
 | types.ts | All observation and assessment type definitions |
+
+## 1b. Primary CLI Entry Point: ast-query
+
+`ast-query.ts` is the primary CLI interface for all routable AST tools.
+It dispatches to the underlying tool based on a query-type argument.
+
+```bash
+npx tsx scripts/AST/ast-query.ts <query-type> <path...> [flags]
+```
+
+For CLI queries, use `ast-query.ts`. For programmatic use, import from
+`tool-registry.ts` directly.
+
+Run `npx tsx scripts/AST/ast-query.ts --help` for the full query-type
+list. All flags (`--pretty`, `--count`, `--kind`, `--no-cache`,
+`--test-files`, `--summary`) pass through to the underlying tool.
+
+Common examples:
+
+```bash
+ast-query.ts imports src/shared/utils/ --pretty
+ast-query.ts consumers src/shared/utils/date/formatDate/formatDate.ts --pretty
+ast-query.ts symbol BadRequestError src/ --pretty
+ast-query.ts dead-exports src/ui/page_blocks/ --pretty
+ast-query.ts circular src/ui/ --pretty
+ast-query.ts complexity src/ui/page_blocks/ --pretty
+ast-query.ts as-any src/ui/ --pretty
+ast-query.ts hooks src/ui/page_blocks/ --count
+ast-query.ts effects src/ui/page_blocks/ --count
+ast-query.ts date-summary src/ --pretty
+ast-query.ts interpret-effects src/ui/page_blocks/dashboard/team/ --pretty
+ast-query.ts interpret-hooks src/ui/page_blocks/dashboard/team/ --pretty
+```
+
+**Unroutable tools** (use direct invocation):
+
+- `npx tsx scripts/AST/ast-bff-gaps.ts` (no path args)
+- `npx tsx scripts/AST/ast-field-refs.ts <path> --field <name>`
+- `npx tsx scripts/AST/ast-peer-deps.ts` (no path args)
+- `npx tsx scripts/AST/ast-plan-audit.ts <path>`
+- `npx tsx scripts/AST/ast-skill-analysis.ts <path>`
+- `npx tsx scripts/AST/ast-refactor-intent.ts --before <dir> --after <dir>`
 
 ## 2. Observation/Assessment Architecture
 
@@ -173,27 +215,30 @@ If any interpreter tool has 3+ pending fixtures, run
 
 ## 4. Running AST Tools
 
+Use `ast-query.ts` as the primary CLI entry point. For programmatic use,
+import from `tool-registry.ts` directly.
+
 ```bash
 # Observation output (JSON by default)
-npx tsx scripts/AST/ast-complexity.ts src/shared/utils/date/formatDate.ts
+npx tsx scripts/AST/ast-query.ts complexity src/shared/utils/date/formatDate.ts
 
 # Pretty-printed observation output
-npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/dashboard/team/**/*.tsx --pretty
+npx tsx scripts/AST/ast-query.ts hooks src/ui/page_blocks/dashboard/team/**/*.tsx --pretty
 
 # Filter by observation kind
-npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/ --kind MOCK_DECLARATION
+npx tsx scripts/AST/ast-query.ts test-quality src/ui/page_blocks/dashboard/ --kind MOCK_DECLARATION
 
 # Count mode for verification
-npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/ --kind TIMER_NEGATIVE_ASSERTION --count
+npx tsx scripts/AST/ast-query.ts test-quality src/ui/page_blocks/dashboard/ --kind TIMER_NEGATIVE_ASSERTION --count
 
 # Scan test files with any tool
-npx tsx scripts/AST/ast-type-safety.ts src/ui/page_blocks/dashboard/ --test-files --kind AS_UNKNOWN_AS_CAST
+npx tsx scripts/AST/ast-query.ts type-safety src/ui/page_blocks/dashboard/ --test-files --kind AS_UNKNOWN_AS_CAST
 
 # Multi-file
-npx tsx scripts/AST/ast-type-safety.ts src/shared/utils/date/*.ts src/shared/utils/string/*.ts
+npx tsx scripts/AST/ast-query.ts type-safety src/shared/utils/date/*.ts src/shared/utils/string/*.ts
 
 # Run an interpreter
-npx tsx scripts/AST/ast-interpret-effects.ts src/ui/page_blocks/dashboard/team/
+npx tsx scripts/AST/ast-query.ts interpret-effects src/ui/page_blocks/dashboard/team/
 ```
 
 ### CLI flags

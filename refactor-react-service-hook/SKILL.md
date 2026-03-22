@@ -31,12 +31,12 @@ isolation.
 ## Step 0: Run AST analysis tools
 
 ```bash
-npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-interpret-hooks.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-interpret-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts hooks $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts imports $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts side-effects $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts data-layer $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-hooks $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-effects $ARGUMENTS --pretty
 ```
 
 Use hook assessments from `ast-interpret-hooks` to verify the hook is
@@ -71,7 +71,7 @@ Use data layer observations for Steps 2b/2c/2d/2f/2h:
 Read the target file. Then read:
 
 - Every file it imports (API utilities, query key constants, type files, other hooks)
-- Every consumer of this hook (use `npx tsx scripts/AST/ast-imports.ts --consumers $ARGUMENTS --pretty`)
+- Every consumer of this hook (use `npx tsx scripts/AST/ast-query.ts consumers $ARGUMENTS --pretty`)
 - The query key constants file for this domain
 - Any cross-domain query key files this hook imports
 
@@ -201,7 +201,7 @@ If `ast-behavioral` is available, run it first to pre-populate categories
 inspection -- the tool provides partial signals but cannot fully cover them.
 
 ```bash
-npx tsx scripts/AST/ast-behavioral.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts behavioral $ARGUMENTS --pretty
 ```
 
 | # | Category | Concrete values from this file | Preserved after rewrite? |
@@ -351,7 +351,7 @@ as INTENTIONALLY_REMOVED rather than ACCIDENTALLY_DROPPED.
 3. Run the interpreter:
 
    ```bash
-   npx tsx scripts/AST/ast-interpret-refactor-intent.ts \
+   npx tsx scripts/AST/ast-query.ts interpret-intent \
      --signal-pair /tmp/signal-pair.json \
      --refactor-type service-hook \
      --pretty

@@ -194,11 +194,11 @@ Before defining any new type or interface inline, check first:
 1. Run `pnpm tsc --noEmit -p tsconfig.check.json` scoped to the new files (or the whole project if scoping
    is not practical). If TypeScript errors appear, fix them before finishing.
 
-2. Run `npx tsx scripts/AST/ast-complexity.ts <generated-files> --pretty`.
+2. Run `npx tsx scripts/AST/ast-query.ts complexity <generated-files> --pretty`.
    Every function must have cyclomatic complexity <= 10. If any function
    exceeds 10, decompose it before proceeding.
 
-3. Run `npx tsx scripts/AST/ast-type-safety.ts <generated-files> --pretty`.
+3. Run `npx tsx scripts/AST/ast-query.ts type-safety <generated-files> --pretty`.
    Zero `as any` casts. Zero bare `as T` at trust boundaries (use Zod
    `.parse()` instead). Non-null assertions are acceptable only with a
    comment explaining why the value is guaranteed non-null.

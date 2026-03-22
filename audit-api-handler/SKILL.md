@@ -15,30 +15,30 @@ any files. Produce a complete violation report.
 # --- Observation-producing tools ---
 
 # Authorization patterns (emits RAW_ROLE_CHECK observations)
-npx tsx scripts/AST/ast-authz-audit.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts authz $ARGUMENTS --pretty
 
 # Dependency graph (emits STATIC_IMPORT, DEAD_EXPORT_CANDIDATE observations)
-npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts imports $ARGUMENTS --pretty
 
 # Complexity (emits FUNCTION_COMPLEXITY observations)
-npx tsx scripts/AST/ast-complexity.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts complexity $ARGUMENTS --pretty
 
 # Type safety (emits AS_ANY_CAST, TRUST_BOUNDARY_CAST, NON_NULL_ASSERTION observations)
-npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts type-safety $ARGUMENTS --pretty
 
 # Environment access (emits PROCESS_ENV_ACCESS, ENV_WRAPPER_ACCESS observations)
-npx tsx scripts/AST/ast-env-access.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts env $ARGUMENTS --pretty
 
 # Side effects (emits CONSOLE_CALL, TOAST_CALL, TIMER_CALL observations)
-npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts side-effects $ARGUMENTS --pretty
 
 # Data layer (emits FETCH_API_CALL, QUERY_HOOK_DEFINITION, API_ENDPOINT observations)
-npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts data-layer $ARGUMENTS --pretty
 
 # --- Interpreters ---
 
 # Dead code detection (emits DEAD_EXPORT, CIRCULAR_DEPENDENCY assessments)
-npx tsx scripts/AST/ast-interpret-dead-code.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-dead-code $ARGUMENTS --pretty
 ```
 
 ### New tools available

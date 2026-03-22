@@ -27,7 +27,7 @@ that should be props), use `refactor-react-component` instead.
 ## Step 0: Run JSX analysis
 
 ```bash
-npx tsx scripts/AST/ast-jsx-analysis.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts jsx $ARGUMENTS --pretty
 ```
 
 The tool emits JSX observations with structural evidence:

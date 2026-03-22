@@ -22,15 +22,15 @@ Before running tsc, run observation-producing tools and interpreters.
 
 # Type safety (emits AS_ANY_CAST, AS_UNKNOWN_AS_CAST, NON_NULL_ASSERTION, TRUST_BOUNDARY_CAST,
 # EXPLICIT_ANY_ANNOTATION, TS_DIRECTIVE, ESLINT_DISABLE observations)
-npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts type-safety $ARGUMENTS --pretty
 
 # Import graph (emits STATIC_IMPORT, CIRCULAR_DEPENDENCY, DEAD_EXPORT_CANDIDATE observations)
-npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts imports $ARGUMENTS --pretty
 
 # --- Interpreters ---
 
 # Dead code detection (emits DEAD_EXPORT, CIRCULAR_DEPENDENCY assessments)
-npx tsx scripts/AST/ast-interpret-dead-code.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-dead-code $ARGUMENTS --pretty
 ```
 
 ### New tools available
@@ -228,7 +228,7 @@ Grep for type/interface names that appear in 2+ files:
 
 ```bash
 # Find all exported type/interface declarations
-npx tsx scripts/AST/ast-imports.ts src/ --pretty
+npx tsx scripts/AST/ast-query.ts imports src/ --pretty
 # Use EXPORT_DECLARATION observations to find duplicate type names across files
 ```
 

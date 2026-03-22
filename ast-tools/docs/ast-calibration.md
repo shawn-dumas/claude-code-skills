@@ -145,7 +145,7 @@ are expected removals per refactor type.
 ### Usage
 
 ```bash
-# Run observation + matching
+# Run observation + matching (unroutable -- use direct invocation)
 npx tsx scripts/AST/ast-refactor-intent.ts \
   --before src/ui/page_blocks/users/Users.tsx \
   --after src/ui/page_blocks/users/Users.tsx \
@@ -153,7 +153,7 @@ npx tsx scripts/AST/ast-refactor-intent.ts \
   --pretty
 
 # Run interpreter
-npx tsx scripts/AST/ast-interpret-refactor-intent.ts \
+npx tsx scripts/AST/ast-query.ts interpret-intent \
   --signal-pair <output-json> \
   --refactor-type component \
   --pretty
@@ -255,7 +255,7 @@ and helper directories are also configured there.
 
 ```bash
 # Run parity analysis
-npx tsx scripts/AST/ast-interpret-pw-test-parity.ts \
+npx tsx scripts/AST/ast-query.ts interpret-parity \
   --source-branch production --source-dir e2e/tests/ \
   --target-dir integration/tests/ --pretty
 ```

@@ -22,13 +22,13 @@ isolation.
 ## Step 0: Run AST analysis tools
 
 ```bash
-npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-storage-access.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-interpret-hooks.ts $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-interpret-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts hooks $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts imports $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts side-effects $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts storage $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts data-layer $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-hooks $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-effects $ARGUMENTS --pretty
 ```
 
 Use hook assessments from `ast-interpret-hooks` for data-fetching detection
@@ -66,7 +66,7 @@ Read the target file. Then read:
 
 - The context definition (createContext call, type interface)
 - Every hook and utility the provider imports
-- Every consumer of the context (use `npx tsx scripts/AST/ast-imports.ts --consumers $ARGUMENTS --pretty`)
+- Every consumer of the context (use `npx tsx scripts/AST/ast-query.ts consumers $ARGUMENTS --pretty`)
 - Any standalone service hooks that already exist for this domain
 
 Count the fields in the context interface. List every consumer and which fields it
@@ -196,7 +196,7 @@ If `ast-behavioral` is available, run it first to pre-populate categories
 inspection -- the tool provides partial signals but cannot fully cover them.
 
 ```bash
-npx tsx scripts/AST/ast-behavioral.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts behavioral $ARGUMENTS --pretty
 ```
 
 | # | Category | Concrete values from this file | Preserved after rewrite? |
@@ -386,7 +386,7 @@ investigated and resolved.
 3. Run the interpreter:
 
    ```bash
-   npx tsx scripts/AST/ast-interpret-refactor-intent.ts \
+   npx tsx scripts/AST/ast-query.ts interpret-intent \
      --signal-pair /tmp/signal-pair.json \
      --refactor-type provider \
      --pretty

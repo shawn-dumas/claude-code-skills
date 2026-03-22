@@ -9,6 +9,12 @@ wrong way (grep-like) and the right way (AST tool).
 hierarchy in CLAUDE.md. This document is the lookup table for
 translating grep impulses into AST tool invocations.
 
+**Primary CLI entry point:** `npx tsx scripts/AST/ast-query.ts <query-type> <args>`.
+All routable tools are accessible through `ast-query`. For unroutable tools
+(ast-bff-gaps, ast-field-refs, ast-peer-deps, ast-plan-audit, ast-skill-analysis,
+ast-refactor-intent), use direct invocation. Run `ast-query --help` for the
+full query-type list.
+
 For the full tool inventory and observation kinds, see `scripts/AST/CLAUDE.md`.
 
 ---
@@ -24,13 +30,14 @@ rg "from.*operational-hours" src/ -g "*.ts" -g "*.tsx" -l
 grep -r "OperationalHoursVariant" src/shared/types/ --include="*.ts"
 
 # RIGHT
-npx tsx scripts/AST/ast-imports.ts src/ --symbol RealtimeActivityContainer --pretty
-npx tsx scripts/AST/ast-imports.ts src/ --symbol OperationalHoursVariant --pretty
+npx tsx scripts/AST/ast-query.ts symbol RealtimeActivityContainer src/ --pretty
+npx tsx scripts/AST/ast-query.ts symbol OperationalHoursVariant src/ --pretty
 ```
 
-`--symbol <name>` filters the import graph to files that import that
+`symbol <name> <path>` filters the import graph to files that import that
 specific named export. Returns the file path, source module, line
-number, and all specifiers from that import.
+number, and all specifiers from that import. Note: the symbol name comes
+before the path in ast-query syntax.
 
 ### "Who consumes this file?"
 
@@ -40,11 +47,11 @@ rg "from.*operationalHoursUtils" src/ -g "*.ts" -l
 rg "import.*from.*./MyComponent" src/ --files-with-matches
 
 # RIGHT
-npx tsx scripts/AST/ast-imports.ts --consumers src/shared/utils/operationalHoursUtils.ts --pretty
-npx tsx scripts/AST/ast-imports.ts --consumers src/ui/page_blocks/dashboard/chat/ChatContainer.tsx --pretty
+npx tsx scripts/AST/ast-query.ts consumers src/shared/utils/operationalHoursUtils.ts --pretty
+npx tsx scripts/AST/ast-query.ts consumers src/ui/page_blocks/dashboard/chat/ChatContainer.tsx --pretty
 ```
 
-`--consumers <file>` is a reverse lookup: given a file, find every file
+`consumers <file>` is a reverse lookup: given a file, find every file
 that imports it.
 
 ### "What does this directory import from outside itself?"
@@ -55,7 +62,7 @@ rg "from '../" src/ui/page_blocks/dashboard/operational-status/ --no-filename
 rg "from '@/page_blocks/" src/ui/page_blocks/dashboard/operational-status/
 
 # RIGHT
-npx tsx scripts/AST/ast-imports.ts src/ui/page_blocks/dashboard/operational-status/ --pretty
+npx tsx scripts/AST/ast-query.ts imports src/ui/page_blocks/dashboard/operational-status/ --pretty
 ```
 
 The default mode builds the full dependency graph for all files in the
@@ -69,7 +76,7 @@ file's `imports` array. Filter by `source` prefix if needed.
 rg "from.*fileA" fileB.ts && rg "from.*fileB" fileA.ts
 
 # RIGHT
-npx tsx scripts/AST/ast-imports.ts src/ui/page_blocks/dashboard/ --kind CIRCULAR_DEPENDENCY --pretty
+npx tsx scripts/AST/ast-query.ts circular src/ui/page_blocks/dashboard/ --pretty
 ```
 
 ### "Are there dead exports?"
@@ -79,7 +86,7 @@ npx tsx scripts/AST/ast-imports.ts src/ui/page_blocks/dashboard/ --kind CIRCULAR
 rg "export.*myFunction" src/ -l  # then manually check if anything imports it
 
 # RIGHT
-npx tsx scripts/AST/ast-imports.ts src/ui/page_blocks/dashboard/ --kind DEAD_EXPORT_CANDIDATE --pretty
+npx tsx scripts/AST/ast-query.ts dead-exports src/ui/page_blocks/dashboard/ --pretty
 ```
 
 ---
@@ -93,7 +100,7 @@ npx tsx scripts/AST/ast-imports.ts src/ui/page_blocks/dashboard/ --kind DEAD_EXP
 rg "if \(|&&|\|\||\\?" src/ui/page_blocks/dashboard/systems/useSystemsUrlState.ts | wc -l
 
 # RIGHT
-npx tsx scripts/AST/ast-complexity.ts src/ui/page_blocks/dashboard/systems/useSystemsUrlState.ts --pretty
+npx tsx scripts/AST/ast-query.ts complexity src/ui/page_blocks/dashboard/systems/useSystemsUrlState.ts --pretty
 ```
 
 Returns per-function CC scores with breakdown by branch type (if,
@@ -106,7 +113,7 @@ ternary, nullish-coalesce, logical-and, logical-or, switch-case).
 # (no grep equivalent -- would require parsing)
 
 # RIGHT
-npx tsx scripts/AST/ast-complexity.ts src/ui/page_blocks/dashboard/ --pretty
+npx tsx scripts/AST/ast-query.ts complexity src/ui/page_blocks/dashboard/ --pretty
 # Then filter output for CC >= 15 (P2 threshold) or CC >= 25 (P1)
 ```
 
@@ -122,9 +129,9 @@ rg "as any" src/ui/page_blocks/dashboard/ --type ts
 rg "as unknown" src/ui/page_blocks/dashboard/ --type ts
 
 # RIGHT
-npx tsx scripts/AST/ast-type-safety.ts src/ui/page_blocks/dashboard/ --pretty
+npx tsx scripts/AST/ast-query.ts type-safety src/ui/page_blocks/dashboard/ --pretty
 # or filter to specific kinds:
-npx tsx scripts/AST/ast-type-safety.ts src/ui/page_blocks/dashboard/ --kind AS_ANY_CAST --pretty
+npx tsx scripts/AST/ast-query.ts as-any src/ui/page_blocks/dashboard/ --pretty
 ```
 
 ### "Any non-null assertions (!)?"
@@ -134,7 +141,7 @@ npx tsx scripts/AST/ast-type-safety.ts src/ui/page_blocks/dashboard/ --kind AS_A
 rg '!\.' src/ --type ts  # too noisy, matches !== and other patterns
 
 # RIGHT
-npx tsx scripts/AST/ast-type-safety.ts src/ui/page_blocks/dashboard/ --kind NON_NULL_ASSERTION --pretty
+npx tsx scripts/AST/ast-query.ts type-safety src/ui/page_blocks/dashboard/ --kind NON_NULL_ASSERTION --pretty
 ```
 
 ### "Any trust boundary casts?"
@@ -144,7 +151,7 @@ npx tsx scripts/AST/ast-type-safety.ts src/ui/page_blocks/dashboard/ --kind NON_
 rg "as.*Response" src/ --type ts
 
 # RIGHT
-npx tsx scripts/AST/ast-type-safety.ts src/ --kind TRUST_BOUNDARY_CAST --pretty
+npx tsx scripts/AST/ast-query.ts type-safety src/ --kind TRUST_BOUNDARY_CAST --pretty
 ```
 
 ### "Any double-casts through unknown (as unknown as T)?"
@@ -154,7 +161,7 @@ npx tsx scripts/AST/ast-type-safety.ts src/ --kind TRUST_BOUNDARY_CAST --pretty
 rg "as unknown as" src/ --type ts
 
 # RIGHT
-npx tsx scripts/AST/ast-type-safety.ts src/ --kind AS_UNKNOWN_AS_CAST --pretty
+npx tsx scripts/AST/ast-query.ts type-safety src/ --kind AS_UNKNOWN_AS_CAST --pretty
 ```
 
 Returns `castTarget` (the final type), `sourceExpression`, and
@@ -171,7 +178,7 @@ Returns `castTarget` (the final type), `sourceExpression`, and
 rg "use[A-Z]" src/ui/page_blocks/dashboard/team/TeamContainer.tsx
 
 # RIGHT
-npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/dashboard/team/TeamContainer.tsx --kind HOOK_CALL --pretty
+npx tsx scripts/AST/ast-query.ts hooks src/ui/page_blocks/dashboard/team/TeamContainer.tsx --pretty
 ```
 
 ### "How many useEffects are in this directory?"
@@ -181,7 +188,7 @@ npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/dashboard/team/Tea
 rg "useEffect" src/ui/page_blocks/dashboard/ -c
 
 # RIGHT
-npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/dashboard/ --kind EFFECT_LOCATION --count
+npx tsx scripts/AST/ast-query.ts effects src/ui/page_blocks/dashboard/ --count
 ```
 
 ### "What are the useEffects doing? Are any eliminable?"
@@ -191,7 +198,7 @@ npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/dashboard/ --kind 
 rg -A 10 "useEffect" src/ui/page_blocks/dashboard/team/  # then read manually
 
 # RIGHT
-npx tsx scripts/AST/ast-interpret-effects.ts src/ui/page_blocks/dashboard/team/ --pretty
+npx tsx scripts/AST/ast-query.ts interpret-effects src/ui/page_blocks/dashboard/team/ --pretty
 ```
 
 Returns classifications: DERIVED_STATE (eliminable), EVENT_HANDLER_DISGUISED
@@ -204,7 +211,7 @@ Returns classifications: DERIVED_STATE (eliminable), EVENT_HANDLER_DISGUISED
 rg "useRouter\|useAuthState\|usePosthogContext" src/ui/page_blocks/dashboard/team/TeamBlock.tsx
 
 # RIGHT
-npx tsx scripts/AST/ast-interpret-ownership.ts src/ui/page_blocks/dashboard/team/ --pretty
+npx tsx scripts/AST/ast-query.ts interpret-ownership src/ui/page_blocks/dashboard/team/ --pretty
 ```
 
 ### "What props does this component take?"
@@ -213,7 +220,7 @@ npx tsx scripts/AST/ast-interpret-ownership.ts src/ui/page_blocks/dashboard/team
 # WRONG
 rg "interface.*Props" src/ui/page_blocks/dashboard/team/TeamBlock.tsx
 
-# RIGHT
+# RIGHT (no dedicated ast-query route for PROP_FIELD; use direct invocation)
 npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/dashboard/team/TeamBlock.tsx --kind PROP_FIELD --pretty
 ```
 
@@ -228,7 +235,7 @@ npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/dashboard/team/Tea
 rg "vi.mock\|jest.mock" src/ui/page_blocks/dashboard/team/__tests__/ --type ts
 
 # RIGHT
-npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/team/__tests__/ --kind MOCK_DECLARATION --pretty
+npx tsx scripts/AST/ast-query.ts test-quality src/ui/page_blocks/dashboard/team/__tests__/ --kind MOCK_DECLARATION --pretty
 ```
 
 Returns mock type (boundary vs internal), target module, and whether
@@ -241,10 +248,10 @@ the mock matches current production signatures.
 rg "vi.mock.*\.\.\/" src/ui/page_blocks/dashboard/ --type ts  # misses alias paths
 
 # RIGHT
-npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/ --pretty
+npx tsx scripts/AST/ast-query.ts test-quality src/ui/page_blocks/dashboard/ --pretty
 # Then check for MOCK_DECLARATION observations where mockType !== 'boundary'
 # Or use the interpreter:
-npx tsx scripts/AST/ast-interpret-test-quality.ts src/ui/page_blocks/dashboard/ --pretty
+npx tsx scripts/AST/ast-query.ts interpret-test-quality src/ui/page_blocks/dashboard/ --pretty
 # MOCK_INTERNAL_VIOLATION assessments flag the violations directly
 ```
 
@@ -258,10 +265,10 @@ find src/ui/page_blocks/dashboard/systems -name '*.tsx' | while read f; do
 done
 
 # RIGHT
-npx tsx scripts/AST/ast-test-coverage.ts src/ui/page_blocks/dashboard/systems/ --pretty
+npx tsx scripts/AST/ast-query.ts test-coverage src/ui/page_blocks/dashboard/systems/ --pretty
 # Returns TESTED/INDIRECTLY_TESTED/UNTESTED with risk scores (CC + lines + consumers)
 # Use the interpreter for prioritized findings:
-npx tsx scripts/AST/ast-interpret-test-coverage.ts src/ui/page_blocks/dashboard/systems/ --pretty
+npx tsx scripts/AST/ast-query.ts interpret-test-coverage src/ui/page_blocks/dashboard/systems/ --pretty
 ```
 
 ### "Any tests asserting on hook/mutation call args instead of rendered output?"
@@ -271,9 +278,9 @@ npx tsx scripts/AST/ast-interpret-test-coverage.ts src/ui/page_blocks/dashboard/
 rg "toHaveBeenCalledWith" --glob '*.spec.*' src/ui/page_blocks/dashboard/
 
 # RIGHT
-npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/ --kind IMPLEMENTATION_ASSERTION --count
+npx tsx scripts/AST/ast-query.ts test-quality src/ui/page_blocks/dashboard/ --kind IMPLEMENTATION_ASSERTION --count
 # or with details:
-npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/ --kind IMPLEMENTATION_ASSERTION --pretty
+npx tsx scripts/AST/ast-query.ts test-quality src/ui/page_blocks/dashboard/ --kind IMPLEMENTATION_ASSERTION --pretty
 ```
 
 Authoritative. Detects `expect(useHookName).toHaveBeenCalled*`,
@@ -288,7 +295,7 @@ Authoritative. Detects `expect(useHookName).toHaveBeenCalled*`,
 rg "expect\(" src/ui/page_blocks/dashboard/team/__tests__/TeamContainer.spec.tsx | wc -l
 
 # RIGHT
-npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/team/__tests__/ --kind ASSERTION_CALL --pretty
+npx tsx scripts/AST/ast-query.ts test-quality src/ui/page_blocks/dashboard/team/__tests__/ --kind ASSERTION_CALL --pretty
 ```
 
 ---
@@ -302,7 +309,7 @@ npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/team/__tes
 rg "localStorage\|sessionStorage" src/ui/ --type ts
 
 # RIGHT
-npx tsx scripts/AST/ast-storage-access.ts src/ui/ --kind DIRECT_STORAGE_CALL --pretty
+npx tsx scripts/AST/ast-query.ts storage src/ui/ --kind DIRECT_STORAGE_CALL --pretty
 ```
 
 ### "Any console.log left in production code?"
@@ -312,7 +319,7 @@ npx tsx scripts/AST/ast-storage-access.ts src/ui/ --kind DIRECT_STORAGE_CALL --p
 rg "console\." src/ui/ --type ts
 
 # RIGHT
-npx tsx scripts/AST/ast-side-effects.ts src/ui/ --kind CONSOLE_CALL --pretty
+npx tsx scripts/AST/ast-query.ts side-effects src/ui/ --kind CONSOLE_CALL --pretty
 ```
 
 ### "Any setTimeout/setInterval usage?"
@@ -322,7 +329,7 @@ npx tsx scripts/AST/ast-side-effects.ts src/ui/ --kind CONSOLE_CALL --pretty
 rg "setTimeout\|setInterval" src/ --type ts
 
 # RIGHT
-npx tsx scripts/AST/ast-side-effects.ts src/ --kind TIMER_CALL --pretty
+npx tsx scripts/AST/ast-query.ts side-effects src/ --kind TIMER_CALL --pretty
 ```
 
 ---
@@ -336,7 +343,7 @@ npx tsx scripts/AST/ast-side-effects.ts src/ --kind TIMER_CALL --pretty
 rg "useQuery\|useMutation" src/ui/services/hooks/ --type ts -l
 
 # RIGHT
-npx tsx scripts/AST/ast-data-layer.ts src/ui/services/hooks/ --pretty
+npx tsx scripts/AST/ast-query.ts data-layer src/ui/services/hooks/ --pretty
 # Returns QUERY_HOOK_DEFINITION, MUTATION_HOOK_DEFINITION, FETCH_API_CALL, QUERY_KEY_FACTORY
 ```
 
@@ -347,7 +354,7 @@ npx tsx scripts/AST/ast-data-layer.ts src/ui/services/hooks/ --pretty
 rg "fetchApi\|/api/" src/ui/services/hooks/queries/useTeamsListQuery.ts
 
 # RIGHT
-npx tsx scripts/AST/ast-data-layer.ts src/ui/services/hooks/queries/useTeamsListQuery.ts --kind FETCH_API_CALL --pretty
+npx tsx scripts/AST/ast-query.ts data-layer src/ui/services/hooks/queries/useTeamsListQuery.ts --kind FETCH_API_CALL --pretty
 ```
 
 ---
@@ -361,11 +368,11 @@ npx tsx scripts/AST/ast-data-layer.ts src/ui/services/hooks/queries/useTeamsList
 rg "myFeatureFlag" src/ --type ts
 
 # RIGHT
-npx tsx scripts/AST/ast-feature-flags.ts src/ --pretty
+npx tsx scripts/AST/ast-query.ts feature-flags src/ --pretty
 # Returns FLAG_HOOK_CALL, FLAG_READ, PAGE_GUARD, CONDITIONAL_RENDER
 # Filter to a specific flag via --kind or pipe through jq:
-#   npx tsx scripts/AST/ast-feature-flags.ts src/ --kind FLAG_READ --pretty
-#   npx tsx scripts/AST/ast-feature-flags.ts src/ | jq '[.[] | select(.evidence.flagName == "myFlag")]'
+#   npx tsx scripts/AST/ast-query.ts feature-flags src/ --kind FLAG_READ --pretty
+#   npx tsx scripts/AST/ast-query.ts feature-flags src/ | jq '[.[] | select(.evidence.flagName == "myFlag")]'
 ```
 
 ---
@@ -380,7 +387,7 @@ rg "roles.includes(Role." src/ --type ts
 rg "=== Role\." src/ --type ts
 
 # RIGHT
-npx tsx scripts/AST/ast-authz-audit.ts src/ --pretty
+npx tsx scripts/AST/ast-query.ts authz src/ --pretty
 # Returns RAW_ROLE_CHECK and RAW_ROLE_EQUALITY observations
 ```
 
@@ -396,9 +403,9 @@ rg "new Date\(\)" src/ --type ts
 rg "Date.now\(\)" src/ --type ts
 
 # RIGHT
-npx tsx scripts/AST/ast-date-handling.ts src/ --pretty
+npx tsx scripts/AST/ast-query.ts date-usage src/ --pretty
 # For a summary ratio (raw vs proper):
-npx tsx scripts/AST/ast-date-handling.ts src/ --summary
+npx tsx scripts/AST/ast-query.ts date-summary src/ --pretty
 ```
 
 ---
@@ -412,7 +419,7 @@ npx tsx scripts/AST/ast-date-handling.ts src/ --summary
 rg "\.toFixed\(" src/ --type ts
 
 # RIGHT
-npx tsx scripts/AST/ast-number-format.ts src/ --kind RAW_TO_FIXED --pretty
+npx tsx scripts/AST/ast-query.ts number-format src/ --kind RAW_TO_FIXED --pretty
 ```
 
 ### "Where are wrong null placeholders used?"
@@ -422,7 +429,7 @@ npx tsx scripts/AST/ast-number-format.ts src/ --kind RAW_TO_FIXED --pretty
 rg "N/A\|'--'" src/ --type ts
 
 # RIGHT
-npx tsx scripts/AST/ast-null-display.ts src/ --pretty
+npx tsx scripts/AST/ast-query.ts null-display src/ --pretty
 ```
 
 ---
@@ -437,7 +444,7 @@ rg "userId: string" src/ --type ts
 sg -p 'userId: string' src/
 
 # RIGHT
-npx tsx scripts/AST/ast-branded-check.ts src/ --pretty
+npx tsx scripts/AST/ast-query.ts branded src/ --pretty
 # Returns UNBRANDED_ID_FIELD and UNBRANDED_PARAM observations
 ```
 
@@ -470,7 +477,7 @@ rg "req\.body\|req\.query\|res\.status" src/pages/api/users/ --type ts -c  # cou
 rg "switch.*req\.method" src/pages/api/ --type ts -l  # finds multi-method but misses single-method bloat
 
 # RIGHT
-npx tsx scripts/AST/ast-handler-structure.ts src/pages/api/users/ --pretty
+npx tsx scripts/AST/ast-query.ts handler src/pages/api/users/ --pretty
 # Returns HANDLER_INLINE_LOGIC and HANDLER_MULTI_METHOD observations
 ```
 
@@ -486,7 +493,7 @@ rg "? <" src/ui/page_blocks/dashboard/ --type ts  # finds ternaries but can't me
 sg -p '$A ? $B : $C ? $D : $E' src/  # structural but misses JSX-specific context
 
 # RIGHT
-npx tsx scripts/AST/ast-jsx-analysis.ts src/ui/page_blocks/dashboard/ --kind JSX_TERNARY_CHAIN --pretty
+npx tsx scripts/AST/ast-query.ts jsx src/ui/page_blocks/dashboard/ --kind JSX_TERNARY_CHAIN --pretty
 ```
 
 Reports depth, whether the chain is inside a JSX return, and whether it
@@ -499,7 +506,7 @@ exceeds the configured threshold.
 rg "onClick=\{[^}]*=>" src/ui/ --type ts  # misses multi-line handlers, matches non-JSX
 
 # RIGHT
-npx tsx scripts/AST/ast-jsx-analysis.ts src/ --kind JSX_INLINE_HANDLER --pretty
+npx tsx scripts/AST/ast-query.ts jsx src/ --kind JSX_INLINE_HANDLER --pretty
 ```
 
 ### "Is this JSX complex enough to extract?"
@@ -507,7 +514,7 @@ npx tsx scripts/AST/ast-jsx-analysis.ts src/ --kind JSX_INLINE_HANDLER --pretty
 Use the interpreter over raw JSX observations:
 
 ```bash
-npx tsx scripts/AST/ast-interpret-template.ts src/ui/page_blocks/dashboard/team/ --pretty
+npx tsx scripts/AST/ast-query.ts interpret-template src/ui/page_blocks/dashboard/team/ --pretty
 # EXTRACTION_CANDIDATE: JSX block with enough complexity to warrant extraction
 # COMPLEXITY_HOTSPOT: template exceeds thresholds but extraction may not help
 ```
@@ -523,7 +530,7 @@ npx tsx scripts/AST/ast-interpret-template.ts src/ui/page_blocks/dashboard/team/
 rg "process\.env" src/ --type ts
 
 # RIGHT
-npx tsx scripts/AST/ast-env-access.ts src/ --kind PROCESS_ENV_ACCESS --pretty
+npx tsx scripts/AST/ast-query.ts env src/ --kind PROCESS_ENV_ACCESS --pretty
 ```
 
 ---
@@ -537,7 +544,7 @@ npx tsx scripts/AST/ast-env-access.ts src/ --kind PROCESS_ENV_ACCESS --pretty
 rg "isError" src/ui/page_blocks/dashboard/ --type ts -l  # presence != handling
 
 # RIGHT
-npx tsx scripts/AST/ast-error-coverage.ts src/ui/page_blocks/dashboard/ --kind QUERY_ERROR_UNHANDLED --pretty
+npx tsx scripts/AST/ast-query.ts errors src/ui/page_blocks/dashboard/ --kind QUERY_ERROR_UNHANDLED --pretty
 ```
 
 ---
@@ -551,10 +558,10 @@ npx tsx scripts/AST/ast-error-coverage.ts src/ui/page_blocks/dashboard/ --kind Q
 rg "isLoading\|isPending" src/ui/page_blocks/dashboard/ --type ts -l  # presence != completeness
 
 # RIGHT
-npx tsx scripts/AST/ast-concern-matrix.ts src/ui/page_blocks/dashboard/ --pretty
+npx tsx scripts/AST/ast-query.ts concerns src/ui/page_blocks/dashboard/ --pretty
 # Returns CONTAINER_HANDLES_* and CONTAINER_MISSING_* observations
 # Count mode for quick triage:
-npx tsx scripts/AST/ast-concern-matrix.ts src/ui/page_blocks/dashboard/ --count
+npx tsx scripts/AST/ast-query.ts concerns src/ui/page_blocks/dashboard/ --count
 ```
 
 ---
@@ -600,7 +607,7 @@ rg "^export " src/shared/utils/date/formatDate.ts
 grep -n "export function\|export const\|export type" src/shared/utils/date/formatDate.ts
 
 # RIGHT
-npx tsx scripts/AST/ast-export-surface.ts src/shared/utils/date/formatDate.ts --pretty
+npx tsx scripts/AST/ast-query.ts exports src/shared/utils/date/formatDate.ts --pretty
 ```
 
 Works on isolated files and git refs -- useful for provenance auditing
@@ -643,7 +650,7 @@ Compares observation sets before and after a refactor. Use the
 interpreter for scored assessment:
 
 ```bash
-npx tsx scripts/AST/ast-interpret-refactor-intent.ts --before <dir> --after <dir> --pretty
+npx tsx scripts/AST/ast-query.ts interpret-intent --before <dir> --after <dir> --pretty
 # INTENT_SIGNAL_PAIR observations show matched/dropped/added signals
 ```
 
@@ -672,7 +679,7 @@ Use them when you need a judgment call, not just a structural fact.
 ### "Is this export actually dead or just indirectly used?"
 
 ```bash
-npx tsx scripts/AST/ast-interpret-dead-code.ts src/ui/page_blocks/dashboard/ --pretty
+npx tsx scripts/AST/ast-query.ts interpret-dead-code src/ui/page_blocks/dashboard/ --pretty
 # DEAD_EXPORT: zero consumers in the import graph
 # POSSIBLY_DEAD_EXPORT: only consumed via barrel re-exports
 # DEAD_BARREL_REEXPORT: barrel re-exports something nobody imports
@@ -682,7 +689,7 @@ npx tsx scripts/AST/ast-interpret-dead-code.ts src/ui/page_blocks/dashboard/ --p
 ### "What role does this hook play?"
 
 ```bash
-npx tsx scripts/AST/ast-interpret-hooks.ts src/ui/page_blocks/dashboard/team/ --pretty
+npx tsx scripts/AST/ast-query.ts interpret-hooks src/ui/page_blocks/dashboard/team/ --pretty
 # LIKELY_SERVICE_HOOK: data-fetching (useQuery/useMutation wrapper)
 # LIKELY_CONTEXT_HOOK: reads from a React context
 # LIKELY_AMBIENT_HOOK: DOM/UI utility (useBreakpoints, usePagination)
@@ -693,7 +700,7 @@ npx tsx scripts/AST/ast-interpret-hooks.ts src/ui/page_blocks/dashboard/team/ --
 ### "Does this number/null display follow conventions?"
 
 ```bash
-npx tsx scripts/AST/ast-interpret-display-format.ts src/ui/page_blocks/dashboard/ --pretty
+npx tsx scripts/AST/ast-query.ts interpret-display src/ui/page_blocks/dashboard/ --pretty
 # Consumes ast-number-format + ast-null-display observations
 # WRONG_PLACEHOLDER, MISSING_PLACEHOLDER, FALSY_COALESCE_NUMERIC,
 # RAW_FORMAT_BYPASS, PERCENTAGE_PRECISION_MISMATCH, ZERO_NULL_CONFLATION
@@ -702,7 +709,7 @@ npx tsx scripts/AST/ast-interpret-display-format.ts src/ui/page_blocks/dashboard
 ### "Is this orchestration plan structurally sound?"
 
 ```bash
-npx tsx scripts/AST/ast-interpret-plan-audit.ts ~/plans/my-plan.md --pretty
+npx tsx scripts/AST/ast-query.ts interpret-plan-audit ~/plans/my-plan.md --pretty
 # CERTIFIED: plan passes all structural checks
 # BLOCKED_PREFLIGHT: plan has critical deficiencies
 # PROMPT_DEFICIENCY, AGGREGATION_RISK, etc.
@@ -711,14 +718,14 @@ npx tsx scripts/AST/ast-interpret-plan-audit.ts ~/plans/my-plan.md --pretty
 ### "Do Playwright spec pairs have matching coverage?"
 
 ```bash
-npx tsx scripts/AST/ast-interpret-pw-test-parity.ts integration/tests/ --pretty
+npx tsx scripts/AST/ast-query.ts interpret-parity integration/tests/ --pretty
 # Matches spec pairs and compares assertion coverage, route intercepts, POM usage
 ```
 
 ### "Do Vitest spec pairs have matching coverage?"
 
 ```bash
-npx tsx scripts/AST/ast-interpret-vitest-parity.ts src/ui/page_blocks/dashboard/ --pretty
+npx tsx scripts/AST/ast-query.ts interpret-vitest src/ui/page_blocks/dashboard/ --pretty
 # PARITY: tests match across spec pairs
 # REDUCED: target spec has fewer assertions than source
 # EXPANDED: target spec has more coverage
@@ -728,7 +735,7 @@ npx tsx scripts/AST/ast-interpret-vitest-parity.ts src/ui/page_blocks/dashboard/
 ### "Does this skill file have convention drift?"
 
 ```bash
-npx tsx scripts/AST/ast-interpret-skill-quality.ts .claude/skills/audit-react-feature/SKILL.md --pretty
+npx tsx scripts/AST/ast-query.ts interpret-skill .claude/skills/audit-react-feature/SKILL.md --pretty
 # STALE_FILE_PATH, STALE_COMMAND, BROKEN_CROSS_REF, CONVENTION_DRIFT, CONVENTION_ALIGNED
 ```
 
@@ -767,57 +774,57 @@ grep -n "Last reviewed" ~/plans/KNOWN-DEBT-AND-DECISIONS.md
 
 ### Observation tools
 
-| Question | Tool | Flag/Mode |
+| Question | ast-query route | Flag/Mode |
 |---|---|---|
-| Who imports symbol X? | `ast-imports` | `--symbol <name>` |
-| Who consumes file X? | `ast-imports` | `--consumers <file>` |
-| Circular dependencies? | `ast-imports` | `--kind CIRCULAR_DEPENDENCY` |
-| Dead exports? | `ast-imports` | `--kind DEAD_EXPORT_CANDIDATE` |
-| What does file X export? | `ast-export-surface` | (default) |
-| Cyclomatic complexity? | `ast-complexity` | (default) |
-| `as any` casts? | `ast-type-safety` | `--kind AS_ANY_CAST` |
-| `as unknown as T` double-casts? | `ast-type-safety` | `--kind AS_UNKNOWN_AS_CAST` |
-| Non-null assertions? | `ast-type-safety` | `--kind NON_NULL_ASSERTION` |
-| Hook calls in component? | `ast-react-inventory` | `--kind HOOK_CALL` |
-| useEffect count? | `ast-react-inventory` | `--kind EFFECT_LOCATION --count` |
-| Test coverage gaps? | `ast-test-coverage` | (default) |
-| Direct storage access? | `ast-storage-access` | `--kind DIRECT_STORAGE_CALL` |
-| Console calls? | `ast-side-effects` | `--kind CONSOLE_CALL` |
-| Timer calls? | `ast-side-effects` | `--kind TIMER_CALL` |
-| Query hooks / endpoints? | `ast-data-layer` | (default) |
-| Feature flag usage? | `ast-feature-flags` | `--kind FLAG_READ` for specific |
-| Raw role checks? | `ast-authz-audit` | (default) |
-| Raw Date usage? | `ast-date-handling` | `--summary` for ratio |
-| Raw toFixed? | `ast-number-format` | `--kind RAW_TO_FIXED` |
-| Wrong placeholders? | `ast-null-display` | (default) |
-| Unbranded IDs? | `ast-branded-check` | (default) |
-| Field references? | `ast-field-refs` | `--field <name>` |
-| Handler inline logic? | `ast-handler-structure` | (default) |
-| JSX ternary chains? | `ast-jsx-analysis` | `--kind JSX_TERNARY_CHAIN` |
-| process.env access? | `ast-env-access` | `--kind PROCESS_ENV_ACCESS` |
-| Missing error handling? | `ast-error-coverage` | `--kind QUERY_ERROR_UNHANDLED` |
-| Missing loading/error? | `ast-concern-matrix` | `--count` for triage |
-| BFF route gaps? | `ast-bff-gaps` | (default) |
-| Peer dep violations? | `ast-peer-deps` | (default) |
-| Mock type/target? | `ast-test-analysis` | `--kind MOCK_DECLARATION` |
-| Hook/mutation call-arg assertions? | `ast-test-analysis` | `--kind IMPLEMENTATION_ASSERTION` |
+| Who imports symbol X? | `symbol <name> <path>` | |
+| Who consumes file X? | `consumers <file>` | |
+| Circular dependencies? | `circular <path>` | |
+| Dead exports? | `dead-exports <path>` | |
+| What does file X export? | `exports <file>` | |
+| Cyclomatic complexity? | `complexity <path>` | |
+| `as any` casts? | `as-any <path>` | |
+| `as unknown as T` double-casts? | `type-safety <path>` | `--kind AS_UNKNOWN_AS_CAST` |
+| Non-null assertions? | `type-safety <path>` | `--kind NON_NULL_ASSERTION` |
+| Hook calls in component? | `hooks <path>` | |
+| useEffect count? | `effects <path>` | `--count` |
+| Test coverage gaps? | `test-coverage <path>` | |
+| Direct storage access? | `storage <path>` | `--kind DIRECT_STORAGE_CALL` |
+| Console calls? | `side-effects <path>` | `--kind CONSOLE_CALL` |
+| Timer calls? | `side-effects <path>` | `--kind TIMER_CALL` |
+| Query hooks / endpoints? | `data-layer <path>` | |
+| Feature flag usage? | `feature-flags <path>` | `--kind FLAG_READ` for specific |
+| Raw role checks? | `authz <path>` | |
+| Raw Date usage? | `date-summary <path>` | |
+| Raw toFixed? | `number-format <path>` | `--kind RAW_TO_FIXED` |
+| Wrong placeholders? | `null-display <path>` | |
+| Unbranded IDs? | `branded <path>` | |
+| Field references? | (unroutable) `ast-field-refs` | `--field <name>` |
+| Handler inline logic? | `handler <path>` | |
+| JSX ternary chains? | `jsx <path>` | `--kind JSX_TERNARY_CHAIN` |
+| process.env access? | `env <path>` | `--kind PROCESS_ENV_ACCESS` |
+| Missing error handling? | `errors <path>` | `--kind QUERY_ERROR_UNHANDLED` |
+| Missing loading/error? | `concerns <path>` | `--count` for triage |
+| BFF route gaps? | (unroutable) `ast-bff-gaps` | |
+| Peer dep violations? | (unroutable) `ast-peer-deps` | |
+| Mock type/target? | `test-quality <path>` | `--kind MOCK_DECLARATION` |
+| Hook/mutation call-arg assertions? | `test-quality <path>` | `--kind IMPLEMENTATION_ASSERTION` |
 | Priority rules? | `ast-config` | `--dump-priority-rules` |
-| Stale skill paths? | `ast-skill-analysis` | (default) |
+| Stale skill paths? | (unroutable) `ast-skill-analysis` | |
 
 ### Interpreters
 
-| Question | Interpreter | Consumes |
+| Question | ast-query route | Consumes |
 |---|---|---|
-| Effect classification? | `ast-interpret-effects` | ast-react-inventory |
-| Container or component? | `ast-interpret-ownership` | ast-react-inventory |
-| Hook role (service/context/ambient)? | `ast-interpret-hooks` | ast-react-inventory |
-| Is export actually dead? | `ast-interpret-dead-code` | ast-imports |
-| Mock violations? | `ast-interpret-test-quality` | ast-test-analysis |
-| Test coverage priority? | `ast-interpret-test-coverage` | ast-test-coverage |
-| JSX extraction candidate? | `ast-interpret-template` | ast-jsx-analysis |
-| Display convention violations? | `ast-interpret-display-format` | ast-number-format, ast-null-display |
-| Refactor preserved intent? | `ast-interpret-refactor-intent` | ast-refactor-intent |
-| Plan structurally sound? | `ast-interpret-plan-audit` | ast-plan-audit |
-| Skill convention drift? | `ast-interpret-skill-quality` | ast-skill-analysis |
-| PW spec parity? | `ast-interpret-pw-test-parity` | ast-pw-test-parity |
-| Vitest spec parity? | `ast-interpret-vitest-parity` | ast-vitest-parity |
+| Effect classification? | `interpret-effects` | ast-react-inventory |
+| Container or component? | `interpret-ownership` | ast-react-inventory |
+| Hook role (service/context/ambient)? | `interpret-hooks` | ast-react-inventory |
+| Is export actually dead? | `interpret-dead-code` | ast-imports |
+| Mock violations? | `interpret-test-quality` | ast-test-analysis |
+| Test coverage priority? | `interpret-test-coverage` | ast-test-coverage |
+| JSX extraction candidate? | `interpret-template` | ast-jsx-analysis |
+| Display convention violations? | `interpret-display` | ast-number-format, ast-null-display |
+| Refactor preserved intent? | `interpret-intent` | ast-refactor-intent |
+| Plan structurally sound? | `interpret-plan-audit` | ast-plan-audit |
+| Skill convention drift? | `interpret-skill` | ast-skill-analysis |
+| PW spec parity? | `interpret-parity` | ast-pw-test-parity |
+| Vitest spec parity? | `interpret-vitest` | ast-vitest-parity |

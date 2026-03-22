@@ -154,7 +154,7 @@ For every `import` statement in prompt code examples:
 1. Read `tsconfig.json` to confirm path alias resolution.
 2. Use `ast-imports` to verify the named export exists at the target:
    ```bash
-   npx tsx scripts/AST/ast-imports.ts <target-file> --pretty --kind EXPORT_DECLARATION
+   npx tsx scripts/AST/ast-query.ts imports <target-file> --pretty --kind EXPORT_DECLARATION
    ```
 3. Cross-reference: if a prompt uses `@/shared/utils/user/roleChecks`
    but `ast-imports` shows consumers import from the barrel

@@ -20,58 +20,58 @@ interpreters. All tools accept glob patterns and multiple paths natively.
 # --- Observation-producing tools ---
 
 # Authorization patterns (emits RAW_ROLE_CHECK observations)
-npx tsx scripts/AST/ast-authz-audit.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts authz $ARGUMENTS --pretty
 
 # Dependency graph (emits STATIC_IMPORT, CIRCULAR_DEPENDENCY, DEAD_EXPORT_CANDIDATE observations)
-npx tsx scripts/AST/ast-imports.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts imports $ARGUMENTS --pretty
 
 # Component/hook/effect inventory (emits HOOK_CALL, COMPONENT_DECLARATION, EFFECT_* observations)
-npx tsx scripts/AST/ast-react-inventory.ts $ARGUMENTS/**/*.tsx --pretty
+npx tsx scripts/AST/ast-query.ts hooks $ARGUMENTS/**/*.tsx --pretty
 
 # JSX template complexity (emits JSX_TERNARY_CHAIN, JSX_RETURN_BLOCK, etc. observations)
-npx tsx scripts/AST/ast-jsx-analysis.ts $ARGUMENTS/**/*.tsx --pretty
+npx tsx scripts/AST/ast-query.ts jsx $ARGUMENTS/**/*.tsx --pretty
 
 # Type safety (emits AS_ANY_CAST, NON_NULL_ASSERTION, TRUST_BOUNDARY_CAST observations)
-npx tsx scripts/AST/ast-type-safety.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts type-safety $ARGUMENTS --pretty
 
 # Side effects (emits CONSOLE_CALL, TOAST_CALL, TIMER_CALL observations)
-npx tsx scripts/AST/ast-side-effects.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts side-effects $ARGUMENTS --pretty
 
 # Storage access (emits DIRECT_STORAGE_CALL, TYPED_STORAGE_CALL observations)
-npx tsx scripts/AST/ast-storage-access.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts storage $ARGUMENTS --pretty
 
 # Service hooks, query keys, fetchApi endpoints (emits QUERY_HOOK_DEFINITION, FETCH_API_CALL observations)
-npx tsx scripts/AST/ast-data-layer.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts data-layer $ARGUMENTS --pretty
 
 # Feature flag usage (emits FLAG_HOOK_CALL, PAGE_GUARD, CONDITIONAL_RENDER observations)
-npx tsx scripts/AST/ast-feature-flags.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts feature-flags $ARGUMENTS --pretty
 
 # Environment variable access (emits PROCESS_ENV_ACCESS, ENV_WRAPPER_ACCESS observations)
-npx tsx scripts/AST/ast-env-access.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts env $ARGUMENTS --pretty
 
 # --- Interpreters (produce assessments over observations) ---
 
 # Hook classification (emits LIKELY_SERVICE_HOOK, LIKELY_CONTEXT_HOOK, LIKELY_AMBIENT_HOOK, UNKNOWN_HOOK assessments)
-npx tsx scripts/AST/ast-interpret-hooks.ts $ARGUMENTS/**/*.tsx --pretty
+npx tsx scripts/AST/ast-query.ts interpret-hooks $ARGUMENTS/**/*.tsx --pretty
 
 # Effect classification (emits DERIVED_STATE, EVENT_HANDLER_DISGUISED, TIMER_RACE, DOM_EFFECT, NECESSARY assessments)
-npx tsx scripts/AST/ast-interpret-effects.ts $ARGUMENTS/**/*.tsx --pretty
+npx tsx scripts/AST/ast-query.ts interpret-effects $ARGUMENTS/**/*.tsx --pretty
 
 # Ownership classification (emits CONTAINER, DDAU_COMPONENT, LEAF_VIOLATION, LAYOUT_SHELL assessments)
-npx tsx scripts/AST/ast-interpret-ownership.ts $ARGUMENTS/**/*.tsx --pretty
+npx tsx scripts/AST/ast-query.ts interpret-ownership $ARGUMENTS/**/*.tsx --pretty
 
 # Template assessment (emits EXTRACTION_CANDIDATE, COMPLEXITY_HOTSPOT assessments)
-npx tsx scripts/AST/ast-interpret-template.ts $ARGUMENTS/**/*.tsx --pretty
+npx tsx scripts/AST/ast-query.ts interpret-template $ARGUMENTS/**/*.tsx --pretty
 
 # Dead code detection (emits DEAD_EXPORT, POSSIBLY_DEAD_EXPORT, CIRCULAR_DEPENDENCY assessments)
-npx tsx scripts/AST/ast-interpret-dead-code.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-dead-code $ARGUMENTS --pretty
 
 # Error handling coverage (emits QUERY_ERROR_UNHANDLED, MUTATION_ERROR_UNHANDLED observations)
-npx tsx scripts/AST/ast-error-coverage.ts $ARGUMENTS --count
-npx tsx scripts/AST/ast-error-coverage.ts $ARGUMENTS --kind QUERY_ERROR_UNHANDLED --pretty
+npx tsx scripts/AST/ast-query.ts errors $ARGUMENTS --count
+npx tsx scripts/AST/ast-query.ts errors $ARGUMENTS --kind QUERY_ERROR_UNHANDLED --pretty
 
 # Behavioral concern matrix (emits CONTAINER_MISSING_LOADING, CONTAINER_MISSING_ERROR, etc.)
-npx tsx scripts/AST/ast-concern-matrix.ts $ARGUMENTS --count
+npx tsx scripts/AST/ast-query.ts concerns $ARGUMENTS --count
 ```
 
 ### New tools available
@@ -103,10 +103,10 @@ Common queries and the correct tool:
 
 | Query | Tool | Command |
 |---|---|---|
-| Who imports symbol X? | ast-imports | `npx tsx scripts/AST/ast-imports.ts src/ --symbol <name> --pretty` |
-| Who consumes file X? | ast-imports | `npx tsx scripts/AST/ast-imports.ts --consumers <file> --pretty` |
-| What's the CC of function X? | ast-complexity | `npx tsx scripts/AST/ast-complexity.ts <path> --pretty` |
-| Any `as any` casts? | ast-type-safety | `npx tsx scripts/AST/ast-type-safety.ts <path> --kind AS_ANY_CAST --pretty` |
+| Who imports symbol X? | ast-query symbol | `npx tsx scripts/AST/ast-query.ts symbol <name> src/ --pretty` |
+| Who consumes file X? | ast-query consumers | `npx tsx scripts/AST/ast-query.ts consumers <file> --pretty` |
+| What's the CC of function X? | ast-query complexity | `npx tsx scripts/AST/ast-query.ts complexity <path> --pretty` |
+| Any `as any` casts? | ast-query as-any | `npx tsx scripts/AST/ast-query.ts as-any <path> --pretty` |
 | Where is field X referenced? | ast-field-refs | `npx tsx scripts/AST/ast-field-refs.ts src/ --field <name> --pretty` |
 
 Full recipe book: `scripts/AST/docs/ast-recipes.md`

@@ -20,9 +20,9 @@ appears (at least 2). If no files are listed, search the codebase for the patter
 ```bash
 # Find JSX pattern structure across source files
 for f in <source-files>; do
-  npx tsx scripts/AST/ast-jsx-analysis.ts "$f" --pretty
+  npx tsx scripts/AST/ast-query.ts jsx "$f" --pretty
 done
-npx tsx scripts/AST/ast-imports.ts <source-files> --pretty
+npx tsx scripts/AST/ast-query.ts imports <source-files> --pretty
 ```
 
 The JSX analysis emits observations with structural evidence:

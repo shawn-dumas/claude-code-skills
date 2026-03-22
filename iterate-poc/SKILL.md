@@ -246,7 +246,7 @@ change could affect any behavioral fingerprint item. Run `ast-behavioral`
 on the affected files:
 
 ```bash
-npx tsx scripts/AST/ast-behavioral.ts <affected-file-paths> --pretty
+npx tsx scripts/AST/ast-query.ts behavioral <affected-file-paths> --pretty
 ```
 
 Cross-reference the tool output against the 9 behavioral categories:
@@ -445,7 +445,11 @@ and `~/.claude/CLAUDE.md` (Orchestration Protocol):
 2. **Auto mode:** Launch a work agent via the Task tool. Pass the full
    prompt file contents. The task prompt must begin with: "You are a
    work agent. Execute the following prompt exactly. Read
-   ~/github/user-frontend/CLAUDE.md first."
+   ~/github/user-frontend/CLAUDE.md first." followed by:
+
+   > For any TS/TSX source query, run: `npx tsx scripts/AST/ast-query.ts <query-type> <path>`
+   > Do NOT use `rg`, `sg`, or the Grep tool on TS/TSX source.
+   > Run: `npx tsx scripts/AST/ast-query.ts --help` for available query types.
 
 3. **Manual mode:** Output the prompt file contents. Wait for the user
    to paste the reconciliation output.

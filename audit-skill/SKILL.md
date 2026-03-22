@@ -56,18 +56,18 @@ The AST tool infers category from the skill directory name prefix:
 npx tsx scripts/AST/ast-skill-analysis.ts $ARGUMENTS --pretty
 
 # Assessment layer -- quality scoring and role validation
-npx tsx scripts/AST/ast-interpret-skill-quality.ts $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-query.ts interpret-skill $ARGUMENTS --pretty
 ```
 
 For batch audit of all skills:
 
 ```bash
 # Summary: count of skills at 100/100
-npx tsx scripts/AST/ast-interpret-skill-quality.ts .claude/skills/ --pretty \
+npx tsx scripts/AST/ast-query.ts interpret-skill .claude/skills/ --pretty \
   | grep -c "Score: 100"
 
 # Find skills below 100
-npx tsx scripts/AST/ast-interpret-skill-quality.ts .claude/skills/ --pretty \
+npx tsx scripts/AST/ast-query.ts interpret-skill .claude/skills/ --pretty \
   | grep -v "Score: 100"
 ```
 

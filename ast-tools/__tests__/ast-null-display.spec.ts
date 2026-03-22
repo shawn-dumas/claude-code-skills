@@ -14,10 +14,7 @@ function analyzeFixture(name: string): NullDisplayAnalysis {
   return analyzeNullDisplay(fixturePath(name));
 }
 
-function observationsOfKind(
-  analysis: NullDisplayAnalysis,
-  kind: NullDisplayObservationKind,
-): NullDisplayObservation[] {
+function observationsOfKind(analysis: NullDisplayAnalysis, kind: NullDisplayObservationKind): NullDisplayObservation[] {
   return analysis.observations.filter(o => o.kind === kind);
 }
 
@@ -242,9 +239,7 @@ describe('ast-null-display', () => {
 
   describe('constant definition file exemption', () => {
     it('does NOT emit HARDCODED_PLACEHOLDER for the file that defines NO_VALUE_PLACEHOLDER', () => {
-      const result = analyzeNullDisplay(
-        path.join(PROJECT_ROOT, 'src', 'shared', 'constants', 'global.ts'),
-      );
+      const result = analyzeNullDisplay(path.join(PROJECT_ROOT, 'src', 'shared', 'constants', 'global.ts'));
       const hardcoded = result.observations.filter(o => o.kind === 'HARDCODED_PLACEHOLDER');
       expect(hardcoded).toHaveLength(0);
     });

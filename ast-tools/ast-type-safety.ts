@@ -450,7 +450,10 @@ function computeSummary(violations: TypeSafetyViolation[]): Record<TypeSafetyVio
 // Observation extraction
 // ---------------------------------------------------------------------------
 
-interface GuardInfo { hasGuard: boolean; guardType?: 'if-check' | 'has-check' | 'null-check' }
+interface GuardInfo {
+  hasGuard: boolean;
+  guardType?: 'if-check' | 'has-check' | 'null-check';
+}
 
 function detectGuardType(node: Node, exprText: string): GuardInfo {
   const result = findContainingBlockAndAncestorGuard(node, exprText);

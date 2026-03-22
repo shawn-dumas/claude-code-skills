@@ -156,19 +156,19 @@ npx tsx scripts/AST/ast-cache-warm.ts
 npx tsx scripts/AST/ast-cache-warm.ts src/ui/page_blocks/teams/
 
 # Subsequent observation tool runs use file cache
-npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/teams/
+npx tsx scripts/AST/ast-query.ts hooks src/ui/page_blocks/teams/
 # Output: Cache: 12 hits, 0 misses
 
 # First interpreter run populates directory cache
-npx tsx scripts/AST/ast-interpret-hooks.ts src/ui/page_blocks/teams/
+npx tsx scripts/AST/ast-query.ts interpret-hooks src/ui/page_blocks/teams/
 # Output: Cache: 0 hits, 1 misses
 
 # Second interpreter run hits directory cache
-npx tsx scripts/AST/ast-interpret-hooks.ts src/ui/page_blocks/teams/
+npx tsx scripts/AST/ast-query.ts interpret-hooks src/ui/page_blocks/teams/
 # Output: Cache: 1 hits, 0 misses
 
 # Bypass cache and force re-analysis
-npx tsx scripts/AST/ast-react-inventory.ts src/ui/page_blocks/teams/ --no-cache
+npx tsx scripts/AST/ast-query.ts hooks src/ui/page_blocks/teams/ --no-cache
 ```
 
 ### Performance
@@ -206,6 +206,12 @@ The cache auto-invalidates in these scenarios:
 - Format: JSON files with deterministic naming
 
 ## Tool Inventory
+
+### CLI Entry Point
+
+| Tool           | Purpose                                                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `ast-query.ts` | Primary CLI dispatcher. Routes `<query-type> <path> [flags]` to the underlying tool. Run `--help` for the full query-type list. |
 
 ### Observation Tools
 
@@ -249,29 +255,31 @@ These consume observations and emit assessments with confidence and rationale.
 
 ### CLI
 
-All tools accept file paths or directories and output JSON by default:
+The primary CLI entry point is `ast-query.ts`. All routable tools are
+accessible through it. For programmatic use, import from `tool-registry.ts`
+directly.
 
 ```bash
 # Single file
-npx tsx ast-complexity.ts src/components/Button.tsx
+npx tsx scripts/AST/ast-query.ts complexity src/components/Button.tsx
 
 # Directory (recursive)
-npx tsx ast-react-inventory.ts src/ui/page_blocks/teams/
+npx tsx scripts/AST/ast-query.ts hooks src/ui/page_blocks/teams/
 
 # Pretty output (human-readable table)
-npx tsx ast-interpret-hooks.ts src/ui/page_blocks/teams/ --pretty
+npx tsx scripts/AST/ast-query.ts interpret-hooks src/ui/page_blocks/teams/ --pretty
 
 # Filter by observation kind
-npx tsx ast-test-analysis.ts src/ui/page_blocks/dashboard/ --kind MOCK_DECLARATION
+npx tsx scripts/AST/ast-query.ts test-quality src/ui/page_blocks/dashboard/ --kind MOCK_DECLARATION
 
 # Count mode for verification
-npx tsx ast-test-analysis.ts src/ui/page_blocks/dashboard/ --kind TIMER_NEGATIVE_ASSERTION --count
+npx tsx scripts/AST/ast-query.ts test-quality src/ui/page_blocks/dashboard/ --kind TIMER_NEGATIVE_ASSERTION --count
 
 # Scan test files with any tool
-npx tsx ast-type-safety.ts src/ui/page_blocks/dashboard/ --test-files --kind AS_UNKNOWN_AS_CAST
+npx tsx scripts/AST/ast-query.ts type-safety src/ui/page_blocks/dashboard/ --test-files --kind AS_UNKNOWN_AS_CAST
 
 # Multi-file
-npx tsx ast-type-safety.ts src/shared/utils/date/*.ts src/shared/utils/string/*.ts
+npx tsx scripts/AST/ast-query.ts type-safety src/shared/utils/date/*.ts src/shared/utils/string/*.ts
 ```
 
 ### CLI Flags
@@ -556,9 +564,9 @@ Skills use AST tools in their "Step 0: Run AST analysis" phase:
 Run these tools and capture output:
 
 \`\`\`bash
-npx tsx scripts/AST/ast-react-inventory.ts <target-dir> > inventory.json
-npx tsx scripts/AST/ast-interpret-hooks.ts <target-dir> > hooks.json
-npx tsx scripts/AST/ast-interpret-ownership.ts <target-dir> > ownership.json
+npx tsx scripts/AST/ast-query.ts hooks <target-dir> > inventory.json
+npx tsx scripts/AST/ast-query.ts interpret-hooks <target-dir> > hooks.json
+npx tsx scripts/AST/ast-query.ts interpret-ownership <target-dir> > ownership.json
 \`\`\`
 
 Use the assessment output to:
