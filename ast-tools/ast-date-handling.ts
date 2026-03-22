@@ -33,8 +33,7 @@ import path from 'path';
 import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
-import { getFilesInDirectory } from './shared';
-import type { FileFilter } from './shared';
+import { getFilesInDirectory, type FileFilter } from './shared';
 import { cached } from './ast-cache';
 
 // ---------------------------------------------------------------------------
@@ -59,12 +58,6 @@ interface DateObservation {
     context: string;
     layer: 'fe' | 'bff' | 'shared' | 'test' | 'fixture';
   };
-}
-
-interface DateAnalysis {
-  filePath: string;
-  observations: DateObservation[];
-  summary: Record<DateObservationKind, number>;
 }
 
 // ---------------------------------------------------------------------------

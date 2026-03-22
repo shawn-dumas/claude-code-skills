@@ -169,7 +169,7 @@ function resolvePathRef(refPath: string): string | null {
   // Skip ellipsis placeholders (e.g., @/components/...)
   if (/\.{3}/.test(refPath)) return null;
   // Skip truncated template paths ending with - (e.g., scripts/AST/ast-)
-  if (/-$/.test(refPath)) return null;
+  if (refPath.endsWith("-")) return null;
   // Skip relative paths (./shared, ./handler-name.schema, ../utils)
   // These are relative imports shown in code examples, not resolvable from project root
   if (/^\.\.?\//.test(refPath)) return null;
@@ -367,7 +367,7 @@ function buildFencedLineSet(content: string): Set<number> {
   const fenced = new Set<number>();
   let inBlock = false;
   for (let i = 0; i < lines.length; i++) {
-    if (/^```/.test(lines[i].trimStart())) {
+    if (lines[i].trimStart().startsWith("```")) {
       if (inBlock) {
         // closing fence -- this line is part of the block
         fenced.add(i);
@@ -391,7 +391,7 @@ function extractChecklists(
   const lines = content.split('\n');
   for (let i = 0; i < lines.length; i++) {
     if (fencedLines.has(i)) continue;
-    const match = lines[i].match(/^(\s*[-*+]\s+)\[([ xX])\]\s+(.+)/);
+    const match = /^(\s*[-*+]\s+)\[([ xX])\]\s+(.+)/.exec(lines[i]);
     if (match) {
       const checked = match[2].toLowerCase() === 'x';
       const itemText = match[3].trim();
@@ -500,7 +500,7 @@ function extractRoleAnnotations(tree: MdNode): {
     const node = children[i];
     if (node.type !== 'html') continue;
 
-    const match = (node.value ?? '').trim().match(ROLE_COMMENT_RE);
+    const match = ROLE_COMMENT_RE.exec((node.value ?? '').trim());
     if (!match) continue;
 
     const roleName = match[1].toLowerCase();
@@ -539,7 +539,7 @@ function extractRoleAnnotations(tree: MdNode): {
  */
 function resolveHeadingRoles(
   annotations: RoleAnnotation[],
-  headings: Array<{ line: number; depth: number }>,
+  headings: { line: number; depth: number }[],
 ): Map<number, { role: SkillSectionRole; inherited: boolean }> {
   // Build explicit-role lookup from annotations
   const explicitByLine = new Map<number, SkillSectionRole>();
@@ -551,7 +551,7 @@ function resolveHeadingRoles(
   // keyed by depth; a heading at depth N pops everything >= N.
   const sorted = [...headings].sort((a, b) => a.line - b.line);
   const result = new Map<number, { role: SkillSectionRole; inherited: boolean }>();
-  const stack: Array<{ depth: number; role: SkillSectionRole }> = [];
+  const stack: { depth: number; role: SkillSectionRole }[] = [];
 
   for (const h of sorted) {
     // Pop entries at equal or deeper depth (new section at same level)
@@ -579,7 +579,7 @@ function resolveHeadingRoles(
  */
 function getRoleForLine(
   line: number,
-  sortedHeadings: Array<{ line: number }>,
+  sortedHeadings: { line: number }[],
   headingRoles: Map<number, { role: SkillSectionRole; inherited: boolean }>,
 ): SkillSectionRole | undefined {
   let role: SkillSectionRole | undefined;
@@ -602,7 +602,7 @@ function scanConventions(
   inlineCodeText: string,
   file: string,
   obs: SkillAnalysisObservation[],
-  sortedHeadings: Array<{ line: number }>,
+  sortedHeadings: { line: number }[],
   headingRoles: Map<number, { role: SkillSectionRole; inherited: boolean }>,
 ): void {
   const config = resolveConfig();
@@ -729,7 +729,7 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
 
   // --- Extract sections (headings) ---
   const headings = findAll(tree, 'heading');
-  const headingData: Array<{ line: number; depth: number; text: string }> = [];
+  const headingData: { line: number; depth: number; text: string }[] = [];
   for (const h of headings) {
     const line = nodeLine(h);
     // Skip headings that fall inside YAML frontmatter (parser artifacts)
@@ -761,7 +761,7 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
     });
 
     // Check for step pattern: "Step N:" or "Step N " or "Step N."
-    const stepMatch = h.text.match(/^Step\s+(\d+)/i);
+    const stepMatch = /^Step\s+(\d+)/i.exec(h.text);
     if (stepMatch) {
       emit(obs, 'SKILL_STEP', relPath, h.line, {
         text: h.text,
@@ -802,7 +802,7 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
     const lineNum = i + 1;
 
     // Toggle fenced code block state
-    if (/^```/.test(line.trimStart())) {
+    if (line.trimStart().startsWith("```")) {
       inFencedBlock = !inFencedBlock;
       continue;
     }
@@ -861,10 +861,10 @@ export function analyzeSkillFile(filePath: string, skillDirs: Set<string>): Skil
   const codeBlockData = codeBlocks.map(cb => ({
     content: cb.value ?? '',
     line: nodeLine(cb),
-    lang: (cb.lang as string) ?? '',
+    lang: (cb.lang!) ?? '',
   }));
   const inlineCodeNodes = findAll(tree, 'inlineCode');
-  const inlineCodeText = inlineCodeNodes.map(ic => (ic.value as string) ?? '').join('\n');
+  const inlineCodeText = inlineCodeNodes.map(ic => (ic.value!) ?? '').join('\n');
   scanConventions(content, codeBlockData, inlineCodeText, relPath, obs, sortedHeadings, headingRoles);
 
   return { filePath: relPath, skillName, category, observations: obs };

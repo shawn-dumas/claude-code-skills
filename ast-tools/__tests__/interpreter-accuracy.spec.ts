@@ -142,7 +142,7 @@ afterAll(() => {
 
 const FIXTURES_DIR = path.resolve(__dirname, '../ground-truth/fixtures');
 
-function discoverFixtures(): Array<{ dir: string; manifest: Manifest }> {
+function discoverFixtures(): { dir: string; manifest: Manifest }[] {
   if (!fs.existsSync(FIXTURES_DIR)) return [];
 
   const dirs = fs.readdirSync(FIXTURES_DIR).filter(d => {
@@ -621,7 +621,7 @@ describe('Intent matcher accuracy', () => {
     () => {
       let totalCorrect = 0;
       let totalExpected = 0;
-      const fixtureResults: Array<{ dir: string; correct: number; total: number; details: string[] }> = [];
+      const fixtureResults: { dir: string; correct: number; total: number; details: string[] }[] = [];
 
       for (const { dir, manifest } of intentFixtures) {
         const result = evaluateIntentFixture(dir, manifest as IntentManifest);
@@ -636,10 +636,10 @@ describe('Intent matcher accuracy', () => {
       // Output per-fixture details for debugging
       for (const r of fixtureResults) {
         if (r.details.length > 0) {
-          // eslint-disable-next-line no-console
+           
           console.error(`\n[${r.dir}] ${r.correct}/${r.total}:`);
           for (const d of r.details) {
-            // eslint-disable-next-line no-console
+             
             console.error(`  ${d}`);
           }
         }
@@ -668,7 +668,7 @@ describe('Parity tool accuracy', () => {
   it.skipIf(parityFixtures.length === 0)('meets accuracy threshold on all parity fixtures', { timeout: 30_000 }, () => {
     let totalCorrect = 0;
     let totalExpected = 0;
-    const fixtureResults: Array<{ dir: string; correct: number; total: number; details: string[] }> = [];
+    const fixtureResults: { dir: string; correct: number; total: number; details: string[] }[] = [];
 
     for (const { dir, manifest } of parityFixtures) {
       const result = evaluateParityFixture(dir, manifest as ParityManifest);
@@ -683,10 +683,10 @@ describe('Parity tool accuracy', () => {
     // Output per-fixture details for debugging
     for (const r of fixtureResults) {
       if (r.details.length > 0) {
-        // eslint-disable-next-line no-console
+         
         console.error(`\n[${r.dir}] ${r.correct}/${r.total}:`);
         for (const d of r.details) {
-          // eslint-disable-next-line no-console
+           
           console.error(`  ${d}`);
         }
       }
@@ -717,7 +717,7 @@ describe('Vitest parity tool accuracy', () => {
     () => {
       let totalCorrect = 0;
       let totalExpected = 0;
-      const fixtureResults: Array<{ dir: string; correct: number; total: number; details: string[] }> = [];
+      const fixtureResults: { dir: string; correct: number; total: number; details: string[] }[] = [];
 
       for (const { dir, manifest } of vitestParityFixtures) {
         const result = evaluateVitestParityFixture(dir, manifest as VitestParityManifest);
@@ -732,10 +732,10 @@ describe('Vitest parity tool accuracy', () => {
       // Output per-fixture details for debugging
       for (const r of fixtureResults) {
         if (r.details.length > 0) {
-          // eslint-disable-next-line no-console
+           
           console.error(`\n[${r.dir}] ${r.correct}/${r.total}:`);
           for (const d of r.details) {
-            // eslint-disable-next-line no-console
+             
             console.error(`  ${d}`);
           }
         }
@@ -768,10 +768,10 @@ describe('Vitest parity tool accuracy', () => {
  * Shared test body for entry-based interpreter accuracy. Runs evaluateEntryFixture
  * on each fixture, asserts per-fixture >= 50% and overall >= 60%.
  */
-function runEntryAccuracyTest(toolName: string, fixtures: Array<{ dir: string; manifest: Manifest }>): void {
+function runEntryAccuracyTest(toolName: string, fixtures: { dir: string; manifest: Manifest }[]): void {
   let totalCorrect = 0;
   let totalExpected = 0;
-  const fixtureResults: Array<{ dir: string; correct: number; total: number; details: string[] }> = [];
+  const fixtureResults: { dir: string; correct: number; total: number; details: string[] }[] = [];
 
   for (const { dir, manifest } of fixtures) {
     const result = evaluateEntryFixture(dir, manifest as EntryManifest);
@@ -786,10 +786,10 @@ function runEntryAccuracyTest(toolName: string, fixtures: Array<{ dir: string; m
   // Output per-fixture details for debugging
   for (const r of fixtureResults) {
     if (r.details.length > 0) {
-      // eslint-disable-next-line no-console
+       
       console.error(`\n[${r.dir}] ${r.correct}/${r.total}:`);
       for (const d of r.details) {
-        // eslint-disable-next-line no-console
+         
         console.error(`  ${d}`);
       }
     }

@@ -48,7 +48,7 @@ const HOOK_OPTION_PROPERTIES = new Set([
  * its parent context. Returns the name string, 'skip' to continue
  * walking past a hook-option callback, or null if unresolvable.
  */
-function resolveClosureName(current: Node): string | 'skip' | null {
+function resolveClosureName(current: Node): string | null {
   const parent = current.getParent();
   if (parent && Node.isVariableDeclaration(parent)) {
     return parent.getName();

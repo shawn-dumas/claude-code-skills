@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { interpretTestCoverage, groupByDirectory, computeDirectoryStats } from '../ast-interpret-test-coverage';
 import { analyzeTestCoverageDirectory, extractTestCoverageObservations } from '../ast-test-coverage';
-import type { TestCoverageObservation, TestGapAssessment } from '../types';
+import type { TestCoverageObservation } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
 

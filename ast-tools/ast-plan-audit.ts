@@ -96,7 +96,7 @@ function parseBlockquoteHeader(content: string): HeaderField[] {
     if (/^\s*>/.test(line)) {
       started = true;
       const stripped = line.replace(/^\s*>\s?/, '');
-      const m = stripped.match(/^([A-Za-z][A-Za-z\s-]*?):\s*(.+)$/);
+      const m = /^([A-Za-z][A-Za-z\s-]*?):\s*(.+)$/.exec(stripped);
       if (m) {
         fields.push({ name: m[1].trim(), value: m[2].trim(), line: i + 1 });
       }
@@ -132,7 +132,7 @@ function parsePromptTable(content: string): PromptTableRow[] | null {
   // Collect all candidate tables that have a "prompt" column.
   // Prefer the table that also has a "mode" column (the actual prompt/phase
   // table), falling back to the first candidate if none has mode.
-  type Candidate = { rows: PromptTableRow[]; hasMode: boolean };
+  interface Candidate { rows: PromptTableRow[]; hasMode: boolean }
   const candidates: Candidate[] = [];
   let i = 0;
 
@@ -215,7 +215,7 @@ function checkHeaderFormats(headers: HeaderField[], file: string, obs: PlanAudit
 function checkPreFlightMark(headers: HeaderField[], file: string, obs: PlanAuditObservation[]): void {
   const pf = headers.find(h => h.name === 'Pre-flight');
   if (pf) {
-    const m = pf.value.match(/^(CERTIFIED|CONDITIONAL|BLOCKED)\s+(\S+)/);
+    const m = /^(CERTIFIED|CONDITIONAL|BLOCKED)\s+(\S+)/.exec(pf.value);
     const tier = m?.[1] ?? 'CERTIFIED';
     const kind =
       tier === 'CONDITIONAL'
@@ -335,7 +335,7 @@ function checkStandingElements(tree: MdNode, file: string, obs: PlanAuditObserva
         for (const item of items) {
           const itemText = nodeText(item);
           const line = nodeLine(item);
-          const m = itemText.match(/^([A-Z][A-Z\s_]+?):\s*(.*)/);
+          const m = /^([A-Z][A-Z\s_]+?):\s*(.*)/.exec(itemText);
           if (m) {
             const name = m[1].trim();
             const val = m[2].trim();
@@ -358,7 +358,7 @@ function checkStandingElements(tree: MdNode, file: string, obs: PlanAuditObserva
     const lines = content.split('\n');
     for (let li = 0; li < lines.length; li++) {
       const line = lines[li];
-      const headerMatch = line.match(/Standing elements?:\s*(.*)/i);
+      const headerMatch = /Standing elements?:\s*(.*)/i.exec(line);
       if (!headerMatch) continue;
 
       // Collect the full standing elements text (may span continuation lines)
@@ -485,7 +485,7 @@ function checkPromptVerification(promptPath: string, obs: PlanAuditObservation[]
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const isFenceLine = /^```/.test(line);
+    const isFenceLine = line.startsWith("```");
 
     if (isFenceLine) {
       if (foundVerifyHeading) hasRunnableContent = true;
@@ -494,7 +494,7 @@ function checkPromptVerification(promptPath: string, obs: PlanAuditObservation[]
     }
     if (inFence) continue;
 
-    const hm = line.match(/^(#{1,6})\s+(.+)/);
+    const hm = /^(#{1,6})\s+(.+)/.exec(line);
     if (hm) {
       const depth = hm[1].length;
       const text = hm[2].toLowerCase();
@@ -514,7 +514,7 @@ function checkPromptVerification(promptPath: string, obs: PlanAuditObservation[]
       }
     }
 
-    if (foundVerifyHeading && /^(?:    |\t)\S/.test(line)) {
+    if (foundVerifyHeading && /^(?: {4}|\t)\S/.test(line)) {
       hasRunnableContent = true;
     }
   }

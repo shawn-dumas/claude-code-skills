@@ -24,8 +24,7 @@ import path from 'path';
 import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, fatal } from './cli';
-import { getFilesInDirectory } from './shared';
-import type { FileFilter } from './shared';
+import { getFilesInDirectory, type FileFilter } from './shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,10 +41,10 @@ interface FieldRefsResult {
   field: string;
   totalRefs: number;
   fileCount: number;
-  files: Array<{
+  files: {
     file: string;
     refs: FieldReference[];
-  }>;
+  }[];
 }
 
 // ---------------------------------------------------------------------------

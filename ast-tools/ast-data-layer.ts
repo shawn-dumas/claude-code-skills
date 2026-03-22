@@ -3,8 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
-import { getFilesInDirectory, truncateText, getContainingFunctionName, resolveTemplateLiteral } from './shared';
-import type { FileFilter } from './shared';
+import { getFilesInDirectory, truncateText, getContainingFunctionName, resolveTemplateLiteral, type FileFilter } from './shared';
 import { astConfig } from './ast-config';
 import { cached, getCacheStats } from './ast-cache';
 import type {
@@ -332,7 +331,7 @@ function collectFetchApiUsages(node: Node, line: number, column: number, contain
 
   // Also emit API_ENDPOINT if URL matches the API path marker
   const apiPathMarker = astConfig.dataLayer.apiPathMarker;
-  if (url && url.includes(apiPathMarker)) {
+  if (url?.includes(apiPathMarker)) {
     results.push({
       type: 'API_ENDPOINT',
       line,

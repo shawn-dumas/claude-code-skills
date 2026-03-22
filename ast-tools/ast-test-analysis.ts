@@ -87,7 +87,7 @@ function isPackageImport(source: string): boolean {
 // Subject detection
 // ---------------------------------------------------------------------------
 
-type SubjectResult = { subjectPath: string; subjectExists: boolean };
+interface SubjectResult { subjectPath: string; subjectExists: boolean }
 
 function resolveImportToSubject(source: string, filePath: string): SubjectResult {
   const resolved = resolveModulePath(source, filePath);
@@ -419,7 +419,7 @@ function countAsAnyCasts(sf: SourceFile): number {
   sf.forEachDescendant(node => {
     if (Node.isAsExpression(node)) {
       const typeNode = node.getTypeNode();
-      if (typeNode && typeNode.getText() === 'any') count++;
+      if (typeNode?.getText() === 'any') count++;
     }
   });
   return count;
@@ -1444,7 +1444,7 @@ function extractTimerNegativeAssertionObservations(sf: SourceFile, filePath: str
       .map(s => s.getText())
       .join('\n');
 
-    if (/\.not\.toHaveBeenCalled/.test(afterTimerText)) {
+    if (afterTimerText.includes('.not.toHaveBeenCalled')) {
       observations.push(
         createObservation('TIMER_NEGATIVE_ASSERTION', filePath, line, 1, {
           delayMs,
@@ -1694,7 +1694,7 @@ export function analyzeTestDirectory(dirPath: string, options: { noCache?: boole
       results.push(analysis);
     } catch (error) {
       process.stderr.write(
-        `[ast-test-analysis] skipping unparseable file ${fp}: ${error instanceof Error ? error.message : error}\n`,
+        `[ast-test-analysis] skipping unparseable file ${fp}: ${error instanceof Error ? error.message : String(error)}\n`,
       );
     }
   }

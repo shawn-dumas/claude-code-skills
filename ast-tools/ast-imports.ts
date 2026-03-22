@@ -3,8 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { getProject, getSourceFile, findConsumerFiles, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
-import { getFilesInDirectory } from './shared';
-import type { FileFilter } from './shared';
+import { getFilesInDirectory, type FileFilter } from './shared';
 import { astConfig } from './ast-config';
 import type {
   DependencyGraph,
@@ -101,10 +100,10 @@ function extractDynamicImports(sf: SourceFile): ImportInfo[] {
 // ---------------------------------------------------------------------------
 
 /** Maps a ts-morph Node guard to the ExportInfo kind it implies. */
-const DECLARATION_KIND_CHECKS: Array<{
+const DECLARATION_KIND_CHECKS: {
   guard: (node: Node) => boolean;
   kind: ExportInfo['kind'];
-}> = [
+}[] = [
   { guard: Node.isFunctionDeclaration, kind: 'function' },
   { guard: Node.isClassDeclaration, kind: 'class' },
   { guard: Node.isTypeAliasDeclaration, kind: 'type' },
@@ -338,8 +337,8 @@ function analyzeFile(filePath: string): FileNode {
 // Edge building
 // ---------------------------------------------------------------------------
 
-function buildEdges(files: FileNode[]): Array<{ from: string; to: string; specifiers: string[] }> {
-  const edges: Array<{ from: string; to: string; specifiers: string[] }> = [];
+function buildEdges(files: FileNode[]): { from: string; to: string; specifiers: string[] }[] {
+  const edges: { from: string; to: string; specifiers: string[] }[] = [];
 
   for (const file of files) {
     for (const imp of file.imports) {
@@ -362,7 +361,7 @@ function buildEdges(files: FileNode[]): Array<{ from: string; to: string; specif
 // Circular dependency detection (DFS with coloring)
 // ---------------------------------------------------------------------------
 
-function detectCircularDeps(edges: Array<{ from: string; to: string; specifiers: string[] }>): string[][] {
+function detectCircularDeps(edges: { from: string; to: string; specifiers: string[] }[]): string[][] {
   const adjacency = new Map<string, string[]>();
   for (const edge of edges) {
     const existing = adjacency.get(edge.from);
@@ -463,7 +462,7 @@ function traceBarrelChain(exportName: string, filePath: string, visited = new Se
     }
   } catch (error) {
     process.stderr.write(
-      `[ast-imports] traceBarrelChain: could not load barrel file ${filePath}: ${error instanceof Error ? error.message : error}\n`,
+      `[ast-imports] traceBarrelChain: could not load barrel file ${filePath}: ${error instanceof Error ? error.message : String(error)}\n`,
     );
   }
 
@@ -488,7 +487,7 @@ function isNextJsPage(filePath: string): boolean {
 function isConsumedByEdge(
   exportName: string,
   fileRelativePath: string,
-  allEdges: Array<{ from: string; to: string; specifiers: string[] }>,
+  allEdges: { from: string; to: string; specifiers: string[] }[],
 ): boolean {
   return allEdges.some(
     e =>
@@ -513,7 +512,7 @@ function isReexportedByBarrel(exportName: string, consumerCandidates: string[]):
       }
     } catch (error) {
       process.stderr.write(
-        `[ast-imports] isReexportedByBarrel: could not check re-exports in ${consumer}: ${error instanceof Error ? error.message : error}\n`,
+        `[ast-imports] isReexportedByBarrel: could not check re-exports in ${consumer}: ${error instanceof Error ? error.message : String(error)}\n`,
       );
     }
     return false;
@@ -544,7 +543,7 @@ function isConsumedExternally(exportName: string, filePath: string, consumerCand
       return consumerImportsName(consumer, exportName, filePath);
     } catch (error) {
       process.stderr.write(
-        `[ast-imports] isConsumedExternally: could not check external consumers of ${consumer}: ${error instanceof Error ? error.message : error}\n`,
+        `[ast-imports] isConsumedExternally: could not check external consumers of ${consumer}: ${error instanceof Error ? error.message : String(error)}\n`,
       );
     }
     return false;
@@ -553,10 +552,10 @@ function isConsumedExternally(exportName: string, filePath: string, consumerCand
 
 function detectDeadExports(
   files: FileNode[],
-  allEdges: Array<{ from: string; to: string; specifiers: string[] }>,
+  allEdges: { from: string; to: string; specifiers: string[] }[],
   fixtureSearchDir?: string,
-): Array<{ file: string; export: string; line: number }> {
-  const dead: Array<{ file: string; export: string; line: number }> = [];
+): { file: string; export: string; line: number }[] {
+  const dead: { file: string; export: string; line: number }[] = [];
   // Cache consumer candidates per file path to avoid repeated ripgrep calls
   const consumerCache = new Map<string, string[]>();
 
@@ -605,11 +604,11 @@ function detectDeadExports(
 function fileReferencesTarget(candidateSf: SourceFile, targetPath: string): boolean {
   for (const imp of candidateSf.getImportDeclarations()) {
     const resolved = imp.getModuleSpecifierSourceFile();
-    if (resolved && resolved.getFilePath() === targetPath) return true;
+    if (resolved?.getFilePath() === targetPath) return true;
   }
   for (const exp of candidateSf.getExportDeclarations()) {
     const resolved = exp.getModuleSpecifierSourceFile();
-    if (resolved && resolved.getFilePath() === targetPath) return true;
+    if (resolved?.getFilePath() === targetPath) return true;
   }
   return false;
 }
@@ -626,7 +625,7 @@ function findConsumersForFile(targetFile: FileNode, searchDir?: string): FileNod
       }
     } catch (error) {
       process.stderr.write(
-        `[ast-imports] findConsumersForFile: could not load ${candidatePath}: ${error instanceof Error ? error.message : error}\n`,
+        `[ast-imports] findConsumersForFile: could not load ${candidatePath}: ${error instanceof Error ? error.message : String(error)}\n`,
       );
     }
   }
@@ -740,7 +739,7 @@ function extractCircularDependencyObservations(circularDeps: string[][], files: 
 }
 
 function extractDeadExportObservations(
-  deadExports: Array<{ file: string; export: string; line: number }>,
+  deadExports: { file: string; export: string; line: number }[],
 ): ImportObservation[] {
   return deadExports.map(dead => ({
     kind: 'DEAD_EXPORT_CANDIDATE' as ImportObservationKind,
@@ -968,7 +967,7 @@ function main(): void {
   // --symbol mode: filter to files importing a specific named export
   if (args.options.symbol) {
     const symbol = args.options.symbol;
-    const matchingFiles: Array<{ file: string; source: string; line: number; specifiers: string[] }> = [];
+    const matchingFiles: { file: string; source: string; line: number; specifiers: string[] }[] = [];
 
     for (const graph of allGraphs) {
       for (const file of graph.files) {

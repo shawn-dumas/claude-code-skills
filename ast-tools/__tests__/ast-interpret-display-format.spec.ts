@@ -488,13 +488,13 @@ describe('ast-interpret-display-format', () => {
   describe('ground truth integration', () => {
     function loadManifest(fixtureDir: string): {
       files: string[];
-      expectedClassifications: Array<{
+      expectedClassifications: {
         file: string;
         line: number;
         symbol: string;
         expectedKind: string;
         notes: string;
-      }>;
+      }[];
     } {
       const manifestPath = path.join(GROUND_TRUTH_DIR, fixtureDir, 'manifest.json');
       return JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as ReturnType<typeof loadManifest>;

@@ -352,7 +352,7 @@ export function interpretVitestParity(
     // Compute ALL candidate pairs, sort by similarity descending, then
     // greedily assign from highest to lowest. This prevents a low-quality
     // match from stealing a target that a higher-quality source needs.
-    const candidates: Array<{ si: number; ti: number; match: MatchCandidate }> = [];
+    const candidates: { si: number; ti: number; match: MatchCandidate }[] = [];
     for (let si = 0; si < source.tests.length; si++) {
       if (matchedSourceIndices.has(si)) continue;
       const sourceTest = source.tests[si];

@@ -22,9 +22,9 @@ export interface FileNode {
 
 export interface DependencyGraph {
   files: FileNode[];
-  edges: Array<{ from: string; to: string; specifiers: string[] }>;
+  edges: { from: string; to: string; specifiers: string[] }[];
   circularDeps: string[][];
-  deadExports: Array<{ file: string; export: string; line: number }>;
+  deadExports: { file: string; export: string; line: number }[];
 }
 
 // --- ast-react-inventory output ---
@@ -100,13 +100,13 @@ export interface JsxViolation {
 
 export interface JsxAnalysis {
   filePath: string;
-  components: Array<{
+  components: {
     name: string;
     returnStartLine: number;
     returnEndLine: number;
     returnLineCount: number;
     violations: JsxViolation[];
-  }>;
+  }[];
   observations: JsxObservation[];
 }
 
@@ -181,7 +181,7 @@ export interface FunctionComplexity {
   lineCount: number;
   cyclomaticComplexity: number;
   maxNestingDepth: number;
-  contributors: Array<{
+  contributors: {
     type:
       | 'if'
       | 'else-if'
@@ -194,7 +194,7 @@ export interface FunctionComplexity {
       | 'loop'
       | 'optional-chain';
     line: number;
-  }>;
+  }[];
 }
 
 export interface ComplexityAnalysis {
@@ -642,7 +642,7 @@ export type ComplexityObservationEvidence = {
   lineCount: number;
   cyclomaticComplexity: number;
   maxNestingDepth: number;
-  contributors: Array<{ type: string; line: number }>;
+  contributors: { type: string; line: number }[];
 };
 
 export type ComplexityObservation = Observation<ComplexityObservationKind, ComplexityObservationEvidence>;
@@ -962,9 +962,9 @@ export type BffGapObservation = Observation<BffGapObservationKind, BffGapObserva
 
 export interface BffGapAnalysis {
   /** All BFF route files scanned */
-  bffRoutes: Array<{ path: string; isStub: boolean }>;
+  bffRoutes: { path: string; isStub: boolean }[];
   /** All mock route files scanned */
-  mockRoutes: Array<{ path: string; apiPath: string }>;
+  mockRoutes: { path: string; apiPath: string }[];
   /** Observations emitted */
   observations: BffGapObservation[];
 }
@@ -1475,7 +1475,7 @@ export interface AuditContext {
   /** Observation kinds the audit flagged as violations */
   flaggedKinds: Set<string>;
   /** Specific file:line locations flagged */
-  flaggedLocations: Array<{ file: string; line: number; kind: string }>;
+  flaggedLocations: { file: string; line: number; kind: string }[];
   /** Refactor type for heuristic intent inference */
   refactorType: 'component' | 'service-hook' | 'provider' | 'route' | 'hook' | 'module' | 'api-handler';
 }
@@ -1489,7 +1489,7 @@ export interface RefactorSignalPair {
   after: { files: string[]; observations: AnyObservation[] };
   unmatched: AnyObservation[];
   novel: AnyObservation[];
-  matched: Array<{ before: AnyObservation; after: AnyObservation; similarity: number }>;
+  matched: { before: AnyObservation; after: AnyObservation; similarity: number }[];
 }
 
 // ============================================================

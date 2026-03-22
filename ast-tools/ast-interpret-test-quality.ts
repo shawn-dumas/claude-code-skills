@@ -599,7 +599,7 @@ function detectStrategy(observations: readonly TestObservation[]): {
 // Cleanup assessment
 // ---------------------------------------------------------------------------
 
-function assessCleanup(observations: readonly TestObservation[], file: string): ClassificationResult {
+function assessCleanup(observations: readonly TestObservation[], _file: string): ClassificationResult {
   const afterEachObs = observations.filter(obs => obs.kind === 'AFTER_EACH_BLOCK');
   const cleanupObs = observations.filter(obs => obs.kind === 'CLEANUP_CALL');
 
@@ -731,8 +731,8 @@ function assessDeleteCandidate(internalMockCount: number, config: AstConfig): Cl
 export function interpretTestQuality(
   observations: readonly TestObservation[],
   config: AstConfig = astConfig,
-  subjectDomainDir: string = '',
-  subjectExists: boolean = true,
+  subjectDomainDir = '',
+  subjectExists = true,
   helperIndex?: TestHelperIndex,
 ): AssessmentResult<TestQualityAssessment> {
   if (observations.length === 0) {
@@ -1105,7 +1105,7 @@ function main(): void {
         );
         allAssessments.push(...result.assessments);
       } catch (e) {
-        console.error(`Warning: could not analyze ${fp}: ${e}`);
+        console.error(`Warning: could not analyze ${fp}: ${String(e)}`);
       }
     }
     displayPath = `${testFiles.length} files in ${targetPath}`;

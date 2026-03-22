@@ -2,8 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import { PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
-import { getFilesInDirectory } from './shared';
-import type { FileFilter } from './shared';
+import { getFilesInDirectory, type FileFilter } from './shared';
 import { astConfig } from './ast-config';
 import { analyzeComplexity, analyzeComplexityDirectory } from './ast-complexity';
 import { buildDependencyGraph } from './ast-imports';
@@ -49,7 +48,7 @@ function findDedicatedSpec(filePath: string): string | null {
  */
 function findIndirectSpecs(
   fileRelativePath: string,
-  edges: Array<{ from: string; to: string; specifiers: string[] }>,
+  edges: { from: string; to: string; specifiers: string[] }[],
 ): string[] {
   const specPattern = /\.spec\.tsx?$/;
   const specs: string[] = [];
@@ -122,7 +121,7 @@ export interface TestCoverageResult {
 export function analyzeTestCoverageForFile(
   filePath: string,
   complexityMap: Map<string, ComplexityAnalysis>,
-  edges: Array<{ from: string; to: string; specifiers: string[] }>,
+  edges: { from: string; to: string; specifiers: string[] }[],
 ): TestCoverageResult {
   const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(PROJECT_ROOT, filePath);
   const relativePath = path.relative(PROJECT_ROOT, absolute);

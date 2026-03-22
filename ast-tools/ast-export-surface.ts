@@ -9,13 +9,12 @@
  * branch vs what exists on another, without requiring full project context.
  */
 
-import { type SourceFile, Node } from 'ts-morph';
+import { type SourceFile, type ExportedDeclarations, Node } from 'ts-morph';
 import path from 'path';
 import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
-import { getFilesInDirectory } from './shared';
-import type { FileFilter } from './shared';
+import { getFilesInDirectory, type FileFilter } from './shared';
 import { cached, getCacheStats } from './ast-cache';
 import { writeGitFileToTemp, createVirtualProject } from './git-source';
 import type {
@@ -30,10 +29,10 @@ import type {
 // Declaration kind classification (matches ast-imports logic)
 // ---------------------------------------------------------------------------
 
-const DECLARATION_KIND_CHECKS: Array<{
+const DECLARATION_KIND_CHECKS: {
   guard: (node: Node) => boolean;
   kind: ExportInfo['kind'];
-}> = [
+}[] = [
   { guard: Node.isFunctionDeclaration, kind: 'function' },
   { guard: Node.isClassDeclaration, kind: 'class' },
   { guard: Node.isTypeAliasDeclaration, kind: 'type' },
@@ -52,7 +51,7 @@ function classifyVariableInit(decl: Node): ExportInfo['kind'] {
 
 function classifyExportKind(
   name: string,
-  declarations: ReturnType<SourceFile['getExportedDeclarations']> extends Map<string, infer V> ? V : never,
+  declarations: ExportedDeclarations[],
 ): ExportInfo['kind'] {
   if (name === 'default') return 'default';
   if (declarations.length === 0) return 'const';

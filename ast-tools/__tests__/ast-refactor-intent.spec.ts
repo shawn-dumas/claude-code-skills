@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import path from 'path';
+import fs from 'fs';
 import type { AnyObservation, RefactorSignalPair } from '../types';
 import { PROJECT_ROOT } from '../project';
+
+// Loose-typed alias for monkey-patching fs in tests (avoids overload mismatch errors)
+const fsAny = fs as unknown as Record<string, unknown>;
 
 // Mock git-source to avoid depending on actual git state
 vi.mock('../git-source', () => ({
@@ -82,16 +86,15 @@ describe('ast-refactor-intent', () => {
       });
 
       // Mock fs.existsSync and fs.readFileSync for the after file
-      const fs = require('fs');
       const origExistsSync = fs.existsSync;
       const origReadFileSync = fs.readFileSync;
-      fs.existsSync = (p: string) => {
+      fsAny.existsSync = (p: string) => {
         if (p.includes('refactor-intent-before')) return true;
         return origExistsSync(p);
       };
-      fs.readFileSync = (p: string, enc: string) => {
+      fsAny.readFileSync = (p: string, enc: string) => {
         if (p.includes('refactor-intent-before')) return '// after content';
-        return origReadFileSync(p, enc);
+        return origReadFileSync(p as fs.PathOrFileDescriptor, enc as BufferEncoding);
       };
 
       try {
@@ -161,19 +164,18 @@ describe('ast-refactor-intent', () => {
 
       // Mock fs: before file does not exist on disk (it was split),
       // after files exist on disk
-      const fs = require('fs');
       const origExistsSync = fs.existsSync;
       const origReadFileSync = fs.readFileSync;
-      fs.existsSync = (p: string) => {
+      fsAny.existsSync = (p: string) => {
         if (typeof p === 'string' && p.includes('refactor-intent-after-container')) return true;
         if (typeof p === 'string' && p.includes('refactor-intent-after-block')) return true;
         if (typeof p === 'string' && p.includes('refactor-intent-before')) return false;
         return origExistsSync(p);
       };
-      fs.readFileSync = (p: string, enc: string) => {
+      fsAny.readFileSync = (p: string, enc: string) => {
         if (typeof p === 'string' && p.includes('refactor-intent-after-container')) return '// container content';
         if (typeof p === 'string' && p.includes('refactor-intent-after-block')) return '// block content';
-        return origReadFileSync(p, enc);
+        return origReadFileSync(p as fs.PathOrFileDescriptor, enc as BufferEncoding);
       };
 
       try {
@@ -219,16 +221,15 @@ describe('ast-refactor-intent', () => {
         return callIdx === 1 ? [...beforeObs] : [...afterObs];
       });
 
-      const fs = require('fs');
       const origExistsSync = fs.existsSync;
       const origReadFileSync = fs.readFileSync;
-      fs.existsSync = (p: string) => {
+      fsAny.existsSync = (p: string) => {
         if (p.includes('refactor-intent-before')) return true;
         return origExistsSync(p);
       };
-      fs.readFileSync = (p: string, enc: string) => {
+      fsAny.readFileSync = (p: string, enc: string) => {
         if (p.includes('refactor-intent-before')) return '// modified content';
-        return origReadFileSync(p, enc);
+        return origReadFileSync(p as fs.PathOrFileDescriptor, enc as BufferEncoding);
       };
 
       try {
@@ -272,16 +273,15 @@ describe('ast-refactor-intent', () => {
         return callIdx === 1 ? [...beforeObs] : [...afterObs];
       });
 
-      const fs = require('fs');
       const origExistsSync = fs.existsSync;
       const origReadFileSync = fs.readFileSync;
-      fs.existsSync = (p: string) => {
+      fsAny.existsSync = (p: string) => {
         if (p.includes('refactor-intent-before')) return true;
         return origExistsSync(p);
       };
-      fs.readFileSync = (p: string, enc: string) => {
+      fsAny.readFileSync = (p: string, enc: string) => {
         if (p.includes('refactor-intent-before')) return '// modified content';
-        return origReadFileSync(p, enc);
+        return origReadFileSync(p as fs.PathOrFileDescriptor, enc as BufferEncoding);
       };
 
       try {
@@ -316,16 +316,15 @@ describe('ast-refactor-intent', () => {
 
       vi.mocked(runAllObservers).mockReturnValue([...afterObs]);
 
-      const fs = require('fs');
       const origExistsSync = fs.existsSync;
       const origReadFileSync = fs.readFileSync;
-      fs.existsSync = (p: string) => {
+      fsAny.existsSync = (p: string) => {
         if (p.includes('refactor-intent-after-block')) return true;
         return origExistsSync(p);
       };
-      fs.readFileSync = (p: string, enc: string) => {
+      fsAny.readFileSync = (p: string, enc: string) => {
         if (p.includes('refactor-intent-after-block')) return '// new file content';
-        return origReadFileSync(p, enc);
+        return origReadFileSync(p as fs.PathOrFileDescriptor, enc as BufferEncoding);
       };
 
       try {
@@ -359,9 +358,8 @@ describe('ast-refactor-intent', () => {
 
       vi.mocked(runAllObservers).mockReturnValue([...beforeObs]);
 
-      const fs = require('fs');
       const origExistsSync = fs.existsSync;
-      fs.existsSync = (p: string) => {
+      fsAny.existsSync = (p: string) => {
         if (p.includes('refactor-intent-before')) return false;
         return origExistsSync(p);
       };

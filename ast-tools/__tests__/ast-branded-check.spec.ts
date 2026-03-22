@@ -14,12 +14,12 @@ function fixturePath(dir: string, file: string): string {
 }
 
 function loadManifest(dir: string): {
-  expectedObservations: Array<{
+  expectedObservations: {
     kind: string;
     parameterName?: string;
     functionName?: string;
     expectedType?: string;
-  }>;
+  }[];
 } {
   return JSON.parse(fs.readFileSync(path.join(fixtureDir(dir), 'manifest.json'), 'utf-8')) as ReturnType<
     typeof loadManifest

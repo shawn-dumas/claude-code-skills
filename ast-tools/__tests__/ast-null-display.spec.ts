@@ -18,7 +18,7 @@ function observationsOfKind(
   analysis: NullDisplayAnalysis,
   kind: NullDisplayObservationKind,
 ): NullDisplayObservation[] {
-  return analysis.observations.filter(o => o.kind === kind) as NullDisplayObservation[];
+  return analysis.observations.filter(o => o.kind === kind);
 }
 
 describe('ast-null-display', () => {

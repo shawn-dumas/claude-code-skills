@@ -3,8 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
-import { getFilesInDirectory, truncateText } from './shared';
-import type { FileFilter } from './shared';
+import { getFilesInDirectory, truncateText, type FileFilter } from './shared';
 import { astConfig } from './ast-config';
 import { cached, getCacheStats } from './ast-cache';
 import type {
@@ -165,9 +164,7 @@ function findContainingBlockAndAncestorGuard(node: Node, exprText: string): Ance
           return { guarded: true, guardType: 'null-check' };
         }
       }
-      if (!containingBlock) {
-        containingBlock = current;
-      }
+      containingBlock ??= current;
     }
     current = current.getParent();
   }
@@ -251,7 +248,7 @@ function findDirectiveViolations(sf: SourceFile): TypeSafetyViolation[] {
     const lineNumber = i + 1;
 
     // Match @ts-expect-error, @ts-ignore
-    const tsDirectiveMatch = line.match(/\/\/\s*(@ts-expect-error|@ts-ignore)(.*)/);
+    const tsDirectiveMatch = /\/\/\s*(@ts-expect-error|@ts-ignore)(.*)/.exec(line);
     if (tsDirectiveMatch) {
       const afterDirective = tsDirectiveMatch[2].trim();
       // Check if there is explanatory text after the directive
@@ -269,11 +266,11 @@ function findDirectiveViolations(sf: SourceFile): TypeSafetyViolation[] {
     }
 
     // Match eslint-disable-next-line or eslint-disable
-    const eslintMatch = line.match(/\/\/\s*(eslint-disable(?:-next-line)?)\s*([\w@\/-]*)(.*)/);
+    const eslintMatch = /\/\/\s*(eslint-disable(?:-next-line)?)\s*([\w@/-]*)(.*)/.exec(line);
     if (eslintMatch) {
       const afterRuleName = eslintMatch[3].trim();
       // Check if there is a -- reason after the rule name
-      if (!afterRuleName || !afterRuleName.startsWith('--')) {
+      if (!afterRuleName?.startsWith('--')) {
         violations.push({
           type: 'TS_DIRECTIVE_NO_COMMENT',
           line: lineNumber,
@@ -395,7 +392,7 @@ function classifyCatchError(node: Node, line: number, column: number): TypeSafet
   if (!variableDecl) return null;
 
   const typeNode = variableDecl.getTypeNode();
-  if (!typeNode || typeNode.getText() !== 'any') return null;
+  if (typeNode?.getText() !== 'any') return null;
 
   return {
     type: 'CATCH_ERROR_ANY',
@@ -453,7 +450,7 @@ function computeSummary(violations: TypeSafetyViolation[]): Record<TypeSafetyVio
 // Observation extraction
 // ---------------------------------------------------------------------------
 
-type GuardInfo = { hasGuard: boolean; guardType?: 'if-check' | 'has-check' | 'null-check' };
+interface GuardInfo { hasGuard: boolean; guardType?: 'if-check' | 'has-check' | 'null-check' }
 
 function detectGuardType(node: Node, exprText: string): GuardInfo {
   const result = findContainingBlockAndAncestorGuard(node, exprText);
@@ -665,7 +662,7 @@ function extractObservationFromNode(node: Node, sf: SourceFile, relativePath: st
     if (!variableDecl) return null;
 
     const typeNode = variableDecl.getTypeNode();
-    if (!typeNode || typeNode.getText() !== 'any') return null;
+    if (typeNode?.getText() !== 'any') return null;
 
     return createObservation('CATCH_ERROR_ANY', relativePath, line, column, {
       text: truncateText(node.getText().split('{')[0].trim(), 80),
@@ -685,7 +682,7 @@ function extractDirectiveObservations(sf: SourceFile, relativePath: string): Typ
     const lineNumber = i + 1;
 
     // Match @ts-expect-error, @ts-ignore
-    const tsDirectiveMatch = line.match(/\/\/\s*(@ts-expect-error|@ts-ignore)(.*)/);
+    const tsDirectiveMatch = /\/\/\s*(@ts-expect-error|@ts-ignore)(.*)/.exec(line);
     if (tsDirectiveMatch) {
       const directive = tsDirectiveMatch[1];
       const afterDirective = tsDirectiveMatch[2].trim();
@@ -702,7 +699,7 @@ function extractDirectiveObservations(sf: SourceFile, relativePath: string): Typ
     }
 
     // Match eslint-disable-next-line or eslint-disable
-    const eslintMatch = line.match(/\/\/\s*(eslint-disable(?:-next-line)?)\s*([\w@\/-]*)(.*)/);
+    const eslintMatch = /\/\/\s*(eslint-disable(?:-next-line)?)\s*([\w@/-]*)(.*)/.exec(line);
     if (eslintMatch) {
       const afterRuleName = eslintMatch[3].trim();
       const hasExplanation = afterRuleName.startsWith('--');

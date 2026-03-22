@@ -330,7 +330,7 @@ function countAssertionsInCallback(callback: Node): number {
 // Assertion extraction
 // ---------------------------------------------------------------------------
 
-function extractAssertions(sf: SourceFile, tests: VtTestBlock[]): VtAssertion[] {
+function extractAssertions(sf: SourceFile, _tests: VtTestBlock[]): VtAssertion[] {
   const assertions: VtAssertion[] = [];
 
   // Build a map of test line -> test name for parent resolution

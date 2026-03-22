@@ -1,6 +1,8 @@
 import path from 'path';
+import fs from 'fs';
 import { parseArgs, output, fatal } from './cli';
 import { PROJECT_ROOT } from './project';
+import { getFilesInDirectory } from './shared';
 import { analyzeReactFile } from './ast-react-inventory';
 import { astConfig, type AstConfig } from './ast-config';
 import type { HookObservation, HookAssessment, HookAssessmentKind, ObservationRef, AssessmentResult } from './types';
@@ -402,7 +404,7 @@ function analyzeDirectory(filePaths: string[], pretty: boolean): AssessmentResul
     } catch (e) {
       // Skip files that cannot be parsed
       if (!pretty) {
-        console.error(`Warning: could not analyze ${filePath}: ${e}`);
+        console.error(`Warning: could not analyze ${filePath}: ${String(e)}`);
       }
     }
   }
@@ -448,7 +450,6 @@ function main(): void {
   let dirPath = '';
 
   for (const p of args.paths) {
-    const fs = require('fs');
     const absolute = path.isAbsolute(p) ? p : path.resolve(PROJECT_ROOT, p);
     const stat = fs.statSync(absolute);
 
@@ -456,8 +457,7 @@ function main(): void {
       isDirectory = true;
       dirPath = absolute;
       // Find all .tsx files in directory
-      const glob = require('glob');
-      const files = glob.sync('**/*.tsx', { cwd: absolute, absolute: true });
+      const files = getFilesInDirectory(absolute);
       filePaths.push(...files);
     } else {
       filePaths.push(absolute);

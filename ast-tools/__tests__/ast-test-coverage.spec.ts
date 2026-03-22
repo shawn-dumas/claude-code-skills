@@ -5,8 +5,8 @@ import {
   analyzeTestCoverageDirectory,
   analyzeTestCoverageForFile,
   extractTestCoverageObservations,
+  type TestCoverageResult,
 } from '../ast-test-coverage';
-import type { TestCoverageResult } from '../ast-test-coverage';
 import type { ComplexityAnalysis } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');

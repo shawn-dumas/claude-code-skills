@@ -12,8 +12,7 @@ import path from 'path';
 import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
-import { getBody, detectComponents, getFilesInDirectory } from './shared';
-import type { FileFilter } from './shared';
+import { getBody, detectComponents, getFilesInDirectory, type FileFilter } from './shared';
 import type {
   ReactInventory,
   ComponentInfo,

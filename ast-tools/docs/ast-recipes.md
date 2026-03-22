@@ -147,6 +147,19 @@ rg "as.*Response" src/ --type ts
 npx tsx scripts/AST/ast-type-safety.ts src/ --kind TRUST_BOUNDARY_CAST --pretty
 ```
 
+### "Any double-casts through unknown (as unknown as T)?"
+
+```bash
+# WRONG
+rg "as unknown as" src/ --type ts
+
+# RIGHT
+npx tsx scripts/AST/ast-type-safety.ts src/ --kind AS_UNKNOWN_AS_CAST --pretty
+```
+
+Returns `castTarget` (the final type), `sourceExpression`, and
+`hasJustification` (whether a preceding comment explains the cast).
+
 ---
 
 ## 4. React Component and Hook Analysis
@@ -250,6 +263,23 @@ npx tsx scripts/AST/ast-test-coverage.ts src/ui/page_blocks/dashboard/systems/ -
 # Use the interpreter for prioritized findings:
 npx tsx scripts/AST/ast-interpret-test-coverage.ts src/ui/page_blocks/dashboard/systems/ --pretty
 ```
+
+### "Any tests asserting on hook/mutation call args instead of rendered output?"
+
+```bash
+# WRONG
+rg "toHaveBeenCalledWith" --glob '*.spec.*' src/ui/page_blocks/dashboard/
+
+# RIGHT
+npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/ --kind IMPLEMENTATION_ASSERTION --count
+# or with details:
+npx tsx scripts/AST/ast-test-analysis.ts src/ui/page_blocks/dashboard/ --kind IMPLEMENTATION_ASSERTION --pretty
+```
+
+Authoritative. Detects `expect(useHookName).toHaveBeenCalled*`,
+`expect(mutate/mutateAsync).toHaveBeenCalled*`, and
+`expect(mock/mockedUseHookName).toHaveBeenCalled*`. Returns `hookName`,
+`assertionType` (`hook-call-args` or `mutation-call-args`), and `pattern`.
 
 ### "What assertions does this test file use?"
 
@@ -745,7 +775,8 @@ grep -n "Last reviewed" ~/plans/KNOWN-DEBT-AND-DECISIONS.md
 | Dead exports? | `ast-imports` | `--kind DEAD_EXPORT_CANDIDATE` |
 | What does file X export? | `ast-export-surface` | (default) |
 | Cyclomatic complexity? | `ast-complexity` | (default) |
-| `as any` / `as unknown`? | `ast-type-safety` | `--kind AS_ANY_CAST` |
+| `as any` casts? | `ast-type-safety` | `--kind AS_ANY_CAST` |
+| `as unknown as T` double-casts? | `ast-type-safety` | `--kind AS_UNKNOWN_AS_CAST` |
 | Non-null assertions? | `ast-type-safety` | `--kind NON_NULL_ASSERTION` |
 | Hook calls in component? | `ast-react-inventory` | `--kind HOOK_CALL` |
 | useEffect count? | `ast-react-inventory` | `--kind EFFECT_LOCATION --count` |
@@ -769,6 +800,7 @@ grep -n "Last reviewed" ~/plans/KNOWN-DEBT-AND-DECISIONS.md
 | BFF route gaps? | `ast-bff-gaps` | (default) |
 | Peer dep violations? | `ast-peer-deps` | (default) |
 | Mock type/target? | `ast-test-analysis` | `--kind MOCK_DECLARATION` |
+| Hook/mutation call-arg assertions? | `ast-test-analysis` | `--kind IMPLEMENTATION_ASSERTION` |
 | Priority rules? | `ast-config` | `--dump-priority-rules` |
 | Stale skill paths? | `ast-skill-analysis` | (default) |
 

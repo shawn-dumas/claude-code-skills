@@ -103,7 +103,7 @@ describe('ast-jsx-analysis', () => {
       // Should not include any violation that is only about a single .map()
       for (const t of transforms) {
         // Each transform violation must involve 2+ methods
-        const methodMatch = t.description.match(/\.(\w+)\./);
+        const methodMatch = /\.(\w+)\./.exec(t.description);
         expect(methodMatch).not.toBeNull();
       }
     });

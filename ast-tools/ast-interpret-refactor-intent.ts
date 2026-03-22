@@ -78,7 +78,7 @@ function classifyUnmatched(obs: AnyObservation, auditContext: AuditContext | und
   }
 
   // (b) Kind match in audit context but not exact location
-  if (auditContext && auditContext.flaggedKinds.has(obs.kind)) {
+  if (auditContext?.flaggedKinds.has(obs.kind)) {
     return {
       ...base,
       classification: 'INTENTIONALLY_REMOVED',
@@ -90,7 +90,7 @@ function classifyUnmatched(obs: AnyObservation, auditContext: AuditContext | und
   // (c) Heuristic inference based on refactorType
   if (auditContext) {
     const expectedRemovals = REFACTOR_TYPE_EXPECTED_REMOVALS[auditContext.refactorType];
-    if (expectedRemovals && expectedRemovals.has(obs.kind)) {
+    if (expectedRemovals?.has(obs.kind)) {
       return {
         ...base,
         classification: 'INTENTIONALLY_REMOVED',
@@ -411,7 +411,7 @@ function readJsonFile<T>(filePath: string): T {
  */
 function deserializeAuditContext(raw: {
   flaggedKinds: string[];
-  flaggedLocations: Array<{ file: string; line: number; kind: string }>;
+  flaggedLocations: { file: string; line: number; kind: string }[];
   refactorType: AuditContext['refactorType'];
 }): AuditContext {
   return {
@@ -462,7 +462,7 @@ function main(): void {
   if (auditContextPath) {
     const raw = readJsonFile<{
       flaggedKinds: string[];
-      flaggedLocations: Array<{ file: string; line: number; kind: string }>;
+      flaggedLocations: { file: string; line: number; kind: string }[];
       refactorType: AuditContext['refactorType'];
     }>(auditContextPath);
     auditContext = deserializeAuditContext(raw);

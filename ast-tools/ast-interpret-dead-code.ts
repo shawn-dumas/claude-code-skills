@@ -418,7 +418,7 @@ function main(): void {
       output(result, false);
     }
   } catch (e) {
-    fatal(`Error analyzing ${targetPath}: ${e}`);
+    fatal(`Error analyzing ${targetPath}: ${String(e)}`);
   }
 }
 

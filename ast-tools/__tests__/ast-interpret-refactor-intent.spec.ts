@@ -65,7 +65,7 @@ function buildPair(opts: {
   afterFiles?: string[];
   beforeObs?: AnyObservation[];
   afterObs?: AnyObservation[];
-  matched?: Array<{ before: AnyObservation; after: AnyObservation; similarity: number }>;
+  matched?: { before: AnyObservation; after: AnyObservation; similarity: number }[];
   unmatched?: AnyObservation[];
   novel?: AnyObservation[];
 }): RefactorSignalPair {

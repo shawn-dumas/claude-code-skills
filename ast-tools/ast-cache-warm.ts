@@ -142,7 +142,7 @@ function warmTool(tool: Tool, files: string[]): WarmResult {
       const result = tool.analyze(filePath);
       setCache(tool.name, filePath, result);
       computed++;
-    } catch (e) {
+    } catch (_e) {
       errors++;
       // Silently skip files that can't be parsed
     }

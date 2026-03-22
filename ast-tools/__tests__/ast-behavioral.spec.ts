@@ -15,7 +15,7 @@ function analyzeFixture(name: string): BehavioralAnalysis {
 }
 
 function observationsOfKind(analysis: BehavioralAnalysis, kind: BehavioralObservationKind): BehavioralObservation[] {
-  return analysis.observations.filter(o => o.kind === kind) as BehavioralObservation[];
+  return analysis.observations.filter(o => o.kind === kind);
 }
 
 describe('ast-behavioral', () => {

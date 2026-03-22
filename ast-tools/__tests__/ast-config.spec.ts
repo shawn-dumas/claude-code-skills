@@ -60,8 +60,8 @@ describe('ast-config', () => {
     });
 
     it('wrapperHocMap has memo and forwardRef entries', () => {
-      expect(astConfig.react.wrapperHocMap['memo']).toBe('memo');
-      expect(astConfig.react.wrapperHocMap['forwardRef']).toBe('forwardRef');
+      expect(astConfig.react.wrapperHocMap.memo).toBe('memo');
+      expect(astConfig.react.wrapperHocMap.forwardRef).toBe('forwardRef');
       expect(astConfig.react.wrapperHocMap['React.memo']).toBe('memo');
       expect(astConfig.react.wrapperHocMap['React.forwardRef']).toBe('forwardRef');
     });
@@ -187,9 +187,9 @@ describe('ast-config', () => {
     });
 
     it('typedStorageHelpers has correct mappings', () => {
-      expect(astConfig.storage.typedStorageHelpers['readStorage']).toBe('TYPED_STORAGE_READ');
-      expect(astConfig.storage.typedStorageHelpers['writeStorage']).toBe('TYPED_STORAGE_WRITE');
-      expect(astConfig.storage.typedStorageHelpers['removeStorage']).toBe('TYPED_STORAGE_REMOVE');
+      expect(astConfig.storage.typedStorageHelpers.readStorage).toBe('TYPED_STORAGE_READ');
+      expect(astConfig.storage.typedStorageHelpers.writeStorage).toBe('TYPED_STORAGE_WRITE');
+      expect(astConfig.storage.typedStorageHelpers.removeStorage).toBe('TYPED_STORAGE_REMOVE');
     });
 
     it('cookieMethods is non-empty', () => {
@@ -197,15 +197,15 @@ describe('ast-config', () => {
     });
 
     it('directStorageTypeMap has correct mappings', () => {
-      expect(astConfig.storage.directStorageTypeMap['localStorage']).toBe('DIRECT_LOCAL_STORAGE');
-      expect(astConfig.storage.directStorageTypeMap['sessionStorage']).toBe('DIRECT_SESSION_STORAGE');
+      expect(astConfig.storage.directStorageTypeMap.localStorage).toBe('DIRECT_LOCAL_STORAGE');
+      expect(astConfig.storage.directStorageTypeMap.sessionStorage).toBe('DIRECT_SESSION_STORAGE');
     });
   });
 
   describe('env section', () => {
     it('wrapperIdentifiers has correct mappings', () => {
-      expect(astConfig.env.wrapperIdentifiers['clientEnv']).toBe('CLIENT_ENV_ACCESS');
-      expect(astConfig.env.wrapperIdentifiers['serverEnv']).toBe('SERVER_ENV_ACCESS');
+      expect(astConfig.env.wrapperIdentifiers.clientEnv).toBe('CLIENT_ENV_ACCESS');
+      expect(astConfig.env.wrapperIdentifiers.serverEnv).toBe('SERVER_ENV_ACCESS');
     });
 
     it('clientEnvPathPatterns is non-empty', () => {

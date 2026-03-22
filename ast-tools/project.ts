@@ -70,7 +70,7 @@ export function findConsumerFiles(targetPath: string, searchDir = path.join(PROJ
       error !== null && typeof error === 'object' && 'status' in error && (error as { status: number }).status === 1;
     if (!isNoMatchExit) {
       console.error(
-        `[ast] findConsumerFiles: rg failed for ${importTarget}: ${error instanceof Error ? error.message : error}`,
+        `[ast] findConsumerFiles: rg failed for ${importTarget}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
     return [];

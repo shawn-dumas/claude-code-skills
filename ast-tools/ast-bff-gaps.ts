@@ -22,6 +22,7 @@ import { parseArgs, outputFiltered, fatal } from './cli';
 import { getFilesInDirectory } from './shared';
 import { resolveConfig } from './ast-config';
 import { getCacheStats } from './ast-cache';
+import { analyzeDataLayerDirectory } from './ast-data-layer';
 import type { BffGapObservation, BffGapAnalysis, ObservationResult } from './types';
 
 // ---------------------------------------------------------------------------
@@ -134,7 +135,7 @@ function analyzeBffRoute(filePath: string): BffRouteInfo {
 function extractMiddleware(text: string): string[] {
   const middleware: string[] = [];
   // Match withXxx( patterns in the default export
-  const exportMatch = text.match(/export\s+default\s+(.+);?\s*$/m);
+  const exportMatch = /export\s+default\s+(.+);?\s*$/m.exec(text);
   if (exportMatch) {
     const chain = exportMatch[1];
     const withPattern = /with\w+/g;
@@ -151,7 +152,7 @@ function extractMiddleware(text: string): string[] {
  * Pattern: withMethod(['POST'], ...)
  */
 function extractHttpMethods(text: string): string[] {
-  const methodMatch = text.match(/withMethod\(\[([^\]]+)\]/);
+  const methodMatch = /withMethod\(\[([^\]]+)\]/.exec(text);
   if (methodMatch) {
     return methodMatch[1]
       .split(',')
@@ -218,9 +219,6 @@ interface QueryHookGap {
  * Uses ast-data-layer's FETCH_API_CALL observations to cross-reference.
  */
 function findQueryHookGaps(gapApiPaths: Set<string>, hookDirs: string[]): QueryHookGap[] {
-  // Lazy import to avoid circular dependency at module level
-  const { analyzeDataLayerDirectory } = require('./ast-data-layer') as typeof import('./ast-data-layer');
-
   const gaps: QueryHookGap[] = [];
 
   for (const hookDir of hookDirs) {
@@ -492,8 +490,8 @@ function main(): void {
   const hookDirs = args.options['hook-dir'] ? [args.options['hook-dir']] : [];
 
   let allObservations: BffGapObservation[] = [];
-  let allBffRoutes: Array<{ path: string; isStub: boolean }> = [];
-  let allMockRoutes: Array<{ path: string; apiPath: string }> = [];
+  let allBffRoutes: { path: string; isStub: boolean }[] = [];
+  let allMockRoutes: { path: string; apiPath: string }[] = [];
 
   for (const targetPath of args.paths) {
     const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);

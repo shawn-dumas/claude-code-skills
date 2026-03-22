@@ -292,7 +292,7 @@ describe('template literal resolution in query key factories', () => {
     const analyticsKeys = keyDefs.find(k => k.name === 'analyticsQueryKeys');
     expect(analyticsKeys).toBeDefined();
     expect(analyticsKeys!.details.resolvedKeys).toBeDefined();
-    expect(analyticsKeys!.details.resolvedKeys!['byTeam']).toBe('analytics-team-${teamId}');
+    expect(analyticsKeys!.details.resolvedKeys!.byTeam).toBe('analytics-team-${teamId}');
   });
 
   it('does not populate resolvedKeys for array-only factories', () => {
@@ -314,7 +314,7 @@ describe('template literal resolution in query key factories', () => {
     const analyticsObs = keyObs.find(o => o.evidence.name === 'analyticsQueryKeys');
     expect(analyticsObs).toBeDefined();
     expect(analyticsObs!.evidence.resolvedKeys).toBeDefined();
-    expect(analyticsObs!.evidence.resolvedKeys!['byTeam']).toBe('analytics-team-${teamId}');
+    expect(analyticsObs!.evidence.resolvedKeys!.byTeam).toBe('analytics-team-${teamId}');
 
     const projectsObs = keyObs.find(o => o.evidence.name === 'projectsQueryKeys');
     expect(projectsObs).toBeDefined();

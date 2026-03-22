@@ -169,6 +169,7 @@ interface AstConfig {
      * for helper/POM files when building the helper assertion index.
      */
     readonly helperDirs: readonly string[];
+    readonly mockHandlerBaselineMarker: string;
   };
 
   readonly intentMatcher: {
@@ -1373,7 +1374,7 @@ export function lookupPriority(kind: string, context?: Record<string, unknown>):
   // mock-internal: P3 if confidence >= high, P4 otherwise
   if (kind === 'mock-internal') {
     const confRank = CONFIDENCE_RANK[confidence] ?? 0;
-    if (confRank >= CONFIDENCE_RANK['high']!) return 'P3';
+    if (confRank >= CONFIDENCE_RANK.high) return 'P3';
     return 'P4';
   }
 

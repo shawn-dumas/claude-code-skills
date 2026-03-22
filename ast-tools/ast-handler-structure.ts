@@ -9,12 +9,10 @@
 
 import path from 'path';
 import fs from 'fs';
-import { Node } from 'ts-morph';
-import type { SourceFile } from 'ts-morph';
+import { Node, type SourceFile } from 'ts-morph';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
-import { getFilesInDirectory } from './shared';
-import type { FileFilter } from './shared';
+import { getFilesInDirectory, type FileFilter } from './shared';
 import { astConfig } from './ast-config';
 import { cached, getCacheStats } from './ast-cache';
 import type { HandlerStructureObservation, HandlerStructureAnalysis, ObservationResult } from './types';
@@ -88,7 +86,7 @@ function findHandlerFunction(sf: SourceFile): Node | null {
  * Excludes: blank lines, comment-only lines, and (if delegation exists)
  * the delegation call line itself.
  */
-function countNonTrivialLines(bodyText: string, delegatesTo: string | null): number {
+function countNonTrivialLines(bodyText: string, _delegatesTo: string | null): number {
   const lines = bodyText.split('\n');
   let count = 0;
   let inBlockComment = false;
@@ -134,64 +132,6 @@ function countNonTrivialLines(bodyText: string, delegatesTo: string | null): num
 // ---------------------------------------------------------------------------
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] as const;
-
-/**
- * Search for HTTP method handling patterns in the handler body.
- * Detects:
- * - req.method === 'GET' / request.method === 'POST'
- * - case 'GET': (switch statements)
- * - method === 'GET' (variable comparison)
- */
-function findHttpMethods(sf: SourceFile): string[] {
-  const methods = new Set<string>();
-  const text = sf.getFullText();
-
-  for (const method of HTTP_METHODS) {
-    // Pattern: req.method === 'METHOD' or request.method === 'METHOD'
-    // Also handles !== for exclusion patterns, but we still detect the method
-    const patterns = [
-      `req.method === '${method}'`,
-      `req.method === "${method}"`,
-      `request.method === '${method}'`,
-      `request.method === "${method}"`,
-      `method === '${method}'`,
-      `method === "${method}"`,
-      `case '${method}'`,
-      `case "${method}"`,
-    ];
-
-    for (const pattern of patterns) {
-      if (text.includes(pattern)) {
-        methods.add(method);
-        break;
-      }
-    }
-  }
-
-  // Also check withMethod(['GET', 'POST', ...]) pattern
-  sf.forEachDescendant(node => {
-    if (!Node.isCallExpression(node)) return;
-    const callee = node.getExpression();
-    if (!Node.isIdentifier(callee) || callee.getText() !== 'withMethod') return;
-
-    const args = node.getArguments();
-    if (args.length === 0) return;
-
-    const firstArg = args[0];
-    if (!Node.isArrayLiteralExpression(firstArg)) return;
-
-    for (const elem of firstArg.getElements()) {
-      if (Node.isStringLiteral(elem)) {
-        const val = elem.getLiteralValue();
-        if ((HTTP_METHODS as readonly string[]).includes(val)) {
-          methods.add(val);
-        }
-      }
-    }
-  });
-
-  return [...methods].sort();
-}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -241,9 +181,6 @@ export function analyzeHandlerStructure(filePath: string): HandlerStructureAnaly
       });
     }
   }
-
-  // Check for multi-method handling
-  const methods = findHttpMethods(sf);
 
   // withMethod(['POST']) counts as 1 method from the middleware.
   // We only emit HANDLER_MULTI_METHOD when the handler itself routes

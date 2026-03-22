@@ -11,8 +11,7 @@ import fs from 'fs';
 import { Node } from 'ts-morph';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
-import { getFilesInDirectory } from './shared';
-import type { FileFilter } from './shared';
+import { getFilesInDirectory, type FileFilter } from './shared';
 import { astConfig } from './ast-config';
 import { cached, getCacheStats } from './ast-cache';
 import { analyzeReactFile } from './ast-react-inventory';
@@ -294,7 +293,7 @@ function resolveHookImportSource(filePath: string, hookName: string): string | u
       }
     }
     const defaultImport = decl.getDefaultImport();
-    if (defaultImport && defaultImport.getText() === hookName) {
+    if (defaultImport?.getText() === hookName) {
       const resolved = decl.getModuleSpecifierSourceFile();
       if (resolved) {
         return path.relative(PROJECT_ROOT, resolved.getFilePath());

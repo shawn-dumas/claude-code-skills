@@ -6,5 +6,5 @@
     "types": ["node", "vitest/globals"]
   },
   "include": ["./**/*.ts", "./**/*.tsx"],
-  "exclude": ["__tests__/fixtures/**/*"]
+  "exclude": ["__tests__/fixtures/**/*", "ground-truth/fixtures/**/*"]
 }

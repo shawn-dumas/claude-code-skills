@@ -77,7 +77,7 @@ function evidenceToStringSet(evidence: Record<string, unknown>): Set<string> {
     } else if (typeof value === 'object') {
       entries.add(`${key}=${JSON.stringify(value)}`);
     } else {
-      entries.add(`${key}=${String(value)}`);
+      entries.add(`${key}=${JSON.stringify(value)}`);
     }
   }
   return entries;
@@ -269,16 +269,16 @@ export function matchSignals(
   afterObs: AnyObservation[],
   matchMinimum: number,
 ): {
-  matched: Array<{ before: AnyObservation; after: AnyObservation; similarity: number }>;
+  matched: { before: AnyObservation; after: AnyObservation; similarity: number }[];
   unmatched: AnyObservation[];
   novel: AnyObservation[];
 } {
   // Build all candidate pairs with their similarity scores
-  const candidates: Array<{
+  const candidates: {
     beforeIdx: number;
     afterIdx: number;
     similarity: number;
-  }> = [];
+  }[] = [];
 
   for (let bi = 0; bi < beforeObs.length; bi++) {
     for (let ai = 0; ai < afterObs.length; ai++) {
@@ -311,7 +311,7 @@ export function matchSignals(
 
   const usedBefore = new Set<number>();
   const usedAfter = new Set<number>();
-  const matched: Array<{ before: AnyObservation; after: AnyObservation; similarity: number }> = [];
+  const matched: { before: AnyObservation; after: AnyObservation; similarity: number }[] = [];
 
   for (const candidate of candidates) {
     if (usedBefore.has(candidate.beforeIdx) || usedAfter.has(candidate.afterIdx)) continue;

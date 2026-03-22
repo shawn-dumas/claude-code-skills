@@ -15,6 +15,7 @@ import type {
 describe('Semantic Layering Types', () => {
   describe('Observation', () => {
     it('accepts generic parameters correctly', () => {
+      // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
       type TestEvidence = { foo: string; bar: number };
       type TestObservation = Observation<'TEST_KIND', TestEvidence>;
 

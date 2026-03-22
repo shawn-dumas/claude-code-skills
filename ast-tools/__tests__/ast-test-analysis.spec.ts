@@ -402,8 +402,6 @@ describe('ast-test-analysis', () => {
 
     it('does not expand describe.each into test count', () => {
       const result = analyzeFixture('test-analysis-factory.spec.ts');
-      const testObs = result.observations.filter(o => o.kind === 'TEST_BLOCK');
-
       // The tests inside describe.each should be counted but not marked as expanded
       // (the describe.each itself expands describe blocks, not test blocks)
       const describeObs = result.observations.filter(o => o.kind === 'DESCRIBE_BLOCK');

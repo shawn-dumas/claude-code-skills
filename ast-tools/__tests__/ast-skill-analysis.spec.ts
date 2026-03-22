@@ -300,14 +300,14 @@ describe('ast-skill-analysis (real-world fixtures)', () => {
       for (const obs of result.observations) {
         counts[obs.kind] = (counts[obs.kind] ?? 0) + 1;
       }
-      expect(counts['SKILL_SECTION']).toBe(4);
-      expect(counts['SKILL_STEP']).toBe(3);
-      expect(counts['SKILL_CODE_BLOCK']).toBe(3);
-      expect(counts['SKILL_COMMAND_REF']).toBe(2);
+      expect(counts.SKILL_SECTION).toBe(4);
+      expect(counts.SKILL_STEP).toBe(3);
+      expect(counts.SKILL_CODE_BLOCK).toBe(3);
+      expect(counts.SKILL_COMMAND_REF).toBe(2);
       // No file paths, tables, checklists, cross-refs, or doc refs in spawn-satan
-      expect(counts['SKILL_FILE_PATH_REF']).toBeUndefined();
-      expect(counts['SKILL_TABLE']).toBeUndefined();
-      expect(counts['SKILL_CHECKLIST_ITEM']).toBeUndefined();
+      expect(counts.SKILL_FILE_PATH_REF).toBeUndefined();
+      expect(counts.SKILL_TABLE).toBeUndefined();
+      expect(counts.SKILL_CHECKLIST_ITEM).toBeUndefined();
     });
   });
 

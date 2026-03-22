@@ -4,8 +4,7 @@ import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
 import { analyzeReactFile } from './ast-react-inventory';
 import { parseArgs, outputFiltered, fatal } from './cli';
-import { getFilesInDirectory } from './shared';
-import type { FileFilter } from './shared';
+import { getFilesInDirectory, type FileFilter } from './shared';
 import { cached, getCacheStats } from './ast-cache';
 import type {
   ConcernMatrixAnalysis,

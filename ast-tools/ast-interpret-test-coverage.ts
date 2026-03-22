@@ -338,7 +338,7 @@ async function main(): Promise<void> {
   try {
     observations = parseObservationsFromJson(input);
   } catch (e) {
-    fatal(`Failed to parse stdin JSON: ${e}`);
+    fatal(`Failed to parse stdin JSON: ${String(e)}`);
   }
 
   const result = interpretTestCoverage(observations);
