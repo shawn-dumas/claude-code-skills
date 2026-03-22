@@ -334,6 +334,23 @@ interface AstConfig {
       spaceConstrained: number;
     }>;
   };
+
+  readonly behavioral: {
+    /** Minimum string literal length to report as JSX_STRING_LITERAL. Short literals like ":" or "," are noise. */
+    readonly jsxStringLiteralMinLength: number;
+    /** Known render-cap method names (e.g., 'slice', 'take', 'splice'). */
+    readonly renderCapMethods: ReadonlySet<string>;
+    /** Known type coercion functions. */
+    readonly typeCoercionFunctions: ReadonlySet<string>;
+    /** Known type coercion method calls (e.g., 'toString', 'toFixed'). */
+    readonly typeCoercionMethods: ReadonlySet<string>;
+    /** useState/useQueryState hook names whose arguments are state initializations. */
+    readonly stateInitHooks: ReadonlySet<string>;
+    /** Column definition helper names (e.g., 'columnHelper.accessor', 'columnHelper.display'). */
+    readonly columnDefMethods: ReadonlySet<string>;
+    /** Props to skip for DEFAULT_PROP_VALUE (className, style, etc. are not behavioral). */
+    readonly ignoredDefaultProps: ReadonlySet<string>;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -806,6 +823,15 @@ export const astConfig: AstConfig = Object.freeze({
       PAGE_GUARD: 2.0,
       AS_ANY_CAST: 0.5,
       NON_NULL_ASSERTION: 0.5,
+      // Behavioral fingerprint observations (ast-behavioral)
+      DEFAULT_PROP_VALUE: 2.0,
+      RENDER_CAP: 2.0,
+      NULL_COERCION_DISPLAY: 2.0,
+      CONDITIONAL_RENDER_GUARD: 1.5,
+      JSX_STRING_LITERAL: 1.5,
+      COLUMN_DEFINITION: 2.0,
+      STATE_INITIALIZATION: 2.0,
+      TYPE_COERCION_BOUNDARY: 1.5,
       _default: 1.0,
     } as Record<string, number>),
 
@@ -829,6 +855,10 @@ export const astConfig: AstConfig = Object.freeze({
       'EFFECT_REF_TOUCH',
       'ENV_WRAPPER_IMPORT',
       'RAW_ENV_IMPORT',
+      // Behavioral fingerprint overlaps (ast-behavioral emits these, but
+      // ast-null-display and ast-jsx-analysis already cover them for intent matching)
+      'NULL_COERCION_DISPLAY',
+      'CONDITIONAL_RENDER_GUARD',
     ]) as ReadonlySet<string>,
   }),
 
@@ -1178,6 +1208,25 @@ export const astConfig: AstConfig = Object.freeze({
       progressBar: 1,
       spaceConstrained: 0,
     }),
+  }),
+
+  behavioral: Object.freeze({
+    jsxStringLiteralMinLength: 3,
+    renderCapMethods: new Set(['slice', 'take', 'splice']) as ReadonlySet<string>,
+    typeCoercionFunctions: new Set(['String', 'Number', 'Boolean', 'parseInt', 'parseFloat']) as ReadonlySet<string>,
+    typeCoercionMethods: new Set(['toString', 'toFixed', 'valueOf']) as ReadonlySet<string>,
+    stateInitHooks: new Set(['useState', 'useQueryState']) as ReadonlySet<string>,
+    columnDefMethods: new Set(['accessor', 'display', 'group']) as ReadonlySet<string>,
+    ignoredDefaultProps: new Set([
+      'className',
+      'style',
+      'id',
+      'key',
+      'ref',
+      'children',
+      'as',
+      'data-testid',
+    ]) as ReadonlySet<string>,
   }),
 }) satisfies AstConfig;
 

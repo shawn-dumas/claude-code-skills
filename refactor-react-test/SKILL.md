@@ -43,7 +43,7 @@ it manually. The interpreter classifies observations into assessments:
 
 - `DETECTED_STRATEGY` with `subject.symbol` of `unit-render`, `integration-providers`, etc.
 
-**Delete gate (Step 3):**
+**Delete gate (Step 4):**
 
 - `DELETE_CANDIDATE` assessment triggers delete-and-rebuild
 
@@ -90,7 +90,45 @@ Total score = number of principles with zero violations (0-10).
 
 <!-- role: detect -->
 
-## Step 3: Apply the delete threshold
+## Step 3: Behavioral Preservation Checklist (MANDATORY)
+
+Before rewriting, fill in the behavioral fingerprint for each applicable
+category. This checklist prevents implicit behavior loss during refactoring.
+Categories that do not apply to this file get "N/A" -- never omit a category.
+
+If `ast-behavioral` is available, run it first to pre-populate categories
+2, 3, 5, 6, 7, and 8. Categories 1 (state preservation across interactions),
+4 (column/field parity), and 9 (export/download inclusion) require manual
+inspection -- the tool provides partial signals but cannot fully cover them.
+
+```bash
+npx tsx scripts/AST/ast-behavioral.ts <production-file-path> --pretty
+```
+
+| # | Category | Concrete values from this file | Preserved after rewrite? |
+|---|----------|-------------------------------|------------------------|
+| 1 | **State preservation** -- checkbox state, selection state, expanded/collapsed state that must survive filter changes or re-renders | | |
+| 2 | **Null/empty display** -- exact fallback strings (N/A, dash, placeholder constant) for missing data | | |
+| 3 | **Value caps/limits** -- render caps (.slice(0, N)), pagination limits, maxItems props | | |
+| 4 | **Column/field parity** -- CSV export columns, table column definitions, header arrays | | |
+| 5 | **String literal parity** -- exact button text, label wording, aria-labels, placeholder text | | |
+| 6 | **Type coercion** -- String()/Number() calls, toString(), null-to-empty mappings at boundaries | | |
+| 7 | **Default values** -- useState defaults, useQueryState defaults, prop defaults, function param defaults | | |
+| 8 | **Conditional visibility** -- guards that control when UI elements appear/disappear (feature flags, role checks, data-dependent visibility) | | |
+| 9 | **Export/download inclusion** -- which fields make it into CSV exports, download payloads, clipboard operations | | |
+
+Fill in the "Concrete values" column with actual values from the file
+being refactored (e.g., "useState(false) for isExpanded", "name ?? 'N/A'",
+".slice(0, 5) render cap"). After the rewrite, confirm each row is
+preserved (YES), intentionally changed (CHANGED -- explain), or not
+applicable (N/A).
+
+The reconciliation block must include the completed checklist.
+
+
+<!-- role: detect -->
+
+## Step 4: Apply the delete threshold
 
 Check the assessments from `ast-interpret-test-quality`. If ANY of these
 conditions are met, delete the spec and delegate to
@@ -122,7 +160,7 @@ If the threshold is met:
 3. Run `/build-react-test <production-file-path>` (invoke the skill)
 4. Stop -- the build skill handles everything from here
 
-If the score is >= 7/10, proceed to Step 4 (targeted fixes).
+If the score is >= 7/10, proceed to Step 5 (targeted fixes).
 
 If the score is 5-6/10, apply the gray-zone tiebreaker:
 
@@ -132,7 +170,7 @@ If the score is 5-6/10, apply the gray-zone tiebreaker:
 
 <!-- role: emit -->
 
-## Step 4: Fix violations (targeted, in-place)
+## Step 5: Fix violations (targeted, in-place)
 
 For each violated principle, apply the fix patterns below. Work in this
 order (each fix may resolve violations in later principles):
@@ -225,7 +263,7 @@ Do NOT add redundant `vi.clearAllMocks()` or `cleanup()`.
 
 <!-- role: emit -->
 
-## Step 5: Restructure if needed
+## Step 6: Restructure if needed
 
 After applying fixes, check if the file structure is sound:
 
@@ -239,7 +277,7 @@ After applying fixes, check if the file structure is sound:
 
 <!-- role: workflow -->
 
-## Step 6: Verify
+## Step 7: Verify
 
 1. Run `npx tsc --noEmit -p tsconfig.check.json` -- fix type errors in the spec.
 2. Run `pnpm vitest run <path-to-spec>` -- all tests must pass.
@@ -248,7 +286,7 @@ After applying fixes, check if the file structure is sound:
 5. If any principle still has violations after fixes, report which ones
    and why they cannot be fixed without production-code changes.
 
-### Step 6b: Intention matcher (MANDATORY -- do not skip)
+### Step 7b: Intention matcher (MANDATORY -- do not skip)
 
 After tsc and tests pass, run the intention matcher on the refactored
 spec file. **This step is mandatory.** Do not skip it. Do not report
@@ -264,7 +302,7 @@ Check the output:
 - **Any UNMATCHED**: investigate. Unmatched signals mean test coverage
   was lost during the refactor.
 
-### Step 6c: Vitest parity check (MANDATORY for spec file refactors)
+### Step 7c: Vitest parity check (MANDATORY for spec file refactors)
 
 Run vitest parity to verify the refactored spec preserves test coverage
 relative to the original. **This step is mandatory.** The parity tool

@@ -218,9 +218,47 @@ Flag:
 These do not block the route refactor, but note them in the report so they are
 addressed when `refactor-react-component` runs on each child.
 
+<!-- role: detect -->
+
+## Step 3: Behavioral Preservation Checklist (MANDATORY)
+
+Before rewriting, fill in the behavioral fingerprint for each applicable
+category. This checklist prevents implicit behavior loss during refactoring.
+Categories that do not apply to this file get "N/A" -- never omit a category.
+
+If `ast-behavioral` is available, run it first to pre-populate categories
+2, 3, 5, 6, 7, and 8. Categories 1 (state preservation across interactions),
+4 (column/field parity), and 9 (export/download inclusion) require manual
+inspection -- the tool provides partial signals but cannot fully cover them.
+
+```bash
+npx tsx scripts/AST/ast-behavioral.ts $ARGUMENTS --pretty
+```
+
+| # | Category | Concrete values from this file | Preserved after rewrite? |
+|---|----------|-------------------------------|------------------------|
+| 1 | **State preservation** -- checkbox state, selection state, expanded/collapsed state that must survive filter changes or re-renders | | |
+| 2 | **Null/empty display** -- exact fallback strings (N/A, dash, placeholder constant) for missing data | | |
+| 3 | **Value caps/limits** -- render caps (.slice(0, N)), pagination limits, maxItems props | | |
+| 4 | **Column/field parity** -- CSV export columns, table column definitions, header arrays | | |
+| 5 | **String literal parity** -- exact button text, label wording, aria-labels, placeholder text | | |
+| 6 | **Type coercion** -- String()/Number() calls, toString(), null-to-empty mappings at boundaries | | |
+| 7 | **Default values** -- useState defaults, useQueryState defaults, prop defaults, function param defaults | | |
+| 8 | **Conditional visibility** -- guards that control when UI elements appear/disappear (feature flags, role checks, data-dependent visibility) | | |
+| 9 | **Export/download inclusion** -- which fields make it into CSV exports, download payloads, clipboard operations | | |
+
+Fill in the "Concrete values" column with actual values from the file
+being refactored (e.g., "useState(false) for isExpanded", "name ?? 'N/A'",
+".slice(0, 5) render cap"). After the rewrite, confirm each row is
+preserved (YES), intentionally changed (CHANGED -- explain), or not
+applicable (N/A).
+
+The reconciliation block must include the completed checklist.
+
+
 <!-- role: emit -->
 
-## Step 3: Report
+## Step 4: Report
 
 Output a clear report:
 
@@ -254,7 +292,7 @@ Output a clear report:
 
 <!-- role: emit -->
 
-## Step 4: Rewrite
+## Step 5: Rewrite
 
 Apply all fixes. Follow these rules:
 
@@ -311,14 +349,14 @@ When you encounter inline types during the refactor, check whether they belong i
 
 <!-- role: workflow -->
 
-## Step 5: Verify
+## Step 6: Verify
 
 Run `npx tsc --noEmit -p tsconfig.check.json` scoped to the changed files (or the whole project if scoping
 is not practical). If TypeScript errors appear in files you touched, fix them before
 finishing. If existing tests cover the refactored route or its components, run them
 with the project's test runner. Report the results in the summary.
 
-### Step 5b: Intention matcher (MANDATORY -- do not skip)
+### Step 6b: Intention matcher (MANDATORY -- do not skip)
 
 After tsc and tests pass, run the intention matcher to verify the refactor
 preserved the route's behavioral signals. **This step is mandatory.**
@@ -364,7 +402,7 @@ investigated and resolved.
    confirms it was intentional, run
    `/create-feedback-fixture --tool intent --file <before-file> --files <after-files> --expected INTENTIONALLY_REMOVED --actual ACCIDENTALLY_DROPPED`.
 
-### Step 5c: Behavioral concern regression check
+### Step 6c: Behavioral concern regression check
 
 After refactoring, verify no behavioral concerns were dropped:
 
@@ -378,7 +416,7 @@ npx tsx scripts/AST/ast-concern-matrix.ts <refactored-container> --pretty
 
 <!-- role: emit -->
 
-## Step 6: Summary
+## Step 7: Summary
 
 Output a short summary of what changed, what files were created or
 modified, and whether type-checking and tests passed.

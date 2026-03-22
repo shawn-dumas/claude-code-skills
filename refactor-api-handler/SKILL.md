@@ -57,7 +57,7 @@ npx tsx scripts/AST/ast-type-safety.ts <schema-file> --pretty
 ```
 
 Record the **before** cyclomatic complexity for every function in the handler.
-This is the baseline for the mandatory before/after CC comparison in Step 6.
+This is the baseline for the mandatory before/after CC comparison in Step 7.
 
 ### Using observations
 
@@ -144,7 +144,45 @@ re-auditing. Output the audit results before proceeding to the rewrite.
 
 - Are all DB queries scoped to `ctx.organizationId`?
 
-## Step 3: Classify and plan
+<!-- role: detect -->
+
+## Step 3: Behavioral Preservation Checklist (MANDATORY)
+
+Before rewriting, fill in the behavioral fingerprint for each applicable
+category. This checklist prevents implicit behavior loss during refactoring.
+Categories that do not apply to this file get "N/A" -- never omit a category.
+
+If `ast-behavioral` is available, run it first to pre-populate categories
+2, 3, 5, 6, 7, and 8. Categories 1 (state preservation across interactions),
+4 (column/field parity), and 9 (export/download inclusion) require manual
+inspection -- the tool provides partial signals but cannot fully cover them.
+
+```bash
+npx tsx scripts/AST/ast-behavioral.ts $ARGUMENTS --pretty
+```
+
+| # | Category | Concrete values from this file | Preserved after rewrite? |
+|---|----------|-------------------------------|------------------------|
+| 1 | **State preservation** -- checkbox state, selection state, expanded/collapsed state that must survive filter changes or re-renders | | |
+| 2 | **Null/empty display** -- exact fallback strings (N/A, dash, placeholder constant) for missing data | | |
+| 3 | **Value caps/limits** -- render caps (.slice(0, N)), pagination limits, maxItems props | | |
+| 4 | **Column/field parity** -- CSV export columns, table column definitions, header arrays | | |
+| 5 | **String literal parity** -- exact button text, label wording, aria-labels, placeholder text | | |
+| 6 | **Type coercion** -- String()/Number() calls, toString(), null-to-empty mappings at boundaries | | |
+| 7 | **Default values** -- useState defaults, useQueryState defaults, prop defaults, function param defaults | | |
+| 8 | **Conditional visibility** -- guards that control when UI elements appear/disappear (feature flags, role checks, data-dependent visibility) | | |
+| 9 | **Export/download inclusion** -- which fields make it into CSV exports, download payloads, clipboard operations | | |
+
+Fill in the "Concrete values" column with actual values from the file
+being refactored (e.g., "useState(false) for isExpanded", "name ?? 'N/A'",
+".slice(0, 5) render cap"). After the rewrite, confirm each row is
+preserved (YES), intentionally changed (CHANGED -- explain), or not
+applicable (N/A).
+
+The reconciliation block must include the completed checklist.
+
+
+## Step 4: Classify and plan
 
 Based on the audit, determine the specific refactoring actions. For each failing
 principle, plan the change:
@@ -274,7 +312,7 @@ authorization inside ClickHouse. Specific actions:
   handlers, extract to `src/server/productivity/` or embed the authorization CTE
   in a shared CTE constant (relay-usage, favorite-usage pattern).
 
-## Step 4: Rewrite
+## Step 5: Rewrite
 
 Apply all planned changes. Follow these rules:
 
@@ -413,7 +451,7 @@ Before defining any new type:
 4. Handler-local types (request body shapes, query param shapes) stay in the
    co-located schema file.
 
-## Step 5: Verify
+## Step 6: Verify
 
 1.  **TypeScript:** Run `pnpm tsc --noEmit -p tsconfig.check.json`. Fix any type errors in changed files.
 
@@ -476,7 +514,7 @@ Before defining any new type:
 Report all results in the summary. A refactoring is not complete until tsc passes,
 all functions have CC <= 10, and existing tests pass.
 
-## Step 6: Summary
+## Step 7: Summary
 
 Output a structured summary:
 

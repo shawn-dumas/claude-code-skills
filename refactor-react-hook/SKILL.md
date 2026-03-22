@@ -156,9 +156,47 @@ Review effect assessments from `ast-interpret-effects`:
 - **`EXTERNAL_SUBSCRIPTION`** -- expected in subscription-based hooks
 - **`NECESSARY`** -- no issues detected
 
+<!-- role: detect -->
+
+## Step 4: Behavioral Preservation Checklist (MANDATORY)
+
+Before rewriting, fill in the behavioral fingerprint for each applicable
+category. This checklist prevents implicit behavior loss during refactoring.
+Categories that do not apply to this file get "N/A" -- never omit a category.
+
+If `ast-behavioral` is available, run it first to pre-populate categories
+2, 3, 5, 6, 7, and 8. Categories 1 (state preservation across interactions),
+4 (column/field parity), and 9 (export/download inclusion) require manual
+inspection -- the tool provides partial signals but cannot fully cover them.
+
+```bash
+npx tsx scripts/AST/ast-behavioral.ts $ARGUMENTS --pretty
+```
+
+| # | Category | Concrete values from this file | Preserved after rewrite? |
+|---|----------|-------------------------------|------------------------|
+| 1 | **State preservation** -- checkbox state, selection state, expanded/collapsed state that must survive filter changes or re-renders | | |
+| 2 | **Null/empty display** -- exact fallback strings (N/A, dash, placeholder constant) for missing data | | |
+| 3 | **Value caps/limits** -- render caps (.slice(0, N)), pagination limits, maxItems props | | |
+| 4 | **Column/field parity** -- CSV export columns, table column definitions, header arrays | | |
+| 5 | **String literal parity** -- exact button text, label wording, aria-labels, placeholder text | | |
+| 6 | **Type coercion** -- String()/Number() calls, toString(), null-to-empty mappings at boundaries | | |
+| 7 | **Default values** -- useState defaults, useQueryState defaults, prop defaults, function param defaults | | |
+| 8 | **Conditional visibility** -- guards that control when UI elements appear/disappear (feature flags, role checks, data-dependent visibility) | | |
+| 9 | **Export/download inclusion** -- which fields make it into CSV exports, download payloads, clipboard operations | | |
+
+Fill in the "Concrete values" column with actual values from the file
+being refactored (e.g., "useState(false) for isExpanded", "name ?? 'N/A'",
+".slice(0, 5) render cap"). After the rewrite, confirm each row is
+preserved (YES), intentionally changed (CHANGED -- explain), or not
+applicable (N/A).
+
+The reconciliation block must include the completed checklist.
+
+
 <!-- role: emit -->
 
-## Step 4: Report
+## Step 5: Report
 
 Output a clear report:
 
@@ -188,7 +226,7 @@ Output a clear report:
 
 <!-- role: emit -->
 
-## Step 5: Rewrite
+## Step 6: Rewrite
 
 Apply all fixes. Follow these rules:
 
@@ -235,14 +273,14 @@ When you encounter inline types during the refactor, check whether they belong i
 
 <!-- role: workflow -->
 
-## Step 6: Verify
+## Step 7: Verify
 
 Run `npx tsc --noEmit -p tsconfig.check.json` scoped to the changed files (or the whole project if scoping
 is not practical). If TypeScript errors appear in files you touched, fix them before
 finishing. If existing tests cover the refactored hook or its consumers, run them with
 the project's test runner. Report the results in the summary.
 
-### Step 6b: Intention matcher (MANDATORY -- do not skip)
+### Step 7b: Intention matcher (MANDATORY -- do not skip)
 
 After tsc and tests pass, run the intention matcher to verify the refactor
 preserved the hook's behavioral signals. **This step is mandatory.**
@@ -291,7 +329,7 @@ investigated and resolved.
 
 <!-- role: emit -->
 
-## Step 7: Summary
+## Step 8: Summary
 
 Output a short summary of what changed, what files were created or
 modified, what consumers need to be updated (if any), and whether

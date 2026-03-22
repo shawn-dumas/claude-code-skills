@@ -239,7 +239,41 @@ Determine which PRD sections need updates:
 - Section 9 (Gotchas) -- if new edge cases arise
 - Section 10 (Eng Notes) -- if key files change
 
-### 3.4 Present the Analysis
+### 3.4 Behavioral Impact Assessment
+
+For each file in the "modify" list from Step 3.1, determine whether the
+change could affect any behavioral fingerprint item. Run `ast-behavioral`
+on the affected files:
+
+```bash
+npx tsx scripts/AST/ast-behavioral.ts <affected-file-paths> --pretty
+```
+
+Cross-reference the tool output against the 9 behavioral categories:
+
+| # | Category | Observations found | Impacted by this change? | Preservation status |
+|---|----------|--------------------|--------------------------|---------------------|
+| 1 | State preservation | <from tool output> | YES/NO | preserved / changed (explain) |
+| 2 | Null/empty display | <from tool output> | YES/NO | preserved / changed (explain) |
+| 3 | Value caps/limits | <from tool output> | YES/NO | preserved / changed (explain) |
+| 4 | Column/field parity | <from tool output> | YES/NO | preserved / changed (explain) |
+| 5 | String literal parity | <from tool output> | YES/NO | preserved / changed (explain) |
+| 6 | Type coercion | <from tool output> | YES/NO | preserved / changed (explain) |
+| 7 | Default values | <from tool output> | YES/NO | preserved / changed (explain) |
+| 8 | Conditional visibility | <from tool output> | YES/NO | preserved / changed (explain) |
+| 9 | Export/download inclusion | <from tool output> | YES/NO | preserved / changed (explain) |
+
+Rules:
+- If the tool finds observations in a category AND the change modifies
+  code near those observations, mark "Impacted: YES" and specify whether
+  the behavior is preserved or intentionally changed.
+- If the change intentionally alters a behavioral item (e.g., changing
+  a render cap from 5 to 10), document the old and new values.
+- If the tool finds no observations in a category, mark "N/A".
+- Include this table in the impact analysis presented to the PM in
+  Step 3.5.
+
+### 3.5 Present the Analysis
 
 Present the impact analysis to the PM:
 
@@ -251,6 +285,17 @@ Present the impact analysis to the PM:
 > <Table of affected files>
 >
 > <Any concerns or trade-offs the PM should know about>
+
+If any behavioral items are impacted (Step 3.4), include them in the
+presentation:
+
+> **Behavioral impact:**
+>
+> | Category | Old value | New value | Status |
+> |----------|-----------|-----------|--------|
+> | <category> | <old> | <new> | preserved / changed |
+>
+> <N> behavioral items are preserved. <M> are intentionally changed.
 
 If the change is **cross-boundary**, warn:
 
@@ -331,6 +376,12 @@ Each prompt follows the standard orchestration prompt format from
 
 - **Verification section** includes the standard tsc + build + eslint
   checks, plus grep commands to verify the specific changes were applied.
+
+- **Behavioral preservation** -- If Step 3.4 identified impacted
+  behavioral items, include a "Behavioral Preservation" section in
+  each prompt that touches the affected files. The section lists the
+  specific items and whether they must be preserved or are intentionally
+  changing. Work agents must confirm each item in their reconciliation.
 
 - **Reconciliation block** uses the standard format from
   `~/.claude/CLAUDE.md`.
@@ -519,6 +570,7 @@ response shapes) and a BFF handoff document exists at
    > **PRD updated:** Sections <list>. Changelog entry added.
    > <If BFF handoff updated: "BFF handoff document updated.">
    >
+   > **Behavioral items:** <N> preserved, <M> intentionally changed, <P> not applicable
    > **Cleanup items added:** N (see $PLANS_DIR/poc-<slug>-cleanup.md)
    >
    > **To see the changes:** <how to navigate to the feature>

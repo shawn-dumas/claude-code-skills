@@ -44,6 +44,9 @@ import { analyzeHandlerStructure, extractHandlerStructureObservations } from './
 // ast-branded-check: unbranded ID fields + unbranded function params
 import { analyzeBrandedCheck, extractBrandedCheckObservations } from './ast-branded-check';
 
+// ast-behavioral: behavioral fingerprint observations
+import { extractBehavioralObservations } from './ast-behavioral';
+
 // ---------------------------------------------------------------------------
 // Registry types
 // ---------------------------------------------------------------------------
@@ -193,6 +196,10 @@ function brandedCheckAdapter(_sf: SourceFile, filePath: string): AnyObservation[
   return [...result.observations];
 }
 
+function behavioralAdapter(sf: SourceFile, _filePath: string): AnyObservation[] {
+  return [...extractBehavioralObservations(sf)];
+}
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
@@ -220,6 +227,7 @@ const entries: ToolEntry[] = [
   { name: 'test-coverage', analyze: testCoverageAdapter },
   { name: 'handler-structure', analyze: handlerStructureAdapter },
   { name: 'branded-check', analyze: brandedCheckAdapter },
+  { name: 'behavioral', analyze: behavioralAdapter },
 ];
 
 export const TOOL_REGISTRY: ReadonlyMap<string, ToolEntry> = new Map(entries.map(e => [e.name, e]));

@@ -1350,6 +1350,43 @@ export interface HandlerStructureAnalysis {
   readonly observations: readonly HandlerStructureObservation[];
 }
 
+// --- Behavioral fingerprint observations (ast-behavioral) ---
+
+export type BehavioralObservationKind =
+  | 'DEFAULT_PROP_VALUE' // default value in destructured props or function params
+  | 'RENDER_CAP' // .slice(0, N), .take(N), maxItems
+  | 'NULL_COERCION_DISPLAY' // value ?? 'N/A', value || '-'
+  | 'CONDITIONAL_RENDER_GUARD' // ternary or && guard controlling JSX visibility
+  | 'JSX_STRING_LITERAL' // string literals in JSX (button text, labels, aria-labels)
+  | 'COLUMN_DEFINITION' // column def arrays, CSV header arrays
+  | 'STATE_INITIALIZATION' // useState/useQueryState default values
+  | 'TYPE_COERCION_BOUNDARY'; // String(), Number(), toString(), parseInt/parseFloat
+
+export type BehavioralObservationEvidence = {
+  category:
+    | 'state-preservation'
+    | 'null-empty-display'
+    | 'value-caps'
+    | 'column-field-parity'
+    | 'string-literal-parity'
+    | 'type-coercion'
+    | 'default-values'
+    | 'conditional-visibility'
+    | 'export-download-inclusion';
+  name?: string; // prop name, variable name, column name
+  value?: string; // the literal default value, cap number, string text
+  containingFunction?: string;
+  context?: string; // additional context (e.g., "useState", "aria-label")
+};
+
+export type BehavioralObservation = Observation<BehavioralObservationKind, BehavioralObservationEvidence>;
+
+export interface BehavioralAnalysis {
+  readonly filePath: string;
+  readonly observations: readonly BehavioralObservation[];
+  readonly summary: Readonly<Record<BehavioralObservationKind, number>>;
+}
+
 // ============================================================
 // Unified observation types
 // ============================================================
@@ -1384,7 +1421,8 @@ export type AnyObservation =
   | NullDisplayObservation
   | PeerDepObservation
   | TestCoverageObservation
-  | HandlerStructureObservation;
+  | HandlerStructureObservation
+  | BehavioralObservation;
 
 /**
  * Unified result from running one or more observation tools on a single file.
