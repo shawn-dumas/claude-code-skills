@@ -9,6 +9,15 @@ argument-hint: <app|app-staging|app-development>
 Compare the local development environment against a remote app environment side by side.
 `$ARGUMENTS` is the remote environment name: one of `app`, `app-staging`, or `app-development`.
 
+**CRITICAL: This skill uses `playwright-cli` (the Bash CLI tool) for ALL browser
+interaction. Do NOT use MCP browser tools (`mcp__dashboard-local__*`,
+`mcp__dashboard-remote__*`). MCP tools are a completely separate browser
+automation layer — they will open different browser instances, collide with
+the playwright-cli sessions, and break the comparison workflow. Every browser
+command in this skill runs via `Bash(playwright-cli ...)`. If you catch
+yourself reaching for an MCP tool, stop and use the equivalent playwright-cli
+command instead.**
+
 Uses two named playwright-cli sessions (`-s=local` and `-s=remote`) for browser isolation.
 Each session has independent cookies, localStorage, and auth state so Firebase tokens do not collide.
 
@@ -139,11 +148,31 @@ playwright-cli -s=local select e7 "option-value"
 playwright-cli -s=remote select e7 "option-value"
 ```
 
-Evaluate (for elements that need DOM queries):
+Evaluate (for simple DOM queries — must be serializable, no closures):
 ```bash
 playwright-cli -s=local eval "document.querySelectorAll('[role=\"radio\"]')[1].click()"
 playwright-cli -s=remote eval "document.querySelectorAll('[role=\"radio\"]')[1].click()"
 ```
+
+Run-code (for complex multi-step interactions — supports full Playwright API):
+```bash
+playwright-cli -s=local run-code "async page => {
+  await page.locator('[data-testid=\"filter-select-open-button\"]').click();
+  await page.waitForSelector('[data-testid=\"filter-select-search-input\"]');
+  await page.locator('[data-testid=\"filter-select-search-input\"]').fill('Scaled Ops');
+  await page.waitForTimeout(500);
+  const option = page.getByRole('option', { name: 'Scaled Ops', exact: true });
+  if (await option.count() > 0) { await option.click(); return 'selected'; }
+  return 'not found';
+}"
+```
+
+**`eval` vs `run-code`:** Use `eval` for one-liner DOM queries (click, read text).
+Use `run-code` when you need Playwright locators, `waitForSelector`, multi-step
+sequences, or anything that needs `async`/`await`. `eval` passes to
+`page.evaluate()` which requires serializable expressions — closures,
+`function(){}` wrappers, and complex objects will fail with
+"not well-serializable" errors.
 
 **Important:** Ref IDs (e.g., `e5`) are per-session and per-snapshot. Always take a
 fresh snapshot of each browser before interacting, and use the refs from THAT snapshot.
@@ -635,7 +664,10 @@ mutation is too high for automated comparison.
 
 ## Tool reference
 
-All browser interaction uses `playwright-cli` with named sessions:
+**All browser interaction uses `playwright-cli` via the Bash tool — never MCP.**
+The `playwright-cli` binary is a CLI wrapper around Playwright that manages
+named sessions, persistent browser profiles, and accessibility snapshots.
+It is invoked exclusively through `Bash(playwright-cli ...)` tool calls.
 
 | Action     | Local browser                        | Remote browser                        |
 | ---------- | ------------------------------------ | ------------------------------------- |
@@ -646,10 +678,14 @@ All browser interaction uses `playwright-cli` with named sessions:
 | Select     | `playwright-cli -s=local select <ref> "val"` | `playwright-cli -s=remote select <ref> "val"` |
 | Type       | `playwright-cli -s=local type "text"`| `playwright-cli -s=remote type "text"`|
 | Evaluate   | `playwright-cli -s=local eval "..."`  | `playwright-cli -s=remote eval "..."`  |
+| Run-code   | `playwright-cli -s=local run-code "async page => { ... }"` | `playwright-cli -s=remote run-code "async page => { ... }"` |
 | Close      | `playwright-cli -s=local close`      | `playwright-cli -s=remote close`      |
 
 Both sessions support the full set of playwright-cli commands. Use them freely
 to interact with the app (click filters, fill forms, expand panels, etc.).
+
+**These are ALL Bash commands.** Every browser action is a `Bash(playwright-cli ...)`
+tool call. There are no other browser tools involved. Do NOT use MCP tools.
 
 ---
 

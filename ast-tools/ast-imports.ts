@@ -1,10 +1,12 @@
 import { type SourceFile, type ExportedDeclarations, SyntaxKind, Node } from 'ts-morph';
+import ts from 'typescript';
 import path from 'path';
 import fs from 'fs';
-import { getProject, getSourceFile, findConsumerFiles, PROJECT_ROOT } from './project';
+import { getSourceFile, findConsumerFiles, PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
 import { getFilesInDirectory, type FileFilter } from './shared';
 import { astConfig } from './ast-config';
+import { cachedDirectory } from './ast-cache';
 import type {
   DependencyGraph,
   FileNode,
@@ -16,7 +18,7 @@ import type {
 } from './types';
 
 // ---------------------------------------------------------------------------
-// Import extraction
+// Import extraction (ts-morph -- used by extractImportObservationsFromSource)
 // ---------------------------------------------------------------------------
 
 /** Collect all specifier strings from a single import declaration. */
@@ -68,7 +70,7 @@ function extractImports(sf: SourceFile): ImportInfo[] {
 }
 
 // ---------------------------------------------------------------------------
-// Dynamic import extraction
+// Dynamic import extraction (ts-morph)
 // ---------------------------------------------------------------------------
 
 function extractDynamicImports(sf: SourceFile): ImportInfo[] {
@@ -96,7 +98,7 @@ function extractDynamicImports(sf: SourceFile): ImportInfo[] {
 }
 
 // ---------------------------------------------------------------------------
-// Export extraction
+// Export extraction (ts-morph)
 // ---------------------------------------------------------------------------
 
 /** Maps a ts-morph Node guard to the ExportInfo kind it implies. */
@@ -202,7 +204,7 @@ function extractExports(sf: SourceFile): ExportInfo[] {
 }
 
 // ---------------------------------------------------------------------------
-// Import re-exports (treat as both import and export)
+// Import re-exports (ts-morph -- used by extractImportObservationsFromSource)
 // ---------------------------------------------------------------------------
 
 function extractReexportImports(sf: SourceFile): ImportInfo[] {
@@ -234,29 +236,63 @@ function extractReexportImports(sf: SourceFile): ImportInfo[] {
 }
 
 // ---------------------------------------------------------------------------
-// Module resolution
+// Module resolution (ts.resolveModuleName -- no ts-morph Project needed)
 // ---------------------------------------------------------------------------
 
-/** Resolve via ts-morph import declarations. */
-function resolveViaImportDeclarations(sf: SourceFile, importSource: string): string | null {
-  for (const decl of sf.getImportDeclarations()) {
-    if (decl.getModuleSpecifierValue() === importSource) {
-      const resolved = decl.getModuleSpecifierSourceFile();
-      if (resolved) return resolved.getFilePath();
-    }
+/** Cached TypeScript compiler options and resolution host for ts.resolveModuleName(). */
+let cachedCompilerOptions: ts.CompilerOptions | null = null;
+let cachedModuleResolutionHost: ts.ModuleResolutionHost | null = null;
+
+function getCompilerResolutionContext(): { options: ts.CompilerOptions; host: ts.ModuleResolutionHost } {
+  if (cachedCompilerOptions && cachedModuleResolutionHost) {
+    return { options: cachedCompilerOptions, host: cachedModuleResolutionHost };
   }
-  return null;
+
+  const configPath = path.join(PROJECT_ROOT, 'tsconfig.json');
+  const configFile = ts.readConfigFile(configPath, p => ts.sys.readFile(p));
+  const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, PROJECT_ROOT);
+  cachedCompilerOptions = parsed.options;
+
+  // Cache fileExists results to avoid redundant filesystem calls.
+  // ts.resolveModuleName tries many path variants per import (~5-10 each).
+  // With ~7000 imports, this prevents ~50,000+ redundant syscalls.
+  const fileExistsCache = new Map<string, boolean>();
+  cachedModuleResolutionHost = {
+    fileExists(fileName: string): boolean {
+      let result = fileExistsCache.get(fileName);
+      if (result === undefined) {
+        result = ts.sys.fileExists(fileName);
+        fileExistsCache.set(fileName, result);
+      }
+      return result;
+    },
+    readFile: (p: string) => ts.sys.readFile(p),
+  };
+
+  return { options: cachedCompilerOptions, host: cachedModuleResolutionHost };
 }
 
-/** Resolve via ts-morph export declarations (re-exports). */
-function resolveViaExportDeclarations(sf: SourceFile, importSource: string): string | null {
-  for (const decl of sf.getExportDeclarations()) {
-    if (decl.getModuleSpecifierValue() === importSource) {
-      const resolved = decl.getModuleSpecifierSourceFile();
-      if (resolved) return resolved.getFilePath();
-    }
-  }
-  return null;
+/**
+ * Resolve a module specifier using the TypeScript compiler's module resolution.
+ * This is lightweight: no files need to be loaded into a Project. It uses
+ * tsconfig.json paths and filesystem lookups.
+ *
+ * Results are cached by (importSource, containingDir) since many files in the
+ * same directory import the same modules.
+ */
+const resolveCache = new Map<string, string | null>();
+
+function resolveViaCompiler(importSource: string, importingFilePath: string): string | null {
+  const dir = path.dirname(importingFilePath);
+  const cacheKey = `${importSource}\0${dir}`;
+  const cached = resolveCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const { options, host } = getCompilerResolutionContext();
+  const result = ts.resolveModuleName(importSource, importingFilePath, options, host);
+  const resolved = result.resolvedModule ? result.resolvedModule.resolvedFileName : null;
+  resolveCache.set(cacheKey, resolved);
+  return resolved;
 }
 
 /** Manual filesystem fallback for relative imports. */
@@ -272,21 +308,23 @@ function resolveRelativeFallback(importSource: string, importingFilePath: string
   return null;
 }
 
+/**
+ * Resolve an import source string to an absolute file path.
+ *
+ * Primary strategy: ts.resolveModuleName() which uses the TypeScript compiler's
+ * module resolution algorithm with tsconfig paths. Lightweight -- no files need
+ * to be loaded into a ts-morph Project. Does not trigger lazy loading.
+ *
+ * Fallback: resolveRelativeFallback for relative imports the compiler misses.
+ */
 function resolveModulePath(importSource: string, importingFilePath: string): string | null {
   const pathAliasPrefix = astConfig.fileDiscovery.pathAliasPrefix;
   if (!importSource.startsWith('.') && !importSource.startsWith(pathAliasPrefix)) {
     return null;
   }
 
-  const project = getProject();
-  const sf = project.getSourceFile(importingFilePath);
-  if (!sf) return null;
-
-  const fromImport = resolveViaImportDeclarations(sf, importSource);
-  if (fromImport) return fromImport;
-
-  const fromExport = resolveViaExportDeclarations(sf, importSource);
-  if (fromExport) return fromExport;
+  const fromCompiler = resolveViaCompiler(importSource, importingFilePath);
+  if (fromCompiler) return fromCompiler;
 
   if (importSource.startsWith('.')) {
     return resolveRelativeFallback(importSource, importingFilePath);
@@ -296,17 +334,510 @@ function resolveModulePath(importSource: string, importingFilePath: string): str
 }
 
 // ---------------------------------------------------------------------------
-// File analysis
+// Raw TypeScript AST extraction (no ts-morph Project needed)
 // ---------------------------------------------------------------------------
+// These functions use ts.createSourceFile (lightweight parser, ~50-200KB per
+// file) instead of ts-morph's Project.addSourceFileAtPath (~0.7-1.5MB per
+// file). Used by extractFileNodes for the hot path. The ts-morph versions
+// above are retained for traceBarrelChain and extractImportObservationsFromSource.
 
-function analyzeFile(filePath: string): FileNode {
-  const sf = getSourceFile(filePath);
-  const absPath = sf.getFilePath();
+/** Get 1-based line number from a raw TS node position. */
+function rawLine(sf: ts.SourceFile, pos: number): number {
+  return sf.getLineAndCharacterOfPosition(pos).line + 1;
+}
+
+/** Collect specifier strings from a raw TS import declaration. */
+function rawCollectImportSpecifiers(decl: ts.ImportDeclaration): string[] {
+  const specifiers: string[] = [];
+  const clause = decl.importClause;
+  if (!clause) return specifiers;
+
+  if (clause.name) {
+    specifiers.push(clause.name.text);
+  }
+
+  const bindings = clause.namedBindings;
+  if (bindings) {
+    if (ts.isNamespaceImport(bindings)) {
+      specifiers.push(`* as ${bindings.name.text}`);
+    } else if (ts.isNamedImports(bindings)) {
+      for (const el of bindings.elements) {
+        const alias = el.propertyName ? `${el.propertyName.text} as ${el.name.text}` : el.name.text;
+        specifiers.push(alias);
+      }
+    }
+  }
+
+  return specifiers;
+}
+
+function rawExtractImports(sf: ts.SourceFile): ImportInfo[] {
+  const merged = new Map<string, ImportInfo>();
+
+  for (const stmt of sf.statements) {
+    if (!ts.isImportDeclaration(stmt)) continue;
+    if (!ts.isStringLiteral(stmt.moduleSpecifier)) continue;
+
+    const source = stmt.moduleSpecifier.text;
+    const specifiers = rawCollectImportSpecifiers(stmt);
+    const isTypeOnly = stmt.importClause?.isTypeOnly ?? false;
+    const line = rawLine(sf, stmt.getStart());
+
+    mergeImportEntry(merged, source, specifiers, isTypeOnly, line);
+  }
+
+  return Array.from(merged.values());
+}
+
+function rawExtractDynamicImports(sf: ts.SourceFile): ImportInfo[] {
+  const results: ImportInfo[] = [];
+
+  function visit(node: ts.Node): void {
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      const arg = node.arguments[0];
+      if (arg && ts.isStringLiteral(arg)) {
+        results.push({
+          source: arg.text,
+          specifiers: ['*'],
+          isTypeOnly: false,
+          line: rawLine(sf, node.getStart()),
+        });
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  ts.forEachChild(sf, visit);
+  return results;
+}
+
+function rawExtractReexportImports(sf: ts.SourceFile): ImportInfo[] {
+  const imports: ImportInfo[] = [];
+
+  for (const stmt of sf.statements) {
+    if (!ts.isExportDeclaration(stmt)) continue;
+    if (!stmt.moduleSpecifier || !ts.isStringLiteral(stmt.moduleSpecifier)) continue;
+
+    const source = stmt.moduleSpecifier.text;
+    const specifiers: string[] = [];
+    const isTypeOnly = stmt.isTypeOnly;
+
+    if (!stmt.exportClause) {
+      specifiers.push('*');
+    } else if (ts.isNamespaceExport(stmt.exportClause)) {
+      specifiers.push('*');
+    } else if (ts.isNamedExports(stmt.exportClause)) {
+      for (const el of stmt.exportClause.elements) {
+        specifiers.push((el.propertyName ?? el.name).text);
+      }
+    }
+
+    imports.push({ source, specifiers, isTypeOnly, line: rawLine(sf, stmt.getStart()) });
+  }
+
+  return imports;
+}
+
+/** Classify a raw TS declaration node to an ExportInfo kind. */
+function rawClassifyDeclaration(node: ts.Node): ExportInfo['kind'] {
+  if (ts.isFunctionDeclaration(node)) return 'function';
+  if (ts.isClassDeclaration(node)) return 'class';
+  if (ts.isTypeAliasDeclaration(node)) return 'type';
+  if (ts.isInterfaceDeclaration(node)) return 'interface';
+  if (ts.isEnumDeclaration(node)) return 'enum';
+  if (ts.isVariableDeclaration(node)) {
+    const init = node.initializer;
+    if (init && (ts.isArrowFunction(init) || ts.isFunctionExpression(init))) return 'function';
+    return 'const';
+  }
+  if (ts.isVariableStatement(node)) {
+    const decl = node.declarationList.declarations[0];
+    if (decl) return rawClassifyDeclaration(decl);
+    return 'const';
+  }
+  return 'const';
+}
+
+/**
+ * Collect the direct (non-transitive) export names from a raw TS SourceFile.
+ * Does NOT follow export * chains -- that's the caller's job.
+ */
+function rawCollectDirectExportNames(sf: ts.SourceFile): ExportInfo[] {
+  const results: ExportInfo[] = [];
+
+  for (const stmt of sf.statements) {
+    // ExportDeclaration and ExportAssignment do not carry the export keyword
+    // as a modifier -- check them before the modifier guard.
+    if (ts.isExportDeclaration(stmt)) {
+      if (stmt.exportClause && ts.isNamedExports(stmt.exportClause)) {
+        for (const el of stmt.exportClause.elements) {
+          results.push({
+            name: el.name.text,
+            kind: stmt.moduleSpecifier ? 'reexport' : 'const',
+            isTypeOnly: stmt.isTypeOnly,
+            line: rawLine(sf, el.getStart()),
+          });
+        }
+      }
+      continue;
+    }
+
+    if (ts.isExportAssignment(stmt)) {
+      results.push({ name: 'default', kind: 'default', isTypeOnly: false, line: rawLine(sf, stmt.getStart()) });
+      continue;
+    }
+
+    const modifiers = ts.canHaveModifiers(stmt) ? ts.getModifiers(stmt) : undefined;
+    const hasExport = modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword);
+    if (!hasExport) continue;
+
+    const isDefault = modifiers?.some(m => m.kind === ts.SyntaxKind.DefaultKeyword) ?? false;
+    if (isDefault) {
+      const kind = rawClassifyDeclaration(stmt);
+      results.push({
+        name: 'default',
+        kind: kind === 'const' ? 'default' : kind,
+        isTypeOnly: false,
+        line: rawLine(sf, stmt.getStart()),
+      });
+      continue;
+    }
+
+    if (
+      ts.isFunctionDeclaration(stmt) ||
+      ts.isClassDeclaration(stmt) ||
+      ts.isTypeAliasDeclaration(stmt) ||
+      ts.isInterfaceDeclaration(stmt) ||
+      ts.isEnumDeclaration(stmt)
+    ) {
+      const name = stmt.name?.text;
+      if (name) {
+        const kind = rawClassifyDeclaration(stmt);
+        const isTypeOnly = kind === 'type' || kind === 'interface';
+        results.push({ name, kind, isTypeOnly, line: rawLine(sf, stmt.getStart()) });
+      }
+    } else if (ts.isVariableStatement(stmt)) {
+      for (const decl of stmt.declarationList.declarations) {
+        if (ts.isIdentifier(decl.name)) {
+          results.push({
+            name: decl.name.text,
+            kind: rawClassifyDeclaration(decl),
+            isTypeOnly: false,
+            line: rawLine(sf, decl.getStart()),
+          });
+        }
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Resolve the actual declaration kind of a named re-export by following
+ * the chain: `export { Foo } from './a'` where a has `export { Foo } from './b'`
+ * etc. Returns the declared kind (function, type, const...) or null if
+ * unresolvable. Depth-limited to prevent runaway chains.
+ */
+function resolveNamedExportKind(
+  name: string,
+  filePath: string,
+  maxDepth = 4,
+  seen = new Set<string>(),
+): { kind: ExportInfo['kind']; isTypeOnly: boolean } | null {
+  if (maxDepth <= 0 || seen.has(filePath)) return null;
+  seen.add(filePath);
+
+  let content: string;
+  try {
+    content = fs.readFileSync(filePath, 'utf-8');
+  } catch {
+    return null;
+  }
+
+  const sf = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true);
+
+  // Check direct declarations first
+  for (const stmt of sf.statements) {
+    if (ts.isExportAssignment(stmt) && name === 'default') {
+      return { kind: 'default', isTypeOnly: false };
+    }
+
+    const modifiers = ts.canHaveModifiers(stmt) ? ts.getModifiers(stmt) : undefined;
+    const hasExport = modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword);
+    if (!hasExport) continue;
+
+    const isDefault = modifiers?.some(m => m.kind === ts.SyntaxKind.DefaultKeyword) ?? false;
+    if (isDefault && name === 'default') {
+      const kind = rawClassifyDeclaration(stmt);
+      return { kind: kind === 'const' ? 'default' : kind, isTypeOnly: false };
+    }
+
+    if (
+      (ts.isFunctionDeclaration(stmt) ||
+        ts.isClassDeclaration(stmt) ||
+        ts.isTypeAliasDeclaration(stmt) ||
+        ts.isInterfaceDeclaration(stmt) ||
+        ts.isEnumDeclaration(stmt)) &&
+      stmt.name?.text === name
+    ) {
+      const kind = rawClassifyDeclaration(stmt);
+      return { kind, isTypeOnly: kind === 'type' || kind === 'interface' };
+    }
+
+    if (ts.isVariableStatement(stmt)) {
+      for (const decl of stmt.declarationList.declarations) {
+        if (ts.isIdentifier(decl.name) && decl.name.text === name) {
+          return { kind: rawClassifyDeclaration(decl), isTypeOnly: false };
+        }
+      }
+    }
+  }
+
+  // Check named re-exports: follow the chain
+  for (const stmt of sf.statements) {
+    if (!ts.isExportDeclaration(stmt)) continue;
+    if (!stmt.moduleSpecifier || !ts.isStringLiteral(stmt.moduleSpecifier)) continue;
+    if (!stmt.exportClause || !ts.isNamedExports(stmt.exportClause)) continue;
+
+    for (const el of stmt.exportClause.elements) {
+      const exportName = el.name.text;
+      if (exportName !== name) continue;
+      const localName = (el.propertyName ?? el.name).text;
+      const targetPath = resolveModulePath(stmt.moduleSpecifier.text, filePath);
+      if (targetPath) {
+        const result = resolveNamedExportKind(localName, targetPath, maxDepth - 1, seen);
+        if (result) {
+          return { kind: result.kind, isTypeOnly: stmt.isTypeOnly || result.isTypeOnly };
+        }
+      }
+    }
+  }
+
+  // Check star re-exports: the name might be transitively available
+  for (const stmt of sf.statements) {
+    if (!ts.isExportDeclaration(stmt)) continue;
+    if (!stmt.moduleSpecifier || !ts.isStringLiteral(stmt.moduleSpecifier)) continue;
+    if (stmt.exportClause) continue; // Not star
+    const targetPath = resolveModulePath(stmt.moduleSpecifier.text, filePath);
+    if (targetPath) {
+      const result = resolveNamedExportKind(name, targetPath, maxDepth - 1, seen);
+      if (result) return result;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Resolve export * by following the chain: parse the target file, collect its
+ * exports (including its own export * targets, recursively). Each target is
+ * parsed with ts.createSourceFile (~50-200KB, immediately GC-eligible).
+ * Visited set prevents infinite loops on circular re-export chains.
+ */
+function resolveStarExports(moduleSpecifier: string, containingFilePath: string, visited: Set<string>): ExportInfo[] {
+  const resolvedPath = resolveModulePath(moduleSpecifier, containingFilePath);
+  if (!resolvedPath || visited.has(resolvedPath)) return [];
+  visited.add(resolvedPath);
+
+  let content: string;
+  try {
+    content = fs.readFileSync(resolvedPath, 'utf-8');
+  } catch {
+    return [];
+  }
+
+  const targetSf = ts.createSourceFile(resolvedPath, content, ts.ScriptTarget.Latest, true);
+  const directExports = rawCollectDirectExportNames(targetSf);
+
+  // Resolve named re-exports to actual declaration kinds by following
+  // the re-export chain recursively (up to 4 levels deep).
+  for (const exp of directExports) {
+    if (exp.kind !== 'reexport') continue;
+
+    // Find the ExportDeclaration statement that produced this entry
+    for (const stmt of targetSf.statements) {
+      if (!ts.isExportDeclaration(stmt)) continue;
+      if (!stmt.moduleSpecifier || !ts.isStringLiteral(stmt.moduleSpecifier)) continue;
+      if (!stmt.exportClause || !ts.isNamedExports(stmt.exportClause)) continue;
+
+      for (const el of stmt.exportClause.elements) {
+        if (el.name.text !== exp.name) continue;
+        const localName = (el.propertyName ?? el.name).text;
+        const targetPath = resolveModulePath(stmt.moduleSpecifier.text, resolvedPath);
+        if (!targetPath) continue;
+        const resolved = resolveNamedExportKind(localName, targetPath);
+        if (resolved) {
+          exp.kind = resolved.kind;
+          exp.isTypeOnly = exp.isTypeOnly || resolved.isTypeOnly;
+        }
+      }
+    }
+  }
+
+  // Recursively resolve export * in the target
+  for (const stmt of targetSf.statements) {
+    if (!ts.isExportDeclaration(stmt)) continue;
+    if (!stmt.moduleSpecifier || !ts.isStringLiteral(stmt.moduleSpecifier)) continue;
+    if (stmt.exportClause) continue; // Named re-export, not star
+
+    const nested = resolveStarExports(stmt.moduleSpecifier.text, resolvedPath, visited);
+    directExports.push(...nested);
+  }
+
+  return directExports;
+}
+
+function rawExtractExports(sf: ts.SourceFile, filePath: string): ExportInfo[] {
+  const exports: ExportInfo[] = [];
+  const reexportedNames = new Set<string>();
+  const visited = new Set<string>([filePath]);
+
+  // First pass: collect re-export entries and resolve export * chains
+  for (const stmt of sf.statements) {
+    if (!ts.isExportDeclaration(stmt)) continue;
+    if (!stmt.moduleSpecifier || !ts.isStringLiteral(stmt.moduleSpecifier)) continue;
+
+    const moduleSpecifier = stmt.moduleSpecifier.text;
+    const isTypeOnly = stmt.isTypeOnly;
+    const line = rawLine(sf, stmt.getStart());
+
+    if (stmt.exportClause && ts.isNamespaceExport(stmt.exportClause)) {
+      // Namespace re-export: export * as X from './module'
+      // Creates a single named export (the namespace object), NOT individual re-exports.
+      const nsName = stmt.exportClause.name.text;
+      reexportedNames.add(nsName);
+      exports.push({ name: nsName, kind: 'const', isTypeOnly, line });
+    } else if (!stmt.exportClause) {
+      // Star re-export: export * from './module'
+      // Keep the * entry AND resolve individual names.
+      exports.push({ name: `* from ${moduleSpecifier}`, kind: 'reexport', isTypeOnly, line });
+
+      // Follow the chain to enumerate individual exported names.
+      // Preserve the original kind from the source file (function, const, type, etc.)
+      // so dead-export detection can check these names individually.
+      const resolved = resolveStarExports(moduleSpecifier, filePath, visited);
+      for (const exp of resolved) {
+        if (!reexportedNames.has(exp.name)) {
+          reexportedNames.add(exp.name);
+          exports.push({ name: exp.name, kind: exp.kind, isTypeOnly: isTypeOnly || exp.isTypeOnly, line });
+        }
+      }
+    } else if (ts.isNamedExports(stmt.exportClause)) {
+      for (const el of stmt.exportClause.elements) {
+        const exportName = el.name.text;
+        reexportedNames.add(exportName);
+        exports.push({ name: exportName, kind: 'reexport', isTypeOnly, line });
+      }
+    }
+  }
+
+  // Second pass: collect declared exports from statements.
+  // ExportDeclaration and ExportAssignment do not carry the export keyword
+  // as a modifier, so check them before the modifier guard.
+  for (const stmt of sf.statements) {
+    if (ts.isExportDeclaration(stmt)) {
+      // Handle local named exports: export { foo, bar }
+      if (!stmt.moduleSpecifier && stmt.exportClause && ts.isNamedExports(stmt.exportClause)) {
+        for (const el of stmt.exportClause.elements) {
+          const exportName = el.name.text;
+          if (!reexportedNames.has(exportName)) {
+            exports.push({
+              name: exportName,
+              kind: 'const',
+              isTypeOnly: stmt.isTypeOnly,
+              line: rawLine(sf, el.getStart()),
+            });
+          }
+        }
+      }
+      continue;
+    }
+
+    if (ts.isExportAssignment(stmt)) {
+      exports.push({ name: 'default', kind: 'default', isTypeOnly: false, line: rawLine(sf, stmt.getStart()) });
+      continue;
+    }
+
+    const modifiers = ts.canHaveModifiers(stmt) ? ts.getModifiers(stmt) : undefined;
+    const hasExport = modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword);
+    if (!hasExport) continue;
+
+    const isDefault = modifiers?.some(m => m.kind === ts.SyntaxKind.DefaultKeyword) ?? false;
+
+    if (isDefault) {
+      const kind = rawClassifyDeclaration(stmt);
+      exports.push({
+        name: 'default',
+        kind: kind === 'const' ? 'default' : kind,
+        isTypeOnly: false,
+        line: rawLine(sf, stmt.getStart()),
+      });
+      continue;
+    }
+
+    if (
+      ts.isFunctionDeclaration(stmt) ||
+      ts.isClassDeclaration(stmt) ||
+      ts.isTypeAliasDeclaration(stmt) ||
+      ts.isInterfaceDeclaration(stmt) ||
+      ts.isEnumDeclaration(stmt)
+    ) {
+      const name = stmt.name?.text;
+      if (name) {
+        const kind = rawClassifyDeclaration(stmt);
+        const isTypeOnly = kind === 'type' || kind === 'interface';
+        if (reexportedNames.has(name)) {
+          const existing = exports.find(e => e.name === name && e.kind !== 'reexport');
+          if (existing) existing.kind = 'reexport';
+        } else if (!exports.some(e => e.name === name)) {
+          // Deduplicate: declaration merging (type + const with same name)
+          exports.push({ name, kind, isTypeOnly, line: rawLine(sf, stmt.getStart()) });
+        }
+      }
+    } else if (ts.isVariableStatement(stmt)) {
+      for (const decl of stmt.declarationList.declarations) {
+        const names: { name: string; line: number }[] = [];
+        if (ts.isIdentifier(decl.name)) {
+          names.push({ name: decl.name.text, line: rawLine(sf, decl.getStart()) });
+        } else if (ts.isObjectBindingPattern(decl.name)) {
+          // Destructured: export const { a, b } = ...
+          for (const el of decl.name.elements) {
+            if (ts.isBindingElement(el) && ts.isIdentifier(el.name)) {
+              names.push({ name: el.name.text, line: rawLine(sf, el.getStart()) });
+            }
+          }
+        }
+        for (const { name, line: declLine } of names) {
+          const kind = rawClassifyDeclaration(decl);
+          if (reexportedNames.has(name)) {
+            const existing = exports.find(e => e.name === name && e.kind !== 'reexport');
+            if (existing) existing.kind = 'reexport';
+          } else if (!exports.some(e => e.name === name)) {
+            exports.push({ name, kind, isTypeOnly: false, line: declLine });
+          }
+        }
+      }
+    }
+  }
+
+  return exports;
+}
+
+/**
+ * Analyze a file using the raw TypeScript parser (no ts-morph Project).
+ * Reads from disk, parses with ts.createSourceFile, extracts imports/exports,
+ * resolves via ts.resolveModuleName. Peak memory: ~50-200KB per file.
+ */
+function analyzeFileRaw(filePath: string): FileNode {
+  const absPath = path.isAbsolute(filePath) ? filePath : path.resolve(PROJECT_ROOT, filePath);
+  const content = fs.readFileSync(absPath, 'utf-8');
+  const sf = ts.createSourceFile(absPath, content, ts.ScriptTarget.Latest, true);
   const relativePath = path.relative(PROJECT_ROOT, absPath);
 
-  const regularImports = extractImports(sf);
-  const dynamicImports = extractDynamicImports(sf);
-  const reexportImports = extractReexportImports(sf);
+  const regularImports = rawExtractImports(sf);
+  const dynamicImports = rawExtractDynamicImports(sf);
+  const reexportImports = rawExtractReexportImports(sf);
 
   // Merge re-export imports into regular imports
   const allImports = [...regularImports];
@@ -323,28 +854,104 @@ function analyzeFile(filePath: string): FileNode {
     }
   }
 
+  // Eager resolution via ts.resolveModuleName (no Project needed)
+  for (const imp of allImports) {
+    const resolved = resolveModulePath(imp.source, absPath);
+    if (resolved) {
+      imp.resolvedPath = resolved;
+    }
+  }
+
+  const exports = rawExtractExports(sf, absPath);
+
+  return { path: absPath, relativePath, imports: allImports, exports };
+}
+
+// ---------------------------------------------------------------------------
+// File analysis (ts-morph -- legacy path for traceBarrelChain)
+// ---------------------------------------------------------------------------
+
+function analyzeFile(filePath: string): FileNode {
+  const sf = getSourceFile(filePath);
+  const absPath = sf.getFilePath();
+  const relativePath = path.relative(PROJECT_ROOT, absPath);
+
+  const regularImports = extractImports(sf);
+  const dynamicImports = extractDynamicImports(sf);
+  const reexportImports = extractReexportImports(sf);
+
+  const allImports = [...regularImports];
+  for (const ri of [...dynamicImports, ...reexportImports]) {
+    const existing = allImports.find(i => i.source === ri.source);
+    if (existing) {
+      for (const s of ri.specifiers) {
+        if (!existing.specifiers.includes(s)) {
+          existing.specifiers.push(s);
+        }
+      }
+    } else {
+      allImports.push(ri);
+    }
+  }
+
+  // Eager resolution so buildEdges can read imp.resolvedPath
+  for (const imp of allImports) {
+    const resolved = resolveModulePath(imp.source, absPath);
+    if (resolved) {
+      imp.resolvedPath = resolved;
+    }
+  }
+
   const exports = extractExports(sf);
 
-  return {
-    path: absPath,
-    relativePath,
-    imports: allImports,
-    exports,
-  };
+  return { path: absPath, relativePath, imports: allImports, exports };
+}
+
+// ---------------------------------------------------------------------------
+// Batch extraction (raw TS -- the hot path)
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract FileNodes from a list of file paths using the raw TypeScript parser.
+ *
+ * No ts-morph Project is created. Each file is read from disk, parsed with
+ * ts.createSourceFile (~50-200KB per file), extracted, and resolved. The raw
+ * AST is GC'd immediately after extraction. Peak memory: O(1) per file +
+ * accumulated FileNode metadata.
+ */
+function extractFileNodes(filePaths: string[]): FileNode[] {
+  const results: FileNode[] = [];
+
+  for (const fp of filePaths) {
+    try {
+      results.push(analyzeFileRaw(fp));
+    } catch (error) {
+      process.stderr.write(
+        `[ast-imports] extractFileNodes: could not analyze ${fp}: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+    }
+  }
+
+  return results;
 }
 
 // ---------------------------------------------------------------------------
 // Edge building
 // ---------------------------------------------------------------------------
 
+/**
+ * Build directed edges from the file list.
+ * Uses pre-resolved resolvedPath from eager resolution in analyzeFileRaw.
+ * Pure data read with zero AST access.
+ */
 function buildEdges(files: FileNode[]): { from: string; to: string; specifiers: string[] }[] {
   const edges: { from: string; to: string; specifiers: string[] }[] = [];
 
   for (const file of files) {
     for (const imp of file.imports) {
-      const resolvedPath = resolveModulePath(imp.source, file.path);
-      if (resolvedPath) {
-        const to = path.relative(PROJECT_ROOT, resolvedPath);
+      const resolved = imp.resolvedPath;
+      if (resolved) {
+        const to = path.relative(PROJECT_ROOT, resolved);
         edges.push({
           from: file.relativePath,
           to,
@@ -390,11 +997,10 @@ function detectCircularDeps(edges: { from: string; to: string; specifiers: strin
       const neighborColor = color.get(neighbor) ?? WHITE;
 
       if (neighborColor === GRAY) {
-        // Found a cycle -- extract the cycle from pathStack
         const cycleStart = pathStack.indexOf(neighbor);
         if (cycleStart !== -1) {
           const cycle = pathStack.slice(cycleStart);
-          cycle.push(neighbor); // close the loop
+          cycle.push(neighbor);
           cycles.push(cycle);
         }
       } else if (neighborColor === WHITE) {
@@ -416,7 +1022,7 @@ function detectCircularDeps(edges: { from: string; to: string; specifiers: strin
 }
 
 // ---------------------------------------------------------------------------
-// Barrel chain resolution
+// Barrel chain resolution (ts-morph -- exported for other tools, NOT in scope)
 // ---------------------------------------------------------------------------
 
 function isBarrelFile(filePath: string): boolean {
@@ -436,10 +1042,6 @@ function exportDeclMatchesName(
   return false;
 }
 
-/**
- * Given an export name and a file path, trace through barrel re-export
- * chains to find the original source file.
- */
 function traceBarrelChain(exportName: string, filePath: string, visited = new Set<string>()): string[] {
   if (visited.has(filePath)) return [];
   visited.add(filePath);
@@ -479,10 +1081,6 @@ function isNextJsPage(filePath: string): boolean {
   return rel.startsWith(prefix) || rel.startsWith(prefix.replace(/\//g, '\\'));
 }
 
-// ---------------------------------------------------------------------------
-// Dead export detection helpers
-// ---------------------------------------------------------------------------
-
 /** Check if any edge in the graph imports this export name from this file. */
 function isConsumedByEdge(
   exportName: string,
@@ -496,10 +1094,25 @@ function isConsumedByEdge(
   );
 }
 
-/** Check if any barrel file re-exports this name. */
-function isReexportedByBarrel(exportName: string, consumerCandidates: string[]): boolean {
+/**
+ * Check if any barrel file re-exports this name.
+ * Uses pre-extracted FileNode data when available (allFiles map).
+ */
+function isReexportedByBarrel(
+  exportName: string,
+  consumerCandidates: string[],
+  allFiles?: Map<string, FileNode>,
+): boolean {
   return consumerCandidates.some(consumer => {
     if (!isBarrelFile(consumer)) return false;
+
+    const fileNode = allFiles?.get(consumer);
+    if (fileNode) {
+      return fileNode.exports.some(
+        exp => exp.kind === 'reexport' && (exp.name === exportName || exp.name.startsWith('* from ')),
+      );
+    }
+
     try {
       const consumerSf = getSourceFile(consumer);
       for (const exportDecl of consumerSf.getExportDeclarations()) {
@@ -519,8 +1132,29 @@ function isReexportedByBarrel(exportName: string, consumerCandidates: string[]):
   });
 }
 
-/** Check if a single consumer file imports the given export name from filePath. */
-function consumerImportsName(consumer: string, exportName: string, filePath: string): boolean {
+/**
+ * Check if a single consumer file imports the given export name from filePath.
+ * Uses pre-extracted FileNode data when available.
+ */
+function consumerImportsName(
+  consumer: string,
+  exportName: string,
+  filePath: string,
+  allFiles?: Map<string, FileNode>,
+): boolean {
+  const fileNode = allFiles?.get(consumer);
+  if (fileNode) {
+    return fileNode.imports.some(imp => {
+      if (imp.resolvedPath !== filePath) return false;
+      if (imp.specifiers.includes(exportName)) return true;
+      if (imp.specifiers.includes('*')) return true;
+      if (imp.specifiers.some(s => s.startsWith('* as '))) return true;
+      // Default export: any import from this file conservatively counts
+      if (exportName === 'default') return true;
+      return false;
+    });
+  }
+
   const consumerSf = getSourceFile(consumer);
   for (const imp of consumerSf.getImportDeclarations()) {
     const resolvedSf = imp.getModuleSpecifierSourceFile();
@@ -537,10 +1171,15 @@ function consumerImportsName(consumer: string, exportName: string, filePath: str
 }
 
 /** Check if any file outside the graph directly imports this name. */
-function isConsumedExternally(exportName: string, filePath: string, consumerCandidates: string[]): boolean {
+function isConsumedExternally(
+  exportName: string,
+  filePath: string,
+  consumerCandidates: string[],
+  allFiles?: Map<string, FileNode>,
+): boolean {
   return consumerCandidates.some(consumer => {
     try {
-      return consumerImportsName(consumer, exportName, filePath);
+      return consumerImportsName(consumer, exportName, filePath, allFiles);
     } catch (error) {
       process.stderr.write(
         `[ast-imports] isConsumedExternally: could not check external consumers of ${consumer}: ${error instanceof Error ? error.message : String(error)}\n`,
@@ -554,9 +1193,9 @@ function detectDeadExports(
   files: FileNode[],
   allEdges: { from: string; to: string; specifiers: string[] }[],
   fixtureSearchDir?: string,
+  allFiles?: Map<string, FileNode>,
 ): { file: string; export: string; line: number }[] {
   const dead: { file: string; export: string; line: number }[] = [];
-  // Cache consumer candidates per file path to avoid repeated ripgrep calls
   const consumerCache = new Map<string, string[]>();
 
   function getConsumerCandidates(filePath: string): string[] {
@@ -569,27 +1208,20 @@ function detectDeadExports(
   }
 
   for (const file of files) {
-    // Skip Next.js page files -- their default exports are consumed by the framework
     if (isNextJsPage(file.path)) continue;
 
     for (const exp of file.exports) {
-      // Skip re-exports (they are pass-through, not dead)
       if (exp.kind === 'reexport') continue;
-      // Skip star re-export entries
       if (exp.name.startsWith('* from ')) continue;
 
       if (isConsumedByEdge(exp.name, file.relativePath, allEdges)) continue;
 
       const consumerCandidates = getConsumerCandidates(file.path);
 
-      if (isReexportedByBarrel(exp.name, consumerCandidates)) continue;
-      if (isConsumedExternally(exp.name, file.path, consumerCandidates)) continue;
+      if (isReexportedByBarrel(exp.name, consumerCandidates, allFiles)) continue;
+      if (isConsumedExternally(exp.name, file.path, consumerCandidates, allFiles)) continue;
 
-      dead.push({
-        file: file.relativePath,
-        export: exp.name,
-        line: exp.line,
-      });
+      dead.push({ file: file.relativePath, export: exp.name, line: exp.line });
     }
   }
 
@@ -597,7 +1229,7 @@ function detectDeadExports(
 }
 
 // ---------------------------------------------------------------------------
-// Consumer detection (for single-file mode)
+// Consumer detection
 // ---------------------------------------------------------------------------
 
 /** Check whether a source file imports or re-exports from the given target path. */
@@ -613,12 +1245,25 @@ function fileReferencesTarget(candidateSf: SourceFile, targetPath: string): bool
   return false;
 }
 
-function findConsumersForFile(targetFile: FileNode, searchDir?: string): FileNode[] {
+/**
+ * Find all files that import or re-export from the target file.
+ * Uses pre-extracted FileNode data when available (allFiles map).
+ */
+function findConsumersForFile(targetFile: FileNode, searchDir?: string, allFiles?: Map<string, FileNode>): FileNode[] {
   const consumers: FileNode[] = [];
   const candidatePaths = searchDir ? findConsumerFiles(targetFile.path, searchDir) : findConsumerFiles(targetFile.path);
 
   for (const candidatePath of candidatePaths) {
     try {
+      const candidateNode = allFiles?.get(candidatePath);
+      if (candidateNode) {
+        const referencesTarget = candidateNode.imports.some(imp => imp.resolvedPath === targetFile.path);
+        if (referencesTarget) {
+          consumers.push(candidateNode);
+        }
+        continue;
+      }
+
       const candidateSf = getSourceFile(candidatePath);
       if (fileReferencesTarget(candidateSf, targetFile.path)) {
         consumers.push(analyzeFile(candidatePath));
@@ -641,8 +1286,6 @@ function extractStaticImportObservations(file: FileNode): ImportObservation[] {
   const observations: ImportObservation[] = [];
 
   for (const imp of file.imports) {
-    // Skip dynamic imports (those with '*' specifiers are usually dynamic)
-    // Side-effect imports have empty specifiers
     const isSideEffect = imp.specifiers.length === 0;
     const isDynamic = imp.specifiers.length === 1 && imp.specifiers[0] === '*';
 
@@ -651,33 +1294,21 @@ function extractStaticImportObservations(file: FileNode): ImportObservation[] {
         kind: 'SIDE_EFFECT_IMPORT' as ImportObservationKind,
         file: file.relativePath,
         line: imp.line,
-        evidence: {
-          source: imp.source,
-          specifiers: imp.specifiers,
-          isTypeOnly: imp.isTypeOnly,
-        },
+        evidence: { source: imp.source, specifiers: imp.specifiers, isTypeOnly: imp.isTypeOnly },
       });
     } else if (isDynamic) {
       observations.push({
         kind: 'DYNAMIC_IMPORT' as ImportObservationKind,
         file: file.relativePath,
         line: imp.line,
-        evidence: {
-          source: imp.source,
-          specifiers: imp.specifiers,
-          isTypeOnly: imp.isTypeOnly,
-        },
+        evidence: { source: imp.source, specifiers: imp.specifiers, isTypeOnly: imp.isTypeOnly },
       });
     } else {
       observations.push({
         kind: 'STATIC_IMPORT' as ImportObservationKind,
         file: file.relativePath,
         line: imp.line,
-        evidence: {
-          source: imp.source,
-          specifiers: imp.specifiers,
-          isTypeOnly: imp.isTypeOnly,
-        },
+        evidence: { source: imp.source, specifiers: imp.specifiers, isTypeOnly: imp.isTypeOnly },
       });
     }
   }
@@ -694,22 +1325,14 @@ function extractExportObservations(file: FileNode): ImportObservation[] {
         kind: 'REEXPORT_IMPORT' as ImportObservationKind,
         file: file.relativePath,
         line: exp.line,
-        evidence: {
-          exportName: exp.name,
-          exportKind: exp.kind,
-          isTypeOnly: exp.isTypeOnly,
-        },
+        evidence: { exportName: exp.name, exportKind: exp.kind, isTypeOnly: exp.isTypeOnly },
       });
     } else {
       observations.push({
         kind: 'EXPORT_DECLARATION' as ImportObservationKind,
         file: file.relativePath,
         line: exp.line,
-        evidence: {
-          exportName: exp.name,
-          exportKind: exp.kind,
-          isTypeOnly: exp.isTypeOnly,
-        },
+        evidence: { exportName: exp.name, exportKind: exp.kind, isTypeOnly: exp.isTypeOnly },
       });
     }
   }
@@ -728,9 +1351,7 @@ function extractCircularDependencyObservations(circularDeps: string[][], files: 
         kind: 'CIRCULAR_DEPENDENCY' as ImportObservationKind,
         file: cycle[0],
         line: firstFile?.imports[0]?.line ?? 1,
-        evidence: {
-          cyclePath: cycle,
-        },
+        evidence: { cyclePath: cycle },
       });
     }
   }
@@ -745,24 +1366,13 @@ function extractDeadExportObservations(
     kind: 'DEAD_EXPORT_CANDIDATE' as ImportObservationKind,
     file: dead.file,
     line: dead.line,
-    evidence: {
-      exportName: dead.export,
-      consumerCount: 0,
-      isBarrelReexported: false,
-      isNextJsPage: false,
-    },
+    evidence: { exportName: dead.export, consumerCount: 0, isBarrelReexported: false, isNextJsPage: false },
   }));
 }
 
 /**
  * Extract import/export observations from a SourceFile without reading from disk.
- * Produces STATIC_IMPORT, DYNAMIC_IMPORT, SIDE_EFFECT_IMPORT, EXPORT_DECLARATION,
- * and REEXPORT_IMPORT observations. Does NOT produce CIRCULAR_DEPENDENCY or
- * DEAD_EXPORT_CANDIDATE (both require multi-file analysis and are in ignoredKinds
- * for the intention matcher).
- *
- * Use this instead of buildDependencyGraph + extractImportObservations when you
- * have a SourceFile in memory (e.g., virtual project for HEAD content).
+ * Uses ts-morph (not raw TS) because callers pass a ts-morph SourceFile.
  */
 export function extractImportObservationsFromSource(
   sf: SourceFile,
@@ -804,20 +1414,14 @@ export function extractImportObservationsFromSource(
   return { filePath: relativePath, observations };
 }
 
-/**
- * Extract observations from a dependency graph.
- * This is the observation-layer API for ast-imports.
- */
 export function extractImportObservations(graph: DependencyGraph): ObservationResult<ImportObservation> {
   const allObservations: ImportObservation[] = [];
 
-  // Per-file observations
   for (const file of graph.files) {
     allObservations.push(...extractStaticImportObservations(file));
     allObservations.push(...extractExportObservations(file));
   }
 
-  // Cross-file observations
   allObservations.push(...extractCircularDependencyObservations(graph.circularDeps, graph.files));
   allObservations.push(...extractDeadExportObservations(graph.deadExports));
 
@@ -831,62 +1435,124 @@ export function extractImportObservations(graph: DependencyGraph): ObservationRe
 // Public API
 // ---------------------------------------------------------------------------
 
+/** Compute a dependency graph without caching. */
+function computeDependencyGraph(
+  absolute: string,
+  isDirectory: boolean,
+  searchDir?: string,
+  filter?: FileFilter,
+): DependencyGraph {
+  let files: FileNode[];
+
+  if (isDirectory) {
+    const filePaths = getFilesInDirectory(absolute, filter ?? 'production');
+
+    files = extractFileNodes(filePaths);
+
+    const filePathSet = new Set(files.map(f => f.path));
+    const consumerCandidatePaths: string[] = [];
+    for (const file of files) {
+      const candidates = searchDir ? findConsumerFiles(file.path, searchDir) : findConsumerFiles(file.path);
+      for (const c of candidates) {
+        if (!filePathSet.has(c) && !consumerCandidatePaths.includes(c)) {
+          consumerCandidatePaths.push(c);
+        }
+      }
+    }
+
+    const consumerFileNodes = extractFileNodes(consumerCandidatePaths);
+
+    const allFilesMap = new Map<string, FileNode>();
+    for (const f of files) allFilesMap.set(f.path, f);
+    for (const node of consumerFileNodes) allFilesMap.set(node.path, node);
+
+    const allConsumers: FileNode[] = [];
+    for (const node of consumerFileNodes) {
+      const referencesAnyTarget = node.imports.some(imp => imp.resolvedPath && filePathSet.has(imp.resolvedPath));
+      if (referencesAnyTarget && !filePathSet.has(node.path)) {
+        allConsumers.push(node);
+        filePathSet.add(node.path);
+      }
+    }
+    files.push(...allConsumers);
+
+    const edges = buildEdges(files);
+    const circularDeps = detectCircularDeps(edges);
+    const deadExports = detectDeadExports(
+      files.filter(f => f.path.startsWith(absolute)),
+      edges,
+      searchDir,
+      allFilesMap,
+    );
+
+    return { files, edges, circularDeps, deadExports };
+  } else {
+    const [targetFile] = extractFileNodes([absolute]);
+    files = [targetFile];
+
+    const candidatePaths = searchDir
+      ? findConsumerFiles(targetFile.path, searchDir)
+      : findConsumerFiles(targetFile.path);
+    const consumerFileNodes = extractFileNodes(candidatePaths);
+    const allFilesMap = new Map<string, FileNode>();
+    allFilesMap.set(targetFile.path, targetFile);
+
+    const filePathSet = new Set([targetFile.path]);
+    for (const node of consumerFileNodes) {
+      allFilesMap.set(node.path, node);
+      const referencesTarget = node.imports.some(imp => imp.resolvedPath === targetFile.path);
+      if (referencesTarget && !filePathSet.has(node.path)) {
+        files.push(node);
+        filePathSet.add(node.path);
+      }
+    }
+
+    const edges = buildEdges(files);
+    const circularDeps = detectCircularDeps(edges);
+    const deadExports = detectDeadExports([files[0]], edges, searchDir, allFilesMap);
+
+    return { files, edges, circularDeps, deadExports };
+  }
+}
+
 export function buildDependencyGraph(
   targetPath: string,
-  options?: { searchDir?: string; filter?: FileFilter },
+  options?: { searchDir?: string; filter?: FileFilter; noCache?: boolean },
 ): DependencyGraph {
   const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
 
   const stat = fs.statSync(absolute);
   const isDirectory = stat.isDirectory();
   const searchDir = options?.searchDir;
+  const filter = options?.filter ?? 'production';
+  const noCache = options?.noCache ?? false;
 
-  let files: FileNode[];
-
+  // Disk cache keyed by target directory content hash.
+  // Invalidation: any file content change in the target directory.
+  // External consumer changes require --no-cache to force refresh.
   if (isDirectory) {
-    const filePaths = getFilesInDirectory(absolute, options?.filter ?? 'production');
-    files = filePaths.map(fp => analyzeFile(fp));
+    const filePaths = getFilesInDirectory(absolute, filter);
+    const cacheToolName = `ast-imports-graph${searchDir ? `-${path.basename(searchDir)}` : ''}`;
 
-    // Add consumer files from outside the directory
-    const allConsumers: FileNode[] = [];
-    const filePathSet = new Set(files.map(f => f.path));
-
-    for (const file of files) {
-      const consumers = findConsumersForFile(file, searchDir);
-      for (const consumer of consumers) {
-        if (!filePathSet.has(consumer.path)) {
-          allConsumers.push(consumer);
-          filePathSet.add(consumer.path);
-        }
-      }
-    }
-
-    files.push(...allConsumers);
-  } else {
-    const targetFile = analyzeFile(absolute);
-    files = [targetFile];
-
-    // Add consumer files
-    const consumers = findConsumersForFile(targetFile, searchDir);
-    const filePathSet = new Set([targetFile.path]);
-
-    for (const consumer of consumers) {
-      if (!filePathSet.has(consumer.path)) {
-        files.push(consumer);
-        filePathSet.add(consumer.path);
-      }
-    }
+    return cachedDirectory<DependencyGraph>(
+      cacheToolName,
+      absolute,
+      filePaths,
+      () => computeDependencyGraph(absolute, true, searchDir, filter),
+      { noCache },
+    );
   }
 
-  const edges = buildEdges(files);
-  const circularDeps = detectCircularDeps(edges);
-  const deadExports = detectDeadExports(
-    isDirectory ? files.filter(f => f.path.startsWith(absolute)) : [files[0]],
-    edges,
-    searchDir,
-  );
+  const filePaths = [absolute];
+  const cacheToolName = `ast-imports-graph-file${searchDir ? `-${path.basename(searchDir)}` : ''}`;
 
-  return { files, edges, circularDeps, deadExports };
+  return cachedDirectory<DependencyGraph>(
+    cacheToolName,
+    path.dirname(absolute),
+    filePaths,
+    () => computeDependencyGraph(absolute, false, searchDir, filter),
+    { noCache },
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -914,7 +1580,7 @@ function main(): void {
         '\n' +
         '  <path...>     One or more files or directories to analyze\n' +
         '  --pretty      Format JSON output with indentation\n' +
-        '  --no-cache    Bypass cache and recompute (no-op for this tool)\n' +
+        '  --no-cache    Bypass disk cache and recompute\n' +
         '  --test-files  Scan test files instead of production files\n' +
         '  --kind        Filter observations to a specific kind\n' +
         '  --count       Output observation kind counts instead of full data\n' +
@@ -925,7 +1591,7 @@ function main(): void {
     process.exit(0);
   }
 
-  // --consumers mode: reverse lookup (find importers of a given file)
+  // --consumers mode: reverse lookup
   if (args.options.consumers) {
     const targetPath = args.options.consumers;
     const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
@@ -934,8 +1600,17 @@ function main(): void {
       fatal(`Path does not exist: ${targetPath}`);
     }
 
-    const targetFile = analyzeFile(absolute);
-    const consumers = findConsumersForFile(targetFile);
+    const [targetFile] = extractFileNodes([absolute]);
+    const candidatePaths = findConsumerFiles(targetFile.path);
+    const candidateNodes = extractFileNodes(candidatePaths);
+
+    const allFilesMap = new Map<string, FileNode>();
+    allFilesMap.set(targetFile.path, targetFile);
+    for (const node of candidateNodes) {
+      allFilesMap.set(node.path, node);
+    }
+
+    const consumers = findConsumersForFile(targetFile, undefined, allFilesMap);
     const consumerPaths = consumers.map(c => c.relativePath);
 
     if (args.pretty) {
@@ -961,10 +1636,15 @@ function main(): void {
       fatal(`Path does not exist: ${targetPath}`);
     }
 
-    allGraphs.push(buildDependencyGraph(targetPath, { filter: testFiles ? 'test' : 'production' }));
+    allGraphs.push(
+      buildDependencyGraph(targetPath, {
+        filter: testFiles ? 'test' : 'production',
+        noCache: args.flags.has('no-cache'),
+      }),
+    );
   }
 
-  // --symbol mode: filter to files importing a specific named export
+  // --symbol mode
   if (args.options.symbol) {
     const symbol = args.options.symbol;
     const matchingFiles: { file: string; source: string; line: number; specifiers: string[] }[] = [];
@@ -984,11 +1664,7 @@ function main(): void {
       }
     }
 
-    const output = {
-      symbol,
-      consumers: matchingFiles.length,
-      files: matchingFiles,
-    };
+    const output = { symbol, consumers: matchingFiles.length, files: matchingFiles };
     process.stdout.write(JSON.stringify(output, null, args.pretty ? 2 : 0) + '\n');
     return;
   }

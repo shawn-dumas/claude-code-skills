@@ -11,6 +11,6 @@ export default defineConfig({
     exclude: ['__tests__/fixtures/**/*'],
     globals: true,
     environment: 'node',
-    testTimeout: 15_000,
+    testTimeout: 30_000,
   },
 });

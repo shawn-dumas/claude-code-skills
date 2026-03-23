@@ -252,8 +252,8 @@ All observation tools accept these flags:
 - `--no-cache` -- bypass the file-content cache
 
 Exceptions: `ast-test-analysis` omits `--test-files` (always scans test
-files by design). `ast-imports` omits `--no-cache` (builds a cross-file
-dependency graph, no per-file cache).
+files by design). `ast-imports` caches the full dependency graph to disk
+(keyed by target directory content hash); `--no-cache` forces recompute.
 
 ## 5. Authority Rules
 

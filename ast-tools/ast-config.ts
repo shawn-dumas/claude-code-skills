@@ -1273,6 +1273,8 @@ export interface PriorityRule {
 export const PRIORITY_RULES: PriorityRule[] = [
   // P1
   { kind: 'bug', condition: 'authz OR crash OR CVE-critical', priority: 'P1' },
+  { kind: 'RAW_ROLE_CHECK', condition: 'always (authz outside canonical files)', priority: 'P1' },
+  { kind: 'RAW_ROLE_EQUALITY', condition: 'always (authz outside canonical files)', priority: 'P1' },
   { kind: 'complexity-hotspot', condition: 'CC >= 25', priority: 'P1' },
   // P2
   { kind: 'bug', condition: 'CVE-high', priority: 'P2' },
@@ -1315,6 +1317,8 @@ const CONFIDENCE_RANK: Record<string, number> = {
 /** Unconditional kind-to-priority mappings (no context needed). */
 const UNCONDITIONAL_PRIORITY: Record<string, FindingPriority> = {
   'trust-boundary-gap': 'P2',
+  RAW_ROLE_CHECK: 'P1',
+  RAW_ROLE_EQUALITY: 'P1',
   'ddau-violation': 'P3',
   'eliminable-effect': 'P3',
   'cross-domain-coupling': 'P3',

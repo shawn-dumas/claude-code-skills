@@ -4,6 +4,8 @@ export interface ImportInfo {
   specifiers: string[];
   isTypeOnly: boolean;
   line: number;
+  /** Absolute path to the resolved module. Populated by buildDependencyGraph's eager resolution pass. */
+  resolvedPath?: string;
 }
 
 export interface ExportInfo {
