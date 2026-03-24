@@ -3,7 +3,7 @@ name: validate-plan
 description: Validate an orchestration plan after pre-flight certification. Runs adversarial review, deep review (verify prompt data against codebase), and PoC gate for risky approaches. Auto-invoked by orchestrate-* skills at Step 8.
 context: fork
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Task, TodoWrite, Question
-argument-hint: "The plan file path (e.g., '~/plans/authz-enforcement.md')"
+argument-hint: The plan file path (e.g., '~/plans/authz-enforcement.md')
 ---
 
 <!-- role: guidance -->

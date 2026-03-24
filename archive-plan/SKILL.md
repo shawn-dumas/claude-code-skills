@@ -3,7 +3,7 @@ name: archive-plan
 description: Archive a completed orchestration plan. Collects execution metrics, calibrates scores, gzips prompts, updates historical-reference.md, and disposes cleanup items.
 context: fork
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Task, TodoWrite
-argument-hint: "The plan file name (e.g., 'authz-enforcement' or 'authz-enforcement.md')"
+argument-hint: The plan file name (e.g., 'authz-enforcement' or 'authz-enforcement.md')
 ---
 
 <!-- role: guidance -->

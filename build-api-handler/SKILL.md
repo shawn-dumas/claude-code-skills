@@ -3,7 +3,7 @@ name: build-api-handler
 description: Generate a new Next.js API route handler with co-located schema, pure-core extraction, and middleware composition. Enforces G4 complexity limits with AST verification.
 context: fork
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write
-argument-hint: "The API endpoint path and HTTP methods (e.g., '/api/users/teams POST,PUT')"
+argument-hint: The API endpoint path and HTTP methods (e.g., '/api/users/teams POST,PUT')
 ---
 
 Generate a new Next.js BFF API route handler. `$ARGUMENTS`

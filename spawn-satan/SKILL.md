@@ -3,7 +3,7 @@ name: spawn-satan
 description: Adversarial code review. Gathers the recent diff and changed files, launches a ruthless critic sub-agent, then addresses every finding (accept and fix, or reject with justification).
 context: fork
 allowed-tools: Read, Bash, Task
-argument-hint: "[<commit-range>] [--stash]"
+argument-hint: [<commit-range>] [--stash]
 ---
 
 Run an adversarial code review of specified changes.

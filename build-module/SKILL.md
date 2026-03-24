@@ -3,7 +3,7 @@ name: build-module
 description: Generate a new non-React TypeScript module (utility, transformer, validator, data processor) following G1-G10 principles. Not for React components, hooks, or API handlers -- use the matching skill for those.
 context: fork
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write
-argument-hint: "The module name and purpose (e.g., 'calculatePeriodEnds -- compute start/end dates for billing periods')"
+argument-hint: The module name and purpose (e.g., 'calculatePeriodEnds -- compute start/end dates for billing periods')
 ---
 
 Generate a new TypeScript module. `$ARGUMENTS`

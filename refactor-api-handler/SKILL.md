@@ -3,7 +3,7 @@ name: refactor-api-handler
 description: Refactor an existing API route handler to follow G1-G10 principles with handler-specific enforcement. Audits complexity, extracts pure core, adds Zod schemas, normalizes error handling.
 context: fork
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write
-argument-hint: "The API handler file path (e.g., 'src/pages/api/users/update.ts')"
+argument-hint: The API handler file path (e.g., 'src/pages/api/users/update.ts')
 ---
 
 Refactor the API route handler at `$ARGUMENTS`.
