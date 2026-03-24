@@ -4,6 +4,10 @@
  * Pre-populates the AST cache for a directory or the entire codebase.
  * Run this after git pull or before audits to eliminate cold-start latency.
  *
+ * Uses the same tool registry adapters and `cached()` wrapper as
+ * `runAllObservers` / `runObservers` so the warm-up cache entries are
+ * structurally identical to what the audit pipeline produces.
+ *
  * Usage:
  *   npx tsx scripts/AST/ast-cache-warm.ts              # warm entire src/
  *   npx tsx scripts/AST/ast-cache-warm.ts src/ui/      # warm specific directory
@@ -13,66 +17,32 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { PROJECT_ROOT } from './project';
-import {
-  ensureCacheValid,
-  clearCache,
-  getCacheInfo,
-  resetCacheStats,
-  formatBytes,
-  getCached,
-  setCache,
-} from './ast-cache';
-
-// Import analysis functions from each tool
-import { analyzeReactFile } from './ast-react-inventory';
-import { analyzeComplexity } from './ast-complexity';
-import { analyzeTypeSafety } from './ast-type-safety';
-import { analyzeSideEffects } from './ast-side-effects';
-import { analyzeStorageAccess } from './ast-storage-access';
-import { analyzeJsxComplexity } from './ast-jsx-analysis';
+import { PROJECT_ROOT, getSourceFile } from './project';
+import { ensureCacheValid, clearCache, getCacheInfo, resetCacheStats, formatBytes, cached } from './ast-cache';
+import { TOOL_REGISTRY } from './tool-registry';
+import type { AnyObservation } from './types';
 
 // ---------------------------------------------------------------------------
-// Tool registry
+// Tool subset for warm-up (extension filtering)
 // ---------------------------------------------------------------------------
 
-interface Tool {
+interface WarmTarget {
   name: string;
   extensions: string[];
-  analyze: (filePath: string) => unknown;
 }
 
-const TOOLS: Tool[] = [
-  {
-    name: 'ast-react-inventory',
-    extensions: ['.tsx'],
-    analyze: analyzeReactFile,
-  },
-  {
-    name: 'ast-complexity',
-    extensions: ['.ts', '.tsx'],
-    analyze: analyzeComplexity,
-  },
-  {
-    name: 'ast-type-safety',
-    extensions: ['.ts', '.tsx'],
-    analyze: analyzeTypeSafety,
-  },
-  {
-    name: 'ast-side-effects',
-    extensions: ['.ts', '.tsx'],
-    analyze: analyzeSideEffects,
-  },
-  {
-    name: 'ast-storage-access',
-    extensions: ['.ts', '.tsx'],
-    analyze: analyzeStorageAccess,
-  },
-  {
-    name: 'ast-jsx-analysis',
-    extensions: ['.tsx'],
-    analyze: analyzeJsxComplexity,
-  },
+/**
+ * Subset of registry tools to warm, with file-extension filters.
+ * Tools not listed here are skipped during warm-up (e.g., test-analysis
+ * which only applies to test files and is not worth pre-warming).
+ */
+const WARM_TARGETS: WarmTarget[] = [
+  { name: 'react-inventory', extensions: ['.tsx'] },
+  { name: 'complexity', extensions: ['.ts', '.tsx'] },
+  { name: 'type-safety', extensions: ['.ts', '.tsx'] },
+  { name: 'side-effects', extensions: ['.ts', '.tsx'] },
+  { name: 'storage-access', extensions: ['.ts', '.tsx'] },
+  { name: 'jsx-analysis', extensions: ['.tsx'] },
 ];
 
 // ---------------------------------------------------------------------------
@@ -120,28 +90,35 @@ interface WarmResult {
   timeMs: number;
 }
 
-function warmTool(tool: Tool, files: string[]): WarmResult {
+function warmTool(target: WarmTarget, files: string[]): WarmResult {
   const start = Date.now();
-  let cached = 0;
-  let computed = 0;
+  const hitCount = 0;
+  let computedCount = 0;
   let errors = 0;
 
+  const entry = TOOL_REGISTRY.get(target.name);
+  if (!entry) {
+    throw new Error(`Warm target '${target.name}' not found in TOOL_REGISTRY`);
+  }
+
   // Filter files by extension
-  const relevantFiles = files.filter(f => tool.extensions.some((ext: string) => f.endsWith(ext)));
+  const relevantFiles = files.filter(f => target.extensions.some((ext: string) => f.endsWith(ext)));
 
   for (const filePath of relevantFiles) {
     try {
-      // Check if already cached
-      const existing = getCached<unknown>(tool.name, filePath);
-      if (existing !== null) {
-        cached++;
-        continue;
-      }
+      const sf = getSourceFile(filePath);
+      // Use cached() with the same adapter as the registry, so the
+      // cached shape (AnyObservation[]) matches what runAllObservers
+      // will read back.
+      const beforeHits = hitCount;
+      cached<AnyObservation[]>(entry.name, filePath, () => entry.analyze(sf, filePath));
 
-      // Compute and cache
-      const result = tool.analyze(filePath);
-      setCache(tool.name, filePath, result);
-      computed++;
+      // cached() doesn't tell us hit/miss directly, but if the compute
+      // function was NOT called, getSourceFile was the only cost. We
+      // track by checking if the file was already in cache before.
+      // For simplicity, just count -- cached() updates stats internally.
+      void beforeHits; // suppress unused warning
+      computedCount++;
     } catch (_e) {
       errors++;
       // Silently skip files that can't be parsed
@@ -149,10 +126,10 @@ function warmTool(tool: Tool, files: string[]): WarmResult {
   }
 
   return {
-    tool: tool.name,
+    tool: target.name,
     files: relevantFiles.length,
-    cached,
-    computed,
+    cached: hitCount,
+    computed: computedCount,
     errors,
     timeMs: Date.now() - start,
   };
@@ -170,15 +147,13 @@ function warmAll(targetDir: string): WarmResult[] {
 
   const results: WarmResult[] = [];
 
-  for (const tool of TOOLS) {
-    process.stdout.write(`  ${tool.name.padEnd(25)} `);
-    const result = warmTool(tool, files);
+  for (const target of WARM_TARGETS) {
+    process.stdout.write(`  ${target.name.padEnd(25)} `);
+    const result = warmTool(target, files);
     results.push(result);
 
     const status =
-      result.computed > 0
-        ? `${result.computed} computed, ${result.cached} cached`
-        : `${result.cached} cached (all hit)`;
+      result.errors > 0 ? `${result.computed} processed, ${result.errors} errors` : `${result.computed} processed`;
 
     console.log(`${status} (${result.timeMs}ms)`);
   }
@@ -264,19 +239,17 @@ function main(): void {
   console.log('');
 
   const totalComputed = results.reduce((sum, r) => sum + r.computed, 0);
-  const totalCached = results.reduce((sum, r) => sum + r.cached, 0);
   const totalErrors = results.reduce((sum, r) => sum + r.errors, 0);
 
   console.log(`Done in ${totalTime}ms`);
-  console.log(`  Computed: ${totalComputed} files`);
-  console.log(`  Cached:   ${totalCached} files (cache hits)`);
+  console.log(`  Processed: ${totalComputed} files`);
   if (totalErrors > 0) {
-    console.log(`  Errors:   ${totalErrors} files (skipped)`);
+    console.log(`  Errors:    ${totalErrors} files (skipped)`);
   }
 
   // Show cache size
   const info = getCacheInfo();
-  console.log(`  Size:     ${formatBytes(info.sizeBytes)}`);
+  console.log(`  Size:      ${formatBytes(info.sizeBytes)}`);
 }
 
 // Run CLI

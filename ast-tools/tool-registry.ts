@@ -10,6 +10,7 @@
 
 import type { SourceFile } from 'ts-morph';
 import type { AnyObservation } from './types';
+import { cached } from './ast-cache';
 
 // Tool imports -- each tool's observation extraction function
 import { analyzeComplexity, extractComplexityObservations } from './ast-complexity';
@@ -234,11 +235,17 @@ export const TOOL_REGISTRY: ReadonlyMap<string, ToolEntry> = new Map(entries.map
 
 /**
  * Run all registered observation tools on a single source file.
+ * Each tool's output is cached by file content hash via `cached()`.
  */
-export function runAllObservers(sourceFile: SourceFile, filePath: string): AnyObservation[] {
+export function runAllObservers(
+  sourceFile: SourceFile,
+  filePath: string,
+  options: { noCache?: boolean } = {},
+): AnyObservation[] {
   const observations: AnyObservation[] = [];
   for (const entry of entries) {
-    observations.push(...entry.analyze(sourceFile, filePath));
+    const result = cached<AnyObservation[]>(entry.name, filePath, () => entry.analyze(sourceFile, filePath), options);
+    observations.push(...result);
   }
   return observations;
 }
@@ -247,14 +254,20 @@ export function runAllObservers(sourceFile: SourceFile, filePath: string): AnyOb
  * Run a subset of observation tools by name.
  * Throws if any tool name is not found in the registry.
  */
-export function runObservers(sourceFile: SourceFile, filePath: string, toolNames: string[]): AnyObservation[] {
+export function runObservers(
+  sourceFile: SourceFile,
+  filePath: string,
+  toolNames: string[],
+  options: { noCache?: boolean } = {},
+): AnyObservation[] {
   const observations: AnyObservation[] = [];
   for (const name of toolNames) {
     const entry = TOOL_REGISTRY.get(name);
     if (!entry) {
       throw new Error(`Unknown tool name: '${name}'. Available: ${getToolNames().join(', ')}`);
     }
-    observations.push(...entry.analyze(sourceFile, filePath));
+    const result = cached<AnyObservation[]>(entry.name, filePath, () => entry.analyze(sourceFile, filePath), options);
+    observations.push(...result);
   }
   return observations;
 }

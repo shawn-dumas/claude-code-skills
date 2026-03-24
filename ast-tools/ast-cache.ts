@@ -45,6 +45,9 @@ interface CacheStats {
 // Runtime stats for reporting
 const stats: CacheStats = { hits: 0, misses: 0 };
 
+// Memoized cache validity: once validated per process, skip repeat I/O
+let cacheValidated = false;
+
 // ---------------------------------------------------------------------------
 // Hash utilities
 // ---------------------------------------------------------------------------
@@ -84,12 +87,15 @@ function getConfigHash(): string {
  * Returns true if cache is valid, false if it was cleared.
  */
 export function ensureCacheValid(): boolean {
+  if (cacheValidated) return true;
+
   const currentConfigHash = getConfigHash();
 
   // Create cache dir if missing
   if (!fs.existsSync(CACHE_DIR)) {
     fs.mkdirSync(CACHE_DIR, { recursive: true });
     writeMeta(currentConfigHash);
+    cacheValidated = true;
     return false;
   }
 
@@ -97,6 +103,7 @@ export function ensureCacheValid(): boolean {
   if (!fs.existsSync(META_FILE)) {
     clearCache();
     writeMeta(currentConfigHash);
+    cacheValidated = true;
     return false;
   }
 
@@ -105,9 +112,11 @@ export function ensureCacheValid(): boolean {
   if (meta.configHash !== currentConfigHash) {
     clearCache();
     writeMeta(currentConfigHash);
+    cacheValidated = true;
     return false;
   }
 
+  cacheValidated = true;
   return true;
 }
 
@@ -138,6 +147,7 @@ export function clearCache(): void {
   if (fs.existsSync(CACHE_DIR)) {
     fs.rmSync(CACHE_DIR, { recursive: true, force: true });
   }
+  cacheValidated = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -151,7 +161,7 @@ export function clearCache(): void {
 export function getCached<T>(toolName: string, filePath: string): T | null {
   ensureCacheValid();
 
-  const contentHash = hashFileContent(filePath);
+  const contentHash = getFileHash(filePath);
   const cacheFile = path.join(CACHE_DIR, toolName, `${contentHash}.json`);
 
   if (!fs.existsSync(cacheFile)) {
@@ -175,7 +185,7 @@ export function getCached<T>(toolName: string, filePath: string): T | null {
 export function setCache<T>(toolName: string, filePath: string, result: T): void {
   ensureCacheValid();
 
-  const contentHash = hashFileContent(filePath);
+  const contentHash = getFileHash(filePath);
   const toolDir = path.join(CACHE_DIR, toolName);
   const cacheFile = path.join(toolDir, `${contentHash}.json`);
 

@@ -288,6 +288,7 @@ function commonAncestor(paths: string[]): string {
 export function main(): void {
   const args = parseAuditArgs(process.argv);
   const startTime = Date.now();
+  let phaseStart = performance.now();
 
   // Phase 1: File discovery
   process.stderr.write('Phase 1: Discovering files...\n');
@@ -308,8 +309,10 @@ export function main(): void {
     }
   }
   process.stderr.write(`  ${prodFiles.length} production files, ${testFiles.length} test files\n`);
+  process.stderr.write(`  Phase 1: ${(performance.now() - phaseStart).toFixed(0)}ms\n`);
 
-  // Phase 2: Observation collection (per-file, cached)
+  // Phase 2: Observation collection (per-file, per-tool content-hash cache)
+  phaseStart = performance.now();
   process.stderr.write('Phase 2: Collecting observations...\n');
   const allObservations: Observation[] = [];
   const testObsByFile = new Map<string, TestObservation[]>();
@@ -318,7 +321,7 @@ export function main(): void {
   for (const fp of prodFiles) {
     try {
       const sf = getSourceFile(fp);
-      const obs = runAllObservers(sf, fp);
+      const obs = runAllObservers(sf, fp, { noCache: args.noCache });
       allObservations.push(...obs);
       obsCount += obs.length;
     } catch (e) {
@@ -331,7 +334,7 @@ export function main(): void {
   for (const fp of testFiles) {
     try {
       const sf = getSourceFile(fp);
-      const obs = runObservers(sf, fp, ['test-analysis', 'test-coverage']);
+      const obs = runObservers(sf, fp, ['test-analysis', 'test-coverage'], { noCache: args.noCache });
       const testObs = obs.filter(
         (o): o is TestObservation =>
           o.kind === 'TEST_SUBJECT_IMPORT' ||
@@ -369,8 +372,10 @@ export function main(): void {
     }
   }
   process.stderr.write(`  ${obsCount} observations collected\n`);
+  process.stderr.write(`  Phase 2: ${(performance.now() - phaseStart).toFixed(0)}ms\n`);
 
   // Phase 3: Import graph (disk-cached)
+  phaseStart = performance.now();
   process.stderr.write('Phase 3: Building import graph...\n');
   // Build graph from common ancestor of all target paths so multi-path
   // invocations (e.g., `ast-audit src/ui/ src/server/`) cover everything.
@@ -382,8 +387,10 @@ export function main(): void {
   process.stderr.write(
     `  ${importObs.observations.length} import observations, ${graph.circularDeps.length} circular deps\n`,
   );
+  process.stderr.write(`  Phase 3: ${(performance.now() - phaseStart).toFixed(0)}ms\n`);
 
   // Phase 4: Interpreter chain
+  phaseStart = performance.now();
   process.stderr.write('Phase 4: Running interpreters...\n');
   const groups = groupObservations(allObservations);
 
@@ -424,8 +431,10 @@ export function main(): void {
     ownershipResult.assessments.length +
     allTestQualityAssessments.length;
   process.stderr.write(`  ${totalAssessments} assessments produced\n`);
+  process.stderr.write(`  Phase 4: ${(performance.now() - phaseStart).toFixed(0)}ms\n`);
 
   // Phase 5: Finding mapping
+  phaseStart = performance.now();
   process.stderr.write('Phase 5: Mapping findings...\n');
   const allFindings: Finding[] = [
     ...observationsToFindings(groups.all),
@@ -439,8 +448,10 @@ export function main(): void {
   ];
 
   let findings = deduplicateAndSort(allFindings);
+  process.stderr.write(`  Phase 5: ${(performance.now() - phaseStart).toFixed(0)}ms\n`);
 
   // Phase 6: Filters
+  phaseStart = performance.now();
   findings = filterByPriority(findings, args.minPriority);
   if (args.track) {
     findings = findings.filter(f => f.track === args.track);
@@ -448,11 +459,13 @@ export function main(): void {
 
   const cacheStats = getCacheStats();
   const durationMs = Date.now() - startTime;
+  process.stderr.write(`  Phase 6: ${(performance.now() - phaseStart).toFixed(0)}ms\n`);
   process.stderr.write(
     `  ${findings.length} findings (${durationMs}ms, cache: ${cacheStats.hits} hits / ${cacheStats.misses} misses)\n`,
   );
 
   // Phase 7: Output
+  phaseStart = performance.now();
   if (args.json) {
     process.stdout.write(renderJson(findings) + '\n');
   } else {
@@ -482,7 +495,10 @@ export function main(): void {
     }
   }
 
+  process.stderr.write(`  Phase 7: ${(performance.now() - phaseStart).toFixed(0)}ms\n`);
+
   // Phase 8: Diff (optional)
+  phaseStart = performance.now();
   if (args.diffDir) {
     const diffPath = path.isAbsolute(args.diffDir) ? args.diffDir : path.resolve(process.cwd(), args.diffDir);
     const prevFile = path.join(diffPath, 'findings.json');
@@ -502,6 +518,7 @@ export function main(): void {
       process.stdout.write('\n' + diffMd);
     }
   }
+  process.stderr.write(`  Phase 8: ${(performance.now() - phaseStart).toFixed(0)}ms\n`);
 }
 
 // ---------------------------------------------------------------------------
