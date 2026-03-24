@@ -470,12 +470,14 @@ function rawCollectDirectExportNames(sf: ts.SourceFile): ExportInfo[] {
     // as a modifier -- check them before the modifier guard.
     if (ts.isExportDeclaration(stmt)) {
       if (stmt.exportClause && ts.isNamedExports(stmt.exportClause)) {
+        const hasModuleSpecifier = !!stmt.moduleSpecifier;
         for (const el of stmt.exportClause.elements) {
           results.push({
             name: el.name.text,
-            kind: stmt.moduleSpecifier ? 'reexport' : 'const',
+            kind: hasModuleSpecifier ? 'reexport' : 'const',
             isTypeOnly: stmt.isTypeOnly,
             line: rawLine(sf, el.getStart()),
+            ...(hasModuleSpecifier && { isReexport: true }),
           });
         }
       }
@@ -707,11 +709,11 @@ function rawExtractExports(sf: ts.SourceFile, filePath: string): ExportInfo[] {
       // Creates a single named export (the namespace object), NOT individual re-exports.
       const nsName = stmt.exportClause.name.text;
       reexportedNames.add(nsName);
-      exports.push({ name: nsName, kind: 'const', isTypeOnly, line });
+      exports.push({ name: nsName, kind: 'const', isTypeOnly, line, isReexport: true });
     } else if (!stmt.exportClause) {
       // Star re-export: export * from './module'
       // Keep the * entry AND resolve individual names.
-      exports.push({ name: `* from ${moduleSpecifier}`, kind: 'reexport', isTypeOnly, line });
+      exports.push({ name: `* from ${moduleSpecifier}`, kind: 'reexport', isTypeOnly, line, isReexport: true });
 
       // Follow the chain to enumerate individual exported names.
       // Preserve the original kind from the source file (function, const, type, etc.)
@@ -720,14 +722,31 @@ function rawExtractExports(sf: ts.SourceFile, filePath: string): ExportInfo[] {
       for (const exp of resolved) {
         if (!reexportedNames.has(exp.name)) {
           reexportedNames.add(exp.name);
-          exports.push({ name: exp.name, kind: exp.kind, isTypeOnly: isTypeOnly || exp.isTypeOnly, line });
+          exports.push({
+            name: exp.name,
+            kind: exp.kind,
+            isTypeOnly: isTypeOnly || exp.isTypeOnly,
+            line,
+            isReexport: true,
+          });
         }
       }
     } else if (ts.isNamedExports(stmt.exportClause)) {
+      const targetPath = resolveModulePath(moduleSpecifier, filePath);
       for (const el of stmt.exportClause.elements) {
         const exportName = el.name.text;
         reexportedNames.add(exportName);
-        exports.push({ name: exportName, kind: 'reexport', isTypeOnly, line });
+        const localName = (el.propertyName ?? el.name).text;
+        let kind: ExportInfo['kind'] = 'reexport';
+        let resolvedTypeOnly = isTypeOnly;
+        if (targetPath) {
+          const resolved = resolveNamedExportKind(localName, targetPath);
+          if (resolved) {
+            kind = resolved.kind;
+            resolvedTypeOnly = isTypeOnly || resolved.isTypeOnly;
+          }
+        }
+        exports.push({ name: exportName, kind, isTypeOnly: resolvedTypeOnly, line, isReexport: true });
       }
     }
   }
@@ -788,7 +807,7 @@ function rawExtractExports(sf: ts.SourceFile, filePath: string): ExportInfo[] {
         const kind = rawClassifyDeclaration(stmt);
         const isTypeOnly = kind === 'type' || kind === 'interface';
         if (reexportedNames.has(name)) {
-          const existing = exports.find(e => e.name === name && e.kind !== 'reexport');
+          const existing = exports.find(e => e.name === name && !e.isReexport && e.kind !== 'reexport');
           if (existing) existing.kind = 'reexport';
         } else if (!exports.some(e => e.name === name)) {
           // Deduplicate: declaration merging (type + const with same name)
@@ -811,7 +830,7 @@ function rawExtractExports(sf: ts.SourceFile, filePath: string): ExportInfo[] {
         for (const { name, line: declLine } of names) {
           const kind = rawClassifyDeclaration(decl);
           if (reexportedNames.has(name)) {
-            const existing = exports.find(e => e.name === name && e.kind !== 'reexport');
+            const existing = exports.find(e => e.name === name && !e.isReexport && e.kind !== 'reexport');
             if (existing) existing.kind = 'reexport';
           } else if (!exports.some(e => e.name === name)) {
             exports.push({ name, kind, isTypeOnly: false, line: declLine });
@@ -1109,7 +1128,8 @@ function isReexportedByBarrel(
     const fileNode = allFiles?.get(consumer);
     if (fileNode) {
       return fileNode.exports.some(
-        exp => exp.kind === 'reexport' && (exp.name === exportName || exp.name.startsWith('* from ')),
+        exp =>
+          (exp.isReexport ?? exp.kind === 'reexport') && (exp.name === exportName || exp.name.startsWith('* from ')),
       );
     }
 
@@ -1211,7 +1231,7 @@ function detectDeadExports(
     if (isNextJsPage(file.path)) continue;
 
     for (const exp of file.exports) {
-      if (exp.kind === 'reexport') continue;
+      if (exp.isReexport ?? exp.kind === 'reexport') continue;
       if (exp.name.startsWith('* from ')) continue;
 
       if (isConsumedByEdge(exp.name, file.relativePath, allEdges)) continue;
@@ -1320,7 +1340,7 @@ function extractExportObservations(file: FileNode): ImportObservation[] {
   const observations: ImportObservation[] = [];
 
   for (const exp of file.exports) {
-    if (exp.kind === 'reexport') {
+    if (exp.isReexport ?? exp.kind === 'reexport') {
       observations.push({
         kind: 'REEXPORT_IMPORT' as ImportObservationKind,
         file: file.relativePath,

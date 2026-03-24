@@ -102,6 +102,7 @@ const ROUTES: ReadonlyMap<string, StandardRoute> = new Map([
   ['interpret-vitest', { tool: 'ast-interpret-vitest-parity', flags: [] }],
   ['interpret-test-coverage', { tool: 'ast-interpret-test-coverage', flags: [] }],
   ['interpret-skill', { tool: 'ast-interpret-skill-quality', flags: [] }],
+  ['audit', { tool: 'ast-audit', flags: [] }],
 ]);
 
 // ---------------------------------------------------------------------------
@@ -206,6 +207,9 @@ Available query types:
     interpret-vitest          Vitest test parity
     interpret-test-coverage   Test coverage gap classification
     interpret-skill           Skill file quality classification
+
+  Audit:
+    audit                     Deterministic codebase audit (observations + interpreters + findings)
 
   Unroutable (use direct invocation):
     bff-gaps         npx tsx scripts/AST/ast-bff-gaps.ts (no args)

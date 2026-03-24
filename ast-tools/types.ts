@@ -13,6 +13,8 @@ export interface ExportInfo {
   kind: 'function' | 'class' | 'type' | 'interface' | 'const' | 'enum' | 'default' | 'reexport';
   isTypeOnly: boolean;
   line: number;
+  /** True when this export originates from a re-export declaration (export { X } from './y' or export * from './y'). */
+  isReexport?: boolean;
 }
 
 export interface FileNode {
@@ -1802,4 +1804,30 @@ export interface SkillQualityReport {
   readonly conventionDriftCount: number;
   readonly missingRoleCount: number;
   readonly missingRequiredRoleCount: number;
+}
+
+// ============================================================
+// Audit Finding Types (ast-audit)
+// ============================================================
+
+export type FindingCategory = 'Bug' | 'Architecture' | 'Testing' | 'Style';
+export type FindingTrack = 'fe' | 'bff';
+
+/** Mirrors FindingPriority from ast-config.ts to avoid circular import. */
+export type AuditPriority = 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
+
+export interface Finding {
+  readonly id: string;
+  readonly kind: string;
+  readonly priority: AuditPriority;
+  readonly category: FindingCategory;
+  readonly file: string;
+  readonly line?: number;
+  readonly symbol?: string;
+  readonly evidence: string;
+  readonly rationale: readonly string[];
+  readonly confidence: 'high' | 'medium' | 'low';
+  readonly source: string;
+  readonly astConfirmed: boolean;
+  readonly track: FindingTrack;
 }

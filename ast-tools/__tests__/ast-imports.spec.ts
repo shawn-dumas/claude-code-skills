@@ -107,18 +107,22 @@ describe('ast-imports', () => {
   });
 
   describe('barrel re-exports', () => {
-    it('tracks re-exports in barrel file', () => {
-      const graph = buildDependencyGraph(fixturePath('barrel-reexport.ts'), { searchDir: FIXTURES_DIR });
+    it('tracks re-exports in barrel file with resolved kinds', () => {
+      const graph = buildDependencyGraph(fixturePath('barrel-reexport.ts'), {
+        searchDir: FIXTURES_DIR,
+        noCache: true,
+      });
 
       const barrelFile = graph.files.find(f => f.relativePath.endsWith('barrel-reexport.ts'));
       expect(barrelFile).toBeDefined();
 
-      // The barrel should have re-export entries
-      const reexports = barrelFile!.exports.filter(e => e.kind === 'reexport');
-      expect(reexports.length).toBeGreaterThanOrEqual(4);
+      // Named re-exports now resolve to their source declaration kind
+      // (e.g., 'function' instead of 'reexport') via resolveNamedExportKind
+      expect(barrelFile!.exports.length).toBeGreaterThanOrEqual(4);
 
-      const buttonReexport = reexports.find(e => e.name === 'Button');
-      expect(buttonReexport).toBeDefined();
+      const buttonExport = barrelFile!.exports.find(e => e.name === 'Button');
+      expect(buttonExport).toBeDefined();
+      expect(buttonExport!.kind).toBe('function');
     });
 
     it('creates edges from barrel to source files', () => {
@@ -378,6 +382,170 @@ describe('ast-imports', () => {
       const firstCycle = circularDeps[0];
       expect(firstCycle.evidence.cyclePath).toBeDefined();
       expect(Array.isArray(firstCycle.evidence.cyclePath)).toBe(true);
+    });
+  });
+
+  describe('resolveNamedExportKind (via buildDependencyGraph)', () => {
+    it('resolves named re-export kind through a 1-level chain', () => {
+      const graph = buildDependencyGraph(fixturePath('reexport-chain-middle.ts'), {
+        searchDir: FIXTURES_DIR,
+        noCache: true,
+      });
+
+      const middleFile = graph.files.find(f => f.relativePath.endsWith('reexport-chain-middle.ts'));
+      expect(middleFile).toBeDefined();
+
+      const fnExport = middleFile!.exports.find(e => e.name === 'chainedFunction');
+      expect(fnExport).toBeDefined();
+      expect(fnExport!.kind).toBe('function');
+      expect(fnExport!.isTypeOnly).toBe(false);
+
+      const typeExport = middleFile!.exports.find(e => e.name === 'ChainedType');
+      expect(typeExport).toBeDefined();
+      expect(typeExport!.kind).toBe('type');
+      expect(typeExport!.isTypeOnly).toBe(true);
+    });
+
+    it('resolves named re-export kind through a 2-level chain', () => {
+      const graph = buildDependencyGraph(fixturePath('reexport-chain-top.ts'), {
+        searchDir: FIXTURES_DIR,
+        noCache: true,
+      });
+
+      const topFile = graph.files.find(f => f.relativePath.endsWith('reexport-chain-top.ts'));
+      expect(topFile).toBeDefined();
+
+      const fnExport = topFile!.exports.find(e => e.name === 'chainedFunction');
+      expect(fnExport).toBeDefined();
+      expect(fnExport!.kind).toBe('function');
+
+      const typeExport = topFile!.exports.find(e => e.name === 'ChainedType');
+      expect(typeExport).toBeDefined();
+      expect(typeExport!.kind).toBe('type');
+    });
+
+    it('resolves default re-export through a chain', () => {
+      const graph = buildDependencyGraph(fixturePath('reexport-chain-middle.ts'), {
+        searchDir: FIXTURES_DIR,
+        noCache: true,
+      });
+
+      const middleFile = graph.files.find(f => f.relativePath.endsWith('reexport-chain-middle.ts'));
+      expect(middleFile).toBeDefined();
+
+      const defaultExport = middleFile!.exports.find(e => e.name === 'default');
+      expect(defaultExport).toBeDefined();
+      // resolveNamedExportKind follows the chain to the source declaration
+      // (export default function), so kind is 'function' not 'default'
+      expect(defaultExport!.kind).toBe('function');
+    });
+
+    it('resolves names transitively through star re-exports', () => {
+      const graph = buildDependencyGraph(fixturePath('reexport-star-transitive.ts'), {
+        searchDir: FIXTURES_DIR,
+        noCache: true,
+      });
+
+      const starFile = graph.files.find(f => f.relativePath.endsWith('reexport-star-transitive.ts'));
+      expect(starFile).toBeDefined();
+
+      // chainedFunction should be resolved via export * -> reexport-chain-source
+      const fnExport = starFile!.exports.find(e => e.name === 'chainedFunction');
+      expect(fnExport).toBeDefined();
+      expect(fnExport!.kind).toBe('function');
+
+      const typeExport = starFile!.exports.find(e => e.name === 'ChainedType');
+      expect(typeExport).toBeDefined();
+      expect(typeExport!.kind).toBe('type');
+    });
+  });
+
+  describe('namespace re-exports', () => {
+    it('creates a single named export per namespace re-export', () => {
+      const graph = buildDependencyGraph(fixturePath('reexport-namespace.ts'), {
+        searchDir: FIXTURES_DIR,
+        noCache: true,
+      });
+
+      const nsFile = graph.files.find(f => f.relativePath.endsWith('reexport-namespace.ts'));
+      expect(nsFile).toBeDefined();
+
+      const chainSourceNs = nsFile!.exports.find(e => e.name === 'ChainSource');
+      expect(chainSourceNs).toBeDefined();
+      expect(chainSourceNs!.kind).toBe('const');
+      expect(chainSourceNs!.isTypeOnly).toBe(false);
+
+      const typesNs = nsFile!.exports.find(e => e.name === 'Types');
+      expect(typesNs).toBeDefined();
+      expect(typesNs!.kind).toBe('const');
+    });
+
+    it('does not produce star entries for namespace re-exports', () => {
+      const graph = buildDependencyGraph(fixturePath('reexport-namespace.ts'), {
+        searchDir: FIXTURES_DIR,
+        noCache: true,
+      });
+
+      const nsFile = graph.files.find(f => f.relativePath.endsWith('reexport-namespace.ts'));
+      expect(nsFile).toBeDefined();
+
+      const starExports = nsFile!.exports.filter(e => e.name.startsWith('* from'));
+      expect(starExports).toHaveLength(0);
+    });
+  });
+
+  describe('destructured exports', () => {
+    it('extracts individual names from destructured const export', () => {
+      const graph = buildDependencyGraph(fixturePath('destructured-exports.ts'), {
+        searchDir: FIXTURES_DIR,
+        noCache: true,
+      });
+
+      const file = graph.files.find(f => f.relativePath.endsWith('destructured-exports.ts'));
+      expect(file).toBeDefined();
+
+      const names = file!.exports.map(e => e.name);
+      expect(names).toContain('host');
+      expect(names).toContain('port');
+      expect(names).toContain('debug');
+      expect(names).toContain('REGULAR');
+    });
+
+    it('classifies destructured exports as const', () => {
+      const graph = buildDependencyGraph(fixturePath('destructured-exports.ts'), {
+        searchDir: FIXTURES_DIR,
+        noCache: true,
+      });
+
+      const file = graph.files.find(f => f.relativePath.endsWith('destructured-exports.ts'));
+      expect(file).toBeDefined();
+
+      for (const name of ['host', 'port', 'debug']) {
+        const exp = file!.exports.find(e => e.name === name);
+        expect(exp, `Expected export ${name}`).toBeDefined();
+        expect(exp!.kind).toBe('const');
+      }
+    });
+  });
+
+  describe('declaration merging deduplication', () => {
+    it('produces one export entry per merged name, not two', () => {
+      const graph = buildDependencyGraph(fixturePath('declaration-merging.ts'), {
+        searchDir: FIXTURES_DIR,
+        noCache: true,
+      });
+
+      const file = graph.files.find(f => f.relativePath.endsWith('declaration-merging.ts'));
+      expect(file).toBeDefined();
+
+      const statusExports = file!.exports.filter(e => e.name === 'Status');
+      expect(statusExports).toHaveLength(1);
+      // First declaration (type) wins; const declaration is deduplicated away
+      expect(statusExports[0].kind).toBe('type');
+
+      const directionExports = file!.exports.filter(e => e.name === 'Direction');
+      expect(directionExports).toHaveLength(1);
+      expect(directionExports[0].kind).toBe('type');
     });
   });
 });

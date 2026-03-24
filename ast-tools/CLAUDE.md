@@ -49,6 +49,7 @@ These tools operate on non-TypeScript inputs or have specialized APIs.
 | ast-refactor-intent | `npx tsx scripts/AST/ast-refactor-intent.ts --before <dir> --after <dir>` | Compares before/after observation sets to detect accidental behavioral drops |
 | ast-field-refs | `npx tsx scripts/AST/ast-field-refs.ts <path> --field <name>` | Finds all structural references to a field/property name (access, destructuring, type defs, string literals) |
 | ast-date-handling | `npx tsx scripts/AST/ast-date-handling.ts <path> [--summary]` | Detects raw Date usage vs. Temporal/formatDate. Classifies by layer (fe/bff/shared). Use `--summary` for raw/proper ratio. |
+| ast-audit | `npx tsx scripts/AST/ast-audit.ts <path> [--output <dir>] [--json] [--diff <dir>]` | Deterministic codebase audit: runs all tools + interpreters, maps to findings, renders report. Replaces agent-driven audit. |
 
 ### Interpreters
 

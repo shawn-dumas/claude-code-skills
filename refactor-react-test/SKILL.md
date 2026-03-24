@@ -1,6 +1,6 @@
 ---
 name: refactor-react-test
-description: Audit an existing Vitest spec file against the 10 contract-first testing principles and the current production API, then rewrite it to comply. Applies the delete threshold — if the file scores ≤ 4/10, deletes and delegates to build-react-test.
+description: Audit an existing Vitest spec file against the 10 contract-first testing principles and the current production API, then rewrite it to comply. Applies the delete threshold -- if the file scores <= 4/10, deletes and delegates to build-react-test.
 context: fork
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 argument-hint: <path/to/spec-file.spec.tsx>
