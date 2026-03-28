@@ -1,14 +1,14 @@
 ---
 name: record-verification-gif
 description: Record a verification GIF of a bug fix by driving the browser through a sequence of steps, capturing screenshots at each step, and stitching them into an animated GIF. Optionally attaches the GIF to a Jira ticket.
-allowed-tools: mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_resize, mcp__playwright__browser_click, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_press_key, mcp__playwright__browser_wait_for, mcp__playwright__browser_evaluate, mcp__playwright__browser_fill_form, mcp__playwright__browser_install, mcp__playwright__browser_close, mcp__atlassian__jira_update_issue, Bash(ffmpeg:*), Bash(mkdir:*), Bash(ls:*), Bash(rm:*), Bash(cp:*), Bash(curl:*), Bash(which:*), Bash(brew:*), Read
+allowed-tools: mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_resize, mcp__playwright__browser_click, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_press_key, mcp__playwright__browser_wait_for, mcp__playwright__browser_evaluate, mcp__playwright__browser_fill_form, mcp__playwright__browser_install, mcp__playwright__browser_run_code, mcp__playwright__browser_close, mcp__atlassian__jira_update_issue, Bash(ffmpeg:*), Bash(mkdir:*), Bash(ls:*), Bash(rm:*), Bash(cp:*), Bash(curl:*), Bash(which:*), Bash(brew:*), Read
 argument-hint: <ticket-id-or-description> [--attach <JIRA-KEY>] [--output <path>]
 ---
 
 # Record Verification GIF
 
 Record an animated GIF that demonstrates a bug fix by driving the browser
-through a scripted sequence, capturing a screenshot at each step, and
+through a scripted sequence, capturing screenshots at each step, and
 stitching the frames into a looping GIF.
 
 `$ARGUMENTS` contains the ticket ID or a short description of what to
@@ -78,17 +78,16 @@ docker exec user-frontend-postgres-1 psql -U postgres -d user_mgmt -t -c \
 
 ## Phase 1: Plan the sequence
 
-Based on `$ARGUMENTS`, plan a sequence of 3-8 steps that demonstrates the
-fix. Each step is one of:
+Based on `$ARGUMENTS`, plan a sequence of actions that demonstrates the fix.
+The sequence should include smooth transitions where applicable (e.g.,
+viewport resizing in small increments rather than a single jump).
 
-| Action | Tool |
-|--------|------|
-| Navigate to URL | `mcp__playwright__browser_navigate` |
-| Resize viewport | `mcp__playwright__browser_resize` |
-| Click element | `mcp__playwright__browser_click` |
-| Press key | `mcp__playwright__browser_press_key` |
-| Wait for text | `mcp__playwright__browser_wait_for` |
-| Evaluate JS | `mcp__playwright__browser_evaluate` |
+**Smooth motion guidelines:**
+
+- Viewport resizes: step in 30-50px increments between start and end widths
+- Hold frames: add 3-5 duplicate frames at key states so the viewer can read them
+- Interactions: add a brief `waitForTimeout(300)` after clicks for animations to settle
+- Target 30-50 total frames for a 4-6 second GIF at 8fps
 
 Tell the user the planned sequence before executing. If the user has
 already described the steps, skip confirmation and proceed.
@@ -106,16 +105,72 @@ mkdir -p /tmp/verification-gif-frames
 rm -f /tmp/verification-gif-frames/*.png
 ```
 
-### Execute each step
+### Batch capture with `browser_run_code`
 
-For each step in the sequence:
+**Always use `mcp__playwright__browser_run_code` for frame capture.** This
+executes the entire sequence in a single Playwright call, avoiding 30-50
+individual MCP round-trips. Individual MCP screenshot calls are too slow
+for smooth GIFs.
 
-1. Perform the action (resize, click, navigate, etc.)
-2. If needed, wait for content to settle (`mcp__playwright__browser_wait_for`)
-3. Take a screenshot: `mcp__playwright__browser_take_screenshot` with
-   filename `/tmp/verification-gif-frames/frame<NN>.png` (zero-padded, starting at 01)
+Write a single async function that:
 
-Use `mcp__playwright__browser_snapshot` before clicks to find element refs.
+1. Defines a `snap()` helper that calls `page.screenshot()` with
+   zero-padded filenames (`/tmp/verification-gif-frames/frame01.png`, etc.)
+2. Loops through viewport sizes, clicks, and waits
+3. Calls `snap()` at each step
+
+**Example** (responsive sidebar demo):
+
+```javascript
+async (page) => {
+  const dir = '/tmp/verification-gif-frames';
+  let n = 1;
+  const pad = i => String(i).padStart(2, '0');
+
+  async function snap() {
+    await page.screenshot({
+      path: `${dir}/frame${pad(n)}.png`,
+      type: 'png',
+      scale: 'css',
+    });
+    n++;
+  }
+
+  // Hold at desktop
+  await page.setViewportSize({ width: 1280, height: 800 });
+  for (let i = 0; i < 3; i++) await snap();
+
+  // Smooth shrink to mobile
+  for (let w = 1240; w >= 768; w -= 40) {
+    await page.setViewportSize({ width: w, height: 800 });
+    await snap();
+  }
+
+  // Hold at mobile
+  for (let i = 0; i < 4; i++) await snap();
+
+  // Interact
+  await page.getByRole('button', { name: 'Open sidebar' }).click();
+  await page.waitForTimeout(300);
+  for (let i = 0; i < 5; i++) await snap();
+
+  return `Captured ${n - 1} frames`;
+}
+```
+
+**Key patterns:**
+
+| Pattern | Code |
+|---------|------|
+| Hold at a state | `for (let i = 0; i < N; i++) await snap();` |
+| Smooth resize | `for (let w = start; w >= end; w -= step) { await page.setViewportSize({...}); await snap(); }` |
+| Click + settle | `await page.getByRole(...).click(); await page.waitForTimeout(300);` |
+| Wait for text gone | `await page.getByText('Loading...').first().waitFor({ state: 'hidden' });` |
+| Find element ref | Use `mcp__playwright__browser_snapshot` BEFORE the run_code call to discover selectors |
+
+**Note:** `require()` is not available in `browser_run_code`. Use only
+Playwright's `page` API. File I/O works through `page.screenshot()` which
+writes directly to disk.
 
 ---
 
@@ -129,9 +184,14 @@ Screenshots may have different dimensions (e.g., desktop vs mobile).
 Detect the maximum width and height across all frames:
 
 ```bash
+MAX_W=0; MAX_H=0
 for f in /tmp/verification-gif-frames/frame*.png; do
-  ffmpeg -i "$f" -hide_banner 2>&1 | grep -oP '\d+x\d+'
+  dims=$(ffmpeg -i "$f" -hide_banner 2>&1 | grep -o '[0-9]\+x[0-9]\+' | head -1)
+  w=${dims%x*}; h=${dims#*x}
+  [ "$w" -gt "$MAX_W" ] && MAX_W=$w
+  [ "$h" -gt "$MAX_H" ] && MAX_H=$h
 done
+echo "${MAX_W}x${MAX_H}"
 ```
 
 Pad all frames to the maximum dimensions with a white background:
@@ -147,15 +207,24 @@ done
 ### Generate GIF
 
 ```bash
-ffmpeg -y -start_number 1 -framerate 0.5 \
+ffmpeg -y -start_number 1 -framerate <FPS> \
   -i /tmp/verification-gif-frames/frame%02d_pad.png \
   -vf "scale=960:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer" \
   -loop 0 <OUTPUT_PATH>
 ```
 
-- Default framerate is 0.5 (2 seconds per frame). Use 1.0 for faster playback
-  if the sequence has 6+ frames.
-- Default output is `~/Desktop/<ticket-or-description>.gif`.
+**Framerate selection:**
+
+| Frame count | Framerate | Result |
+|-------------|-----------|--------|
+| 5-10        | 2-4 fps   | ~3s, basic slideshow |
+| 15-30       | 6-8 fps   | ~3-4s, smooth motion |
+| 30-50       | 8-10 fps  | ~4-6s, fluid animation |
+
+Target 4-6 seconds total duration. Adjust fps accordingly:
+`fps = frame_count / desired_duration_seconds`.
+
+Default output is `~/Desktop/<ticket-or-description>.gif`.
 
 ### Verify
 
@@ -163,7 +232,7 @@ ffmpeg -y -start_number 1 -framerate 0.5 \
 ls -lh <OUTPUT_PATH>
 ```
 
-Report the frame count, file size, and output path to the user.
+Report the frame count, file size, duration, and output path to the user.
 
 ---
 
@@ -190,8 +259,12 @@ Report success or failure.
 ## Conventions
 
 - Frame filenames are always `frame<NN>.png` (zero-padded two digits).
-- Maximum 15 frames. Beyond that, suggest a screen recording tool instead.
+- Always use `mcp__playwright__browser_run_code` for batch capture. Never
+  loop over individual MCP screenshot calls -- a 42-frame sequence would
+  require 42 round-trips and take minutes instead of seconds.
+- Use `mcp__playwright__browser_snapshot` before the run_code call to
+  discover element selectors, roles, and refs needed in the script.
 - Always clean up `/tmp/verification-gif-frames/` at the start, not the end
   (preserves frames for debugging if the GIF is wrong).
-- If the GIF is too large (>5MB), reduce `max_colors` to 64 or scale to 640px width.
+- If the GIF exceeds 5MB, reduce `max_colors` to 64 or scale to 640px width.
 - Never commit the GIF to the repo. It goes to Desktop or gets attached to Jira.
