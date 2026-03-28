@@ -207,22 +207,15 @@ done
 ### Generate GIF
 
 ```bash
-ffmpeg -y -start_number 1 -framerate <FPS> \
+ffmpeg -y -start_number 1 -framerate 12 \
   -i /tmp/verification-gif-frames/frame%02d_pad.png \
   -vf "scale=960:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128[p];[s1][p]paletteuse=dither=bayer" \
   -loop 0 <OUTPUT_PATH>
 ```
 
-**Framerate selection:**
-
-| Frame count | Framerate | Result |
-|-------------|-----------|--------|
-| 5-10        | 2-4 fps   | ~3s, basic slideshow |
-| 15-30       | 6-8 fps   | ~3-4s, smooth motion |
-| 30-50       | 8-10 fps  | ~4-6s, fluid animation |
-
-Target 4-6 seconds total duration. Adjust fps accordingly:
-`fps = frame_count / desired_duration_seconds`.
+**Always use 12fps.** Adjust frame count to control duration (e.g., 36
+frames = 3s, 48 frames = 4s, 60 frames = 5s). Add hold frames to
+lengthen pauses at key states rather than dropping the framerate.
 
 Default output is `~/Desktop/<ticket-or-description>.gif`.
 
