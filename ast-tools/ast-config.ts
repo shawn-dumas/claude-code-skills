@@ -128,6 +128,15 @@ interface AstConfig {
     }>;
   };
 
+  readonly branchClassification: {
+    readonly discriminantNames: ReadonlySet<string>;
+    readonly booleanPrefixes: readonly string[];
+    readonly errorIdentifiers: ReadonlySet<string>;
+    readonly loadingIdentifiers: ReadonlySet<string>;
+    readonly featureFlagPatterns: readonly string[];
+    readonly conditionMaxLength: number;
+  };
+
   readonly complexity: Record<string, never>;
 
   readonly handlerStructure: {
@@ -711,6 +720,32 @@ export const astConfig: AstConfig = Object.freeze({
       multiStmtHandler: 2,
       complexClassNameTernaries: 2,
     }),
+  }),
+
+  branchClassification: Object.freeze({
+    discriminantNames: new Set([
+      'type',
+      'kind',
+      'filtersType',
+      'variant',
+      'status',
+      'role',
+      'mode',
+      'view',
+      'layout',
+      'action',
+      'method',
+    ]) as ReadonlySet<string>,
+
+    booleanPrefixes: ['is', 'has', 'should', 'can', 'show', 'hide', 'enable', 'disable', 'allow'] as const,
+
+    errorIdentifiers: new Set(['isError', 'error', 'hasError', 'isFailed', 'isRejected']) as ReadonlySet<string>,
+
+    loadingIdentifiers: new Set(['isLoading', 'isPending', 'isFetching', 'isRefetching']) as ReadonlySet<string>,
+
+    featureFlagPatterns: ['featureFlags.', 'flags.', 'posthogFlags.'] as const,
+
+    conditionMaxLength: 120,
   }),
 
   complexity: Object.freeze({}),

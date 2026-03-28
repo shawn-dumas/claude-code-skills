@@ -22,6 +22,8 @@ export interface FileNode {
   relativePath: string;
   imports: ImportInfo[];
   exports: ExportInfo[];
+  /** PascalCase JSX element names rendered in this file (excludes intrinsic elements like div, span). */
+  jsxElementNames?: string[];
 }
 
 export interface DependencyGraph {
@@ -419,6 +421,31 @@ export type EffectObservationEvidence = {
 };
 
 export type EffectObservation = Observation<EffectObservationKind, EffectObservationEvidence>;
+
+// --- Branch classification assessments (ast-interpret-branch-classification) ---
+
+export type BranchClassificationKind =
+  | 'TYPE_DISPATCH'
+  | 'NULL_GUARD'
+  | 'ERROR_CHECK'
+  | 'FEATURE_FLAG'
+  | 'BOOLEAN_GUARD'
+  | 'LOADING_CHECK'
+  | 'OTHER';
+
+export type BranchClassificationEvidence = {
+  functionName: string;
+  contributorType: string;
+  contributorLine: number;
+  conditionText: string;
+  dispatchTarget?: string;
+  guardTarget?: string;
+  flagName?: string;
+};
+
+export type BranchClassificationAssessment = Assessment<BranchClassificationKind> & {
+  readonly evidence: BranchClassificationEvidence;
+};
 
 // --- Effect assessments (ast-interpret-effects) ---
 

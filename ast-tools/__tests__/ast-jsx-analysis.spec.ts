@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeJsxComplexity, extractJsxObservations } from '../ast-jsx-analysis';
+import { analyzeJsxComplexity, analyzeJsxComplexityDirectory, extractJsxObservations } from '../ast-jsx-analysis';
 import type { JsxAnalysis, JsxViolationType, JsxObservation, JsxObservationKind } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -470,6 +470,26 @@ describe('ast-jsx-analysis', () => {
       expect(observations.some(o => o.kind === 'JSX_TERNARY_CHAIN' && o.evidence.depth === 1)).toBe(true);
       expect(observations.some(o => o.kind === 'JSX_TRANSFORM_CHAIN' && o.evidence.chainLength === 1)).toBe(true);
       expect(observations.some(o => o.kind === 'JSX_GUARD_CHAIN' && o.evidence.conditionCount === 2)).toBe(true);
+    });
+  });
+
+  describe('analyzeJsxComplexityDirectory', () => {
+    it('analyzes all matching files in a directory without crashing', () => {
+      const results = analyzeJsxComplexityDirectory(FIXTURES_DIR);
+      expect(results.length).toBeGreaterThan(0);
+      for (const r of results) {
+        expect(r.filePath).toBeDefined();
+        expect(r.components).toBeDefined();
+        expect(r.observations).toBeDefined();
+      }
+    });
+
+    it('skips files with no components or observations', () => {
+      const results = analyzeJsxComplexityDirectory(FIXTURES_DIR);
+      for (const r of results) {
+        // Every included result must have at least one component or observation
+        expect(r.components.length + r.observations.length).toBeGreaterThan(0);
+      }
     });
   });
 });

@@ -390,7 +390,8 @@ export function analyzeSideEffectsDirectory(
   const results: SideEffectsAnalysis[] = [];
   for (const fp of filePaths) {
     const analysis = cached('side-effects', fp, () => analyzeSideEffects(fp), options);
-    if (analysis.sideEffects.length > 0) {
+    // Guard against stale cache entries missing expected fields.
+    if ((analysis.sideEffects?.length ?? 0) > 0) {
       results.push(analysis);
     }
   }

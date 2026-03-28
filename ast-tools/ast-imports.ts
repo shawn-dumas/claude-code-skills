@@ -389,6 +389,51 @@ function rawExtractImports(sf: ts.SourceFile): ImportInfo[] {
   return Array.from(merged.values());
 }
 
+/**
+ * Collect PascalCase JSX element names from a raw TS SourceFile.
+ * Visits JsxOpeningElement and JsxSelfClosingElement nodes.
+ * Filters out intrinsic (lowercase) elements like div, span.
+ * Handles PropertyAccessExpression for namespace usage (e.g., <UI.Button />
+ * produces "UI.Button").
+ */
+function rawExtractJsxElementNames(sf: ts.SourceFile): string[] {
+  const names = new Set<string>();
+
+  function extractTagName(tagName: ts.JsxTagNameExpression): string | null {
+    if (ts.isIdentifier(tagName)) {
+      const name = tagName.text;
+      // Lowercase first char = intrinsic element (div, span, etc.)
+      if (/^[a-z]/.test(name)) return null;
+      return name;
+    }
+    if (ts.isPropertyAccessExpression(tagName)) {
+      // e.g., <UI.Button /> -> "UI.Button"
+      const parts: string[] = [];
+      let current: ts.Node = tagName;
+      while (ts.isPropertyAccessExpression(current)) {
+        parts.unshift(current.name.text);
+        current = current.expression;
+      }
+      if (ts.isIdentifier(current)) {
+        parts.unshift(current.text);
+      }
+      return parts.join('.');
+    }
+    return null;
+  }
+
+  function visit(node: ts.Node): void {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const name = extractTagName(node.tagName);
+      if (name) names.add(name);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  ts.forEachChild(sf, visit);
+  return Array.from(names).sort();
+}
+
 function rawExtractDynamicImports(sf: ts.SourceFile): ImportInfo[] {
   const results: ImportInfo[] = [];
 
@@ -883,7 +928,15 @@ function analyzeFileRaw(filePath: string): FileNode {
 
   const exports = rawExtractExports(sf, absPath);
 
-  return { path: absPath, relativePath, imports: allImports, exports };
+  const jsxElementNames = rawExtractJsxElementNames(sf);
+
+  return {
+    path: absPath,
+    relativePath,
+    imports: allImports,
+    exports,
+    ...(jsxElementNames.length > 0 && { jsxElementNames }),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1667,19 +1720,43 @@ function main(): void {
   // --symbol mode
   if (args.options.symbol) {
     const symbol = args.options.symbol;
-    const matchingFiles: { file: string; source: string; line: number; specifiers: string[] }[] = [];
+    const matchingFiles: {
+      file: string;
+      source: string;
+      line: number;
+      specifiers: string[];
+      jsxConsumer?: true;
+    }[] = [];
+    const seenFiles = new Set<string>();
 
     for (const graph of allGraphs) {
       for (const file of graph.files) {
+        const rendersAsJsx = file.jsxElementNames?.includes(symbol) ?? false;
+
         for (const imp of file.imports) {
           if (imp.specifiers.some(s => s === symbol || s.startsWith(`${symbol} as `))) {
+            seenFiles.add(file.relativePath);
             matchingFiles.push({
               file: file.relativePath,
               source: imp.source,
               line: imp.line,
               specifiers: imp.specifiers,
+              ...(rendersAsJsx && { jsxConsumer: true as const }),
             });
           }
+        }
+
+        // File renders <Symbol /> but does not import it by that specifier name
+        // (e.g., namespace import, aliased import, or re-export chain)
+        if (rendersAsJsx && !seenFiles.has(file.relativePath)) {
+          seenFiles.add(file.relativePath);
+          matchingFiles.push({
+            file: file.relativePath,
+            source: '',
+            line: 0,
+            specifiers: [],
+            jsxConsumer: true as const,
+          });
         }
       }
     }

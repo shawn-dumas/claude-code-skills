@@ -16,6 +16,7 @@
  * Invalidation:
  *   - Config changes -> delete entire cache
  *   - File content changes -> cache miss (new hash)
+ *   - Tool source changes -> cache miss (tool hash in composite key)
  *   - --no-cache flag -> bypass cache
  */
 
@@ -31,6 +32,7 @@ import { PROJECT_ROOT } from './project';
 const CACHE_DIR = path.join(PROJECT_ROOT, '.ast-cache');
 const META_FILE = path.join(CACHE_DIR, 'meta.json');
 const CONFIG_FILE = path.join(PROJECT_ROOT, 'scripts/AST/ast-config.ts');
+const AST_DIR = path.join(PROJECT_ROOT, 'scripts/AST');
 
 interface CacheMeta {
   configHash: string;
@@ -47,6 +49,18 @@ const stats: CacheStats = { hits: 0, misses: 0 };
 
 // Memoized cache validity: once validated per process, skip repeat I/O
 let cacheValidated = false;
+
+// Memoized tool source hashes (tool name -> SHA-256 of tool source file)
+const toolSourceHashCache = new Map<string, string>();
+
+// Maps registry tool names to their source files. Follows the naming
+// convention: tool name "foo-bar" -> "ast-foo-bar.ts".
+// Some tools pass "ast-foo-bar" as the tool name (already prefixed),
+// others pass "foo-bar". Normalize by stripping the prefix if present.
+function toolSourceFile(toolName: string): string {
+  const base = toolName.startsWith('ast-') ? toolName : `ast-${toolName}`;
+  return path.join(AST_DIR, `${base}.ts`);
+}
 
 // ---------------------------------------------------------------------------
 // Hash utilities
@@ -65,6 +79,28 @@ function sha256(content: string): string {
 export function hashFileContent(filePath: string): string {
   const content = fs.readFileSync(filePath, 'utf-8');
   return sha256(content);
+}
+
+/**
+ * Compute hash of a tool's source file. Used to incorporate tool code changes
+ * into the cache key so that modifying a tool invalidates its cached results.
+ * Returns empty string if the tool source file does not exist.
+ */
+export function getToolSourceHash(toolName: string): string {
+  if (toolSourceHashCache.has(toolName)) {
+    return toolSourceHashCache.get(toolName)!;
+  }
+
+  const filePath = toolSourceFile(toolName);
+  if (!fs.existsSync(filePath)) {
+    toolSourceHashCache.set(toolName, '');
+    return '';
+  }
+
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const hash = sha256(content);
+  toolSourceHashCache.set(toolName, hash);
+  return hash;
 }
 
 /**
@@ -155,14 +191,29 @@ export function clearCache(): void {
 // ---------------------------------------------------------------------------
 
 /**
+ * Build the composite cache key for a tool + file combination.
+ * Incorporates the tool source hash so that tool code changes
+ * automatically invalidate cached results for that tool.
+ */
+function cacheKey(toolName: string, filePath: string): string {
+  const contentHash = getFileHash(filePath);
+  const toolHash = getToolSourceHash(toolName);
+  if (toolHash) {
+    return sha256(`${contentHash}:${toolHash}`);
+  }
+  // Fallback for tools without a source file (e.g., test tools)
+  return contentHash;
+}
+
+/**
  * Get cached result for a tool + file combination.
  * Returns null if not cached.
  */
 export function getCached<T>(toolName: string, filePath: string): T | null {
   ensureCacheValid();
 
-  const contentHash = getFileHash(filePath);
-  const cacheFile = path.join(CACHE_DIR, toolName, `${contentHash}.json`);
+  const key = cacheKey(toolName, filePath);
+  const cacheFile = path.join(CACHE_DIR, toolName, `${key}.json`);
 
   if (!fs.existsSync(cacheFile)) {
     stats.misses++;
@@ -185,9 +236,9 @@ export function getCached<T>(toolName: string, filePath: string): T | null {
 export function setCache<T>(toolName: string, filePath: string, result: T): void {
   ensureCacheValid();
 
-  const contentHash = getFileHash(filePath);
+  const key = cacheKey(toolName, filePath);
   const toolDir = path.join(CACHE_DIR, toolName);
-  const cacheFile = path.join(toolDir, `${contentHash}.json`);
+  const cacheFile = path.join(toolDir, `${key}.json`);
 
   fs.mkdirSync(toolDir, { recursive: true });
   fs.writeFileSync(cacheFile, JSON.stringify(result));
@@ -375,6 +426,20 @@ export function setCacheDirectory<T>(toolName: string, dirHash: string, result: 
 }
 
 /**
+ * Build the composite directory cache key for a tool + directory combination.
+ * Incorporates the tool source hash so that tool code changes
+ * automatically invalidate cached directory results.
+ */
+function directoryCacheKey(toolName: string, dirPath: string, files: string[]): string {
+  const contentHash = hashDirectory(dirPath, files);
+  const toolHash = getToolSourceHash(toolName);
+  if (toolHash) {
+    return sha256(`${contentHash}:${toolHash}`);
+  }
+  return contentHash;
+}
+
+/**
  * Get or compute cached result for directory-level tools.
  * Used by interpreters which process entire directories at once.
  */
@@ -389,12 +454,12 @@ export function cachedDirectory<T>(
     stats.misses++;
     const result = compute();
     // Still write to cache even with noCache (refresh behavior)
-    const dirHash = hashDirectory(dirPath, files);
+    const dirHash = directoryCacheKey(toolName, dirPath, files);
     setCacheDirectory(toolName, dirHash, result);
     return result;
   }
 
-  const dirHash = hashDirectory(dirPath, files);
+  const dirHash = directoryCacheKey(toolName, dirPath, files);
   const existing = getCachedDirectory<T>(toolName, dirHash);
   if (existing !== null) {
     return existing;

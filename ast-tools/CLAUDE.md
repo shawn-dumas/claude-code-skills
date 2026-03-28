@@ -70,6 +70,7 @@ Interpreters consume observations and emit assessments with confidence levels.
 | ast-interpret-test-coverage | ast-test-coverage | TEST_GAP (with risk and suggestedPriority) |
 | ast-interpret-test-quality | ast-test-analysis | MOCK_BOUNDARY_COMPLIANT, MOCK_INTERNAL_VIOLATION, ASSERTION_USER_VISIBLE, ASSERTION_IMPLEMENTATION, CLEANUP_COMPLETE, ORPHANED_TEST, DELETE_CANDIDATE, etc. |
 | ast-interpret-vitest-parity | ast-vitest-parity | PARITY, REDUCED, EXPANDED, NOT_PORTED (per test match) |
+| ast-interpret-branch-classification | ast-complexity | TYPE_DISPATCH, NULL_GUARD, ERROR_CHECK, FEATURE_FLAG, BOOLEAN_GUARD, LOADING_CHECK, OTHER |
 
 ### Infrastructure
 
@@ -115,7 +116,14 @@ ast-query.ts effects src/ui/page_blocks/ --count
 ast-query.ts date-summary src/ --pretty
 ast-query.ts interpret-effects src/ui/page_blocks/dashboard/team/ --pretty
 ast-query.ts interpret-hooks src/ui/page_blocks/dashboard/team/ --pretty
+ast-query.ts batch hooks,complexity,interpret-branches src/path/file.tsx --pretty
 ```
+
+**Batch mode** runs multiple query types in a single process, sharing the
+parsed AST. Use when running 3+ queries on the same file. 33x faster than
+sequential invocations (1.6s vs 54s for 9 queries). Supports observation
+tools and interpreters (interpret-effects, interpret-hooks,
+interpret-ownership, interpret-branches).
 
 **Unroutable tools** (use direct invocation):
 

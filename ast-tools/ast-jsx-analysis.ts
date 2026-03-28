@@ -668,8 +668,9 @@ export function analyzeJsxComplexityDirectory(
   const results: JsxAnalysis[] = [];
   for (const fp of filePaths) {
     const analysis = cached('jsx-analysis', fp, () => analyzeJsxComplexity(fp), options);
-    // Include files with any observations or components
-    if (analysis.components.length > 0 || analysis.observations.length > 0) {
+    // Include files with any observations or components.
+    // Guard against stale cache entries missing expected fields.
+    if ((analysis.components?.length ?? 0) > 0 || (analysis.observations?.length ?? 0) > 0) {
       results.push(analysis);
     }
   }

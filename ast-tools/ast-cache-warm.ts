@@ -18,7 +18,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { PROJECT_ROOT, getSourceFile } from './project';
-import { ensureCacheValid, clearCache, getCacheInfo, resetCacheStats, formatBytes, cached } from './ast-cache';
+import {
+  ensureCacheValid,
+  clearCache,
+  getCacheInfo,
+  getCacheStats,
+  resetCacheStats,
+  formatBytes,
+  cached,
+} from './ast-cache';
 import { TOOL_REGISTRY } from './tool-registry';
 import type { AnyObservation } from './types';
 
@@ -92,7 +100,7 @@ interface WarmResult {
 
 function warmTool(target: WarmTarget, files: string[]): WarmResult {
   const start = Date.now();
-  const hitCount = 0;
+  let hitCount = 0;
   let computedCount = 0;
   let errors = 0;
 
@@ -109,16 +117,16 @@ function warmTool(target: WarmTarget, files: string[]): WarmResult {
       const sf = getSourceFile(filePath);
       // Use cached() with the same adapter as the registry, so the
       // cached shape (AnyObservation[]) matches what runAllObservers
-      // will read back.
-      const beforeHits = hitCount;
+      // will read back. Detect hit/miss via the global stats counter.
+      const before = getCacheStats().hits;
       cached<AnyObservation[]>(entry.name, filePath, () => entry.analyze(sf, filePath));
+      const after = getCacheStats().hits;
 
-      // cached() doesn't tell us hit/miss directly, but if the compute
-      // function was NOT called, getSourceFile was the only cost. We
-      // track by checking if the file was already in cache before.
-      // For simplicity, just count -- cached() updates stats internally.
-      void beforeHits; // suppress unused warning
-      computedCount++;
+      if (after > before) {
+        hitCount++;
+      } else {
+        computedCount++;
+      }
     } catch (_e) {
       errors++;
       // Silently skip files that can't be parsed
@@ -152,8 +160,14 @@ function warmAll(targetDir: string): WarmResult[] {
     const result = warmTool(target, files);
     results.push(result);
 
-    const status =
-      result.errors > 0 ? `${result.computed} processed, ${result.errors} errors` : `${result.computed} processed`;
+    const parts: string[] = [];
+    if (result.computed > 0) parts.push(`${result.computed} computed`);
+    if (result.cached > 0) {
+      const allHit = result.computed === 0 && result.errors === 0;
+      parts.push(`${result.cached} cached${allHit ? ' (all hit)' : ''}`);
+    }
+    if (result.errors > 0) parts.push(`${result.errors} errors`);
+    const status = parts.length > 0 ? parts.join(', ') : 'no matching files';
 
     console.log(`${status} (${result.timeMs}ms)`);
   }
@@ -239,12 +253,14 @@ function main(): void {
   console.log('');
 
   const totalComputed = results.reduce((sum, r) => sum + r.computed, 0);
+  const totalCached = results.reduce((sum, r) => sum + r.cached, 0);
   const totalErrors = results.reduce((sum, r) => sum + r.errors, 0);
 
   console.log(`Done in ${totalTime}ms`);
-  console.log(`  Processed: ${totalComputed} files`);
+  console.log(`  Computed: ${totalComputed} files`);
+  console.log(`  Cached:   ${totalCached} files (cache hits)`);
   if (totalErrors > 0) {
-    console.log(`  Errors:    ${totalErrors} files (skipped)`);
+    console.log(`  Errors:   ${totalErrors} files (skipped)`);
   }
 
   // Show cache size

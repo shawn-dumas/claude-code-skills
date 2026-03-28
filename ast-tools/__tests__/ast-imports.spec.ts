@@ -548,4 +548,58 @@ describe('ast-imports', () => {
       expect(directionExports[0].kind).toBe('type');
     });
   });
+
+  describe('JSX consumer tracing', () => {
+    it('populates jsxElementNames for files that render components', () => {
+      const graph = buildDependencyGraph(fixturePath('jsx-consumer-tracing.tsx'), {
+        searchDir: FIXTURES_DIR,
+        noCache: true,
+      });
+
+      const file = graph.files.find(f => f.relativePath.endsWith('jsx-consumer-tracing.tsx'));
+      expect(file).toBeDefined();
+      expect(file!.jsxElementNames).toBeDefined();
+      expect(file!.jsxElementNames).toContain('Button');
+    });
+
+    it('does not include lowercase intrinsic elements in jsxElementNames', () => {
+      const graph = buildDependencyGraph(fixturePath('jsx-consumer-tracing.tsx'), {
+        searchDir: FIXTURES_DIR,
+        noCache: true,
+      });
+
+      const file = graph.files.find(f => f.relativePath.endsWith('jsx-consumer-tracing.tsx'));
+      expect(file).toBeDefined();
+      expect(file!.jsxElementNames).toBeDefined();
+
+      // div and h1 are intrinsic -- must not appear
+      for (const name of file!.jsxElementNames!) {
+        expect(name[0]).toBe(name[0].toUpperCase());
+      }
+    });
+
+    it('does not populate jsxElementNames for import-only files', () => {
+      const graph = buildDependencyGraph(fixturePath('jsx-consumer-import-only.ts'), {
+        searchDir: FIXTURES_DIR,
+        noCache: true,
+      });
+
+      const file = graph.files.find(f => f.relativePath.endsWith('jsx-consumer-import-only.ts'));
+      expect(file).toBeDefined();
+      // No JSX in this file, so jsxElementNames should be absent
+      expect(file!.jsxElementNames).toBeUndefined();
+    });
+
+    it('simple-component.tsx has jsxElementNames omitted for intrinsic-only JSX', () => {
+      const graph = buildDependencyGraph(fixturePath('simple-component.tsx'), {
+        searchDir: FIXTURES_DIR,
+        noCache: true,
+      });
+
+      const file = graph.files.find(f => f.relativePath.endsWith('simple-component.tsx'));
+      expect(file).toBeDefined();
+      // simple-component.tsx only renders <button>, which is intrinsic
+      expect(file!.jsxElementNames).toBeUndefined();
+    });
+  });
 });

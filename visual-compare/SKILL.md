@@ -2,23 +2,23 @@
 name: visual-compare
 description: Side-by-side visual comparison of the local dev environment vs. a remote app environment. Autonomously navigates both browsers through every dashboard page, exercises all filters and interactions, and documents discrepancies in a session report.
 context: fork
-allowed-tools: Bash(playwright-cli:*), Read, Write, Bash(date:*), Bash(mkdir:*), Bash(sed:*), Bash(diff:*), Bash(cat:*), Bash(grep:*), Bash(sort:*), Bash(wc:*), Bash(head:*), Bash(tail:*), Bash(sleep:*), Bash(bash .claude/skills/visual-compare/scripts/*:*)
+allowed-tools: Bash(agent-browser:*), Read, Write, Bash(date:*), Bash(mkdir:*), Bash(sed:*), Bash(diff:*), Bash(cat:*), Bash(grep:*), Bash(sort:*), Bash(wc:*), Bash(head:*), Bash(tail:*), Bash(sleep:*)
 argument-hint: <app|app-staging|app-development>
 ---
 
 Compare the local development environment against a remote app environment side by side.
 `$ARGUMENTS` is the remote environment name: one of `app`, `app-staging`, or `app-development`.
 
-**CRITICAL: This skill uses `playwright-cli` (the Bash CLI tool) for ALL browser
+**CRITICAL: This skill uses `agent-browser` (the Bash CLI tool) for ALL browser
 interaction. Do NOT use MCP browser tools (`mcp__dashboard-local__*`,
 `mcp__dashboard-remote__*`). MCP tools are a completely separate browser
 automation layer — they will open different browser instances, collide with
-the playwright-cli sessions, and break the comparison workflow. Every browser
-command in this skill runs via `Bash(playwright-cli ...)`. If you catch
-yourself reaching for an MCP tool, stop and use the equivalent playwright-cli
+the agent-browser sessions, and break the comparison workflow. Every browser
+command in this skill runs via `Bash(agent-browser ...)`. If you catch
+yourself reaching for an MCP tool, stop and use the equivalent agent-browser
 command instead.**
 
-Uses two named playwright-cli sessions (`-s=local` and `-s=remote`) for browser isolation.
+Uses two named agent-browser sessions (`--session local` and `--session remote`) for browser isolation.
 Each session has independent cookies, localStorage, and auth state so Firebase tokens do not collide.
 
 ---
@@ -67,12 +67,16 @@ Create the session docs file at `docs/compare-<timestamp>.md` with this header:
 
 ### Open browsers
 
-Open both browser sessions with persistent profiles (so auth survives reconnects):
+Open both browser sessions in headed mode with persistent profiles (so auth survives reconnects):
 
 ```bash
-playwright-cli -s=local open http://localhost:3001/signin --persistent --headed
-playwright-cli -s=remote open https://<REMOTE_ENV>.8flow.com/signin --persistent --headed
+agent-browser --session local --headed --profile .agent-browser/local open http://localhost:3001/signin
+agent-browser --session remote --headed --profile .agent-browser/remote open https://<REMOTE_ENV>.8flow.com/signin
 ```
+
+**Note:** `--headed` and `--profile` only take effect on the first command that
+starts the daemon for a session. Subsequent commands for the same session
+inherit these settings automatically — you only need `--session <name>`.
 
 ---
 
@@ -80,14 +84,22 @@ playwright-cli -s=remote open https://<REMOTE_ENV>.8flow.com/signin --persistent
 
 ## Phase 1: Sign-in
 
-Wait 3 seconds, then snapshot both browsers to check for active sessions:
+Wait 3 seconds, then snapshot both browsers **in parallel** to check for
+active sessions:
 
 ```bash
-playwright-cli -s=local snapshot
-playwright-cli -s=remote snapshot
+# Run these two in parallel (same message, two Bash tool calls)
+agent-browser --session local snapshot
+agent-browser --session remote snapshot
 ```
 
-If either browser shows the sign-in form rather than a dashboard page, ask:
+Check the snapshot output for signs of authentication:
+- **Authenticated**: snapshot shows sidebar links (Insights, Users, Teams),
+  a dashboard heading, or filter controls (Team, Timezone, etc.)
+- **Not authenticated**: snapshot shows a sign-in form, email/password fields,
+  or "Sign in" heading
+
+If either browser shows the sign-in form, ask:
 
 ```
 Question: Both sign-in pages are open in separate windows (local and remote). Please sign in to both, then click Continue.
@@ -96,8 +108,12 @@ Options:
   - "Continue" -- I have signed in to both environments and am ready to compare screens
 ```
 
-If both browsers auto-redirected to a dashboard page, skip the question and
-proceed directly to Phase 2.
+If both browsers are already authenticated (common when `--profile` is
+reused), skip the question and proceed directly to Phase 2.
+
+After confirming auth, snapshot again to determine the current page. If a
+browser is on `about:blank` or an unexpected page, navigate it to
+`/insights/realtime` to start the comparison.
 
 ---
 
@@ -107,112 +123,191 @@ proceed directly to Phase 2.
 
 Work through each dashboard page systematically. For each page:
 
-1. **Navigate** both browsers to the same URL path
-2. **Wait** for content to load (use snapshot to verify content appeared, not fixed delays)
-3. **Align ALL filters** before comparing data (see Filter alignment below)
-4. **Snapshot** both browsers (accessibility snapshot for structure and data)
-5. **Diff** the two snapshots using the normalized diff method (see Snapshot diffing below)
-6. **Analyze** the diff output — categorize differences as structural, data, or expected noise
-7. **Exercise** every interactive element per the page's test script (see Dashboard-specific test scripts below). After each interaction, snapshot both and diff again.
+1. **Navigate** both browsers to the same URL path (parallel Bash calls)
+2. **Wait + verify** data loaded (use the "Data loading and status checks" eval pattern)
+3. **Select team** using the appropriate Reusable command sequence (multi-select for most pages, single-select eval for Realtime)
+4. **Align ALL filters** before comparing data (see Filter alignment below)
+5. **Click Update/Refresh/Search** in both (parallel), wait for data
+6. **Compare data** using eval snippets — result counts first, then row data
+7. **Exercise** interactive elements per the page's test script (sorting, tabs, drill-downs)
 8. **Document** findings in the session report
+
+**Per-page checklist (quick reference):**
+
+| Page | Team select | Submit button | Key interactions |
+|------|------------|---------------|-----------------|
+| Realtime | single-select (eval) | Refresh | Sort columns, hide toggle, timezone |
+| User Productivity | multi-select (find) | Update | Sort columns, drill into user, By Date/Host tabs |
+| Team Productivity | multi-select (find) | Update | Per Team/Project/BPO tabs, Report Level, Period |
+| Systems | multi-select (find) | Update | Cards/Table toggle, drill into system card |
+| Microworkflows | multi-select (find) | Update | Sort columns, drill into row |
+| Relays | multi-select (find) | Update | Sort columns |
+| Favorites | multi-select (find) | Update | Sort columns |
+| Workstreams | user select (find) | Search | Analyzing by User/Workstream, sort, pagination |
 
 ### Browser command patterns
 
 Navigate:
 ```bash
-playwright-cli -s=local goto http://localhost:3001/insights/realtime
-playwright-cli -s=remote goto https://<REMOTE_ENV>.8flow.com/insights/realtime
+agent-browser --session local open http://localhost:3001/insights/realtime
+agent-browser --session remote open https://<REMOTE_ENV>.8flow.com/insights/realtime
 ```
 
 Snapshot (primary comparison tool):
 ```bash
-playwright-cli -s=local snapshot
-playwright-cli -s=remote snapshot
+agent-browser --session local snapshot
+agent-browser --session remote snapshot
 ```
 
-Interact:
+Click (refs use `@` prefix):
 ```bash
-playwright-cli -s=local click e5
-playwright-cli -s=remote click e5
+agent-browser --session local click @e5
+agent-browser --session remote click @e5
 ```
 
-Fill/type:
+Fill:
 ```bash
-playwright-cli -s=local fill e3 "value"
-playwright-cli -s=remote fill e3 "value"
+agent-browser --session local fill @e3 "value"
+agent-browser --session remote fill @e3 "value"
 ```
 
 Select:
 ```bash
-playwright-cli -s=local select e7 "option-value"
-playwright-cli -s=remote select e7 "option-value"
+agent-browser --session local select @e7 "option-value"
+agent-browser --session remote select @e7 "option-value"
 ```
 
-Evaluate (for simple DOM queries — must be serializable, no closures):
+Find elements by role/testid (useful when you don't have a ref):
 ```bash
-playwright-cli -s=local eval "document.querySelectorAll('[role=\"radio\"]')[1].click()"
-playwright-cli -s=remote eval "document.querySelectorAll('[role=\"radio\"]')[1].click()"
+agent-browser --session local find role option click "Scaled Ops"
+agent-browser --session local find testid filter-select-search-input fill "Scaled Ops"
 ```
 
-Run-code (for complex multi-step interactions — supports full Playwright API):
+Evaluate (JavaScript expressions):
 ```bash
-playwright-cli -s=local run-code "async page => {
-  await page.locator('[data-testid=\"filter-select-open-button\"]').click();
-  await page.waitForSelector('[data-testid=\"filter-select-search-input\"]');
-  await page.locator('[data-testid=\"filter-select-search-input\"]').fill('Scaled Ops');
-  await page.waitForTimeout(500);
-  const option = page.getByRole('option', { name: 'Scaled Ops', exact: true });
-  if (await option.count() > 0) { await option.click(); return 'selected'; }
-  return 'not found';
-}"
+agent-browser --session local eval "document.querySelectorAll('[role=\"radio\"]')[1].click()"
+agent-browser --session remote eval "document.querySelectorAll('[role=\"radio\"]')[1].click()"
 ```
 
-**`eval` vs `run-code`:** Use `eval` for one-liner DOM queries (click, read text).
-Use `run-code` when you need Playwright locators, `waitForSelector`, multi-step
-sequences, or anything that needs `async`/`await`. `eval` passes to
-`page.evaluate()` which requires serializable expressions — closures,
-`function(){}` wrappers, and complex objects will fail with
-"not well-serializable" errors.
+Check/uncheck:
+```bash
+agent-browser --session local check @e12
+agent-browser --session local uncheck @e12
+```
 
-**Important:** Ref IDs (e.g., `e5`) are per-session and per-snapshot. Always take a
+Get info:
+```bash
+agent-browser --session local get url
+agent-browser --session local get text @e5
+```
+
+**`eval` vs `find`:** Use `eval` for DOM queries and JavaScript expressions.
+Use `find` when you need to locate elements by role, testid, text, label,
+or placeholder and perform an action. `find` is more robust than `eval` for
+interacting with React components. For multi-step sequences, chain commands
+with `&&` in a single Bash call.
+
+**Important:** Ref IDs (e.g., `@e5`) are per-session and per-snapshot. Always take a
 fresh snapshot of each browser before interacting, and use the refs from THAT snapshot.
 The same element will likely have different ref IDs in local vs remote.
 
-### Browser-side JS helpers
+### Parallel execution (critical for speed)
 
-Reusable JS snippets are in `.claude/skills/visual-compare/scripts/vc-browser-helpers.js`.
-These use testids and DOM queries instead of snapshot ref IDs, so they work
-without needing to discover refs from a snapshot first. Read the file for
-the full list. Key snippets:
+**Always run local and remote commands in parallel** by issuing both Bash
+tool calls in the same message. The two sessions are independent — there
+is never a dependency between them. Every command pair in this skill
+(navigate, click, eval, snapshot) should be two parallel Bash calls:
 
-| Snippet | What it does | Usage |
-|---|---|---|
-| `PAGE_STATUS` | Returns `loaded:N results`, `error:...`, `empty:...`, or `loading` | Check before diffing |
-| `OPEN_TEAM_DROPDOWN` | Opens the FilterSelect team dropdown | Then `SEARCH_TEAM` + `CLICK_TEAM_OPTION` |
-| `CLICK_UPDATE` | Clicks the Update button (most pages) | After filter alignment |
-| `CLICK_REFRESH` | Clicks the Refresh button (Realtime) | After filter alignment |
-| `CLICK_SEARCH` | Clicks the Search button (Workstreams) | After filter alignment |
-| `CLICK_SHOW_FILTERS` | Expands collapsed filter panel | After Update collapses filters |
-| `CLICK_COLUMN_HEADER` | Sorts by column name | Replace `COLUMN_NAME` placeholder |
-| `CLICK_TABLE_ROW` | Clicks a row matching text | Replace `MATCH_TEXT` placeholder |
-| `CLICK_TAB` | Clicks a tab by name | Replace `TAB_NAME` placeholder |
-| `TOGGLE_HIDE_NO_EVENTS` | Toggles the checkbox (Realtime) | Uses `input[type="checkbox"]` |
-
-**Example: Select "Scaled Ops" team on any insight page:**
-
-```bash
-playwright-cli -s=local eval "document.querySelector('[data-testid=\"filter-select-open-button\"]')?.click()"
-sleep 1
-playwright-cli -s=local eval "(function() { var input = document.querySelector('[data-testid=\"filter-select-search-input\"]'); if (!input) return 'no-input'; var s = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; s.call(input, 'Scaled Ops'); input.dispatchEvent(new Event('input', { bubbles: true })); return 'ok'; })()"
-sleep 1
-playwright-cli -s=local eval "(function() { var labels = document.querySelectorAll('[data-testid=\"filter-select-option-label\"]'); for (var i = 0; i < labels.length; i++) { if (labels[i].textContent.trim() === 'Scaled Ops') { labels[i].closest('[data-testid=\"filter-select-option\"]')?.click(); return 'ok'; } } return 'not-found'; })()"
+```
+Bash: agent-browser --session local click @e10    ← parallel
+Bash: agent-browser --session remote click @e7    ← parallel
 ```
 
-**Example: Check page status after navigation:**
+This cuts session time roughly in half.
+
+### Reusable command sequences
+
+The patterns below are the reliable, tested sequences. Use them exactly.
+
+**Select team on multi-select pages** (User Productivity, Team Productivity,
+Systems, Microworkflows, Relays, Favorites, Workstreams):
+
+Chain the full sequence in one Bash call per browser. Get the dropdown ref
+from a snapshot first, then:
 
 ```bash
-playwright-cli -s=local eval "(function() { var main = document.querySelector('main'); if (!main) return 'loading'; var text = main.innerText; if (text.includes('Something went wrong')) return 'error'; var m = text.match(/(Showing \\\\d+ to \\\\d+ of [\\\\d,]+ results)/); return m ? 'loaded:' + m[1] : 'loaded'; })()"
+# LOCAL — one chained command (replace @e12 with actual dropdown ref)
+agent-browser --session local click @e12 && sleep 1 && agent-browser --session local find testid filter-select-search-input fill "Scaled Ops" && sleep 1 && agent-browser --session local find role option click "Scaled Ops" && agent-browser --session local press Escape
+
+# REMOTE — same chain (replace @e9 with actual dropdown ref)
+agent-browser --session remote click @e9 && sleep 1 && agent-browser --session remote find testid filter-select-search-input fill "Scaled Ops" && sleep 1 && agent-browser --session remote find role option click "Scaled Ops" && agent-browser --session remote press Escape
 ```
+
+**Select team on Realtime** (single-select, no search box):
+
+Clicking the option ref directly does NOT reliably commit the selection.
+Use eval to click the listbox option instead:
+
+```bash
+# LOCAL — open dropdown then eval-click (replace @e17 with actual ref)
+agent-browser --session local click @e17 && sleep 1 && agent-browser --session local eval 'var opts = Array.from(document.querySelector("[role=listbox]").children); var opt = opts.find(e => e.textContent.trim() === "Scaled Ops"); if (opt) { opt.click(); "clicked"; } else { "not found"; }'
+```
+
+**Select timezone** (single-select on all pages):
+
+```bash
+# Open dropdown (replace @e21 with actual ref), then eval-click
+agent-browser --session local click @e21 && sleep 1 && agent-browser --session local eval 'var opts = Array.from(document.querySelector("[role=listbox]").children); var opt = opts.find(e => e.textContent.includes("Coordinated Universal")); if (opt) { opt.click(); "clicked"; } else { "not found"; }'
+```
+
+**Select user on Workstreams** (multi-select user dropdown):
+
+```bash
+agent-browser --session local click @e12 && sleep 1 && agent-browser --session local find testid filter-select-search-input fill "ahuti" && sleep 2 && agent-browser --session local find role option click "ahuti.rastogi@airbnb.com" && agent-browser --session local press Escape
+```
+
+**Toggle checkbox** (e.g., "Hide users with no events"):
+
+```bash
+agent-browser --session local eval "document.querySelector('input[type=\"checkbox\"]')?.click(); 'toggled'"
+```
+
+### Data loading and status checks
+
+After clicking Update/Refresh/Search, wait then verify data loaded:
+
+```bash
+sleep 5 && agent-browser --session local eval "document.querySelector('main')?.innerText.match(/Showing \\d+ to \\d+ of [\\d,]+ results/)?.[0] || document.querySelector('main')?.innerText.match(/\\d+ results/)?.[0] || document.querySelector('main')?.innerText.substring(0,200)"
+```
+
+If the result is `"Loading..."`, wait 5 more seconds and retry. Do not
+proceed to data comparison until both browsers show a result count.
+
+### Data comparison eval snippets
+
+**Result count:**
+```bash
+agent-browser --session local eval "document.querySelector('main')?.innerText.match(/\\d+ results/)?.[0] || 'no count'"
+```
+
+**First N table rows (all columns):**
+```bash
+agent-browser --session local eval "JSON.stringify(Array.from(document.querySelectorAll('table tbody tr')).slice(0,10).map(r => Array.from(r.querySelectorAll('td')).map(c => c.textContent.trim()).join('|')))"
+```
+
+**First N rows with specific columns** (e.g., email + status + aux):
+```bash
+agent-browser --session local eval "JSON.stringify(Array.from(document.querySelectorAll('table tbody tr')).slice(0,10).map(r => { var c = Array.from(r.querySelectorAll('td')); return c[0]?.textContent.trim() + '|' + c[5]?.textContent.trim() + '|' + c[7]?.textContent.trim(); }))"
+```
+
+**Summary/filter text:**
+```bash
+agent-browser --session local eval "document.querySelector('main')?.innerText.substring(0,300)"
+```
+
+**Note on quoting:** Use double quotes for the outer Bash string and single
+quotes inside the JS. Avoid single-quote Bash strings with embedded
+single quotes — they cause `SyntaxError: Invalid or unexpected token`.
 
 ### Filter alignment protocol
 
@@ -250,86 +345,43 @@ For each page, exercise ALL of the following that are present:
 - **Date/period selectors**: Try multiple values, compare results
 - **Timezone changes**: Test at least 2 different timezones per page
 
-### Snapshot diffing (primary comparison method)
+### Data comparison approach
 
-**Never read both full YAML snapshots into context.** Use the helper
-scripts in `.claude/skills/visual-compare/scripts/` instead.
+**Do not read full accessibility snapshots into context for comparison.**
+Instead, use `eval` to extract specific data from the DOM for targeted comparison.
 
-After snapshotting both browsers, use the one-line diff:
-
+**Comparing result counts:**
 ```bash
-# Basic diff (strips refs, cursor, active, dev-only elements, indentation)
-bash .claude/skills/visual-compare/scripts/vc-diff.sh "$LOCAL_SNAP" "$REMOTE_SNAP"
-
-# Realtime page (also normalizes ticking durations)
-bash .claude/skills/visual-compare/scripts/vc-diff.sh "$LOCAL_SNAP" "$REMOTE_SNAP" --realtime
-
-# Data-focused (compare only table rows, ignores sidebar nesting noise)
-bash .claude/skills/visual-compare/scripts/vc-diff.sh "$LOCAL_SNAP" "$REMOTE_SNAP" --rows-only
-
-# Order-independent (same data, different sort = IDENTICAL)
-bash .claude/skills/visual-compare/scripts/vc-diff.sh "$LOCAL_SNAP" "$REMOTE_SNAP" --rows-only --sorted
+agent-browser --session local snapshot 2>&1 | grep "results"
+agent-browser --session remote snapshot 2>&1 | grep "results"
 ```
 
-Exit codes: `0` = IDENTICAL, `1` = differences found, `2` = error.
-
-**Health check before diffing** — detect errors, loading, empty states:
-
+**Comparing table data via eval:**
 ```bash
-bash .claude/skills/visual-compare/scripts/vc-check-health.sh "$LOCAL_SNAP" --session-name local
-bash .claude/skills/visual-compare/scripts/vc-check-health.sh "$REMOTE_SNAP" --session-name remote
+# Extract first N rows as JSON for comparison
+agent-browser --session local eval 'JSON.stringify(Array.from(document.querySelectorAll("table tbody tr")).slice(0,10).map(r => Array.from(r.querySelectorAll("td")).map(c => c.textContent.trim()).join("|")))'
+agent-browser --session remote eval 'JSON.stringify(Array.from(document.querySelectorAll("table tbody tr")).slice(0,10).map(r => Array.from(r.querySelectorAll("td")).map(c => c.textContent.trim()).join("|")))'
 ```
 
-Output: `STATUS:<session>:loaded|error|empty|signin` + `DETAIL:` line.
-
-**Extract specific data** for targeted comparison:
-
+**Comparing summary text:**
 ```bash
-# Table rows (stripped of indentation)
-bash .claude/skills/visual-compare/scripts/vc-extract-rows.sh "$SNAP" --limit 10
-
-# Unique email addresses
-bash .claude/skills/visual-compare/scripts/vc-extract-rows.sh "$SNAP" --emails --limit 25
-
-# Result counts
-bash .claude/skills/visual-compare/scripts/vc-extract-rows.sh "$SNAP" --results
-
-# Group headings (Per Project/Per BPO names)
-bash .claude/skills/visual-compare/scripts/vc-extract-rows.sh "$SNAP" --headings --sorted
+agent-browser --session local eval 'document.querySelector("main")?.innerText.substring(0,500)'
+agent-browser --session remote eval 'document.querySelector("main")?.innerText.substring(0,500)'
 ```
 
-**Interpreting the diff:**
+**Using `diff snapshot` for structural comparison:**
+```bash
+# agent-browser's built-in diff compares current vs last snapshot
+agent-browser --session local diff snapshot
+```
 
-- Lines only in local (`<`): elements or data the BFF produces that prod
-  does not — may be a local bug or a new feature not yet in prod.
-- Lines only in remote (`>`): elements or data prod has that local lacks
-  — likely a local BFF bug or missing feature.
-- Changed lines: same element with different content — compare the values.
-  For tables, this surfaces cell-by-cell differences directly.
+**Interpreting differences:**
 
-**Expected diff noise** (ignore these — `[active]` is already stripped
-by the normalization sed above):
-
-- `[expanded]` / `[disabled]` on the Refresh button (cooldown timer state)
-- Duration values on the Realtime page (tick every second)
-- `alert` element content differences
-- `[selected]` on tabs (if you clicked different tabs)
-- Pagination button state (`[disabled]` on first/last page)
-- Open tab lists (remote may have extra browser tabs)
-- Indentation differences from sidebar nesting depth (local has one extra
-  `generic` wrapper around sidebar content — this causes ALL content lines
-  to differ by indentation, making raw full-YAML diff useless for data
-  comparison)
-
-**When the diff is large**, triage by category:
-
-1. First check: are there structural differences (missing elements,
-   different roles, different nesting depth)? These are UI bugs.
-2. Then check: are the same elements present but with different text?
-   These are data bugs.
-3. For data bugs: do the values differ by a consistent ratio (e.g.,
-   all ~1.5x)? That signals a date range bug. Do they differ randomly?
-   That signals a query logic bug.
+- Same result count but different rows: sort tie-breaking (cosmetic, not a bug)
+- Different result counts: filtering bug — investigate filter alignment
+- Same rows but different values: data bug — check if values differ by a
+  consistent ratio (date range off-by-one) or randomly (query logic bug)
+- Missing elements or different structure: UI bug
 
 ### Additional data analysis
 
@@ -385,8 +437,8 @@ For each comparison state tested, append to the session docs file:
 Close both browser sessions:
 
 ```bash
-playwright-cli -s=local close
-playwright-cli -s=remote close
+agent-browser --session local close
+agent-browser --session remote close
 ```
 
 Append a summary section to the docs file:
@@ -640,23 +692,36 @@ mutation is too high for automated comparison.
 
 - **Team re-selection**: Local does NOT persist team selection across
   page navigations. You must re-select the team on EVERY page. Remote
-  (prod) persists team selection. This is a known behavior difference —
+  (prod) also does NOT persist team selection. This is consistent behavior —
   note it once in the first page's report, do not re-report it.
+- **Single-select dropdowns (team on Realtime, timezone everywhere)**:
+  Clicking the option ref directly often fails to commit the selection.
+  Always use the `eval` + `querySelector("[role=listbox]")` pattern
+  from the Reusable command sequences section.
+- **Multi-select dropdowns (team on all other pages, users on Workstreams)**:
+  Use `find testid filter-select-search-input fill` to search, then
+  `find role option click` to select. This is more reliable than
+  snapshot → grep ref → click ref, because refs change between snapshots.
 - **"Hide users with no events" toggle**: This is an `input[type="checkbox"]`,
-  not a `role="switch"`. The ref-based click on the label does not toggle
-  it. Use `eval "document.querySelector('input[type=\"checkbox\"]')?.click()"`.
+  not a `role="switch"`. Use eval: `document.querySelector('input[type="checkbox"]')?.click()`.
 - System cards use `cursor-pointer` class, not `role="button"` — use
-  `eval` with `querySelectorAll('[class*="cursor-pointer"]')` to click
-  if ref-based click fails.
+  `eval` with `querySelectorAll('[class*="cursor-pointer"]')` to click.
 - The Table radio in Systems is a `[role="radio"]` element — use `eval`
-  with `querySelectorAll('[role="radio"]')` to click it if needed.
+  with `querySelectorAll('[role="radio"]')` to click it.
 - Filters collapse after clicking Update — click "Show Filters" to
   re-expand for filter changes.
 - Default period: May differ by 1 day between local and remote (known
   date boundary bug class).
+- **TanStack Table sort direction**: First click on a column header may
+  produce different sort directions in local vs remote (ascending vs
+  descending) due to `sortDescFirst` configuration. This is cosmetic —
+  click again to align directions, then compare.
 - **Console error checking**: When a page shows "Something went wrong",
-  read the console log file to identify which BFF endpoint returned 500.
-  The console log path is in the playwright-cli output under "Events".
+  use `agent-browser --session <name> console` to read console logs and
+  identify which BFF endpoint returned 500.
+- **Data loading**: Some pages (especially Workstreams, Systems) take
+  5-10 seconds to load. Always use the "Data loading and status checks"
+  pattern and retry if the page still shows "Loading...".
 
 ---
 
@@ -664,27 +729,30 @@ mutation is too high for automated comparison.
 
 ## Tool reference
 
-**All browser interaction uses `playwright-cli` via the Bash tool — never MCP.**
-The `playwright-cli` binary is a CLI wrapper around Playwright that manages
-named sessions, persistent browser profiles, and accessibility snapshots.
-It is invoked exclusively through `Bash(playwright-cli ...)` tool calls.
+**All browser interaction uses `agent-browser` via the Bash tool — never MCP.**
+`agent-browser` is a CLI browser automation tool that manages named sessions,
+persistent browser profiles, and accessibility snapshots via a daemon process.
+It is invoked exclusively through `Bash(agent-browser ...)` tool calls.
 
 | Action     | Local browser                        | Remote browser                        |
 | ---------- | ------------------------------------ | ------------------------------------- |
-| Navigate   | `playwright-cli -s=local goto <url>` | `playwright-cli -s=remote goto <url>` |
-| Snapshot   | `playwright-cli -s=local snapshot`   | `playwright-cli -s=remote snapshot`   |
-| Click      | `playwright-cli -s=local click <ref>`| `playwright-cli -s=remote click <ref>`|
-| Fill       | `playwright-cli -s=local fill <ref> "val"` | `playwright-cli -s=remote fill <ref> "val"` |
-| Select     | `playwright-cli -s=local select <ref> "val"` | `playwright-cli -s=remote select <ref> "val"` |
-| Type       | `playwright-cli -s=local type "text"`| `playwright-cli -s=remote type "text"`|
-| Evaluate   | `playwright-cli -s=local eval "..."`  | `playwright-cli -s=remote eval "..."`  |
-| Run-code   | `playwright-cli -s=local run-code "async page => { ... }"` | `playwright-cli -s=remote run-code "async page => { ... }"` |
-| Close      | `playwright-cli -s=local close`      | `playwright-cli -s=remote close`      |
+| Navigate   | `agent-browser --session local open <url>` | `agent-browser --session remote open <url>` |
+| Snapshot   | `agent-browser --session local snapshot`   | `agent-browser --session remote snapshot`   |
+| Click      | `agent-browser --session local click @<ref>`| `agent-browser --session remote click @<ref>`|
+| Fill       | `agent-browser --session local fill @<ref> "val"` | `agent-browser --session remote fill @<ref> "val"` |
+| Select     | `agent-browser --session local select @<ref> "val"` | `agent-browser --session remote select @<ref> "val"` |
+| Press key  | `agent-browser --session local press Escape`| `agent-browser --session remote press Escape`|
+| Find+act   | `agent-browser --session local find role option click "text"` | `agent-browser --session remote find role option click "text"` |
+| Evaluate   | `agent-browser --session local eval "..."`  | `agent-browser --session remote eval "..."`  |
+| Check      | `agent-browser --session local check @<ref>` | `agent-browser --session remote check @<ref>` |
+| Get info   | `agent-browser --session local get url`     | `agent-browser --session remote get url`     |
+| Console    | `agent-browser --session local console`     | `agent-browser --session remote console`     |
+| Close      | `agent-browser --session local close`       | `agent-browser --session remote close`       |
 
-Both sessions support the full set of playwright-cli commands. Use them freely
+Both sessions support the full set of agent-browser commands. Use them freely
 to interact with the app (click filters, fill forms, expand panels, etc.).
 
-**These are ALL Bash commands.** Every browser action is a `Bash(playwright-cli ...)`
+**These are ALL Bash commands.** Every browser action is a `Bash(agent-browser ...)`
 tool call. There are no other browser tools involved. Do NOT use MCP tools.
 
 ---
@@ -696,7 +764,7 @@ tool call. There are no other browser tools involved. Do NOT use MCP tools.
 - **NEVER navigate to `/users`, `/teams`, `/teams/[id]`, or `/settings/*`.**
   These are management pages where clicks can modify production data.
 - **NEVER use MCP browser tools.** All browser interaction must go through
-  `playwright-cli` via the Bash tool. Do not use `mcp__dashboard-local__*`
+  `agent-browser` via the Bash tool. Do not use `mcp__dashboard-local__*`
   or `mcp__dashboard-remote__*` tools.
 - Do not use a single browser session for both environments — Firebase auth tokens will collide.
 - Do not compare data before aligning ALL filters — timezone, team, period,
@@ -713,7 +781,6 @@ tool call. There are no other browser tools involved. Do NOT use MCP tools.
 - Do NOT CHANGE ANY DATA (do NOT manipulate users, teams, or URL classifications).
 - Do not guess URL paths — use the route map. If a path 404s, check the
   route map before asking the user.
-- Do not read full YAML snapshots into context for comparison — use the
-  data-focused diffing techniques (row extraction, email extraction,
-  result count grep) instead of the raw YAML diff when the full diff is
-  dominated by indentation noise.
+- Do not read full accessibility snapshots into context for comparison — use
+  `eval` to extract specific data (table rows, summary text, result counts)
+  from the DOM instead.

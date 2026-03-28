@@ -2,6 +2,18 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { type AnyObservation } from './types';
+
+// Batch mode: static imports to avoid `any` from dynamic import()
+import { getSourceFile, PROJECT_ROOT as AST_PROJECT_ROOT } from './project';
+import { runObservers, TOOL_REGISTRY } from './tool-registry';
+import { getCacheStats } from './ast-cache';
+import { analyzeReactFile } from './ast-react-inventory';
+import { analyzeComplexity, extractComplexityObservations } from './ast-complexity';
+import { interpretEffects } from './ast-interpret-effects';
+import { interpretHooks } from './ast-interpret-hooks';
+import { interpretOwnership } from './ast-interpret-ownership';
+import { interpretBranchClassification } from './ast-interpret-branch-classification';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -102,6 +114,7 @@ const ROUTES: ReadonlyMap<string, StandardRoute> = new Map([
   ['interpret-vitest', { tool: 'ast-interpret-vitest-parity', flags: [] }],
   ['interpret-test-coverage', { tool: 'ast-interpret-test-coverage', flags: [] }],
   ['interpret-skill', { tool: 'ast-interpret-skill-quality', flags: [] }],
+  ['interpret-branches', { tool: 'ast-interpret-branch-classification', flags: [] }],
   ['audit', { tool: 'ast-audit', flags: [] }],
 ]);
 
@@ -207,9 +220,14 @@ Available query types:
     interpret-vitest          Vitest test parity
     interpret-test-coverage   Test coverage gap classification
     interpret-skill           Skill file quality classification
+    interpret-branches        Branch contributor semantic classification
 
   Audit:
     audit                     Deterministic codebase audit (observations + interpreters + findings)
+
+  Batch (multiple query types, single parse):
+    batch <types> <path>      Run comma-separated query types in one process
+                              Example: batch hooks,complexity,interpret-branches src/path/file.tsx
 
   Unroutable (use direct invocation):
     bff-gaps         npx tsx scripts/AST/ast-bff-gaps.ts (no args)
@@ -228,6 +246,7 @@ Examples:
   ast-query date-usage src/server/ --summary --pretty
   ast-query hooks src/ui/page_blocks/ --count
   ast-query complexity src/ui/page_blocks/ --pretty
+  ast-query batch hooks,complexity,interpret-branches src/path/file.tsx --pretty
 `;
 
 // ---------------------------------------------------------------------------
@@ -289,6 +308,137 @@ function runTool(toolName: string, args: string[]): void {
     process.stderr.write(`Failed to spawn tool: ${err.message}\n`);
     process.exit(1);
   });
+}
+
+// ---------------------------------------------------------------------------
+// Batch mode: run multiple query types in one process (single parse)
+// ---------------------------------------------------------------------------
+
+/** Maps interpreter route names to their upstream observation tool registry name. */
+const INTERPRETER_UPSTREAM: ReadonlyMap<string, string> = new Map([
+  ['interpret-effects', 'react-inventory'],
+  ['interpret-hooks', 'react-inventory'],
+  ['interpret-ownership', 'react-inventory'],
+  ['interpret-template', 'jsx-analysis'],
+  ['interpret-test-quality', 'test-analysis'],
+  ['interpret-dead-code', 'imports'],
+  ['interpret-display', 'number-format'], // also needs null-display
+  ['interpret-branches', 'complexity'],
+]);
+
+/** Maps route query-type names to tool-registry names (for observation tools). */
+function routeToRegistryName(queryType: string): string | null {
+  const route = ROUTES.get(queryType);
+  if (!route) return null;
+  // Strip the "ast-" prefix to get the registry name
+  const toolFile = route.tool;
+  return toolFile.startsWith('ast-') ? toolFile.slice(4) : toolFile;
+}
+
+/** Check if a query type is an interpreter route. */
+function isInterpreter(queryType: string): boolean {
+  return queryType.startsWith('interpret-');
+}
+
+function runBatchSync(queryTypes: string[], filePaths: string[], extraFlags: string[]): void {
+  const pretty = extraFlags.includes('--pretty');
+  const noCache = extraFlags.includes('--no-cache');
+
+  // Separate observation tools from interpreters
+  const observationQueries: string[] = [];
+  const interpreterQueries: string[] = [];
+
+  for (const qt of queryTypes) {
+    if (isInterpreter(qt)) {
+      interpreterQueries.push(qt);
+      const upstream = INTERPRETER_UPSTREAM.get(qt);
+      if (upstream && !observationQueries.includes(upstream) && TOOL_REGISTRY.has(upstream)) {
+        observationQueries.push(upstream);
+      }
+    } else {
+      const regName = routeToRegistryName(qt);
+      if (regName && TOOL_REGISTRY.has(regName) && !observationQueries.includes(regName)) {
+        observationQueries.push(regName);
+      }
+    }
+  }
+
+  const results: Record<string, Record<string, unknown>> = {};
+
+  for (const fp of filePaths) {
+    const absolute = path.isAbsolute(fp) ? fp : path.resolve(AST_PROJECT_ROOT, fp);
+    const relativePath = path.relative(AST_PROJECT_ROOT, absolute);
+
+    if (!fs.existsSync(absolute)) {
+      process.stderr.write(`File not found: ${absolute}\n`);
+      continue;
+    }
+
+    const fileResults: Record<string, unknown> = {};
+
+    // Run observation tools via registry (single parse)
+    const sf = getSourceFile(absolute);
+    const allObservations = runObservers(sf, absolute, observationQueries, { noCache });
+
+    // Bucket observations by tool/kind for the requested query types
+    for (const qt of queryTypes) {
+      if (isInterpreter(qt)) continue;
+
+      const route = ROUTES.get(qt);
+      if (!route) continue;
+
+      let toolObs: AnyObservation[];
+      if (route.flags.includes('--kind')) {
+        const kindIdx = route.flags.indexOf('--kind');
+        const kind = route.flags[kindIdx + 1];
+        toolObs = allObservations.filter(o => 'kind' in o && (o as { kind: string }).kind === kind);
+      } else {
+        toolObs = allObservations;
+      }
+
+      fileResults[qt] = { count: toolObs.length, observations: toolObs };
+    }
+
+    // Run interpreters using static imports
+    for (const qt of interpreterQueries) {
+      try {
+        if (qt === 'interpret-effects') {
+          const inventory = analyzeReactFile(absolute);
+          const effectObs = inventory.components.flatMap(c => c.effectObservations);
+          fileResults[qt] = interpretEffects(effectObs);
+        } else if (qt === 'interpret-hooks') {
+          const inventory = analyzeReactFile(absolute);
+          fileResults[qt] = interpretHooks(inventory.hookObservations);
+        } else if (qt === 'interpret-ownership') {
+          const inventory = analyzeReactFile(absolute);
+          const hookResult = interpretHooks(inventory.hookObservations);
+          fileResults[qt] = interpretOwnership({
+            hookAssessments: hookResult.assessments,
+            componentObservations: inventory.componentObservations,
+            hookObservations: inventory.hookObservations,
+          });
+        } else if (qt === 'interpret-branches') {
+          const analysis = analyzeComplexity(absolute);
+          const obsResult = extractComplexityObservations(analysis);
+          const complexityObs = obsResult.observations.filter(
+            (o: AnyObservation) => 'kind' in o && (o as { kind: string }).kind === 'FUNCTION_COMPLEXITY',
+          );
+          fileResults[qt] = interpretBranchClassification(absolute, complexityObs);
+        } else {
+          fileResults[qt] = { error: `Interpreter ${qt} not yet wired for batch mode` };
+        }
+      } catch (err) {
+        fileResults[qt] = { error: `Failed to run ${qt}: ${err instanceof Error ? err.message : String(err)}` };
+      }
+    }
+
+    results[relativePath] = fileResults;
+  }
+
+  // Output
+  const stats = getCacheStats();
+  process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
+  process.stdout.write(JSON.stringify(results, null, pretty ? 2 : 0) + '\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -421,6 +571,34 @@ export function main(
     process.exit(0);
   }
 
+  // Batch mode: run multiple query types in one process
+  if (queryType === 'batch') {
+    const queryTypesArg = positionalArgs[0];
+    const paths = positionalArgs.slice(1);
+    if (!queryTypesArg || paths.length === 0) {
+      process.stderr.write('Error: batch requires comma-separated query types and at least one path.\n');
+      process.stderr.write('Usage: ast-query batch hooks,complexity,interpret-branches src/path/file.tsx\n');
+      process.exit(1);
+    }
+    const queryTypes = queryTypesArg.split(',').map(s => s.trim());
+
+    // Validate all query types
+    for (const qt of queryTypes) {
+      if (!ROUTES.has(qt)) {
+        process.stderr.write(`Error: unknown query type "${qt}" in batch. Use --help for available types.\n`);
+        process.exit(1);
+      }
+    }
+
+    try {
+      runBatchSync(queryTypes, paths, extraFlags);
+    } catch (err) {
+      process.stderr.write(`Batch error: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`);
+      process.exit(1);
+    }
+    return;
+  }
+
   // Resolve dispatch target
   const dispatch = resolveDispatch(queryType, positionalArgs, extraFlags);
   if (dispatch) {
@@ -454,6 +632,7 @@ export {
   ARG_REWRITE_QUERY_TYPES,
   validateRoutes,
   resolveDispatch,
+  runBatchSync,
   HELP_TEXT,
   SCRIPTS_AST_DIR,
 };
