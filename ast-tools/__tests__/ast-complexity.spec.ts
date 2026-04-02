@@ -179,6 +179,57 @@ describe('ast-complexity', () => {
     const condAdd = findFunction(result, 'conditionalAdd');
     expect(condAdd.cyclomaticComplexity).toBe(2);
   });
+
+  it('constructor is reported as its own complexity entry', () => {
+    const result = analyzeFixture('complexity-accessors.ts');
+    const ctor = result.functions.find(f => f.name === 'constructor');
+    expect(ctor).toBeDefined();
+    // base 1 + 1 if = 2
+    expect(ctor!.cyclomaticComplexity).toBe(2);
+  });
+
+  it('get accessor is reported as "get <name>" complexity entry', () => {
+    const result = analyzeFixture('complexity-accessors.ts');
+    const getter = result.functions.find(f => f.name === 'get fahrenheit');
+    expect(getter).toBeDefined();
+    expect(getter!.cyclomaticComplexity).toBe(1);
+  });
+
+  it('set accessor is reported as "set <name>" complexity entry with its own complexity', () => {
+    const result = analyzeFixture('complexity-accessors.ts');
+    const setter = result.functions.find(f => f.name === 'set fahrenheit');
+    expect(setter).toBeDefined();
+    // base 1 + 1 if = 2
+    expect(setter!.cyclomaticComplexity).toBe(2);
+  });
+
+  it('standalone arrow function gets its own complexity entry', () => {
+    const result = analyzeFixture('complexity-accessors.ts');
+    const arrow = result.functions.find(f => f.name === 'squareIfPositive');
+    expect(arrow).toBeDefined();
+    // base 1 + 1 if = 2
+    expect(arrow!.cyclomaticComplexity).toBe(2);
+  });
+
+  it('function expression gets its own complexity entry', () => {
+    const result = analyzeFixture('complexity-accessors.ts');
+    const fnExpr = result.functions.find(f => f.name === 'multiplyOrZero');
+    expect(fnExpr).toBeDefined();
+    // base 1 + 1 if + 1 || = 3
+    expect(fnExpr!.cyclomaticComplexity).toBe(3);
+  });
+
+  it('nested standalone function does not contribute complexity to outer function', () => {
+    const result = analyzeFixture('complexity-accessors.ts');
+    const outer = result.functions.find(f => f.name === 'outerWithNestedFunction');
+    const inner = result.functions.find(f => f.name === 'innerHelper');
+    expect(outer).toBeDefined();
+    expect(inner).toBeDefined();
+    // outer: base 1 + 1 for-of loop = 2 (inner's if does NOT count)
+    expect(outer!.cyclomaticComplexity).toBe(2);
+    // inner: base 1 + 1 if = 2
+    expect(inner!.cyclomaticComplexity).toBe(2);
+  });
 });
 
 describe('analyzeComplexityDirectory', () => {

@@ -472,6 +472,90 @@ describe('ast-interpret-hooks', () => {
     });
   });
 
+  describe('member-call hook classification', () => {
+    it('classifies member-call hook matching service pattern as LIKELY_SERVICE_HOOK via convention stage', () => {
+      // classifyByConvention (stage 4b) catches use*Query/Mutation names before
+      // classifyMemberCallHook (stage 4c) is reached. Both stages apply the same
+      // pattern, so isMemberCall hooks with service names are classified via 4b.
+      const observations: HookObservation[] = [
+        makeHookCall('test.tsx', 10, 'useGetAllQuery', {
+          isMemberCall: true,
+        }),
+      ];
+
+      const result = interpretHooks(observations);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('LIKELY_SERVICE_HOOK');
+      expect(result.assessments[0].confidence).toBe('low');
+      // Matched via convention stage (4b), not member-call stage (4c)
+      expect(result.assessments[0].rationale[0]).toContain('matches service hook naming convention');
+    });
+  });
+
+  describe('member-call hook classification', () => {
+    it('classifies member-call hook matching service pattern as LIKELY_SERVICE_HOOK via convention stage', () => {
+      // classifyByConvention (stage 4b) catches use*Query/Mutation names before
+      // classifyMemberCallHook (stage 4c) is reached. Both stages apply the same
+      // pattern, so isMemberCall hooks with service names are classified via 4b.
+      const observations: HookObservation[] = [
+        makeHookCall('test.tsx', 10, 'useGetAllQuery', {
+          isMemberCall: true,
+        }),
+      ];
+
+      const result = interpretHooks(observations);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('LIKELY_SERVICE_HOOK');
+      expect(result.assessments[0].confidence).toBe('low');
+      // Matched via convention stage (4b), not member-call stage (4c)
+      expect(result.assessments[0].rationale[0]).toContain('matches service hook naming convention');
+    });
+  });
+
+  describe('member-call hook classification', () => {
+    it('classifies member-call hook matching service pattern as LIKELY_SERVICE_HOOK via convention stage', () => {
+      // classifyByConvention (stage 4b) catches use*Query/Mutation names before
+      // classifyMemberCallHook (stage 4c) is reached. Both stages apply the same
+      // pattern, so isMemberCall hooks with service names are classified via 4b.
+      const observations: HookObservation[] = [
+        makeHookCall('test.tsx', 10, 'useGetAllQuery', {
+          isMemberCall: true,
+        }),
+      ];
+
+      const result = interpretHooks(observations);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('LIKELY_SERVICE_HOOK');
+      expect(result.assessments[0].confidence).toBe('low');
+      // Matched via convention stage (4b), not member-call stage (4c)
+      expect(result.assessments[0].rationale[0]).toContain('matches service hook naming convention');
+    });
+  });
+
+  describe('member-call hook classification', () => {
+    it('classifies member-call hook matching service pattern as LIKELY_SERVICE_HOOK via convention stage', () => {
+      // classifyByConvention (stage 4b) catches use*Query/Mutation names before
+      // classifyMemberCallHook (stage 4c) is reached. Both stages apply the same
+      // pattern, so isMemberCall hooks with service names are classified via 4b.
+      const observations: HookObservation[] = [
+        makeHookCall('test.tsx', 10, 'useGetAllQuery', {
+          isMemberCall: true,
+        }),
+      ];
+
+      const result = interpretHooks(observations);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('LIKELY_SERVICE_HOOK');
+      expect(result.assessments[0].confidence).toBe('low');
+      // Matched via convention stage (4b), not member-call stage (4c)
+      expect(result.assessments[0].rationale[0]).toContain('matches service hook naming convention');
+    });
+  });
+
   describe('boundary confidence', () => {
     it('adds near-boundary indicator for UNKNOWN_HOOK', () => {
       const observations: HookObservation[] = [makeHookCall('test.tsx', 10, 'useMyCustomUnknownHook')];

@@ -468,7 +468,7 @@ function padRight(str: string, len: number): string {
   return str.length >= len ? str + ' ' : str + ' '.repeat(len - str.length);
 }
 
-function prettyPrint(report: VtParityReport, sourceLabel: string, targetLabel: string): string {
+export function prettyPrint(report: VtParityReport, sourceLabel: string, targetLabel: string): string {
   const lines: string[] = [];
 
   lines.push('Test Parity Report (Vitest)');
@@ -539,7 +539,7 @@ function prettyPrint(report: VtParityReport, sourceLabel: string, targetLabel: s
 
 const NAMED_OPTIONS = ['--source-branch', '--source-dir', '--target-dir'] as const;
 
-function main(): void {
+export function main(): void {
   const args = parseArgs(process.argv, NAMED_OPTIONS);
   const sourceBranch = args.options['source-branch'] ?? null;
   const sourceDir = args.options['source-dir'] ?? null;
@@ -587,6 +587,7 @@ function main(): void {
   }
 }
 
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-interpret-vitest-parity.ts') ||
@@ -595,3 +596,4 @@ const isDirectRun =
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

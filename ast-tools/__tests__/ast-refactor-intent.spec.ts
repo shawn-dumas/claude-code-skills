@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import path from 'path';
 import fs from 'fs';
 import type { AnyObservation, RefactorSignalPair } from '../types';
@@ -22,7 +22,7 @@ import { gitGetHeadContent, createVirtualProject } from '../git-source';
 import { runAllObservers } from '../tool-registry';
 
 // Dynamically import after mocks are set up
-const { analyzeRefactorIntent, prettyPrint } = await import('../ast-refactor-intent');
+const { analyzeRefactorIntent, prettyPrint, main, parseBeforeAfter } = await import('../ast-refactor-intent');
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
 
@@ -437,6 +437,210 @@ describe('ast-refactor-intent', () => {
       expect(output).toContain('(none)');
       expect(output).toContain('UNMATCHED (0)');
       expect(output).toContain('NOVEL (0)');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // parseBeforeAfter
+  // ---------------------------------------------------------------------------
+
+  describe('parseBeforeAfter', () => {
+    it('parses --before and --after flags', () => {
+      const argv = ['node', 'ast-refactor-intent.ts', '--before', 'a.tsx', 'b.tsx', '--after', 'c.tsx'];
+      const { beforePaths, afterPaths } = parseBeforeAfter(argv);
+      expect(beforePaths).toEqual(['a.tsx', 'b.tsx']);
+      expect(afterPaths).toEqual(['c.tsx']);
+    });
+
+    it('parses --after before --before', () => {
+      const argv = ['node', 'ast-refactor-intent.ts', '--after', 'c.tsx', '--before', 'a.tsx'];
+      const { beforePaths, afterPaths } = parseBeforeAfter(argv);
+      expect(beforePaths).toEqual(['a.tsx']);
+      expect(afterPaths).toEqual(['c.tsx']);
+    });
+
+    it('stops consuming paths when an unknown flag is encountered', () => {
+      const argv = ['node', 'ast-refactor-intent.ts', '--before', 'a.tsx', '--unknown', 'b.tsx'];
+      const { beforePaths, afterPaths } = parseBeforeAfter(argv);
+      // --unknown stops the --before collection; b.tsx is not consumed
+      expect(beforePaths).toEqual(['a.tsx']);
+      expect(afterPaths).toEqual([]);
+    });
+
+    it('uses legacy -- separator when no --before/--after flags present', () => {
+      const argv = ['node', 'ast-refactor-intent.ts', 'before.tsx', '--', 'after.tsx'];
+      const { beforePaths, afterPaths } = parseBeforeAfter(argv);
+      expect(beforePaths).toEqual(['before.tsx']);
+      expect(afterPaths).toEqual(['after.tsx']);
+    });
+
+    it('legacy mode: same file for both sides when no separator', () => {
+      const argv = ['node', 'ast-refactor-intent.ts', 'file.tsx'];
+      const { beforePaths, afterPaths } = parseBeforeAfter(argv);
+      expect(beforePaths).toEqual(['file.tsx']);
+      expect(afterPaths).toEqual(['file.tsx']);
+    });
+
+    it('legacy mode strips --pretty and --help from paths', () => {
+      const argv = ['node', 'ast-refactor-intent.ts', '--pretty', 'file.tsx', '--help'];
+      const { beforePaths, afterPaths } = parseBeforeAfter(argv);
+      expect(beforePaths).toEqual(['file.tsx']);
+      expect(afterPaths).toEqual(['file.tsx']);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // main() CLI
+  // ---------------------------------------------------------------------------
+
+  describe('main()', () => {
+    let stdoutChunks: string[];
+    let stderrChunks: string[];
+    let originalArgv: string[];
+
+    beforeEach(() => {
+      stdoutChunks = [];
+      stderrChunks = [];
+      originalArgv = process.argv;
+      vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+        stdoutChunks.push(String(chunk));
+        return true;
+      });
+      vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
+        stderrChunks.push(String(chunk));
+        return true;
+      });
+      vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`process.exit(${code})`);
+      }) as never);
+    });
+
+    afterEach(() => {
+      process.argv = originalArgv;
+      vi.restoreAllMocks();
+    });
+
+    it('--help exits 0 and prints usage', () => {
+      process.argv = ['node', 'ast-refactor-intent.ts', '--help'];
+      expect(() => main()).toThrow('process.exit(0)');
+      const out = stdoutChunks.join('');
+      expect(out).toContain('Usage:');
+      expect(out).toContain('--before');
+      expect(out).toContain('--after');
+    });
+
+    it('exits 1 when no file paths provided', () => {
+      process.argv = ['node', 'ast-refactor-intent.ts'];
+      expect(() => main()).toThrow('process.exit(1)');
+      expect(stderrChunks.join('')).toContain('No file paths provided');
+    });
+
+    it('outputs JSON result for valid fixture files', () => {
+      const fixture = path.join(FIXTURES_DIR, 'refactor-intent-before.tsx');
+
+      vi.mocked(gitGetHeadContent).mockReturnValue('// head content');
+      const mockProject = { createSourceFile: vi.fn().mockReturnValue({}) };
+      vi.mocked(createVirtualProject).mockReturnValue(
+        mockProject as unknown as ReturnType<typeof createVirtualProject>,
+      );
+      vi.mocked(runAllObservers).mockReturnValue([]);
+
+      const origExistsSync = fs.existsSync;
+      const origReadFileSync = fs.readFileSync;
+      fsAny.existsSync = (p: string) => {
+        if (typeof p === 'string' && p.includes('refactor-intent-before')) return true;
+        return origExistsSync(p);
+      };
+      fsAny.readFileSync = (p: string, enc: string) => {
+        if (typeof p === 'string' && p.includes('refactor-intent-before')) return '// content';
+        return origReadFileSync(p as fs.PathOrFileDescriptor, enc as BufferEncoding);
+      };
+
+      try {
+        process.argv = ['node', 'ast-refactor-intent.ts', '--before', fixture, '--after', fixture];
+        main();
+        const result = JSON.parse(stdoutChunks.join('')) as Record<string, unknown>;
+        expect(result).toHaveProperty('matched');
+        expect(result).toHaveProperty('unmatched');
+        expect(result).toHaveProperty('novel');
+      } finally {
+        fs.existsSync = origExistsSync;
+        fs.readFileSync = origReadFileSync;
+      }
+    });
+
+    it('--pretty outputs human-readable format', () => {
+      const fixture = path.join(FIXTURES_DIR, 'refactor-intent-before.tsx');
+
+      vi.mocked(gitGetHeadContent).mockReturnValue('// head content');
+      const mockProject = { createSourceFile: vi.fn().mockReturnValue({}) };
+      vi.mocked(createVirtualProject).mockReturnValue(
+        mockProject as unknown as ReturnType<typeof createVirtualProject>,
+      );
+      vi.mocked(runAllObservers).mockReturnValue([]);
+
+      const origExistsSync = fs.existsSync;
+      const origReadFileSync = fs.readFileSync;
+      fsAny.existsSync = (p: string) => {
+        if (typeof p === 'string' && p.includes('refactor-intent-before')) return true;
+        return origExistsSync(p);
+      };
+      fsAny.readFileSync = (p: string, enc: string) => {
+        if (typeof p === 'string' && p.includes('refactor-intent-before')) return '// content';
+        return origReadFileSync(p as fs.PathOrFileDescriptor, enc as BufferEncoding);
+      };
+
+      try {
+        process.argv = ['node', 'ast-refactor-intent.ts', '--before', fixture, '--after', fixture, '--pretty'];
+        main();
+        const out = stdoutChunks.join('');
+        expect(out).toContain('REFACTOR INTENT OBSERVATION');
+        expect(out).toContain('MATCHED');
+      } finally {
+        fs.existsSync = origExistsSync;
+        fs.readFileSync = origReadFileSync;
+      }
+    });
+
+    it('catches error in after-file observation collection and continues', () => {
+      const fixture = path.join(FIXTURES_DIR, 'refactor-intent-before.tsx');
+
+      vi.mocked(gitGetHeadContent).mockReturnValue(null);
+      const mockProject = { createSourceFile: vi.fn().mockReturnValue({}) };
+      vi.mocked(createVirtualProject).mockReturnValue(
+        mockProject as unknown as ReturnType<typeof createVirtualProject>,
+      );
+      // First call succeeds (after-file), second throws
+      let callCount = 0;
+      vi.mocked(runAllObservers).mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) throw new Error('parse error');
+        return [];
+      });
+
+      const origExistsSync = fs.existsSync;
+      const origReadFileSync = fs.readFileSync;
+      fsAny.existsSync = (p: string) => {
+        if (typeof p === 'string' && p.includes('refactor-intent-before')) return true;
+        return origExistsSync(p);
+      };
+      fsAny.readFileSync = (p: string, enc: string) => {
+        if (typeof p === 'string' && p.includes('refactor-intent-before')) return '// content';
+        return origReadFileSync(p as fs.PathOrFileDescriptor, enc as BufferEncoding);
+      };
+
+      try {
+        process.argv = ['node', 'ast-refactor-intent.ts', '--after', fixture];
+        // Should not throw -- errors are caught and written to stderr
+        main();
+        const result = JSON.parse(stdoutChunks.join('')) as Record<string, unknown>;
+        expect(result).toHaveProperty('matched');
+        // Warning written to stderr
+        expect(stderrChunks.join('')).toContain('Warning:');
+      } finally {
+        fs.existsSync = origExistsSync;
+        fs.readFileSync = origReadFileSync;
+      }
     });
   });
 });

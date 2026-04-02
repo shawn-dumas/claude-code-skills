@@ -1,0 +1,102 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "effects",
+  "files": {
+    "component.tsx": {
+      "effectObservations": [
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "evidence": {
+            "effectLine": 19,
+            "parentFunction": "AutoSelectContainer",
+            "depArray": ["data", "setAzWs"],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 26,
+          "evidence": {
+            "effectLine": 19,
+            "identifier": "data"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 26,
+          "evidence": {
+            "effectLine": 19,
+            "identifier": "setAzWs"
+          }
+        },
+        {
+          "kind": "EFFECT_REF_TOUCH",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 20,
+          "evidence": {
+            "effectLine": 19,
+            "identifier": "prevDataRef"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 20,
+          "evidence": {
+            "effectLine": 19,
+            "identifier": "data"
+          }
+        },
+        {
+          "kind": "EFFECT_REF_TOUCH",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 21,
+          "evidence": {
+            "effectLine": 19,
+            "identifier": "prevDataRef"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 21,
+          "evidence": {
+            "effectLine": 19,
+            "identifier": "data"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 23,
+          "evidence": {
+            "effectLine": 19,
+            "identifier": "data"
+          }
+        },
+        {
+          "kind": "EFFECT_BODY_DEP_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 24,
+          "evidence": {
+            "effectLine": 19,
+            "identifier": "setAzWs"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 24,
+          "evidence": {
+            "effectLine": 19,
+            "identifier": "data"
+          }
+        }
+      ]
+    }
+  }
+}

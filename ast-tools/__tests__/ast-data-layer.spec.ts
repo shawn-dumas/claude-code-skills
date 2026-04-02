@@ -284,6 +284,45 @@ describe('negative fixture tests', () => {
   });
 });
 
+describe('arrow function hook definitions (data-layer-arrow-hooks.ts)', () => {
+  it('detects QUERY_HOOK_DEF for const arrow function variable declarations (lines 191-196)', () => {
+    const result = analyzeFixture('data-layer-arrow-hooks.ts');
+    const queryHooks = usagesOfType(result, 'QUERY_HOOK_DEF');
+    const arrowQuery = queryHooks.find(h => h.name === 'useArrowQuery');
+    expect(arrowQuery).toBeDefined();
+    expect(arrowQuery!.containingFunction).toBe('<module>');
+    expect(arrowQuery!.text).toContain('useArrowQuery');
+  });
+
+  it('detects MUTATION_HOOK_DEF for const arrow function variable declarations (lines 191-196)', () => {
+    const result = analyzeFixture('data-layer-arrow-hooks.ts');
+    const mutationHooks = usagesOfType(result, 'MUTATION_HOOK_DEF');
+    const arrowMutation = mutationHooks.find(h => h.name === 'useArrowMutation');
+    expect(arrowMutation).toBeDefined();
+    expect(arrowMutation!.containingFunction).toBe('<module>');
+  });
+});
+
+describe('invalidateQueries key extraction variants (data-layer-invalidation-variants.ts)', () => {
+  it('detects QUERY_INVALIDATION when object arg has no queryKey property (line 366)', () => {
+    const result = analyzeFixture('data-layer-invalidation-variants.ts');
+    const invalidations = usagesOfType(result, 'QUERY_INVALIDATION');
+    // { exact: true } has no queryKey -- name falls back to 'invalidateQueries'
+    const noKeyInvalidation = invalidations.find(i => i.name === 'invalidateQueries');
+    expect(noKeyInvalidation).toBeDefined();
+    expect(noKeyInvalidation!.details.queryKey).toBeUndefined();
+  });
+
+  it('detects QUERY_INVALIDATION when first arg is a non-object array literal (line 368)', () => {
+    const result = analyzeFixture('data-layer-invalidation-variants.ts');
+    const invalidations = usagesOfType(result, 'QUERY_INVALIDATION');
+    // ['items', 'list'] is an array, not object -- name is the array text
+    const arrayKeyInvalidation = invalidations.find(i => i.name !== 'invalidateQueries' && i.name !== '');
+    expect(arrayKeyInvalidation).toBeDefined();
+    expect(arrayKeyInvalidation!.details.queryKey).toContain('items');
+  });
+});
+
 describe('template literal resolution in query key factories', () => {
   it('populates resolvedKeys for template literal keys', () => {
     const analysis = analyzeFixture('data-layer-template-key.ts');

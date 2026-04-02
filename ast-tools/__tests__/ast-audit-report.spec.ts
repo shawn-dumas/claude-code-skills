@@ -108,6 +108,18 @@ describe('renderMarkdownSummary', () => {
     expect(md).toContain('src/hot.tsx (3 findings)');
   });
 
+  it('renders per-file breakdown with "-" for findings with no line number', () => {
+    const findings = [
+      finding({ id: 'a', file: 'src/hot.tsx', line: undefined }),
+      finding({ id: 'b', file: 'src/hot.tsx', line: undefined, kind: 'non-null-assertion' }),
+      finding({ id: 'c', file: 'src/hot.tsx', line: undefined, kind: 'complexity-hotspot', category: 'Architecture' }),
+    ];
+    const md = renderMarkdownSummary(findings, META);
+    expect(md).toContain('## Per-File Breakdown');
+    // line ?? '-' should produce '-' for undefined line numbers
+    expect(md).toContain('| P4 | - |');
+  });
+
   it('renders track summary', () => {
     const findings = [finding({ id: 'a', track: 'fe' }), finding({ id: 'b', track: 'bff', file: 'src/server/x.ts' })];
     const md = renderMarkdownSummary(findings, META);
@@ -179,5 +191,28 @@ describe('renderDiff', () => {
     const md = renderDiff(diff);
     expect(md).toContain('**New findings**: 0');
     expect(md).not.toContain('## New Findings');
+  });
+
+  it('renders Changed Priority section when a finding changes priority', () => {
+    const current = [finding({ id: 'ch1', priority: 'P2', kind: 'RAW_ROLE_CHECK' })];
+    const previous = [finding({ id: 'ch1', priority: 'P4', kind: 'RAW_ROLE_CHECK' })];
+    const diff = computeDiff(current, previous);
+    const md = renderDiff(diff);
+    expect(md).toContain('## Changed Priority');
+    expect(md).toContain('| File | Kind | Was | Now | Evidence |');
+    expect(md).toContain('P4');
+    expect(md).toContain('P2');
+    expect(md).toContain('RAW_ROLE_CHECK');
+    expect(md).toContain('**Changed priority**: 1');
+  });
+
+  it('renders findings table using file-only location when finding has no line number', () => {
+    // Exercises the f.line ? `file:line` : file branch (false path) in renderFindingsTable
+    const noLine = finding({ id: 'nl1', line: undefined, evidence: 'no location evidence' });
+    const diff = computeDiff([noLine], []);
+    const md = renderDiff(diff);
+    // The File column should be just src/ui/Foo.tsx (no :line suffix)
+    // Row format: | P4 | src/ui/Foo.tsx | fe | ...
+    expect(md).toContain('| P4 | src/ui/Foo.tsx | fe |');
   });
 });

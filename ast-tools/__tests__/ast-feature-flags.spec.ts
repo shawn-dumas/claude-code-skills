@@ -328,3 +328,30 @@ describe('negative fixture', () => {
     expect(otherCondition).toBeUndefined();
   });
 });
+
+describe('edge-case coverage paths', () => {
+  function analyzeEdgeCases() {
+    return analyzeFixture('feature-flags-edge-cases.tsx');
+  }
+
+  it('skips usePosthogContext() that is not in a variable declaration (line 357)', () => {
+    // ComponentWithBarePosthogCall calls usePosthogContext() as a standalone
+    // expression -- the tool returns early at line 357 without emitting FLAG_HOOK_CALL.
+    const result = analyzeEdgeCases();
+    const hookCalls = usagesOfType(result, 'FLAG_HOOK_CALL');
+    const bareCall = hookCalls.find(u => u.containingFunction === 'ComponentWithBarePosthogCall');
+    expect(bareCall).toBeUndefined();
+  });
+
+  it('emits FLAG_READ for a bare featureFlags access inside JSX (line 299)', () => {
+    // ComponentWithBareFlag accesses featureFlags.some_flag inside String(...) in JSX.
+    // isInsideJsxConditional reaches a JsxExpression whose inner expression is a
+    // CallExpression (not ternary or &&), so it returns false at line 299.
+    // The access is then classified as FLAG_READ, not CONDITIONAL_RENDER.
+    const result = analyzeEdgeCases();
+    const flagReads = usagesOfType(result, 'FLAG_READ');
+    const bareRead = flagReads.find(u => u.flagName === 'some_flag');
+    expect(bareRead).toBeDefined();
+    expect(bareRead!.containingFunction).toBe('ComponentWithBareFlag');
+  });
+});

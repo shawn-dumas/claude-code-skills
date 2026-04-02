@@ -128,6 +128,25 @@ function logicalExamples(isAdmin: boolean, data: unknown) {
   return { result, fallback };
 }
 
+// ---------------------------------------------------------------------------
+// Long-condition example (for truncation coverage)
+// ---------------------------------------------------------------------------
+
+// This function has a condition longer than 120 chars so truncateCondition is exercised.
+function longConditionExample(
+  veryLongVariableNameThatExceedsTheMaximumAllowedConditionLength: boolean,
+  anotherLongVariableName: boolean,
+) {
+  if (
+    veryLongVariableNameThatExceedsTheMaximumAllowedConditionLength &&
+    anotherLongVariableName &&
+    veryLongVariableNameThatExceedsTheMaximumAllowedConditionLength
+  ) {
+    return 'yes';
+  }
+  return 'no';
+}
+
 export {
   typeDispatchExample,
   nullGuardExample,
@@ -139,4 +158,5 @@ export {
   otherExample,
   ternaryExamples,
   logicalExamples,
+  longConditionExample,
 };

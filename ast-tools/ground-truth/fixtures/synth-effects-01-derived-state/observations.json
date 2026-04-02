@@ -1,0 +1,167 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "effects",
+  "files": {
+    "component.tsx": {
+      "effectObservations": [
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 15,
+          "evidence": {
+            "effectLine": 15,
+            "parentFunction": "DerivedStatePanel",
+            "depArray": ["userId"],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 23,
+          "evidence": {
+            "effectLine": 15,
+            "identifier": "userId"
+          }
+        },
+        {
+          "kind": "EFFECT_STATE_SETTER_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 16,
+          "evidence": {
+            "effectLine": 15,
+            "identifier": "setLoading"
+          }
+        },
+        {
+          "kind": "EFFECT_ASYNC_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 17,
+          "evidence": {
+            "effectLine": 15
+          }
+        },
+        {
+          "kind": "EFFECT_ASYNC_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 17,
+          "evidence": {
+            "effectLine": 15
+          }
+        },
+        {
+          "kind": "EFFECT_FETCH_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 17,
+          "evidence": {
+            "effectLine": 15,
+            "identifier": "fetch"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 17,
+          "evidence": {
+            "effectLine": 15,
+            "identifier": "userId"
+          }
+        },
+        {
+          "kind": "EFFECT_STATE_SETTER_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 20,
+          "evidence": {
+            "effectLine": 15,
+            "identifier": "setUserData"
+          }
+        },
+        {
+          "kind": "EFFECT_STATE_SETTER_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 21,
+          "evidence": {
+            "effectLine": 15,
+            "identifier": "setLoading"
+          }
+        },
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 25,
+          "evidence": {
+            "effectLine": 25,
+            "parentFunction": "DerivedStatePanel",
+            "depArray": [],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_ASYNC_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 26,
+          "evidence": {
+            "effectLine": 25
+          }
+        },
+        {
+          "kind": "EFFECT_FETCH_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 27,
+          "evidence": {
+            "effectLine": 25,
+            "identifier": "fetch"
+          }
+        },
+        {
+          "kind": "EFFECT_STATE_SETTER_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 29,
+          "evidence": {
+            "effectLine": 25,
+            "identifier": "setUserData"
+          }
+        },
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 34,
+          "evidence": {
+            "effectLine": 34,
+            "parentFunction": "DerivedStatePanel",
+            "depArray": ["items"],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 36,
+          "evidence": {
+            "effectLine": 34,
+            "identifier": "items"
+          }
+        },
+        {
+          "kind": "EFFECT_STATE_SETTER_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 35,
+          "evidence": {
+            "effectLine": 34,
+            "identifier": "setFiltered"
+          }
+        },
+        {
+          "kind": "EFFECT_CONTEXT_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 35,
+          "evidence": {
+            "effectLine": 34,
+            "identifier": "items",
+            "targetObject": "useContext"
+          }
+        }
+      ]
+    }
+  }
+}

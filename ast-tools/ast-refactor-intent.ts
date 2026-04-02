@@ -520,7 +520,7 @@ export function prettyPrint(result: RefactorSignalPair): string {
  * Each keyword consumes non-flag args until the next --keyword or end.
  * Also supports legacy `<before...> -- <after...>` separator format.
  */
-function parseBeforeAfter(argv: string[]): { beforePaths: string[]; afterPaths: string[] } {
+export function parseBeforeAfter(argv: string[]): { beforePaths: string[]; afterPaths: string[] } {
   const rawArgs = argv.slice(2);
   const hasBeforeFlag = rawArgs.includes('--before');
   const hasAfterFlag = rawArgs.includes('--after');
@@ -559,7 +559,7 @@ function parseBeforeAfter(argv: string[]): { beforePaths: string[]; afterPaths: 
   };
 }
 
-function main(): void {
+export function main(): void {
   const args = parseArgs(process.argv);
 
   if (args.help) {
@@ -594,6 +594,7 @@ function main(): void {
   }
 }
 
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-refactor-intent.ts') || process.argv[1].endsWith('ast-refactor-intent'));
@@ -601,3 +602,4 @@ const isDirectRun =
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

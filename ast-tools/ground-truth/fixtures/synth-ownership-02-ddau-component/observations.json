@@ -1,0 +1,193 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "ownership",
+  "files": {
+    "UserCard.tsx": {
+      "hookObservations": [],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/UserCard.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "UserCard",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/UserCard.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "UserCard",
+            "propName": "name",
+            "propType": "string",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/UserCard.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "UserCard",
+            "propName": "email",
+            "propType": "string",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/UserCard.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "UserCard",
+            "propName": "onSelect",
+            "propType": "() => void",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": true
+          }
+        }
+      ]
+    },
+    "StatusBadge.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/StatusBadge.tsx",
+          "line": 10,
+          "column": 17,
+          "evidence": {
+            "hookName": "useMemo",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "StatusBadge",
+            "isReactBuiltin": true
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/StatusBadge.tsx",
+          "line": 9,
+          "evidence": {
+            "componentName": "StatusBadge",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/StatusBadge.tsx",
+          "line": 9,
+          "evidence": {
+            "componentName": "StatusBadge",
+            "propName": "status",
+            "propType": "'active' | 'inactive' | 'pending'",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/StatusBadge.tsx",
+          "line": 9,
+          "evidence": {
+            "componentName": "StatusBadge",
+            "propName": "label",
+            "propType": "string",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        }
+      ]
+    },
+    "MetricRow.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/MetricRow.tsx",
+          "line": 11,
+          "column": 33,
+          "evidence": {
+            "hookName": "useState",
+            "importSource": "react",
+            "destructuredNames": ["editing", "setEditing"],
+            "parentFunction": "MetricRow",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/MetricRow.tsx",
+          "line": 12,
+          "column": 22,
+          "evidence": {
+            "hookName": "useCallback",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "MetricRow",
+            "isReactBuiltin": true
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/MetricRow.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "MetricRow",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/MetricRow.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "MetricRow",
+            "propName": "title",
+            "propType": "string",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/MetricRow.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "MetricRow",
+            "propName": "value",
+            "propType": "number",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/MetricRow.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "MetricRow",
+            "propName": "onChange",
+            "propType": "(v: number) => void",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": true
+          }
+        }
+      ]
+    }
+  }
+}

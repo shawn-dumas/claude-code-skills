@@ -438,53 +438,102 @@ function getTestQualityDomainDir(subjectPath: string): string {
 /** Cache dependency graphs per fixture dir to avoid redundant rebuilds. */
 const deadCodeGraphCache = new Map<string, ReturnType<typeof buildDependencyGraph>>();
 
+// ---------------------------------------------------------------------------
+// Observation snapshot loading
+// ---------------------------------------------------------------------------
+
+/** Snapshot shape written by snapshot-observations.ts. */
+interface ObservationSnapshot {
+  tool: EntryTool;
+  files: Record<string, Record<string, unknown>>;
+}
+
+/** Cache loaded snapshots per fixture dir. */
+const snapshotCache = new Map<string, ObservationSnapshot | null>();
+
+function loadSnapshot(fixtureDir: string): ObservationSnapshot | null {
+  if (snapshotCache.has(fixtureDir)) return snapshotCache.get(fixtureDir)!;
+  const snapshotPath = path.join(FIXTURES_DIR, fixtureDir, 'observations.json');
+  if (!fs.existsSync(snapshotPath)) {
+    snapshotCache.set(fixtureDir, null);
+    return null;
+  }
+  const snapshot = JSON.parse(fs.readFileSync(snapshotPath, 'utf-8')) as ObservationSnapshot;
+  snapshotCache.set(fixtureDir, snapshot);
+  return snapshot;
+}
+
 /**
  * Run the correct interpreter pipeline for a single file and return all
- * assessments. Each tool has a different observation -> interpretation chain.
+ * assessments. Uses pre-computed observation snapshots when available to
+ * avoid ts-morph parsing overhead. Falls back to live parsing for tools
+ * without snapshots (dead-code) or when snapshot is missing.
  */
-function runInterpreterForFile(tool: EntryTool, filePath: string, fixtureDir: string): readonly Assessment[] {
+function runInterpreterForFile(
+  tool: EntryTool,
+  filePath: string,
+  fixtureName: string,
+  fixtureRelPath: string,
+  tmpDir: string,
+): readonly Assessment[] {
+  const snapshot = loadSnapshot(fixtureName);
+  const cached = snapshot?.files[fixtureRelPath];
+
   switch (tool) {
     case 'effects': {
-      const inventory = analyzeReactFile(filePath);
-      const effectObs = inventory.components.flatMap(c => c.effectObservations);
+      const effectObs = cached
+        ? (cached.effectObservations as Parameters<typeof interpretEffects>[0])
+        : analyzeReactFile(filePath).components.flatMap(c => c.effectObservations);
       return interpretEffects(effectObs).assessments;
     }
     case 'hooks': {
-      const inventory = analyzeReactFile(filePath);
-      return interpretHooks(inventory.hookObservations).assessments;
+      const hookObs = cached
+        ? (cached.hookObservations as Parameters<typeof interpretHooks>[0])
+        : analyzeReactFile(filePath).hookObservations;
+      return interpretHooks(hookObs).assessments;
     }
     case 'ownership': {
-      const inventory = analyzeReactFile(filePath);
-      const hookResult = interpretHooks(inventory.hookObservations);
+      let hookObs: Parameters<typeof interpretHooks>[0];
+      let componentObs: OwnershipInputs['componentObservations'];
+      if (cached) {
+        hookObs = cached.hookObservations as Parameters<typeof interpretHooks>[0];
+        componentObs = cached.componentObservations as OwnershipInputs['componentObservations'];
+      } else {
+        const inventory = analyzeReactFile(filePath);
+        hookObs = inventory.hookObservations;
+        componentObs = inventory.componentObservations;
+      }
+      const hookResult = interpretHooks(hookObs);
       const inputs: OwnershipInputs = {
         hookAssessments: hookResult.assessments,
-        componentObservations: inventory.componentObservations,
-        hookObservations: inventory.hookObservations,
+        componentObservations: componentObs,
+        hookObservations: hookObs,
       };
       return interpretOwnership(inputs).assessments;
     }
     case 'template': {
-      const observations = extractJsxObservations(filePath);
+      const observations = cached
+        ? (cached.observations as Parameters<typeof interpretTemplate>[0])
+        : extractJsxObservations(filePath);
       return interpretTemplate(observations).assessments;
     }
     case 'test-quality': {
+      if (cached) {
+        const obs = cached.observations as Parameters<typeof interpretTestQuality>[0];
+        const subjectDomainDir = getTestQualityDomainDir(cached.subjectPath as string);
+        return interpretTestQuality(obs, astConfig, subjectDomainDir, cached.subjectExists as boolean).assessments;
+      }
       const analysis = analyzeTestFile(filePath);
       const subjectDomainDir = getTestQualityDomainDir(analysis.subjectPath);
-      return interpretTestQuality(
-        analysis.observations,
-        astConfig,
-        subjectDomainDir,
-        analysis.subjectExists,
-        undefined, // helperIndex -- skip helper resolution for fixture isolation
-      ).assessments;
+      return interpretTestQuality(analysis.observations, astConfig, subjectDomainDir, analysis.subjectExists, undefined)
+        .assessments;
     }
     case 'dead-code': {
-      // Scope consumer search to the fixture directory (not all of src/)
-      // and cache the graph per fixture to avoid redundant rebuilds.
-      if (!deadCodeGraphCache.has(fixtureDir)) {
-        deadCodeGraphCache.set(fixtureDir, buildDependencyGraph(fixtureDir, { searchDir: fixtureDir }));
+      // Dead-code uses import graphs (not serializable). Always live-parse.
+      if (!deadCodeGraphCache.has(tmpDir)) {
+        deadCodeGraphCache.set(tmpDir, buildDependencyGraph(tmpDir, { searchDir: tmpDir }));
       }
-      const graph = deadCodeGraphCache.get(fixtureDir)!;
+      const graph = deadCodeGraphCache.get(tmpDir)!;
       const obsResult = extractImportObservations(graph);
       return interpretDeadCode(obsResult.observations, graph).assessments;
     }
@@ -499,18 +548,23 @@ function evaluateEntryFixture(
   fixtureDir: string,
   manifest: EntryManifest,
 ): { correct: number; total: number; details: string[] } {
-  const basePath = path.join(FIXTURES_DIR, fixtureDir);
-  const tmpDir = createTempDir(fixtureDir);
+  const snapshot = loadSnapshot(fixtureDir);
+  const needsTmpDir = !snapshot || manifest.tool === 'dead-code';
 
-  // Copy fixture files to temp dir (create subdirectories if needed)
-  for (const f of manifest.files) {
-    const targetPath = path.join(tmpDir, f);
-    const targetDir = path.dirname(targetPath);
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
+  // Only copy files to temp dir when we need live parsing (no snapshot or dead-code)
+  let tmpDir = '';
+  if (needsTmpDir) {
+    const basePath = path.join(FIXTURES_DIR, fixtureDir);
+    tmpDir = createTempDir(fixtureDir);
+    for (const f of manifest.files) {
+      const targetPath = path.join(tmpDir, f);
+      const targetDir = path.dirname(targetPath);
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+      const content = fs.readFileSync(path.join(basePath, f), 'utf-8');
+      fs.writeFileSync(targetPath, content);
     }
-    const content = fs.readFileSync(path.join(basePath, f), 'utf-8');
-    fs.writeFileSync(targetPath, content);
   }
 
   // For test-quality, only analyze test/spec files. Other files in the
@@ -518,11 +572,13 @@ function evaluateEntryFixture(
   const filesToAnalyze =
     manifest.tool === 'test-quality' ? manifest.files.filter(f => isTestFilePath(f)) : manifest.files;
 
-  // Run interpreter on each file and collect all assessments
+  // Run interpreter on each file and collect all assessments.
+  // Pass fixtureDir (the name, e.g. "git-hooks-01-...") for snapshot lookup,
+  // and tmpDir for live-parse fallback (dead-code, missing snapshots).
   const allAssessments: Assessment[] = [];
   for (const f of filesToAnalyze) {
     const filePath = path.join(tmpDir, f);
-    const assessments = runInterpreterForFile(manifest.tool, filePath, tmpDir);
+    const assessments = runInterpreterForFile(manifest.tool, filePath, fixtureDir, f, tmpDir);
     allAssessments.push(...assessments);
   }
 
@@ -807,45 +863,129 @@ function runEntryAccuracyTest(toolName: string, fixtures: { dir: string; manifes
 }
 
 describe('Effects interpreter accuracy', () => {
-  it.skipIf(effectsFixtures.length === 0)('meets accuracy threshold on all effects fixtures', { timeout: 30_000 }, () =>
+  it.skipIf(effectsFixtures.length === 0)('meets accuracy threshold on all effects fixtures', () =>
     runEntryAccuracyTest('Effects', effectsFixtures),
   );
 });
 
 describe('Hooks interpreter accuracy', () => {
-  it.skipIf(hooksFixtures.length === 0)('meets accuracy threshold on all hooks fixtures', { timeout: 30_000 }, () =>
+  it.skipIf(hooksFixtures.length === 0)('meets accuracy threshold on all hooks fixtures', () =>
     runEntryAccuracyTest('Hooks', hooksFixtures),
   );
 });
 
 describe('Ownership interpreter accuracy', () => {
-  it.skipIf(ownershipFixtures.length === 0)(
-    'meets accuracy threshold on all ownership fixtures',
-    { timeout: 120_000 },
-    () => runEntryAccuracyTest('Ownership', ownershipFixtures),
+  it.skipIf(ownershipFixtures.length === 0)('meets accuracy threshold on all ownership fixtures', () =>
+    runEntryAccuracyTest('Ownership', ownershipFixtures),
   );
 });
 
 describe('Template interpreter accuracy', () => {
-  it.skipIf(templateFixtures.length === 0)(
-    'meets accuracy threshold on all template fixtures',
-    { timeout: 30_000 },
-    () => runEntryAccuracyTest('Template', templateFixtures),
+  it.skipIf(templateFixtures.length === 0)('meets accuracy threshold on all template fixtures', () =>
+    runEntryAccuracyTest('Template', templateFixtures),
   );
 });
 
 describe('Test quality interpreter accuracy', () => {
-  it.skipIf(testQualityFixtures.length === 0)(
-    'meets accuracy threshold on all test-quality fixtures',
-    { timeout: 30_000 },
-    () => runEntryAccuracyTest('Test quality', testQualityFixtures),
+  it.skipIf(testQualityFixtures.length === 0)('meets accuracy threshold on all test-quality fixtures', () =>
+    runEntryAccuracyTest('Test quality', testQualityFixtures),
   );
 });
 
 describe('Dead code interpreter accuracy', () => {
-  it.skipIf(deadCodeFixtures.length === 0)(
-    'meets accuracy threshold on all dead-code fixtures',
-    { timeout: 30_000 },
-    () => runEntryAccuracyTest('Dead code', deadCodeFixtures),
+  it.skipIf(deadCodeFixtures.length === 0)('meets accuracy threshold on all dead-code fixtures', () =>
+    runEntryAccuracyTest('Dead code', deadCodeFixtures),
   );
+});
+
+// ---------------------------------------------------------------------------
+// Parser freshness: re-parse one fixture per tool, compare to snapshot.
+// Catches parser regressions that the snapshot-based accuracy tests would miss.
+// ---------------------------------------------------------------------------
+
+/** Replace absolute temp dir paths with a stable placeholder to match snapshot format. */
+function relativizePaths(data: unknown, tmpDir: string): unknown {
+  const json = JSON.stringify(data);
+  const escaped = tmpDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return JSON.parse(json.replace(new RegExp(escaped + '/', 'g'), '<fixture>/'));
+}
+
+describe('Observation snapshot freshness', () => {
+  const toolToFirstFixture = new Map<EntryTool, string>();
+  for (const { dir, manifest } of allFixtures) {
+    const tool = manifest.tool as EntryTool;
+    if (['effects', 'hooks', 'ownership', 'template', 'test-quality'].includes(tool) && !toolToFirstFixture.has(tool)) {
+      toolToFirstFixture.set(tool, dir);
+    }
+  }
+
+  for (const [tool, fixtureDir] of toolToFirstFixture) {
+    it(`${tool}: snapshot matches live parse for ${fixtureDir}`, () => {
+      const snapshotPath = path.join(FIXTURES_DIR, fixtureDir, 'observations.json');
+      if (!fs.existsSync(snapshotPath)) return; // skip if no snapshot
+
+      const snapshot = JSON.parse(fs.readFileSync(snapshotPath, 'utf-8')) as ObservationSnapshot;
+      const basePath = path.join(FIXTURES_DIR, fixtureDir);
+      const manifest = JSON.parse(fs.readFileSync(path.join(basePath, 'manifest.json'), 'utf-8')) as EntryManifest;
+      const tmpDir = createTempDir(`freshness-${fixtureDir}`);
+
+      // Copy files
+      for (const f of manifest.files) {
+        const targetPath = path.join(tmpDir, f);
+        const targetDir = path.dirname(targetPath);
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+        fs.copyFileSync(path.join(basePath, f), targetPath);
+      }
+
+      const filesToAnalyze = tool === 'test-quality' ? manifest.files.filter(f => isTestFilePath(f)) : manifest.files;
+
+      for (const f of filesToAnalyze) {
+        const filePath = path.join(tmpDir, f);
+        const cachedData = snapshot.files[f];
+        if (!cachedData) continue;
+
+        let rawData: Record<string, unknown>;
+        switch (tool) {
+          case 'effects': {
+            const inv = analyzeReactFile(filePath);
+            rawData = { effectObservations: inv.components.flatMap(c => c.effectObservations) };
+            break;
+          }
+          case 'hooks': {
+            const inv = analyzeReactFile(filePath);
+            rawData = { hookObservations: inv.hookObservations };
+            break;
+          }
+          case 'ownership': {
+            const inv = analyzeReactFile(filePath);
+            rawData = { hookObservations: inv.hookObservations, componentObservations: inv.componentObservations };
+            break;
+          }
+          case 'template': {
+            rawData = { observations: extractJsxObservations(filePath) };
+            break;
+          }
+          case 'test-quality': {
+            const analysis = analyzeTestFile(filePath);
+            rawData = {
+              observations: analysis.observations,
+              subjectPath: analysis.subjectPath,
+              subjectExists: analysis.subjectExists,
+            };
+            break;
+          }
+          default:
+            continue;
+        }
+
+        // Relativize paths so temp dir names don't cause false mismatches
+        const liveData = relativizePaths(rawData, tmpDir);
+
+        expect(
+          JSON.stringify(liveData),
+          `Snapshot for ${fixtureDir}/${f} is stale. Run: npx tsx scripts/AST/__tests__/snapshot-observations.ts`,
+        ).toBe(JSON.stringify(cachedData));
+      }
+    });
+  }
 });

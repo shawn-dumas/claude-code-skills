@@ -1,0 +1,110 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "template",
+  "files": {
+    "component.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 39,
+          "column": 0,
+          "evidence": {
+            "componentName": "SettingsEntityBlock",
+            "returnStartLine": 39,
+            "returnEndLine": 134,
+            "returnLineCount": 96
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 44,
+          "column": 34,
+          "evidence": {
+            "componentName": "SettingsEntityBlock",
+            "depth": 1,
+            "description": "entities"
+          }
+        },
+        {
+          "kind": "JSX_INLINE_HANDLER",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 56,
+          "column": 22,
+          "evidence": {
+            "componentName": "SettingsEntityBlock",
+            "handlerName": "onClick",
+            "statementCount": 1
+          }
+        },
+        {
+          "kind": "JSX_INLINE_HANDLER",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 65,
+          "column": 22,
+          "evidence": {
+            "componentName": "SettingsEntityBlock",
+            "handlerName": "onClick",
+            "statementCount": 1
+          }
+        },
+        {
+          "kind": "JSX_INLINE_HANDLER",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 73,
+          "column": 22,
+          "evidence": {
+            "componentName": "SettingsEntityBlock",
+            "handlerName": "onClick",
+            "statementCount": 1
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 83,
+          "column": 8,
+          "evidence": {
+            "componentName": "SettingsEntityBlock",
+            "depth": 1,
+            "description": "isLoading || isFetching"
+          }
+        },
+        {
+          "kind": "JSX_INLINE_HANDLER",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 107,
+          "column": 19,
+          "evidence": {
+            "componentName": "SettingsEntityBlock",
+            "handlerName": "onCancel",
+            "statementCount": 1
+          }
+        },
+        {
+          "kind": "JSX_INLINE_HANDLER",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 120,
+          "column": 19,
+          "evidence": {
+            "componentName": "SettingsEntityBlock",
+            "handlerName": "onCancel",
+            "statementCount": 1
+          }
+        },
+        {
+          "kind": "JSX_INLINE_HANDLER",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 129,
+          "column": 19,
+          "evidence": {
+            "componentName": "SettingsEntityBlock",
+            "handlerName": "onCancel",
+            "statementCount": 1
+          }
+        }
+      ]
+    }
+  }
+}

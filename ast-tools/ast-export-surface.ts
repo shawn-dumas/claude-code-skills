@@ -13,9 +13,10 @@ import { type SourceFile, type ExportedDeclarations, Node } from 'ts-morph';
 import path from 'path';
 import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
-import { parseArgs, outputFiltered, fatal } from './cli';
+import { runObservationToolCli, type ObservationToolConfig } from './cli-runner';
+import { outputFiltered, fatal } from './cli';
 import { getFilesInDirectory, type FileFilter } from './shared';
-import { cached, getCacheStats } from './ast-cache';
+import { cached } from './ast-cache';
 import { writeGitFileToTemp, createVirtualProject } from './git-source';
 import type {
   ExportInfo,
@@ -199,6 +200,7 @@ export function extractExportSurfaceObservations(
 // Git ref mode: parse a file from a git ref
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start -- requires live git operations; covered by manual/integration testing */
 function analyzeExportSurfaceFromGit(refAndPath: string): ExportSurfaceAnalysis {
   const colonIndex = refAndPath.indexOf(':');
   if (colonIndex === -1) {
@@ -223,89 +225,49 @@ function analyzeExportSurfaceFromGit(refAndPath: string): ExportSurfaceAnalysis 
     fs.unlinkSync(tmpPath);
   }
 }
+/* v8 ignore stop */
 
 // ---------------------------------------------------------------------------
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-function main(): void {
-  const args = parseArgs(process.argv, {
-    namedOptions: ['--from-git'],
-  });
+const HELP_TEXT =
+  'Usage: npx tsx scripts/AST/ast-export-surface.ts <path...> [--pretty] [--no-cache] [--test-files] [--kind <kind>] [--count]\n' +
+  '       npx tsx scripts/AST/ast-export-surface.ts --from-git <ref>:<path> [--pretty]\n' +
+  '\n' +
+  'Extract the complete export surface from one or more files.\n' +
+  '\n' +
+  '  <path...>          One or more .ts/.tsx files or directories to analyze\n' +
+  '  --from-git <r:p>   Read file from git ref (e.g., production:src/utils/foo.ts)\n' +
+  '  --pretty           Format JSON output with indentation\n' +
+  '  --no-cache         Bypass cache and recompute\n' +
+  '  --test-files       Scan test files instead of production files\n' +
+  '  --kind             Filter observations to a specific kind\n' +
+  '  --count            Output observation kind counts instead of full data\n';
 
-  if (args.help) {
-    process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-export-surface.ts <path...> [--pretty] [--no-cache] [--test-files] [--kind <kind>] [--count]\n' +
-        '       npx tsx scripts/AST/ast-export-surface.ts --from-git <ref>:<path> [--pretty]\n' +
-        '\n' +
-        'Extract the complete export surface from one or more files.\n' +
-        '\n' +
-        '  <path...>          One or more .ts/.tsx files or directories to analyze\n' +
-        '  --from-git <r:p>   Read file from git ref (e.g., production:src/utils/foo.ts)\n' +
-        '  --pretty           Format JSON output with indentation\n' +
-        '  --no-cache         Bypass cache and recompute\n' +
-        '  --test-files       Scan test files instead of production files\n' +
-        '  --kind             Filter observations to a specific kind\n' +
-        '  --count            Output observation kind counts instead of full data\n',
-    );
-    process.exit(0);
-  }
+export const cliConfig: ObservationToolConfig<ExportSurfaceAnalysis> = {
+  cacheNamespace: 'ast-export-surface',
+  helpText: HELP_TEXT,
+  analyzeFile: analyzeExportSurface,
+  analyzeDirectory: analyzeExportSurfaceDirectory,
+  parseOptions: { namedOptions: ['--from-git'] },
+  preHandler: args => {
+    const fromGit = args.options['from-git'];
+    if (!fromGit) return false;
 
-  // --from-git mode
-  const fromGit = args.options['from-git'];
-  if (fromGit) {
+    /* v8 ignore start -- git invocation path; requires live git, covered by manual testing */
     const result = analyzeExportSurfaceFromGit(fromGit);
     outputFiltered(result, args.pretty, {
       kind: args.options.kind,
       count: args.flags.has('count'),
     });
-    return;
-  }
+    return true;
+    /* v8 ignore stop */
+  },
+};
 
-  const noCache = args.flags.has('no-cache');
-  const testFiles = args.flags.has('test-files');
-
-  if (args.paths.length === 0) {
-    fatal('No file or directory path provided. Use --help for usage.');
-  }
-
-  const allResults: ExportSurfaceAnalysis[] = [];
-
-  for (const targetPath of args.paths) {
-    const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
-
-    if (!fs.existsSync(absolute)) {
-      fatal(`Path does not exist: ${targetPath}`);
-    }
-
-    const stat = fs.statSync(absolute);
-
-    if (stat.isDirectory()) {
-      allResults.push(
-        ...analyzeExportSurfaceDirectory(targetPath, { noCache, filter: testFiles ? 'test' : 'production' }),
-      );
-    } else {
-      const result = cached('ast-export-surface', absolute, () => analyzeExportSurface(targetPath), { noCache });
-      allResults.push(result);
-    }
-  }
-
-  const cacheStats = getCacheStats();
-  if (cacheStats.hits > 0 || cacheStats.misses > 0) {
-    process.stderr.write(`Cache: ${cacheStats.hits} hits, ${cacheStats.misses} misses\n`);
-  }
-
-  const result = allResults.length === 1 ? allResults[0] : allResults;
-  outputFiltered(result, args.pretty, {
-    kind: args.options.kind,
-    count: args.flags.has('count'),
-  });
-}
-
+/* v8 ignore next 3 */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-export-surface.ts') || process.argv[1].endsWith('ast-export-surface'));
-
-if (isDirectRun) {
-  main();
-}
+if (isDirectRun) runObservationToolCli(cliConfig);

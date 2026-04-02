@@ -1,0 +1,166 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "effects",
+  "files": {
+    "component.tsx": {
+      "effectObservations": [
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 11,
+          "evidence": {
+            "effectLine": 11,
+            "parentFunction": "DomAndSubscription",
+            "depArray": ["channelId"],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 15,
+          "evidence": {
+            "effectLine": 11,
+            "identifier": "channelId"
+          }
+        },
+        {
+          "kind": "EFFECT_REF_TOUCH",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 12,
+          "evidence": {
+            "effectLine": 11,
+            "identifier": "containerRef",
+            "isDomRef": true
+          }
+        },
+        {
+          "kind": "EFFECT_REF_TOUCH",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 13,
+          "evidence": {
+            "effectLine": 11,
+            "identifier": "containerRef",
+            "isDomRef": true
+          }
+        },
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 17,
+          "evidence": {
+            "effectLine": 17,
+            "parentFunction": "DomAndSubscription",
+            "depArray": [],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_CLEANUP_PRESENT",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 17,
+          "evidence": {
+            "effectLine": 17
+          }
+        },
+        {
+          "kind": "EFFECT_STATE_SETTER_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 18,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "setWidth"
+          }
+        },
+        {
+          "kind": "EFFECT_DOM_API",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "window",
+            "method": "addEventListener",
+            "targetObject": "window"
+          }
+        },
+        {
+          "kind": "EFFECT_DOM_API",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 20,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "window",
+            "method": "removeEventListener",
+            "targetObject": "window"
+          }
+        },
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 23,
+          "evidence": {
+            "effectLine": 23,
+            "parentFunction": "DomAndSubscription",
+            "depArray": ["channelId"],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 27,
+          "evidence": {
+            "effectLine": 23,
+            "identifier": "channelId"
+          }
+        },
+        {
+          "kind": "EFFECT_CLEANUP_PRESENT",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 23,
+          "evidence": {
+            "effectLine": 23
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 24,
+          "evidence": {
+            "effectLine": 23,
+            "identifier": "channelId"
+          }
+        },
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 29,
+          "evidence": {
+            "effectLine": 29,
+            "parentFunction": "DomAndSubscription",
+            "depArray": ["channelId"],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 31,
+          "evidence": {
+            "effectLine": 29,
+            "identifier": "channelId"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 30,
+          "evidence": {
+            "effectLine": 29,
+            "identifier": "channelId"
+          }
+        }
+      ]
+    }
+  }
+}

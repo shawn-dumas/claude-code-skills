@@ -1,0 +1,101 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "hooks",
+  "files": {
+    "component.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 12,
+          "column": 31,
+          "evidence": {
+            "hookName": "useState",
+            "importSource": "react",
+            "destructuredNames": ["search", "setSearch"],
+            "parentFunction": "StateAndAmbientPanel",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 13,
+          "column": 24,
+          "evidence": {
+            "hookName": "useRef",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "StateAndAmbientPanel",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 14,
+          "column": 20,
+          "evidence": {
+            "hookName": "useMemo",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "StateAndAmbientPanel",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 15,
+          "column": 24,
+          "evidence": {
+            "hookName": "useCallback",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "StateAndAmbientPanel",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 16,
+          "column": 24,
+          "evidence": {
+            "hookName": "useBreakpoints",
+            "importSource": "src/shared/hooks/useBreakpoints/index.ts",
+            "destructuredNames": ["isMobile"],
+            "parentFunction": "StateAndAmbientPanel",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 17,
+          "column": 30,
+          "evidence": {
+            "hookName": "usePagination",
+            "importSource": "src/shared/hooks/usePagination/index.ts",
+            "destructuredNames": ["page", "pageSize"],
+            "parentFunction": "StateAndAmbientPanel",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 18,
+          "column": 3,
+          "evidence": {
+            "hookName": "useClickAway",
+            "importSource": "src/shared/hooks/useClickAway/index.ts",
+            "destructuredNames": [],
+            "parentFunction": "StateAndAmbientPanel",
+            "isReactBuiltin": false
+          }
+        }
+      ]
+    }
+  }
+}

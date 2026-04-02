@@ -896,6 +896,37 @@ Archives a completed orchestration plan. Auto-invoked by all orchestrate-\* skil
 /archive-plan authz-enforcement
 ```
 
+## Verification Recording Skills
+
+Record browser-driven demonstrations of bug fixes for QE review or Jira attachment. Both skills drive the browser through a scripted sequence and produce a visual artifact.
+
+### record-verification-gif
+
+Record an animated GIF by capturing Playwright MCP screenshots at each step and stitching them with ffmpeg. Uses `mcp__playwright__browser_run_code` for batch capture (single Playwright call, not per-frame MCP round-trips). Output is a looping GIF at 12fps. Supports `--attach <JIRA-KEY>` to attach directly to a ticket.
+
+```
+/record-verification-gif AV-6305 -- shrink viewport, verify sidebar hides
+/record-verification-gif AV-1234 --attach AV-1234 --output ~/Desktop/demo.gif
+```
+
+### record-verification-webm
+
+Record a WebM video using `playwright-cli` native video recording (`video-start`/`video-stop`). Produces continuous-frame WebM video (not screenshot-stitched). Requires `@playwright/cli` (`npm install -g @playwright/cli`). Supports `--attach <JIRA-KEY>`.
+
+```
+/record-verification-webm AV-6305 -- shrink viewport, verify sidebar hides
+/record-verification-webm AV-1234 --attach AV-1234 --output ~/Desktop/demo.webm
+```
+
+Key differences:
+
+| | GIF | WebM |
+|---|---|---|
+| Tool | Playwright MCP + ffmpeg | playwright-cli native |
+| Output | Animated GIF (looping) | WebM video |
+| Motion | Discrete frames | Continuous |
+| Best for | Step-by-step verification | Smooth transitions, animations |
+
 ## Decision Skills
 
 These skills help with thinking, not coding. They do not write files or modify code. Use them when you are stuck, need to evaluate options, or want structured brainstorming.

@@ -1,0 +1,208 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "template",
+  "files": {
+    "distinct-kinds.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/distinct-kinds.tsx",
+          "line": 17,
+          "column": 0,
+          "evidence": {
+            "componentName": "ItemList",
+            "returnStartLine": 17,
+            "returnEndLine": 37,
+            "returnLineCount": 21
+          }
+        },
+        {
+          "kind": "JSX_GUARD_CHAIN",
+          "file": "../../../..<fixture>/distinct-kinds.tsx",
+          "line": 19,
+          "column": 8,
+          "evidence": {
+            "componentName": "ItemList",
+            "conditionCount": 1,
+            "description": "showInactive && <p className='inactive-notice'>Showing inactive items</p>"
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/distinct-kinds.tsx",
+          "line": 20,
+          "column": 8,
+          "evidence": {
+            "componentName": "ItemList",
+            "methods": ["filter", "map"],
+            "chainLength": 2
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/distinct-kinds.tsx",
+          "line": 20,
+          "column": 8,
+          "evidence": {
+            "componentName": "ItemList",
+            "methods": ["filter"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/distinct-kinds.tsx",
+          "line": 25,
+          "column": 20,
+          "evidence": {
+            "componentName": "ItemList",
+            "depth": 1,
+            "description": "item.active"
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/distinct-kinds.tsx",
+          "line": 27,
+          "column": 16,
+          "evidence": {
+            "componentName": "ItemList",
+            "methods": ["map"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_INLINE_HANDLER",
+          "file": "../../../..<fixture>/distinct-kinds.tsx",
+          "line": 31,
+          "column": 44,
+          "evidence": {
+            "componentName": "ItemList",
+            "handlerName": "onClick",
+            "statementCount": 1
+          }
+        }
+      ]
+    },
+    "large-handler.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/large-handler.tsx",
+          "line": 15,
+          "column": 0,
+          "evidence": {
+            "componentName": "InlineFormPanel",
+            "returnStartLine": 15,
+            "returnEndLine": 42,
+            "returnLineCount": 28
+          }
+        },
+        {
+          "kind": "JSX_INLINE_HANDLER",
+          "file": "../../../..<fixture>/large-handler.tsx",
+          "line": 25,
+          "column": 20,
+          "evidence": {
+            "componentName": "InlineFormPanel",
+            "handlerName": "onClick",
+            "statementCount": 7
+          }
+        }
+      ]
+    },
+    "combined-hotspot.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/combined-hotspot.tsx",
+          "line": 20,
+          "column": 0,
+          "evidence": {
+            "componentName": "TaskBoard",
+            "returnStartLine": 20,
+            "returnEndLine": 51,
+            "returnLineCount": 32
+          }
+        },
+        {
+          "kind": "JSX_GUARD_CHAIN",
+          "file": "../../../..<fixture>/combined-hotspot.tsx",
+          "line": 23,
+          "column": 8,
+          "evidence": {
+            "componentName": "TaskBoard",
+            "conditionCount": 1,
+            "description": "isAdmin && ( <div className='admin-bar'> <span>Admin mode active</span> </div> )"
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/combined-hotspot.tsx",
+          "line": 28,
+          "column": 8,
+          "evidence": {
+            "componentName": "TaskBoard",
+            "methods": ["filter", "map"],
+            "chainLength": 2
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/combined-hotspot.tsx",
+          "line": 28,
+          "column": 8,
+          "evidence": {
+            "componentName": "TaskBoard",
+            "methods": ["filter"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/combined-hotspot.tsx",
+          "line": 33,
+          "column": 20,
+          "evidence": {
+            "componentName": "TaskBoard",
+            "depth": 2,
+            "description": "task.priority === 'high'"
+          }
+        },
+        {
+          "kind": "JSX_GUARD_CHAIN",
+          "file": "../../../..<fixture>/combined-hotspot.tsx",
+          "line": 34,
+          "column": 14,
+          "evidence": {
+            "componentName": "TaskBoard",
+            "conditionCount": 1,
+            "description": "task.assignee && <span>Assigned: {task.assignee}</span>"
+          }
+        },
+        {
+          "kind": "JSX_INLINE_HANDLER",
+          "file": "../../../..<fixture>/combined-hotspot.tsx",
+          "line": 37,
+          "column": 24,
+          "evidence": {
+            "componentName": "TaskBoard",
+            "handlerName": "onClick",
+            "statementCount": 4
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/combined-hotspot.tsx",
+          "line": 39,
+          "column": 35,
+          "evidence": {
+            "componentName": "TaskBoard",
+            "methods": ["filter"],
+            "chainLength": 1
+          }
+        }
+      ]
+    }
+  }
+}

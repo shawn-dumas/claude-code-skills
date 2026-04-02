@@ -1,0 +1,71 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "ownership",
+  "files": {
+    "UsageContainer.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/UsageContainer.tsx",
+          "line": 17,
+          "column": 24,
+          "evidence": {
+            "hookName": "useQueryStates",
+            "importSource": "nuqs",
+            "destructuredNames": ["urlFilters"],
+            "parentFunction": "UsageContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/UsageContainer.tsx",
+          "line": 24,
+          "column": 52,
+          "evidence": {
+            "hookName": "useKpiQuery",
+            "destructuredNames": ["kpiData", "kpiLoading"],
+            "parentFunction": "UsageContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/UsageContainer.tsx",
+          "line": 25,
+          "column": 58,
+          "evidence": {
+            "hookName": "useDetailQuery",
+            "destructuredNames": ["detailData", "detailLoading"],
+            "parentFunction": "UsageContainer",
+            "isReactBuiltin": false
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/UsageContainer.tsx",
+          "line": 14,
+          "evidence": {
+            "componentName": "UsageContainer",
+            "kind": "arrow"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/UsageContainer.tsx",
+          "line": 14,
+          "evidence": {
+            "componentName": "UsageContainer",
+            "propName": "config",
+            "propType": "UsageConfig<T>",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        }
+      ]
+    }
+  }
+}

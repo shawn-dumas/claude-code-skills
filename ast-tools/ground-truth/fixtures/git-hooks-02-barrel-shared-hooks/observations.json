@@ -1,0 +1,88 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "hooks",
+  "files": {
+    "component.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 10,
+          "column": 3,
+          "evidence": {
+            "hookName": "useFeatureFlagPageGuard",
+            "importSource": "src/shared/hooks/index.ts",
+            "destructuredNames": [],
+            "parentFunction": "SystemsContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 11,
+          "column": 55,
+          "evidence": {
+            "hookName": "useSystemsUrlState",
+            "importSource": "./useSystemsUrlState",
+            "destructuredNames": ["systemsFilters", "sys", "handleSelectSystem"],
+            "parentFunction": "SystemsContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 12,
+          "column": 54,
+          "evidence": {
+            "hookName": "useSystemsQueries",
+            "importSource": "./useSystemsQueries",
+            "destructuredNames": ["systemsOverviewData", "isSystemsFetching"],
+            "parentFunction": "SystemsContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 13,
+          "column": 37,
+          "evidence": {
+            "hookName": "useLayout",
+            "importSource": "src/ui/providers/context/layout/index.ts",
+            "destructuredNames": ["setHeaderMetricsProps"],
+            "parentFunction": "SystemsContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 15,
+          "column": 3,
+          "evidence": {
+            "hookName": "useEffect",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "SystemsContainer",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 22,
+          "column": 21,
+          "evidence": {
+            "hookName": "useMemo",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "SystemsContainer",
+            "isReactBuiltin": true
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import path from 'path';
-import { analyzePeerDeps, extractPeerDepObservations, satisfies } from '../ast-peer-deps';
+import { analyzePeerDeps, extractPeerDepObservations, satisfies, main } from '../ast-peer-deps';
 
 const fixtureDir = (name: string) => path.join(__dirname, 'fixtures', name);
 
@@ -212,5 +212,97 @@ describe('analyzePeerDeps (edge cases)', () => {
     const result = analyzePeerDeps('/nonexistent/path/that/should/not/exist');
     expect(result.observations).toHaveLength(0);
     expect(result.summary.totalPeers).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// main() CLI tests
+// ---------------------------------------------------------------------------
+
+describe('main()', () => {
+  const originalArgv = process.argv;
+  let stdoutChunks: string[];
+
+  class ExitError extends Error {
+    code: number;
+    constructor(code: number) {
+      super(`process.exit(${code})`);
+      this.code = code;
+    }
+  }
+
+  beforeEach(() => {
+    stdoutChunks = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      stdoutChunks.push(typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk));
+      return true;
+    });
+    vi.spyOn(process, 'exit').mockImplementation(((code: number) => {
+      throw new ExitError(code ?? 0);
+    }) as never);
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+    vi.restoreAllMocks();
+  });
+
+  it('--help prints usage and exits 0', () => {
+    process.argv = ['node', 'ast-peer-deps.ts', '--help'];
+    expect(() => main()).toThrow('process.exit(0)');
+
+    const out = stdoutChunks.join('');
+    expect(out).toContain('Usage:');
+    expect(out).toContain('--pretty');
+    expect(out).toContain('peerDependency');
+  });
+
+  it('errors when path does not exist', () => {
+    process.argv = ['node', 'ast-peer-deps.ts', '/nonexistent/definitely/not/here'];
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    expect(() => main()).toThrow('process.exit(1)');
+  });
+
+  it('runs analysis on actual project root and outputs JSON', () => {
+    process.argv = ['node', 'ast-peer-deps.ts'];
+    main();
+
+    const out = stdoutChunks.join('');
+    const parsed = JSON.parse(out);
+    expect(parsed).toHaveProperty('observations');
+    expect(parsed).toHaveProperty('summary');
+    expect(parsed.summary).toHaveProperty('totalPeers');
+  });
+
+  it('runs analysis with --pretty and produces formatted table', () => {
+    process.argv = ['node', 'ast-peer-deps.ts', '--pretty'];
+    main();
+
+    const out = stdoutChunks.join('');
+    expect(out).toContain('PEER DEPENDENCY ANALYSIS');
+    expect(out).toContain('Summary:');
+  });
+
+  it('runs analysis with --count', () => {
+    process.argv = ['node', 'ast-peer-deps.ts', '--count'];
+    main();
+
+    const out = stdoutChunks.join('');
+    const parsed = JSON.parse(out);
+    // At least one observation kind should be present
+    expect(typeof parsed).toBe('object');
+  });
+
+  it('runs analysis with --kind filter', () => {
+    process.argv = ['node', 'ast-peer-deps.ts', '--kind', 'PEER_DEP_SATISFIED'];
+    main();
+
+    const out = stdoutChunks.join('');
+    const parsed = JSON.parse(out);
+    // All observations should be PEER_DEP_SATISFIED
+    for (const obs of parsed.observations) {
+      expect(obs.kind).toBe('PEER_DEP_SATISFIED');
+    }
   });
 });

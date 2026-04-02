@@ -1,0 +1,146 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "effects",
+  "files": {
+    "component.tsx": {
+      "effectObservations": [
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 17,
+          "evidence": {
+            "effectLine": 17,
+            "parentFunction": "SystemsContainerExtract",
+            "depArray": ["totals", "isFetching", "setHeaderMetricsProps", "metricsItems"],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 27,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "totals"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 27,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "isFetching"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 27,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "setHeaderMetricsProps"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 27,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "metricsItems"
+          }
+        },
+        {
+          "kind": "EFFECT_CLEANUP_PRESENT",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 17,
+          "evidence": {
+            "effectLine": 17
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 18,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "totals"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 18,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "isFetching"
+          }
+        },
+        {
+          "kind": "EFFECT_BODY_DEP_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "setHeaderMetricsProps"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "setHeaderMetricsProps"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 20,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "metricsItems"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 21,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "totals"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 22,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "isFetching"
+          }
+        },
+        {
+          "kind": "EFFECT_BODY_DEP_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 26,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "setHeaderMetricsProps"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 26,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "setHeaderMetricsProps"
+          }
+        }
+      ]
+    }
+  }
+}

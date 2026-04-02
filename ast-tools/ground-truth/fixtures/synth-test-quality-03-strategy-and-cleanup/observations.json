@@ -1,0 +1,215 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "test-quality",
+  "files": {
+    "utils.spec.ts": {
+      "observations": [
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/utils.spec.ts",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "importSource": "vitest",
+            "specifiers": ["describe", "it", "expect"]
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/utils.spec.ts",
+          "line": 6,
+          "column": 176,
+          "evidence": {
+            "matcherName": "toBe",
+            "expectArgText": "formatValue(10)",
+            "isScreenQuery": false,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/utils.spec.ts",
+          "line": 10,
+          "column": 256,
+          "evidence": {
+            "matcherName": "toBe",
+            "expectArgText": "formatValue(0)",
+            "isScreenQuery": false,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/utils.spec.ts",
+          "line": 16,
+          "column": 371,
+          "evidence": {
+            "matcherName": "toBe",
+            "expectArgText": "sum([1, 2, 3])",
+            "isScreenQuery": false,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "DESCRIBE_BLOCK",
+          "file": "../../../..<fixture>/utils.spec.ts",
+          "line": 4,
+          "column": 92,
+          "evidence": {
+            "describeName": "formatValue"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/utils.spec.ts",
+          "line": 5,
+          "column": 126,
+          "evidence": {
+            "testName": "formats number as dollar amount"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/utils.spec.ts",
+          "line": 9,
+          "column": 225,
+          "evidence": {
+            "testName": "handles zero"
+          }
+        },
+        {
+          "kind": "DESCRIBE_BLOCK",
+          "file": "../../../..<fixture>/utils.spec.ts",
+          "line": 14,
+          "column": 305,
+          "evidence": {
+            "describeName": "sum"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/utils.spec.ts",
+          "line": 15,
+          "column": 331,
+          "evidence": {
+            "testName": "sums array of numbers"
+          }
+        }
+      ],
+      "subjectPath": "../../../..<fixture>/utils.ts",
+      "subjectExists": true
+    },
+    "widget.spec.tsx": {
+      "observations": [
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "importSource": "vitest",
+            "specifiers": ["describe", "it", "expect", "afterEach"]
+          }
+        },
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 2,
+          "column": 1,
+          "evidence": {
+            "importSource": "@testing-library/react",
+            "specifiers": ["render", "screen"]
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 22,
+          "column": 615,
+          "evidence": {
+            "matcherName": "toBeInTheDocument",
+            "expectArgText": "screen.getByText('Hello Alice')",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 12,
+          "column": 398,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "PROVIDER_WRAPPER",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 3,
+          "column": 1,
+          "evidence": {
+            "providerName": "QueryClientProvider"
+          }
+        },
+        {
+          "kind": "PROVIDER_WRAPPER",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 11,
+          "column": 1,
+          "evidence": {
+            "providerName": "QueryClient("
+          }
+        },
+        {
+          "kind": "PROVIDER_WRAPPER",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 10,
+          "column": 1,
+          "evidence": {
+            "providerName": "renderWith"
+          }
+        },
+        {
+          "kind": "AFTER_EACH_BLOCK",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 6,
+          "column": 225,
+          "evidence": {}
+        },
+        {
+          "kind": "DESCRIBE_BLOCK",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 19,
+          "column": 518,
+          "evidence": {
+            "describeName": "Widget"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 20,
+          "column": 547,
+          "evidence": {
+            "testName": "renders greeting"
+          }
+        },
+        {
+          "kind": "TEST_HELPER_DELEGATION",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 21,
+          "column": 1,
+          "evidence": {
+            "delegationType": "helper",
+            "functionName": "renderWithProvider",
+            "argCount": 1,
+            "isImported": false
+          }
+        }
+      ],
+      "subjectPath": "../../../..<fixture>/widget.tsx",
+      "subjectExists": true
+    }
+  }
+}

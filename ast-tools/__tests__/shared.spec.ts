@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { Project, SyntaxKind } from 'ts-morph';
-import { resolveCallName, resolveTemplateLiteral, resolvePrintfTemplate, computeBoundaryConfidence } from '../shared';
+import { Project, SyntaxKind, Node } from 'ts-morph';
+import {
+  resolveCallName,
+  resolveTemplateLiteral,
+  resolvePrintfTemplate,
+  computeBoundaryConfidence,
+  detectComponents,
+  findExpectInChain,
+} from '../shared';
 
 function createProject(): Project {
   return new Project({
@@ -151,6 +158,98 @@ describe('shared utilities', () => {
 
     it('checks all thresholds and returns low if any is near', () => {
       expect(computeBoundaryConfidence(9, [3, 10, 20])).toBe('low');
+    });
+  });
+
+  describe('detectComponents', () => {
+    const project = new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: { target: 99, module: 99, jsx: 4 },
+    });
+
+    it('skips inner function declarations that duplicate a top-level component by name and line', () => {
+      // A top-level function declaration that detectFunctionComponents picks up.
+      // detectInnerFunctionComponents iterates ALL function declarations via
+      // forEachDescendant -- including top-level ones. The guard on line 274
+      // skips them when (name, line) match an already-found component.
+      const sf = project.createSourceFile('__detect_inner_skip__.tsx', `function MyWidget() { return <div />; }`, {
+        overwrite: true,
+      });
+      const components = detectComponents(sf);
+      // MyWidget is found by detectFunctionComponents. detectInnerFunctionComponents
+      // must skip it, so we still get exactly one entry.
+      expect(components.filter(c => c.name === 'MyWidget')).toHaveLength(1);
+    });
+
+    it('detects nested inner function components not found at the top level', () => {
+      // InnerItem is declared inside Container, so sf.getFunctions() (used by
+      // detectFunctionComponents) will NOT pick it up -- only forEachDescendant
+      // in detectInnerFunctionComponents will find it (lines 275-276).
+      const sf = project.createSourceFile(
+        '__detect_inner_nested__.tsx',
+        [
+          'function Container() {',
+          '  function InnerItem() { return <span />; }',
+          '  return <div><InnerItem /></div>;',
+          '}',
+        ].join('\n'),
+        { overwrite: true },
+      );
+      const components = detectComponents(sf);
+      const names = components.map(c => c.name);
+      // Container is found by detectFunctionComponents (top-level).
+      expect(names).toContain('Container');
+      // InnerItem is found by detectInnerFunctionComponents (nested, lines 275-276).
+      expect(names).toContain('InnerItem');
+    });
+  });
+
+  describe('findExpectInChain', () => {
+    const project = new Project({
+      useInMemoryFileSystem: true,
+      compilerOptions: { target: 99, module: 99, jsx: 4 },
+    });
+
+    it('returns null when chain reaches a non-call non-property node (break path)', () => {
+      // `await expect(x).resolves.toBe(y)` -- the outermost CallExpression is
+      // toBe(...); walking up: toBe call -> resolves (PropertyAccess) ->
+      // expect(...).resolves (PropertyAccess) -> expect(...) (CallExpression with
+      // callee Identifier "expect") -> returns the expect call.
+      //
+      // To hit the break path we need a node where walking inward hits something
+      // that is neither CallExpression nor PropertyAccessExpression. An
+      // AwaitExpression directly passed to findExpectInChain triggers this:
+      // the first iteration sees the AwaitExpression is not a CallExpression
+      // and not a PropertyAccessExpression, so it breaks and returns null.
+      const sf = project.createSourceFile(
+        '__expect_chain_break__.ts',
+        `async function test() { const x = await Promise.resolve(1); }`,
+        { overwrite: true },
+      );
+      const awaitExprs = sf.getDescendantsOfKind(SyntaxKind.AwaitExpression);
+      expect(awaitExprs.length).toBeGreaterThan(0);
+      // Pass the AwaitExpression node -- it is neither CallExpression nor
+      // PropertyAccessExpression, so findExpectInChain must break and return null.
+      expect(findExpectInChain(awaitExprs[0])).toBeNull();
+    });
+
+    it('returns the expect call for a simple expect(x).toBe(y) chain', () => {
+      const sf = project.createSourceFile(
+        '__expect_chain_simple__.ts',
+        `import { expect } from 'vitest'; expect(1).toBe(1);`,
+        { overwrite: true },
+      );
+      const calls = sf.getDescendantsOfKind(SyntaxKind.CallExpression);
+      // The outer call is toBe(1); pass it to find the inner expect()
+      const toBeCall = calls.find(c => {
+        const expr = c.getExpression();
+        return Node.isPropertyAccessExpression(expr) && expr.getName() === 'toBe';
+      });
+      expect(toBeCall).toBeDefined();
+      const result = findExpectInChain(toBeCall!);
+      expect(result).not.toBeNull();
+      const innerExpr = result!.getExpression();
+      expect(Node.isIdentifier(innerExpr) && innerExpr.getText()).toBe('expect');
     });
   });
 });

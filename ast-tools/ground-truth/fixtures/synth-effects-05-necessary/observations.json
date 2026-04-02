@@ -1,0 +1,97 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "effects",
+  "files": {
+    "component.tsx": {
+      "effectObservations": [
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 10,
+          "evidence": {
+            "effectLine": 10,
+            "parentFunction": "NecessaryEffects",
+            "depArray": [],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 12,
+          "evidence": {
+            "effectLine": 12,
+            "parentFunction": "NecessaryEffects",
+            "depArray": ["isOpen"],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 16,
+          "evidence": {
+            "effectLine": 12,
+            "identifier": "isOpen"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 13,
+          "evidence": {
+            "effectLine": 12,
+            "identifier": "isOpen"
+          }
+        },
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 18,
+          "evidence": {
+            "effectLine": 18,
+            "parentFunction": "NecessaryEffects",
+            "depArray": ["analyticsId", "title"],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 21,
+          "evidence": {
+            "effectLine": 18,
+            "identifier": "analyticsId"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 21,
+          "evidence": {
+            "effectLine": 18,
+            "identifier": "title"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "evidence": {
+            "effectLine": 18,
+            "identifier": "analyticsId"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 20,
+          "evidence": {
+            "effectLine": 18,
+            "identifier": "title"
+          }
+        }
+      ]
+    }
+  }
+}

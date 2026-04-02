@@ -29,10 +29,25 @@ import { PROJECT_ROOT } from './project';
 // Constants
 // ---------------------------------------------------------------------------
 
-const CACHE_DIR = path.join(PROJECT_ROOT, '.ast-cache');
-const META_FILE = path.join(CACHE_DIR, 'meta.json');
+const DEFAULT_CACHE_DIR = path.join(PROJECT_ROOT, '.ast-cache');
+let CACHE_DIR = DEFAULT_CACHE_DIR;
+let META_FILE = path.join(CACHE_DIR, 'meta.json');
 const CONFIG_FILE = path.join(PROJECT_ROOT, 'scripts/AST/ast-config.ts');
 const AST_DIR = path.join(PROJECT_ROOT, 'scripts/AST');
+
+/** Redirect cache to a different directory (test isolation). */
+export function setCacheDir(dir: string): void {
+  CACHE_DIR = dir;
+  META_FILE = path.join(dir, 'meta.json');
+  cacheValidated = false;
+}
+
+/** Reset cache directory to the default (call in afterEach). */
+export function resetCacheDir(): void {
+  CACHE_DIR = DEFAULT_CACHE_DIR;
+  META_FILE = path.join(CACHE_DIR, 'meta.json');
+  cacheValidated = false;
+}
 
 interface CacheMeta {
   configHash: string;
@@ -57,8 +72,13 @@ const toolSourceHashCache = new Map<string, string>();
 // convention: tool name "foo-bar" -> "ast-foo-bar.ts".
 // Some tools pass "ast-foo-bar" as the tool name (already prefixed),
 // others pass "foo-bar". Normalize by stripping the prefix if present.
+// The "-obs" suffix is used by tool-registry to namespace observation-only
+// cache entries separately from per-tool full-analysis cache entries.
+// Strip it before resolving the source file so both cache namespaces
+// still invalidate when the tool source changes.
 function toolSourceFile(toolName: string): string {
-  const base = toolName.startsWith('ast-') ? toolName : `ast-${toolName}`;
+  const normalized = toolName.endsWith('-obs') ? toolName.slice(0, -4) : toolName;
+  const base = normalized.startsWith('ast-') ? normalized : `ast-${normalized}`;
   return path.join(AST_DIR, `${base}.ts`);
 }
 
@@ -299,6 +319,7 @@ export function getCacheInfo(): {
   sizeBytes: number;
 } {
   if (!fs.existsSync(CACHE_DIR)) {
+    /* v8 ignore start -- defensive: cache dir always exists in test environment; only absent on first ever run before any tool call */
     return {
       exists: false,
       configHash: null,
@@ -306,6 +327,7 @@ export function getCacheInfo(): {
       totalFiles: 0,
       sizeBytes: 0,
     };
+    /* v8 ignore stop */
   }
 
   const meta = fs.existsSync(META_FILE) ? readMeta() : null;

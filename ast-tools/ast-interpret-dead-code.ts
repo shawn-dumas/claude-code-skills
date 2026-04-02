@@ -3,6 +3,7 @@ import { parseArgs, output, fatal } from './cli';
 import { PROJECT_ROOT } from './project';
 import { buildDependencyGraph, extractImportObservations } from './ast-imports';
 import type { ImportObservation, ObservationRef, AssessmentResult, Assessment, DependencyGraph } from './types';
+import { formatAssessmentTable } from './assessment-formatter';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -342,43 +343,28 @@ export function interpretDeadCode(
 // ---------------------------------------------------------------------------
 
 function formatPrettyOutput(result: AssessmentResult<DeadCodeAssessment>, filePath: string): string {
-  const lines: string[] = [];
-  lines.push(`Dead Code Assessments: ${filePath}`);
-  lines.push('');
-
-  if (result.assessments.length === 0) {
-    lines.push('No dead code issues found.');
-    return lines.join('\n');
-  }
-
-  // Header
-  lines.push(' Line | Symbol               | Assessment             | Confidence | Review');
-  lines.push('------+----------------------+------------------------+------------+--------');
-
-  for (const a of result.assessments) {
-    const line = String(a.subject.line ?? '?').padStart(5);
-    const symbol = (a.subject.symbol ?? '-').slice(0, 20).padEnd(20);
-    const assessment = a.kind.padEnd(22);
-    const confidence = a.confidence.padEnd(10);
-    const review = a.requiresManualReview ? 'yes' : 'no ';
-    lines.push(`${line} | ${symbol} | ${assessment} | ${confidence} | ${review}`);
-  }
-
-  lines.push('');
-  lines.push('Rationale:');
-  for (const a of result.assessments) {
-    const symbol = a.subject.symbol ?? '-';
-    lines.push(`  ${symbol}: ${a.rationale.join('; ')}`);
-  }
-
-  return lines.join('\n');
+  return formatAssessmentTable(
+    {
+      title: `Dead Code Assessments: ${filePath}`,
+      emptyMessage: 'No dead code issues found.',
+      columns: [
+        { header: 'Line', width: 5, align: 'right', extract: a => String(a.subject.line ?? '?') },
+        { header: 'Symbol', width: 20, extract: a => a.subject.symbol ?? '-' },
+        { header: 'Assessment', width: 22, extract: a => a.kind },
+        { header: 'Confidence', width: 10, extract: a => a.confidence },
+        { header: 'Review', width: 6, extract: a => (a.requiresManualReview ? 'yes' : 'no') },
+      ],
+      rationale: a => `  ${a.subject.symbol ?? '-'}: ${a.rationale.join('; ')}`,
+    },
+    result.assessments,
+  );
 }
 
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 
-function main(): void {
+export function main(): void {
   const args = parseArgs(process.argv);
 
   if (args.help) {
@@ -423,6 +409,7 @@ function main(): void {
 }
 
 // Run CLI when executed directly
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-interpret-dead-code.ts') || process.argv[1].endsWith('ast-interpret-dead-code'));
@@ -430,3 +417,4 @@ const isDirectRun =
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { parseArgs, output } from '../cli';
+import { parseArgs, output, outputFiltered } from '../cli';
 
 describe('cli', () => {
   describe('parseArgs', () => {
@@ -31,6 +31,17 @@ describe('cli', () => {
       expect(result.pretty).toBe(false);
       expect(result.help).toBe(false);
     });
+
+    it('expands a glob pattern to matching files using fast-glob', () => {
+      // Passing a pattern with * triggers the fg.sync branch (line 83)
+      const result = parseArgs(['node', 'script.ts', 'scripts/AST/__tests__/cli.spec.ts']);
+      expect(result.paths).toContain('scripts/AST/__tests__/cli.spec.ts');
+
+      // Pattern with glob characters -- should resolve to at least cli.ts itself
+      const globResult = parseArgs(['node', 'script.ts', 'scripts/AST/cl*.ts']);
+      expect(globResult.paths.length).toBeGreaterThan(0);
+      expect(globResult.paths.some(p => p.includes('cli.ts'))).toBe(true);
+    });
   });
 
   describe('output', () => {
@@ -52,6 +63,41 @@ describe('cli', () => {
 
       const expected = JSON.stringify(data, null, 2) + '\n';
       expect(writeSpy).toHaveBeenCalledWith(expected);
+      writeSpy.mockRestore();
+    });
+  });
+
+  describe('outputFiltered', () => {
+    it('filters an array result by kind (line 147 branch)', () => {
+      const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      const data = [
+        { observations: [{ kind: 'AS_ANY_CAST' }, { kind: 'NON_NULL_ASSERTION' }] },
+        { observations: [{ kind: 'AS_ANY_CAST' }] },
+      ];
+
+      outputFiltered(data, false, { kind: 'AS_ANY_CAST' });
+
+      const written = writeSpy.mock.calls[0][0] as string;
+      const parsed = JSON.parse(written) as { observations: { kind: string }[] }[];
+      expect(parsed).toHaveLength(2);
+      expect(parsed[0].observations).toHaveLength(1);
+      expect(parsed[0].observations[0].kind).toBe('AS_ANY_CAST');
+      expect(parsed[1].observations).toHaveLength(1);
+      writeSpy.mockRestore();
+    });
+
+    it('filters a single object result by kind (non-array branch)', () => {
+      const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      const data = { observations: [{ kind: 'AS_ANY_CAST' }, { kind: 'NON_NULL_ASSERTION' }] };
+
+      outputFiltered(data, false, { kind: 'AS_ANY_CAST' });
+
+      const written = writeSpy.mock.calls[0][0] as string;
+      const parsed = JSON.parse(written) as { observations: { kind: string }[] };
+      expect(parsed.observations).toHaveLength(1);
+      expect(parsed.observations[0].kind).toBe('AS_ANY_CAST');
       writeSpy.mockRestore();
     });
   });

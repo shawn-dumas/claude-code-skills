@@ -1,0 +1,233 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "test-quality",
+  "files": {
+    "panel.spec.tsx": {
+      "observations": [
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "importSource": "vitest",
+            "specifiers": ["describe", "it", "expect", "vi"]
+          }
+        },
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 2,
+          "column": 1,
+          "evidence": {
+            "importSource": "@testing-library/react",
+            "specifiers": ["render", "screen"]
+          }
+        },
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 3,
+          "column": 1,
+          "evidence": {
+            "importSource": "@testing-library/user-event",
+            "specifiers": ["userEvent"]
+          }
+        },
+        {
+          "kind": "MOCK_DECLARATION",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 6,
+          "column": 6,
+          "evidence": {
+            "target": "./useData",
+            "returnShapeText": "() => ({ useDataQuery: vi.fn(() => ({ data: [], isLoading: false })), })"
+          }
+        },
+        {
+          "kind": "MOCK_TARGET_RESOLVED",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 6,
+          "column": 6,
+          "evidence": {
+            "target": "./useData",
+            "resolvedPath": "../../../..<fixture>/useData.ts",
+            "exportNames": ["useDataQuery"],
+            "fileExtension": ".ts"
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 13,
+          "column": 429,
+          "evidence": {
+            "matcherName": "toHaveTextContent",
+            "expectArgText": "screen.getByRole('heading')",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 20,
+          "column": 698,
+          "evidence": {
+            "matcherName": "toHaveBeenCalledTimes",
+            "expectArgText": "onSave",
+            "isScreenQuery": false,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 26,
+          "column": 863,
+          "evidence": {
+            "matcherName": "toHaveBeenCalledWith",
+            "expectArgText": "toast.success",
+            "isScreenQuery": false,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 32,
+          "column": 1058,
+          "evidence": {
+            "matcherName": "toHaveBeenCalledWith",
+            "expectArgText": "mutate.mutateAsync",
+            "isScreenQuery": false,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 38,
+          "column": 1234,
+          "evidence": {
+            "matcherName": "toHaveBeenCalled",
+            "expectArgText": "useDataQuery",
+            "isScreenQuery": false,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 12,
+          "column": 365,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 18,
+          "column": 580,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "DESCRIBE_BLOCK",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 10,
+          "column": 294,
+          "evidence": {
+            "describeName": "Panel"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 11,
+          "column": 322,
+          "evidence": {
+            "testName": "renders title with count"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 16,
+          "column": 506,
+          "evidence": {
+            "testName": "fires onSave callback"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 23,
+          "column": 748,
+          "evidence": {
+            "testName": "checks toast was called"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 29,
+          "column": 930,
+          "evidence": {
+            "testName": "checks mutateAsync arg"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 35,
+          "column": 1134,
+          "evidence": {
+            "testName": "checks hook mock was called"
+          }
+        },
+        {
+          "kind": "MOCK_INTERNAL",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 6,
+          "column": 1,
+          "evidence": {
+            "target": "./useData",
+            "resolvedPath": "../../../..<fixture>/useData.ts",
+            "confidence": "high"
+          },
+          "authoritative": true
+        },
+        {
+          "kind": "IMPLEMENTATION_ASSERTION",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 38,
+          "column": 1,
+          "evidence": {
+            "hookName": "useDataQuery",
+            "assertionType": "hook-call-args",
+            "pattern": "expect(useDataQuery).toHaveBeenCalled();"
+          },
+          "authoritative": true
+        },
+        {
+          "kind": "MISSING_CLEANUP",
+          "file": "../../../..<fixture>/panel.spec.tsx",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "hasMocks": true,
+            "hasTimers": false
+          },
+          "authoritative": true
+        }
+      ],
+      "subjectPath": "../../../..<fixture>/panel.tsx",
+      "subjectExists": true
+    }
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "template",
+  "files": {
+    "component.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 62,
+          "column": 0,
+          "evidence": {
+            "componentName": "OpportunityBlock",
+            "returnStartLine": 62,
+            "returnEndLine": 119,
+            "returnLineCount": 58
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 85,
+          "column": 12,
+          "evidence": {
+            "componentName": "OpportunityBlock",
+            "depth": 1,
+            "description": "isLoading || isFetching"
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 93,
+          "column": 28,
+          "evidence": {
+            "componentName": "OpportunityBlock",
+            "depth": 1,
+            "description": "isFetched"
+          }
+        },
+        {
+          "kind": "JSX_INLINE_HANDLER",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 96,
+          "column": 41,
+          "evidence": {
+            "componentName": "OpportunityBlock",
+            "handlerName": "onClearMicroworkflowUser",
+            "statementCount": 1
+          }
+        },
+        {
+          "kind": "JSX_GUARD_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 99,
+          "column": 12,
+          "evidence": {
+            "componentName": "OpportunityBlock",
+            "conditionCount": 1,
+            "description": "selectedMicroworkflow && ( <MicroworkflowsByUserTableContainer selectedMicrow..."
+          }
+        },
+        {
+          "kind": "JSX_GUARD_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 107,
+          "column": 12,
+          "evidence": {
+            "componentName": "OpportunityBlock",
+            "conditionCount": 2,
+            "description": "selectedMicroworkflow && selectedMicroworkflowUserEmail && ( <MicroworkflowDe..."
+          }
+        }
+      ]
+    }
+  }
+}

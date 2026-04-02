@@ -493,3 +493,25 @@ describe('ast-jsx-analysis', () => {
     });
   });
 });
+
+describe('isInsideJsxAttribute top-level guard path (line 115)', () => {
+  // A component returning a top-level && expression (not nested inside a JSX element)
+  // causes isInsideJsxAttribute to walk all the way up without finding a JsxAttribute
+  // or any JSX container, returning false at line 115.
+  it('processes a component with a top-level && guard without crashing', () => {
+    const result = analyzeJsxComplexity(fixturePath('jsx-toplevel-guard.tsx'));
+
+    expect(result.components).toHaveLength(1);
+    expect(result.components[0].name).toBe('TopLevelGuard');
+  });
+
+  it('emits JSX_GUARD_CHAIN observation for top-level && guard', () => {
+    const result = analyzeJsxComplexity(fixturePath('jsx-toplevel-guard.tsx'));
+    const guards = result.observations.filter(o => o.kind === 'JSX_GUARD_CHAIN');
+
+    // The && guard at the return level should be detected
+    expect(guards).toHaveLength(1);
+    expect(guards[0].evidence.conditionCount).toBe(1);
+    expect(guards[0].evidence.componentName).toBe('TopLevelGuard');
+  });
+});

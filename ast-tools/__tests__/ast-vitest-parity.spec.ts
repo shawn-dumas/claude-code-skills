@@ -1,6 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import path from 'path';
-import { analyzeVitestParity, extractVitestParityObservations } from '../ast-vitest-parity';
+import {
+  analyzeVitestParity,
+  analyzeVitestParityBranch,
+  extractVitestParityObservations,
+  cliConfig,
+} from '../ast-vitest-parity';
+import { runObservationToolCli } from '../cli-runner';
 import { PROJECT_ROOT } from '../project';
 
 const fixture = (name: string) => path.join(PROJECT_ROOT, 'scripts/AST/__tests__/fixtures', name);
@@ -288,6 +294,91 @@ describe('ast-vitest-parity', () => {
       // But should have test blocks and assertions
       expect(kinds.has('VT_TEST_BLOCK')).toBe(true);
       expect(kinds.has('VT_ASSERTION')).toBe(true);
+    });
+  });
+
+  describe('analyzeVitestParityBranch', () => {
+    it('returns empty array for a non-existent branch', () => {
+      // gitListSpecFiles catches the git error and returns []
+      const result = analyzeVitestParityBranch('nonexistent-branch-xyzzy-12345', 'src/ui/');
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('cliConfig customHandler', () => {
+    let stdoutChunks: string[];
+    let originalArgv: string[];
+
+    beforeEach(() => {
+      stdoutChunks = [];
+      originalArgv = process.argv;
+
+      vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+        stdoutChunks.push(String(chunk));
+        return true;
+      });
+      vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`process.exit(${code ?? 0})`);
+      }) as never);
+    });
+
+    afterEach(() => {
+      process.argv = originalArgv;
+      vi.restoreAllMocks();
+    });
+
+    it('customHandler enriches output with observations and suppresses default output', () => {
+      // Run via runObservationToolCli to exercise the customHandler path
+      const fixturePath = path.join(PROJECT_ROOT, 'scripts/AST/__tests__/fixtures/vt-spec-negative.spec.ts');
+      process.argv = ['node', 'ast-vitest-parity.ts', fixturePath];
+      runObservationToolCli(cliConfig);
+      const out = stdoutChunks.join('');
+      const parsed = JSON.parse(out) as { observations: unknown[] };
+      expect(parsed).toHaveProperty('observations');
+    });
+
+    it('customHandler with --count flag outputs kind counts', () => {
+      const fixturePath = path.join(PROJECT_ROOT, 'scripts/AST/__tests__/fixtures/vt-spec-positive.spec.tsx');
+      process.argv = ['node', 'ast-vitest-parity.ts', fixturePath, '--count'];
+      runObservationToolCli(cliConfig);
+      const out = stdoutChunks.join('');
+      const parsed = JSON.parse(out) as Record<string, number>;
+      expect(typeof parsed).toBe('object');
+      expect(Object.values(parsed).every(v => typeof v === 'number')).toBe(true);
+    });
+  });
+
+  describe('analyzeVitestParity - edge cases', () => {
+    it('handles NoSubstitutionTemplateLiteral test names (backtick strings)', () => {
+      const result = analyzeVitestParity(fixture('vt-spec-edge-cases.spec.ts'));
+
+      // Should find backtick-named tests: `renders without crashing` and `handles empty state`
+      const backtickTest = result.tests.find(t => t.name.includes('renders without crashing'));
+      expect(backtickTest).toBeDefined();
+
+      const emptyTest = result.tests.find(t => t.name.includes('handles empty state'));
+      expect(emptyTest).toBeDefined();
+    });
+
+    it('handles dynamic (non-string) test name expressions', () => {
+      const result = analyzeVitestParity(fixture('vt-spec-edge-cases.spec.ts'));
+
+      // Dynamic name `name` variable -- the tool truncates it
+      const dynamicTest = result.tests.find(t => t.name === 'name');
+      expect(dynamicTest).toBeDefined();
+    });
+
+    it('handles unnamed describe blocks', () => {
+      const result = analyzeVitestParity(fixture('vt-spec-edge-cases.spec.ts'));
+
+      // extractDescribeBlocks uses '<unnamed>' for non-string-literal describe names
+      const unnamedDescribe = result.describes.find(d => d.name === '<unnamed>');
+      expect(unnamedDescribe).toBeDefined();
+
+      // findEnclosingDescribe returns '<unnamed describe>' for the test's parentDescribe
+      const testInUnnamed = result.tests.find(t => t.parentDescribe === '<unnamed describe>');
+      expect(testInUnnamed).toBeDefined();
     });
   });
 });

@@ -307,6 +307,29 @@ The tests validate that:
 - Interpreters produce assessments matching ground truth classifications
 - Edge cases (negative fixtures) produce zero observations
 
+### Observation Snapshots
+
+Ground-truth accuracy tests use pre-computed observation snapshots
+(`observations.json` alongside each `manifest.json`) instead of
+re-parsing fixtures with ts-morph at test time. This makes accuracy
+tests run in ~2ms instead of ~3s, eliminating timeout sensitivity.
+
+**After changing parser logic** (ast-react-inventory, ast-jsx-analysis,
+ast-test-analysis, or their observation extraction), regenerate snapshots:
+
+```bash
+npx tsx scripts/AST/__tests__/snapshot-observations.ts
+```
+
+The "Observation snapshot freshness" tests in `interpreter-accuracy.spec.ts`
+re-parse one fixture per tool and compare against the snapshot. They will
+fail with a clear message if snapshots are stale. Use `--check` to verify
+without writing:
+
+```bash
+npx tsx scripts/AST/__tests__/snapshot-observations.ts --check
+```
+
 ## 7. Adding New Tools
 
 Checklist:

@@ -679,7 +679,7 @@ function padRight(str: string, len: number): string {
   return str.length >= len ? str + ' ' : str + ' '.repeat(len - str.length);
 }
 
-function prettyPrint(report: ParityReport): string {
+export function prettyPrint(report: ParityReport): string {
   const lines: string[] = [];
 
   lines.push('=== PARITY SCORE ===\n');
@@ -767,7 +767,7 @@ function prettyPrint(report: ParityReport): string {
 
 const NAMED_OPTIONS = ['--source-branch', '--source-dir', '--target-dir'] as const;
 
-function main(): void {
+export function main(): void {
   const args = parseArgs(process.argv, NAMED_OPTIONS);
   const sourceBranch = args.options['source-branch'] ?? null;
   const sourceDir = args.options['source-dir'] ?? null;
@@ -837,6 +837,7 @@ function main(): void {
   }
 }
 
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-interpret-pw-test-parity.ts') ||
@@ -845,3 +846,4 @@ const isDirectRun =
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

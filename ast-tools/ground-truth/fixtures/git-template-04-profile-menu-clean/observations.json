@@ -1,0 +1,63 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "template",
+  "files": {
+    "component.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 20,
+          "column": 0,
+          "evidence": {
+            "componentName": "ProfileMenu",
+            "returnStartLine": 20,
+            "returnEndLine": 104,
+            "returnLineCount": 85
+          }
+        },
+        {
+          "kind": "JSX_COMPLEX_CLASSNAME",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 36,
+          "column": 20,
+          "evidence": {
+            "componentName": "ProfileMenu",
+            "ternaryCount": 1
+          }
+        },
+        {
+          "kind": "JSX_GUARD_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 73,
+          "column": 12,
+          "evidence": {
+            "componentName": "ProfileMenu",
+            "conditionCount": 1,
+            "description": "isAdmin(roles) && ( <MenuItem as='li'> {({ focus }) => ( <Link data-testid={I..."
+          }
+        },
+        {
+          "kind": "JSX_COMPLEX_CLASSNAME",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 79,
+          "column": 30,
+          "evidence": {
+            "componentName": "ProfileMenu",
+            "ternaryCount": 1
+          }
+        },
+        {
+          "kind": "JSX_COMPLEX_CLASSNAME",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 92,
+          "column": 28,
+          "evidence": {
+            "componentName": "ProfileMenu",
+            "ternaryCount": 1
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "effects",
+  "files": {
+    "component.tsx": {
+      "effectObservations": [
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "evidence": {
+            "effectLine": 19,
+            "parentFunction": "PosthogProvider",
+            "depArray": [],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_CLEANUP_PRESENT",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "evidence": {
+            "effectLine": 19
+          }
+        },
+        {
+          "kind": "EFFECT_REF_TOUCH",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 23,
+          "evidence": {
+            "effectLine": 19,
+            "identifier": "oldUrlRef"
+          }
+        }
+      ]
+    }
+  }
+}

@@ -17,10 +17,11 @@ import path from 'path';
 import fs from 'fs';
 import { execFileSync } from 'child_process';
 import { PROJECT_ROOT } from './project';
-import { parseArgs, output, fatal } from './cli';
+import { parseArgs, output } from './cli';
 import { truncateText, findExpectInChain, resolveCallName, resolveTemplateLiteral } from './shared';
 import { astConfig } from './ast-config';
-import { cached, getCacheStats } from './ast-cache';
+import { cached } from './ast-cache';
+import { runObservationToolCli, type ObservationToolConfig } from './cli-runner';
 import { gitShowFile, createVirtualProject } from './git-source';
 import type {
   PwSpecInventory,
@@ -1119,69 +1120,40 @@ export function extractTestParityObservations(analysis: PwSpecInventory): Observ
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-const NAMED_OPTIONS = ['--source-branch', '--source-dir'] as const;
+const HELP_TEXT =
+  'Usage: npx tsx scripts/AST/ast-pw-test-parity.ts <dir> [--pretty] [--no-cache]\n' +
+  '       npx tsx scripts/AST/ast-pw-test-parity.ts --source-branch <branch> --source-dir <dir> [--pretty]\n' +
+  '\n' +
+  'Inventory Playwright spec files: test blocks, assertions, route intercepts,\n' +
+  'navigations, POM usage, auth method, serial mode.\n' +
+  '\n' +
+  '  <dir>            Directory of .spec.ts files to inventory\n' +
+  '  --source-branch  Git branch to read files from (instead of filesystem)\n' +
+  '  --source-dir     Directory path on the git branch\n' +
+  '  --pretty         Format JSON output with indentation\n' +
+  '  --no-cache       Bypass cache and recompute\n';
 
-function main(): void {
-  const args = parseArgs(process.argv, NAMED_OPTIONS);
-  const noCache = process.argv.includes('--no-cache');
-  const sourceBranch = args.options['source-branch'] ?? null;
-  const sourceDir = args.options['source-dir'] ?? null;
+export const cliConfig: ObservationToolConfig<PwSpecInventory> = {
+  cacheNamespace: 'ast-pw-test-parity',
+  helpText: HELP_TEXT,
+  analyzeFile: analyzeTestParity,
+  analyzeDirectory: analyzeTestParityDirectory,
+  parseOptions: { namedOptions: ['--source-branch', '--source-dir'] },
+};
 
-  if (args.help) {
-    process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-pw-test-parity.ts <dir> [--pretty] [--no-cache]\n' +
-        '       npx tsx scripts/AST/ast-pw-test-parity.ts --source-branch <branch> --source-dir <dir> [--pretty]\n' +
-        '\n' +
-        'Inventory Playwright spec files: test blocks, assertions, route intercepts,\n' +
-        'navigations, POM usage, auth method, serial mode.\n' +
-        '\n' +
-        '  <dir>            Directory of .spec.ts files to inventory\n' +
-        '  --source-branch  Git branch to read files from (instead of filesystem)\n' +
-        '  --source-dir     Directory path on the git branch\n' +
-        '  --pretty         Format JSON output with indentation\n' +
-        '  --no-cache       Bypass cache and recompute\n',
-    );
-    process.exit(0);
-  }
-
-  // Branch mode
-  if (sourceBranch && sourceDir) {
-    const results = analyzeTestParityBranch(sourceBranch, sourceDir);
-    output(results, args.pretty);
-    return;
-  }
-
-  // Directory mode
-  const targetDir = args.paths[0];
-  if (!targetDir) {
-    fatal('No directory path provided. Use --help for usage.');
-  }
-
-  const absolute = path.isAbsolute(targetDir) ? targetDir : path.resolve(PROJECT_ROOT, targetDir);
-
-  if (!fs.existsSync(absolute)) {
-    fatal(`Path does not exist: ${targetDir}`);
-  }
-
-  const stat = fs.statSync(absolute);
-
-  if (stat.isDirectory()) {
-    const results = analyzeTestParityDirectory(targetDir, { noCache });
-    output(results, args.pretty);
-    const stats = getCacheStats();
-    if (stats.hits > 0 || stats.misses > 0) {
-      process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
-    }
-  } else {
-    const result = cached('ast-pw-test-parity', absolute, () => analyzeTestParity(targetDir), { noCache });
-    output(result, args.pretty);
-  }
-}
-
+/* v8 ignore next 10 */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-pw-test-parity.ts') || process.argv[1].endsWith('ast-pw-test-parity'));
-
 if (isDirectRun) {
-  main();
+  // Branch mode bypasses the standard runner (no positional paths required)
+  const branchArgs = parseArgs(process.argv, { namedOptions: ['--source-branch', '--source-dir'] });
+  const sourceBranch = branchArgs.options['source-branch'];
+  const sourceDir = branchArgs.options['source-dir'];
+  if (sourceBranch && sourceDir) {
+    const results = analyzeTestParityBranch(sourceBranch, sourceDir);
+    output(results, branchArgs.pretty);
+  } else {
+    runObservationToolCli(cliConfig);
+  }
 }

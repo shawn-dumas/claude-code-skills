@@ -18,8 +18,9 @@ import { toString as mdastToString } from 'mdast-util-to-string';
 import fs from 'fs';
 import path from 'path';
 import fg from 'fast-glob';
-import { parseArgs, outputFiltered, fatal } from './cli';
+import { fatal } from './cli';
 import { PROJECT_ROOT } from './project';
+import { runObservationToolCli, type ObservationToolConfig } from './cli-runner';
 import { resolveConfig } from './ast-config';
 import type {
   SkillAnalysisObservation,
@@ -899,62 +900,42 @@ export function analyzeSkillDirectory(dirPath: string): SkillAnalysisResult[] {
   return results;
 }
 
-// --- CLI entry point ---
+// --- CLI wrappers ---
 
-function main(): void {
-  const args = parseArgs(process.argv);
-
-  if (args.help) {
-    process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-skill-analysis.ts <dir-or-file...> [--pretty] [--kind <KIND>] [--count]\n\n' +
-        'Analyze .claude/skills/ markdown files for structural content.\n\n' +
-        'Options:\n' +
-        '  <dir-or-file...>  Directory containing */SKILL.md files, or individual .md files\n' +
-        '  --pretty          Pretty-print JSON output\n' +
-        '  --kind <KIND>     Filter to a single observation kind\n' +
-        '  --count           Output observation kind counts\n' +
-        '  --help            Show this help\n',
-    );
-    process.exit(0);
-  }
-
-  if (args.paths.length === 0) {
-    fatal('No directory or file path provided. Use --help for usage.');
-  }
-
-  const allResults: SkillAnalysisResult[] = [];
-
-  for (const targetPath of args.paths) {
-    const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
-
-    if (!fs.existsSync(absolute)) {
-      fatal(`Path does not exist: ${targetPath}`);
-    }
-
-    const stat = fs.statSync(absolute);
-
-    if (stat.isDirectory()) {
-      allResults.push(...analyzeSkillDirectory(absolute));
-    } else {
-      // Single file mode: build skill dirs from the parent's parent directory
-      const skillsDir = path.dirname(path.dirname(absolute));
-      const siblingSkills = fg.sync('*/SKILL.md', { cwd: skillsDir, absolute: true });
-      const skillDirs = new Set(siblingSkills.map(f => path.basename(path.dirname(f))));
-      allResults.push(analyzeSkillFile(absolute, skillDirs));
-    }
-  }
-
-  const result = allResults.length === 1 ? allResults[0] : allResults;
-  outputFiltered(result, args.pretty, {
-    kind: args.options.kind,
-    count: args.flags.has('count'),
-  });
+function analyzeSkillFileWrapped(filePath: string): SkillAnalysisResult {
+  const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(PROJECT_ROOT, filePath);
+  const skillsDir = path.dirname(path.dirname(absolute));
+  const siblingSkills = fg.sync('*/SKILL.md', { cwd: skillsDir, absolute: true });
+  const skillDirs = new Set(siblingSkills.map(f => path.basename(path.dirname(f))));
+  return analyzeSkillFile(absolute, skillDirs);
 }
 
+function analyzeSkillDirectoryWrapped(dirPath: string): SkillAnalysisResult[] {
+  const absolute = path.isAbsolute(dirPath) ? dirPath : path.resolve(PROJECT_ROOT, dirPath);
+  return analyzeSkillDirectory(absolute);
+}
+
+// --- CLI entry point ---
+
+const HELP_TEXT =
+  'Usage: npx tsx scripts/AST/ast-skill-analysis.ts <dir-or-file...> [--pretty] [--kind <KIND>] [--count]\n\n' +
+  'Analyze .claude/skills/ markdown files for structural content.\n\n' +
+  'Options:\n' +
+  '  <dir-or-file...>  Directory containing */SKILL.md files, or individual .md files\n' +
+  '  --pretty          Pretty-print JSON output\n' +
+  '  --kind <KIND>     Filter to a single observation kind\n' +
+  '  --count           Output observation kind counts\n' +
+  '  --help            Show this help\n';
+
+export const cliConfig: ObservationToolConfig<SkillAnalysisResult> = {
+  cacheNamespace: 'ast-skill-analysis',
+  helpText: HELP_TEXT,
+  analyzeFile: analyzeSkillFileWrapped,
+  analyzeDirectory: analyzeSkillDirectoryWrapped,
+};
+
+/* v8 ignore next 4 */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-skill-analysis.ts') || process.argv[1].endsWith('ast-skill-analysis'));
-
-if (isDirectRun) {
-  main();
-}
+if (isDirectRun) runObservationToolCli(cliConfig);

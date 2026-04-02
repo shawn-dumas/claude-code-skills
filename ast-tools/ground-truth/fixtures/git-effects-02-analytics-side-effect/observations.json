@@ -1,0 +1,102 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "effects",
+  "files": {
+    "component.tsx": {
+      "effectObservations": [
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 23,
+          "evidence": {
+            "effectLine": 23,
+            "parentFunction": "DashboardLayoutExtract",
+            "depArray": ["pathname", "userId"],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 38,
+          "evidence": {
+            "effectLine": 23,
+            "identifier": "pathname"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 38,
+          "evidence": {
+            "effectLine": 23,
+            "identifier": "userId"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 24,
+          "evidence": {
+            "effectLine": 23,
+            "identifier": "userId"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 24,
+          "evidence": {
+            "effectLine": 23,
+            "identifier": "pathname"
+          }
+        },
+        {
+          "kind": "EFFECT_REF_TOUCH",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 25,
+          "evidence": {
+            "effectLine": 23,
+            "identifier": "lastSentRef"
+          }
+        },
+        {
+          "kind": "EFFECT_REF_TOUCH",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 26,
+          "evidence": {
+            "effectLine": 23,
+            "identifier": "lastSentRef"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 28,
+          "evidence": {
+            "effectLine": 23,
+            "identifier": "pathname"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 28,
+          "evidence": {
+            "effectLine": 23,
+            "identifier": "pathname"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 33,
+          "evidence": {
+            "effectLine": 23,
+            "identifier": "userId"
+          }
+        }
+      ]
+    }
+  }
+}

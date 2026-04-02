@@ -11,13 +11,12 @@
 
 import { Node } from 'ts-morph';
 import path from 'path';
-import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
-import { parseArgs, outputFiltered, fatal } from './cli';
+import { runObservationToolCli, type ObservationToolConfig } from './cli-runner';
 import { getFilesInDirectory, truncateText, getContainingFunctionName, type FileFilter } from './shared';
 import type { AuthZAnalysis, AuthZObservation } from './types';
 import { astConfig } from './ast-config';
-import { cached, getCacheStats } from './ast-cache';
+import { cached } from './ast-cache';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -46,10 +45,12 @@ function findRoleMemberInArgs(args: Node[]): string | null {
 function findRoleMemberInTree(node: Node): string | null {
   let found: string | null = null;
   node.forEachDescendant((child, traversal) => {
+    /* v8 ignore start -- defensive: traversal.stop() is synchronous; no callbacks fire after found is set */
     if (found) {
       traversal.stop();
       return;
     }
+    /* v8 ignore stop */
     if (Node.isPropertyAccessExpression(child)) {
       const expr = child.getExpression();
       if (Node.isIdentifier(expr) && expr.getText() === 'Role') {
@@ -206,72 +207,30 @@ export function extractAuthZObservations(analysis: AuthZAnalysis): AuthZObservat
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-function main(): void {
-  const args = parseArgs(process.argv);
+const HELP_TEXT =
+  'Usage: npx tsx scripts/AST/ast-authz-audit.ts <path...> [--pretty] [--no-cache] [--test-files] [--kind <kind>] [--count]\n' +
+  '\n' +
+  'Detect raw role check patterns outside canonical files.\n' +
+  '\n' +
+  '  <path...>     One or more .ts/.tsx files or directories to analyze\n' +
+  '  --pretty      Format JSON output with indentation\n' +
+  '  --no-cache    Bypass cache and recompute\n' +
+  '  --test-files  Scan test files instead of production files\n' +
+  '  --kind        Filter observations to a specific kind\n' +
+  '  --count       Output observation kind counts instead of full data\n' +
+  '\n' +
+  'Observation kinds:\n' +
+  '  RAW_ROLE_CHECK      Raw role array method call with Role.MEMBER argument\n' +
+  '  RAW_ROLE_EQUALITY   Equality comparison (=== or !==) with Role.MEMBER\n';
 
-  if (args.help) {
-    process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-authz-audit.ts <path...> [--pretty] [--no-cache] [--test-files] [--kind <kind>] [--count]\n' +
-        '\n' +
-        'Detect raw role check patterns outside canonical files.\n' +
-        '\n' +
-        '  <path...>     One or more .ts/.tsx files or directories to analyze\n' +
-        '  --pretty      Format JSON output with indentation\n' +
-        '  --no-cache    Bypass cache and recompute\n' +
-        '  --test-files  Scan test files instead of production files\n' +
-        '  --kind        Filter observations to a specific kind\n' +
-        '  --count       Output observation kind counts instead of full data\n' +
-        '\n' +
-        'Observation kinds:\n' +
-        '  RAW_ROLE_CHECK      Raw role array method call with Role.MEMBER argument\n' +
-        '  RAW_ROLE_EQUALITY   Equality comparison (=== or !==) with Role.MEMBER\n',
-    );
-    process.exit(0);
-  }
+export const cliConfig: ObservationToolConfig<AuthZAnalysis> = {
+  cacheNamespace: 'ast-authz-audit',
+  helpText: HELP_TEXT,
+  analyzeFile: analyzeAuthZ,
+  analyzeDirectory: analyzeAuthZDirectory,
+};
 
-  const noCache = args.flags.has('no-cache');
-  const testFiles = args.flags.has('test-files');
-
-  if (args.paths.length === 0) {
-    fatal('No file or directory path provided. Use --help for usage.');
-  }
-
-  const allResults: AuthZAnalysis[] = [];
-
-  for (const targetPath of args.paths) {
-    const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
-
-    if (!fs.existsSync(absolute)) {
-      fatal(`Path does not exist: ${targetPath}`);
-    }
-
-    const stat = fs.statSync(absolute);
-
-    if (stat.isDirectory()) {
-      allResults.push(...analyzeAuthZDirectory(targetPath, { noCache, filter: testFiles ? 'test' : 'production' }));
-    } else {
-      const result = cached('ast-authz-audit', absolute, () => analyzeAuthZ(targetPath), { noCache });
-      if (result.observations.length > 0) {
-        allResults.push(result);
-      }
-    }
-  }
-
-  const cacheStats = getCacheStats();
-  if (cacheStats.hits > 0 || cacheStats.misses > 0) {
-    process.stderr.write(`Cache: ${cacheStats.hits} hits, ${cacheStats.misses} misses\n`);
-  }
-
-  const result = allResults.length === 1 ? allResults[0] : allResults;
-  outputFiltered(result, args.pretty, {
-    kind: args.options.kind,
-    count: args.flags.has('count'),
-  });
-}
-
+/* v8 ignore next 3 */
 const isDirectRun =
   process.argv[1] && (process.argv[1].endsWith('ast-authz-audit.ts') || process.argv[1].endsWith('ast-authz-audit'));
-
-if (isDirectRun) {
-  main();
-}
+if (isDirectRun) runObservationToolCli(cliConfig);

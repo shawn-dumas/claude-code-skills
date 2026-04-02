@@ -1,0 +1,196 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "test-quality",
+  "files": {
+    "card.spec.tsx": {
+      "observations": [
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "importSource": "vitest",
+            "specifiers": ["describe", "it", "expect", "vi"]
+          }
+        },
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 2,
+          "column": 1,
+          "evidence": {
+            "importSource": "@testing-library/react",
+            "specifiers": ["render", "screen"]
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 8,
+          "column": 263,
+          "evidence": {
+            "matcherName": "toHaveTextContent",
+            "expectArgText": "screen.getByRole('heading')",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 13,
+          "column": 437,
+          "evidence": {
+            "matcherName": "toBe",
+            "expectArgText": "screen.getByRole('heading').textContent",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 18,
+          "column": 593,
+          "evidence": {
+            "matcherName": "toBeVisible",
+            "expectArgText": "screen.getByText('42')",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 22,
+          "column": 700,
+          "evidence": {
+            "matcherName": "toThrow",
+            "expectArgText": "() => render(<Card title='Empty' total={0} />)",
+            "isScreenQuery": false,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 28,
+          "column": 924,
+          "evidence": {
+            "matcherName": "toHaveLength",
+            "expectArgText": "headings",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 7,
+          "column": 217,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 12,
+          "column": 390,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 17,
+          "column": 548,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 22,
+          "column": 713,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 26,
+          "column": 829,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "DESCRIBE_BLOCK",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 5,
+          "column": 140,
+          "evidence": {
+            "describeName": "Card"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 6,
+          "column": 167,
+          "evidence": {
+            "testName": "renders title via heading query"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 11,
+          "column": 336,
+          "evidence": {
+            "testName": "checks heading textContent directly"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 16,
+          "column": 510,
+          "evidence": {
+            "testName": "renders total value"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 21,
+          "column": 648,
+          "evidence": {
+            "testName": "does not throw when total is zero"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/card.spec.tsx",
+          "line": 25,
+          "column": 779,
+          "evidence": {
+            "testName": "checks length of rendered items"
+          }
+        }
+      ],
+      "subjectPath": "../../../..<fixture>/card.tsx",
+      "subjectExists": true
+    }
+  }
+}

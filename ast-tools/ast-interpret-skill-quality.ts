@@ -523,7 +523,7 @@ function prettyPrint(report: SkillQualityReport): string {
 // CLI
 // ---------------------------------------------------------------------------
 
-function main(): void {
+export function main(): void {
   const args = parseArgs(process.argv);
 
   if (args.help) {
@@ -590,6 +590,7 @@ function main(): void {
   }
 }
 
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-interpret-skill-quality.ts') ||
@@ -598,3 +599,4 @@ const isDirectRun =
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

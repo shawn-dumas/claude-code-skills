@@ -250,6 +250,48 @@ describe('ast-interpret-branch-classification', () => {
     });
   });
 
+  describe('condition truncation (>120 chars)', () => {
+    it('truncates long conditions to 120 chars with ellipsis', () => {
+      // The longConditionExample function has an if condition > 120 chars.
+      // This exercises the truncateCondition else branch.
+      const longAssessments = analyzeFixture('branch-classification-samples.tsx');
+      const longFn = assessmentsForFunction(longAssessments, 'longConditionExample');
+
+      // The function has an if with a long condition -- it should produce at least 1 assessment
+      expect(longFn.length).toBeGreaterThanOrEqual(1);
+      // At least one condition should be truncated (ends with '...')
+      const truncated = longFn.find(a => a.evidence.conditionText.endsWith('...'));
+      expect(truncated).toBeDefined();
+    });
+  });
+
+  describe('conditionText === null path (OTHER fallback)', () => {
+    it('emits OTHER with low confidence when contributor line is out-of-range', () => {
+      // extractConditionAtLine returns null when targetLineIndex >= lineCount.
+      // Using line 9999 on a ~142-line file guarantees the null path.
+      const fp = fixturePath('branch-classification-samples.tsx');
+      const obs: ComplexityObservation = {
+        kind: 'FUNCTION_COMPLEXITY',
+        file: fp,
+        line: 1,
+        evidence: {
+          functionName: 'testFn',
+          endLine: 5,
+          lineCount: 5,
+          cyclomaticComplexity: 2,
+          maxNestingDepth: 1,
+          contributors: [{ type: 'if', line: 9999 }],
+        },
+      };
+
+      const result = interpretBranchClassification(fp, [obs]);
+      const others = result.assessments.filter(a => a.kind === 'OTHER');
+      expect(others.length).toBe(1);
+      expect(others[0].confidence).toBe('low');
+      expect(others[0].rationale[0]).toContain('could not extract condition');
+    });
+  });
+
   describe('heuristic priority order', () => {
     it('classifies nullish-coalesce as NULL_GUARD with high confidence', () => {
       const obs: ComplexityObservation = {

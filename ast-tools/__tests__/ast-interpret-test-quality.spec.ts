@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import path from 'path';
-import { interpretTestQuality, analyzeTestHelper, buildTestHelperIndex } from '../ast-interpret-test-quality';
+import { interpretTestQuality, analyzeTestHelper, buildTestHelperIndex, main } from '../ast-interpret-test-quality';
 import { analyzeTestFile } from '../ast-test-analysis';
 import { astConfig } from '../ast-config';
 import type { TestObservation, TestQualityAssessment, TestHelperIndex, AssessmentResult } from '../types';
@@ -927,5 +927,100 @@ describe('ast-interpret-test-quality', () => {
       expect(domainBoundary).toHaveLength(1);
       expect(domainBoundary[0].rationale.some(r => r.includes('[near-boundary]'))).toBe(true);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// main() CLI tests
+// ---------------------------------------------------------------------------
+
+describe('main()', () => {
+  const originalArgv = process.argv;
+  let stdoutChunks: string[];
+
+  class ExitError extends Error {
+    code: number;
+    constructor(code: number) {
+      super(`process.exit(${code})`);
+      this.code = code;
+    }
+  }
+
+  beforeEach(() => {
+    stdoutChunks = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      stdoutChunks.push(typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk));
+      return true;
+    });
+    vi.spyOn(process, 'exit').mockImplementation(((code: number) => {
+      throw new ExitError(code ?? 0);
+    }) as never);
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+    vi.restoreAllMocks();
+  });
+
+  const FIXTURE_SPEC = path.join(__dirname, 'fixtures', 'test-file.spec.ts');
+  const FIXTURE_DIR = path.join(__dirname, 'fixtures', 'test-analysis-clean');
+
+  it('--help prints usage and exits 0', () => {
+    process.argv = ['node', 'ast-interpret-test-quality.ts', '--help'];
+    expect(() => main()).toThrow('process.exit(0)');
+
+    const out = stdoutChunks.join('');
+    expect(out).toContain('Usage:');
+    expect(out).toContain('MOCK_BOUNDARY_COMPLIANT');
+  });
+
+  it('errors when no path is provided', () => {
+    process.argv = ['node', 'ast-interpret-test-quality.ts'];
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    expect(() => main()).toThrow('process.exit(1)');
+  });
+
+  it('errors when path does not exist', () => {
+    process.argv = ['node', 'ast-interpret-test-quality.ts', '/nonexistent/path.spec.ts'];
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    expect(() => main()).toThrow('process.exit(1)');
+  });
+
+  it('analyzes a single spec file and outputs JSON', () => {
+    process.argv = ['node', 'ast-interpret-test-quality.ts', FIXTURE_SPEC];
+    main();
+
+    const out = stdoutChunks.join('');
+    const parsed = JSON.parse(out);
+    expect(parsed).toHaveProperty('assessments');
+    expect(Array.isArray(parsed.assessments)).toBe(true);
+  });
+
+  it('analyzes a single spec file with --pretty', () => {
+    process.argv = ['node', 'ast-interpret-test-quality.ts', FIXTURE_SPEC, '--pretty'];
+    main();
+
+    const out = stdoutChunks.join('');
+    expect(out).toContain('Test Quality Assessments:');
+  });
+
+  it('analyzes a directory and finds test files', () => {
+    process.argv = ['node', 'ast-interpret-test-quality.ts', FIXTURE_DIR];
+    main();
+
+    const out = stdoutChunks.join('');
+    const parsed = JSON.parse(out);
+    expect(parsed).toHaveProperty('assessments');
+  });
+
+  it('analyzes a directory with --pretty', () => {
+    process.argv = ['node', 'ast-interpret-test-quality.ts', FIXTURE_DIR, '--pretty'];
+    main();
+
+    const out = stdoutChunks.join('');
+    expect(out).toContain('Test Quality Assessments:');
+    expect(out).toContain('files in');
   });
 });

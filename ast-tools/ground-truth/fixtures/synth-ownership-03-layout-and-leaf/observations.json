@@ -1,0 +1,196 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "ownership",
+  "files": {
+    "DashboardLayout.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/DashboardLayout.tsx",
+          "line": 10,
+          "column": 20,
+          "evidence": {
+            "hookName": "useAuthState",
+            "importSource": "src/ui/providers/context/auth/index.tsx",
+            "destructuredNames": ["user"],
+            "parentFunction": "DashboardLayout",
+            "isReactBuiltin": false
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/DashboardLayout.tsx",
+          "line": 9,
+          "evidence": {
+            "componentName": "DashboardLayout",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/DashboardLayout.tsx",
+          "line": 9,
+          "evidence": {
+            "componentName": "DashboardLayout",
+            "propName": "children",
+            "propType": "React.ReactNode",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        }
+      ]
+    },
+    "Sidebar.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/Sidebar.tsx",
+          "line": 11,
+          "column": 21,
+          "evidence": {
+            "hookName": "useTeams",
+            "importSource": "@/providers/context/teams",
+            "destructuredNames": ["teams"],
+            "parentFunction": "Sidebar",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/Sidebar.tsx",
+          "line": 12,
+          "column": 18,
+          "evidence": {
+            "hookName": "useRouter",
+            "importSource": "next/router",
+            "destructuredNames": [],
+            "parentFunction": "Sidebar",
+            "isReactBuiltin": false
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/Sidebar.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "Sidebar",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/Sidebar.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "Sidebar",
+            "propName": "collapsed",
+            "propType": "boolean",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        }
+      ]
+    },
+    "TeamMemberCard.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/TeamMemberCard.tsx",
+          "line": 11,
+          "column": 26,
+          "evidence": {
+            "hookName": "useTeamQuery",
+            "importSource": "@/services/hooks/queries/team",
+            "destructuredNames": ["team"],
+            "parentFunction": "TeamMemberCard",
+            "isReactBuiltin": false
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/TeamMemberCard.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "TeamMemberCard",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/TeamMemberCard.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "TeamMemberCard",
+            "propName": "memberId",
+            "propType": "string",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/TeamMemberCard.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "TeamMemberCard",
+            "propName": "teamId",
+            "propType": "string",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        }
+      ]
+    },
+    "UserBadge.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/UserBadge.tsx",
+          "line": 10,
+          "column": 20,
+          "evidence": {
+            "hookName": "useAuthState",
+            "importSource": "src/ui/providers/context/auth/index.tsx",
+            "destructuredNames": ["user"],
+            "parentFunction": "UserBadge",
+            "isReactBuiltin": false
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/UserBadge.tsx",
+          "line": 9,
+          "evidence": {
+            "componentName": "UserBadge",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/UserBadge.tsx",
+          "line": 9,
+          "evidence": {
+            "componentName": "UserBadge",
+            "propName": "showEmail",
+            "propType": "boolean",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        }
+      ]
+    }
+  }
+}

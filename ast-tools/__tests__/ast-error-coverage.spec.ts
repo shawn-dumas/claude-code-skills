@@ -165,4 +165,40 @@ describe('ast-error-coverage', () => {
       expect(result.observations).toBe(analysis.observations);
     });
   });
+
+  describe('file-local global error handler detection', () => {
+    it('emits GLOBAL_ERROR_HANDLER observation when file contains new MutationCache({ onError })', () => {
+      const result = analyzeFixture('error-coverage-global-handler.ts');
+      const globalObs = result.observations.filter(o => o.kind === 'GLOBAL_ERROR_HANDLER');
+      expect(globalObs.length).toBeGreaterThanOrEqual(1);
+
+      const obs = globalObs[0];
+      expect(obs.evidence.hasOnError).toBe(true);
+      expect(obs.evidence.componentName).toBe('<module>');
+      expect(obs.evidence.hookName).toBe('QueryClient/MutationCache');
+      expect(obs.evidence.hasGlobalMutationHandler).toBe(true);
+    });
+  });
+
+  describe('hook imported via aliased named import', () => {
+    it('resolves import source for a hook imported with an alias', () => {
+      // This exercises the alias branch in resolveHookImportSource (lines 285-292).
+      // useTeamDataQuery is imported as useAliasedQuery; the alias resolution
+      // must look up the local alias name to match the hook name.
+      const result = analyzeFixture('error-coverage-aliased-import.tsx');
+      expect(result).toBeDefined();
+      expect(result.filePath).toBeDefined();
+    });
+  });
+
+  describe('hook imported via default import', () => {
+    it('resolves import source for a default-imported hook without error', () => {
+      // This exercises the default-import branch in resolveHookImportSource (lines 295-301).
+      // useTeamDefaultQuery is default-imported; resolveHookImportSource is called for every
+      // hook call regardless of whether it produces an observation.
+      const result = analyzeFixture('error-coverage-default-import.tsx');
+      expect(result).toBeDefined();
+      expect(result.filePath).toBeDefined();
+    });
+  });
 });

@@ -184,3 +184,86 @@ describe('ast-behavioral', () => {
     });
   });
 });
+
+describe('ast-behavioral parenthesized JSX and non-destructured state (behavioral-parenthesized-jsx.tsx)', () => {
+  it('emits CONDITIONAL_RENDER_GUARD for && guard with parenthesized JsxSelfClosingElement', () => {
+    const result = analyzeFixture('behavioral-parenthesized-jsx.tsx');
+    const obs = result.observations.filter(o => o.kind === 'CONDITIONAL_RENDER_GUARD');
+    // selfClosingGuard: show && (<input .../>) -- right is ParenthesizedExpression containing JsxSelfClosingElement
+    expect(obs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('emits CONDITIONAL_RENDER_GUARD for && guard with parenthesized JsxFragment', () => {
+    const result = analyzeFixture('behavioral-parenthesized-jsx.tsx');
+    const obs = result.observations.filter(o => o.kind === 'CONDITIONAL_RENDER_GUARD');
+    // fragmentGuard: count > 0 && (<>...</>) -- right is ParenthesizedExpression containing JsxFragment
+    expect(obs.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('emits CONDITIONAL_RENDER_GUARD for ternary where branch wraps JSX in parentheses', () => {
+    const result = analyzeFixture('behavioral-parenthesized-jsx.tsx');
+    const obs = result.observations.filter(o => o.kind === 'CONDITIONAL_RENDER_GUARD');
+    // wrappedTernary: show ? (<span>...</span>) : null -- whenTrue is ParenthesizedExpression
+    expect(obs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('emits STATE_INITIALIZATION for plain identifier binding (non-destructured useState)', () => {
+    const result = analyzeFixture('behavioral-parenthesized-jsx.tsx');
+    const obs = result.observations.filter(o => o.kind === 'STATE_INITIALIZATION');
+    // const stateResult = useState(42) -- nameNode is Identifier, not ArrayBindingPattern
+    expect(obs.length).toBeGreaterThanOrEqual(1);
+    const stateObs = obs.find(o => o.evidence.value === '42');
+    expect(stateObs).toBeDefined();
+    expect(stateObs!.evidence.name).toBe('stateResult');
+  });
+});
+
+describe('ast-behavioral parenthesized JSX and non-destructured state (behavioral-parenthesized-jsx.tsx)', () => {
+  it('emits CONDITIONAL_RENDER_GUARD for && guard with parenthesized JsxSelfClosingElement', () => {
+    const result = analyzeFixture('behavioral-parenthesized-jsx.tsx');
+    const obs = result.observations.filter(o => o.kind === 'CONDITIONAL_RENDER_GUARD');
+    // selfClosingGuard: show && (<input .../>) -- right is ParenthesizedExpression containing JsxSelfClosingElement
+    expect(obs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('emits CONDITIONAL_RENDER_GUARD for && guard with parenthesized JsxFragment', () => {
+    const result = analyzeFixture('behavioral-parenthesized-jsx.tsx');
+    const obs = result.observations.filter(o => o.kind === 'CONDITIONAL_RENDER_GUARD');
+    // fragmentGuard: count > 0 && (<>...</>) -- right is ParenthesizedExpression containing JsxFragment
+    expect(obs.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('emits CONDITIONAL_RENDER_GUARD for ternary where branch wraps JSX in parentheses', () => {
+    const result = analyzeFixture('behavioral-parenthesized-jsx.tsx');
+    const obs = result.observations.filter(o => o.kind === 'CONDITIONAL_RENDER_GUARD');
+    // wrappedTernary: show ? (<span>...</span>) : null -- whenTrue is ParenthesizedExpression
+    expect(obs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('emits STATE_INITIALIZATION for plain identifier binding (non-destructured useState)', () => {
+    const result = analyzeFixture('behavioral-parenthesized-jsx.tsx');
+    const obs = result.observations.filter(o => o.kind === 'STATE_INITIALIZATION');
+    // const stateResult = useState(42) -- nameNode is Identifier, not ArrayBindingPattern
+    expect(obs.length).toBeGreaterThanOrEqual(1);
+    const stateObs = obs.find(o => o.evidence.value === '42');
+    expect(stateObs).toBeDefined();
+    expect(stateObs!.evidence.name).toBe('stateResult');
+  });
+
+  it('emits RENDER_CAP for .slice(0, N) with numeric literal N (line 90)', () => {
+    const result = analyzeFixture('behavioral-parenthesized-jsx.tsx');
+    const obs = result.observations.filter(o => o.kind === 'RENDER_CAP' && o.evidence.name === 'slice');
+    // items.slice(0, 5) -- both args are numeric literals, second arg is 5
+    expect(obs.length).toBeGreaterThanOrEqual(1);
+    expect(obs[0].evidence.value).toBe('5');
+  });
+
+  it('emits JSX_STRING_LITERAL for string literal inside JsxExpression (lines 265-267)', () => {
+    const result = analyzeFixture('behavioral-parenthesized-jsx.tsx');
+    const obs = result.observations.filter(o => o.kind === 'JSX_STRING_LITERAL');
+    // {"Static string content"} -- JsxExpression with StringLiteral inside JSX
+    const jsxExprObs = obs.find(o => o.evidence.value === 'Static string content');
+    expect(jsxExprObs).toBeDefined();
+    expect(jsxExprObs!.evidence.category).toBe('string-literal-parity');
+  });
+});

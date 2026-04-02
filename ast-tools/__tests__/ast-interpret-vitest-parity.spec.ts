@@ -1,6 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { interpretVitestParity } from '../ast-interpret-vitest-parity';
-import type { VtSpecInventory } from '../types';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { interpretVitestParity, prettyPrint, main } from '../ast-interpret-vitest-parity';
+import type { VtSpecInventory, VtParityReport, VtParityScore } from '../types';
 
 function buildInventory(overrides: Partial<VtSpecInventory> = {}): VtSpecInventory {
   return {
@@ -480,6 +483,275 @@ describe('ast-interpret-vitest-parity', () => {
       expect(report.score.score).toBe(100);
       expect(report.score.parity).toBe(2);
       expect(report.matches.length).toBe(2);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // prettyPrint
+  // -------------------------------------------------------------------------
+
+  describe('prettyPrint', () => {
+    function buildScore(overrides: Partial<VtParityScore> = {}): VtParityScore {
+      return {
+        total: 5,
+        matched: 5,
+        parity: 1,
+        reduced: 0,
+        expanded: 0,
+        notPorted: 0,
+        novel: 0,
+        score: 100,
+        ...overrides,
+      };
+    }
+
+    function buildReport(overrides: Partial<VtParityReport> = {}): VtParityReport {
+      return {
+        matches: [],
+        score: buildScore(),
+        sourceFiles: ['src/hook.spec.ts'],
+        targetFiles: ['target/hook.spec.ts'],
+        ...overrides,
+      };
+    }
+
+    it('includes header', () => {
+      const output = prettyPrint(buildReport(), 'src/', 'target/');
+      expect(output).toContain('Test Parity Report (Vitest)');
+    });
+
+    it('includes source and target labels', () => {
+      const output = prettyPrint(buildReport(), 'feature-branch:src/', 'integration/');
+      expect(output).toContain('Source: feature-branch:src/');
+      expect(output).toContain('Target: integration/');
+    });
+
+    it('includes score line', () => {
+      const output = prettyPrint(buildReport({ score: buildScore({ score: 80, matched: 4, total: 5 }) }), 'a/', 'b/');
+      expect(output).toContain('Score: 80');
+    });
+
+    it('renders PARITY matches', () => {
+      const report = buildReport({
+        matches: [
+          {
+            sourceTest: 'renders correctly',
+            sourceFile: 'hook.spec.ts',
+            targetTest: 'renders correctly',
+            targetFile: 'target/hook.spec.ts',
+            status: 'PARITY',
+            sourceAssertions: 3,
+            targetAssertions: 3,
+            sourceMocks: [],
+            targetMocks: [],
+            confidence: 'high',
+            similarity: 1.0,
+          },
+        ],
+        score: buildScore({ parity: 1 }),
+      });
+      const output = prettyPrint(report, 'src/', 'target/');
+      expect(output).toContain('PARITY (1)');
+      expect(output).toContain('renders correctly');
+    });
+
+    it('renders EXPANDED matches', () => {
+      const report = buildReport({
+        matches: [
+          {
+            sourceTest: 'loads data',
+            sourceFile: 'hook.spec.ts',
+            targetTest: 'loads data',
+            targetFile: 'target/hook.spec.ts',
+            status: 'EXPANDED',
+            sourceAssertions: 2,
+            targetAssertions: 5,
+            sourceMocks: [],
+            targetMocks: [],
+            confidence: 'high',
+            similarity: 0.9,
+          },
+        ],
+        score: buildScore({ expanded: 1 }),
+      });
+      const output = prettyPrint(report, 'src/', 'target/');
+      expect(output).toContain('EXPANDED (1)');
+    });
+
+    it('renders REDUCED matches', () => {
+      const report = buildReport({
+        matches: [
+          {
+            sourceTest: 'filters by role',
+            sourceFile: 'hook.spec.ts',
+            targetTest: 'filters by role',
+            targetFile: 'target/hook.spec.ts',
+            status: 'REDUCED',
+            sourceAssertions: 10,
+            targetAssertions: 3,
+            sourceMocks: [],
+            targetMocks: [],
+            confidence: 'high',
+            similarity: 0.8,
+          },
+        ],
+        score: buildScore({ reduced: 1 }),
+      });
+      const output = prettyPrint(report, 'src/', 'target/');
+      expect(output).toContain('REDUCED (1)');
+      expect(output).toContain('10 -> 3 assertions');
+    });
+
+    it('renders NOT_PORTED matches', () => {
+      const report = buildReport({
+        matches: [
+          {
+            sourceTest: 'exports csv data',
+            sourceFile: 'hook.spec.ts',
+            targetTest: null,
+            targetFile: null,
+            status: 'NOT_PORTED',
+            sourceAssertions: 4,
+            targetAssertions: 0,
+            sourceMocks: [],
+            targetMocks: [],
+            confidence: 'high',
+            similarity: 0,
+          },
+        ],
+        score: buildScore({ notPorted: 1, score: 0, matched: 0 }),
+      });
+      const output = prettyPrint(report, 'src/', 'target/');
+      expect(output).toContain('NOT_PORTED (1)');
+      expect(output).toContain('assertions (lost)');
+    });
+
+    it('renders NOVEL count when present', () => {
+      const report = buildReport({
+        score: buildScore({ novel: 3, score: 100 }),
+      });
+      const output = prettyPrint(report, 'src/', 'target/');
+      expect(output).toContain('NOVEL: 3');
+    });
+
+    it('truncates long test names', () => {
+      const longName = 'b'.repeat(55);
+      const report = buildReport({
+        matches: [
+          {
+            sourceTest: longName,
+            sourceFile: 'hook.spec.ts',
+            targetTest: longName,
+            targetFile: 'target/hook.spec.ts',
+            status: 'PARITY',
+            sourceAssertions: 1,
+            targetAssertions: 1,
+            sourceMocks: [],
+            targetMocks: [],
+            confidence: 'high',
+            similarity: 1.0,
+          },
+        ],
+        score: buildScore({ parity: 1 }),
+      });
+      const output = prettyPrint(report, 'src/', 'target/');
+      expect(output).toContain('...');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // main() CLI entry point
+  // -------------------------------------------------------------------------
+
+  describe('main()', () => {
+    let stdoutChunks: string[];
+    let originalArgv: string[];
+
+    beforeEach(() => {
+      stdoutChunks = [];
+      originalArgv = process.argv;
+
+      vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+        stdoutChunks.push(String(chunk));
+        return true;
+      });
+      vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`process.exit(${code ?? 0})`);
+      }) as never);
+    });
+
+    afterEach(() => {
+      process.argv = originalArgv;
+      vi.restoreAllMocks();
+    });
+
+    it('--help exits 0 and prints usage', () => {
+      process.argv = ['node', 'ast-interpret-vitest-parity.ts', '--help'];
+      expect(() => main()).toThrow('process.exit(0)');
+      expect(stdoutChunks.join('')).toContain('Usage:');
+    });
+
+    it('missing --source-dir exits 1 via fatal', () => {
+      process.argv = ['node', 'ast-interpret-vitest-parity.ts', '--target-dir', '/some/dir'];
+      expect(() => main()).toThrow('process.exit(1)');
+    });
+
+    it('missing --target-dir exits 1 via fatal', () => {
+      process.argv = ['node', 'ast-interpret-vitest-parity.ts', '--source-dir', '/some/dir'];
+      expect(() => main()).toThrow('process.exit(1)');
+    });
+
+    it('valid source-dir and target-dir produces JSON output', () => {
+      const srcDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vt-parity-src-'));
+      const tgtDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vt-parity-tgt-'));
+      fs.writeFileSync(
+        path.join(srcDir, 'feature.spec.ts'),
+        `import { it, expect } from 'vitest';\nit('loads data', () => { expect(true).toBe(true); });\n`,
+      );
+      fs.writeFileSync(
+        path.join(tgtDir, 'feature.spec.ts'),
+        `import { it, expect } from 'vitest';\nit('loads data', () => { expect(true).toBe(true); });\n`,
+      );
+      try {
+        process.argv = ['node', 'ast-interpret-vitest-parity.ts', '--source-dir', srcDir, '--target-dir', tgtDir];
+        main();
+        const out = stdoutChunks.join('');
+        expect(JSON.parse(out)).toHaveProperty('matches');
+      } finally {
+        fs.rmSync(srcDir, { recursive: true });
+        fs.rmSync(tgtDir, { recursive: true });
+      }
+    });
+
+    it('--pretty flag produces formatted output', () => {
+      const srcDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vt-parity-src-'));
+      const tgtDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vt-parity-tgt-'));
+      fs.writeFileSync(
+        path.join(srcDir, 'hook.spec.ts'),
+        `import { it, expect } from 'vitest';\nit('returns value', () => { expect(1).toBe(1); });\n`,
+      );
+      fs.writeFileSync(
+        path.join(tgtDir, 'hook.spec.ts'),
+        `import { it, expect } from 'vitest';\nit('returns value', () => { expect(1).toBe(1); });\n`,
+      );
+      try {
+        process.argv = [
+          'node',
+          'ast-interpret-vitest-parity.ts',
+          '--source-dir',
+          srcDir,
+          '--target-dir',
+          tgtDir,
+          '--pretty',
+        ];
+        main();
+        const out = stdoutChunks.join('');
+        expect(out).toContain('Test Parity Report');
+      } finally {
+        fs.rmSync(srcDir, { recursive: true });
+        fs.rmSync(tgtDir, { recursive: true });
+      }
     });
   });
 });

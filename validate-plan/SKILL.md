@@ -187,7 +187,19 @@ parameter counts, return types), use the Read tool to read the source
 file directly. Do NOT use `rg` to grep for function signatures -- read
 the actual file.
 
-### 3d. Verify constants and configuration values
+### 3d. Verify visual regression coverage
+
+If the plan adds or modifies pages, check whether visual regression
+tests are included or referenced. See `docs/visual-testing.md` for the
+visual test architecture. Verify:
+
+- New page prompts reference `pnpm test:visual:update` in verification
+- Existing visual baselines for modified pages are flagged for update
+- The `--update-snapshots` gotcha is noted if baselines need refreshing
+
+This is a warning-tier check, not a blocker.
+
+### 3e. Verify constants and configuration values
 
 If the plan references constants, enum members, role groups, or
 configuration values, verify they match the actual definitions:

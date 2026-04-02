@@ -135,7 +135,13 @@ Cross-reference the AST tool output against prompt instructions:
    or structural patterns. If so, escalate to **blocker** -- these should
    be fixed upfront, not deferred.
 
-9. **Skill convention drift**: For each `SKILL_REFERENCE` that passed
+9. **Visual regression coverage**: If the plan adds new pages or
+   modifies existing page layouts, check whether any prompt includes
+   `pnpm test:visual` or `pnpm test:visual:update` in its verification
+   section. If not, this is a **warning** -- visual baselines may go
+   stale. Reference `docs/visual-testing.md` for visual test conventions.
+
+10. **Skill convention drift**: For each `SKILL_REFERENCE` that passed
    the existence check (point 7), run the skill quality interpreter to
    check for convention drift:
 

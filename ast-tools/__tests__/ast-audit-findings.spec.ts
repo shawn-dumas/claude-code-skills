@@ -449,4 +449,27 @@ describe('deduplicateAndSort', () => {
   it('handles empty input', () => {
     expect(deduplicateAndSort([])).toEqual([]);
   });
+
+  it('sorts by line number when file and priority match', () => {
+    const base: Finding = {
+      id: 'id-line-a',
+      kind: 'as-any',
+      priority: 'P3',
+      category: 'Bug',
+      file: 'src/same.ts',
+      line: 50,
+      evidence: 'e',
+      rationale: [],
+      confidence: 'high',
+      source: 's',
+      astConfirmed: true,
+      track: 'fe',
+    };
+    const earlier: Finding = { ...base, id: 'id-line-b', line: 10 };
+    const nullLine: Finding = { ...base, id: 'id-line-c', line: undefined };
+
+    const result = deduplicateAndSort([base, earlier, nullLine]);
+    // nullLine (undefined -> 0) < earlier (10) < base (50)
+    expect(result.map(f => f.id)).toEqual(['id-line-c', 'id-line-b', 'id-line-a']);
+  });
 });

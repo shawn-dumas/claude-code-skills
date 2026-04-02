@@ -1,0 +1,114 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "effects",
+  "files": {
+    "component.tsx": {
+      "effectObservations": [
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 12,
+          "evidence": {
+            "effectLine": 12,
+            "parentFunction": "TimerRace",
+            "depArray": ["delay"],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 16,
+          "evidence": {
+            "effectLine": 12,
+            "identifier": "delay"
+          }
+        },
+        {
+          "kind": "EFFECT_TIMER_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 13,
+          "evidence": {
+            "effectLine": 12,
+            "identifier": "setTimeout"
+          }
+        },
+        {
+          "kind": "EFFECT_STATE_SETTER_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 14,
+          "evidence": {
+            "effectLine": 12,
+            "identifier": "setCount"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 15,
+          "evidence": {
+            "effectLine": 12,
+            "identifier": "delay"
+          }
+        },
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 18,
+          "evidence": {
+            "effectLine": 18,
+            "parentFunction": "TimerRace",
+            "depArray": [],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_CLEANUP_PRESENT",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 18,
+          "evidence": {
+            "effectLine": 18
+          }
+        },
+        {
+          "kind": "EFFECT_REF_TOUCH",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "evidence": {
+            "effectLine": 18,
+            "identifier": "timerRef",
+            "isDomRef": false
+          }
+        },
+        {
+          "kind": "EFFECT_TIMER_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "evidence": {
+            "effectLine": 18,
+            "identifier": "setInterval"
+          }
+        },
+        {
+          "kind": "EFFECT_STATE_SETTER_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 20,
+          "evidence": {
+            "effectLine": 18,
+            "identifier": "setVisible"
+          }
+        },
+        {
+          "kind": "EFFECT_REF_TOUCH",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 23,
+          "evidence": {
+            "effectLine": 18,
+            "identifier": "timerRef",
+            "isDomRef": false
+          }
+        }
+      ]
+    }
+  }
+}

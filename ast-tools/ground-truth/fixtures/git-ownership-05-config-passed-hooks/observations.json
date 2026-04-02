@@ -1,0 +1,97 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "ownership",
+  "files": {
+    "SettingsEntityContainer.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/SettingsEntityContainer.tsx",
+          "line": 16,
+          "column": 41,
+          "evidence": {
+            "hookName": "useState",
+            "importSource": "react",
+            "destructuredNames": ["searchValue", "setSearchValue"],
+            "parentFunction": "SettingsEntityContainer",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/SettingsEntityContainer.tsx",
+          "line": 18,
+          "column": 41,
+          "evidence": {
+            "hookName": "useGetAllQuery",
+            "destructuredNames": ["entities", "isLoading"],
+            "parentFunction": "SettingsEntityContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/SettingsEntityContainer.tsx",
+          "line": 20,
+          "column": 20,
+          "evidence": {
+            "hookName": "useMemo",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "SettingsEntityContainer",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/SettingsEntityContainer.tsx",
+          "line": 25,
+          "column": 46,
+          "evidence": {
+            "hookName": "useCreateMutation",
+            "destructuredNames": ["create", "isPending"],
+            "parentFunction": "SettingsEntityContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/SettingsEntityContainer.tsx",
+          "line": 27,
+          "column": 24,
+          "evidence": {
+            "hookName": "useCallback",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "SettingsEntityContainer",
+            "isReactBuiltin": true
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/SettingsEntityContainer.tsx",
+          "line": 14,
+          "evidence": {
+            "componentName": "SettingsEntityContainer",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/SettingsEntityContainer.tsx",
+          "line": 14,
+          "evidence": {
+            "componentName": "SettingsEntityContainer",
+            "propName": "config",
+            "propType": "EntityConfig",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        }
+      ]
+    }
+  }
+}

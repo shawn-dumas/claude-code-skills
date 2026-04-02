@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeAuthZ } from '../ast-authz-audit';
+import { analyzeAuthZ, extractAuthZObservations } from '../ast-authz-audit';
 import type { AuthZAnalysis } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -160,5 +160,21 @@ describe('ast-authz-audit', () => {
         expect(validKinds.has(obs.kind)).toBe(true);
       }
     });
+  });
+});
+
+describe('extractAuthZObservations', () => {
+  it('returns a copy of observations from an analysis result', () => {
+    const analysis = analyzeAuthZ(path.join(__dirname, 'fixtures', 'authz-positive.tsx'));
+    const extracted = extractAuthZObservations(analysis);
+    expect(extracted).toHaveLength(analysis.observations.length);
+    expect(extracted).not.toBe(analysis.observations);
+    expect(extracted[0]).toEqual(analysis.observations[0]);
+  });
+
+  it('returns empty array for a file with no violations', () => {
+    const analysis = analyzeAuthZ(path.join(__dirname, 'fixtures', 'authz-negative.tsx'));
+    const extracted = extractAuthZObservations(analysis);
+    expect(extracted).toHaveLength(0);
   });
 });

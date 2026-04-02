@@ -1,6 +1,6 @@
 import fg from 'fast-glob';
 
-interface CliArgs {
+export interface CliArgs {
   paths: string[];
   pretty: boolean;
   help: boolean;
@@ -10,7 +10,7 @@ interface CliArgs {
   flags: Set<string>;
 }
 
-interface ParseArgsOptions {
+export interface ParseArgsOptions {
   namedOptions?: readonly string[];
   extraBooleanFlags?: readonly string[];
 }

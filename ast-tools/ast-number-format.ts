@@ -1,12 +1,11 @@
 import { type SourceFile, Node } from 'ts-morph';
 import path from 'path';
-import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
-import { parseArgs, outputFiltered, fatal } from './cli';
+import { runObservationToolCli, type ObservationToolConfig } from './cli-runner';
 import { getFilesInDirectory, truncateText, getContainingFunctionName, type FileFilter } from './shared';
 import type { NumberFormatAnalysis, NumberFormatObservation } from './types';
 import { astConfig } from './ast-config';
-import { cached, getCacheStats } from './ast-cache';
+import { cached } from './ast-cache';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -357,69 +356,27 @@ export function analyzeNumberFormatDirectory(
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-function main(): void {
-  const args = parseArgs(process.argv);
+const HELP_TEXT =
+  'Usage: npx tsx scripts/AST/ast-number-format.ts <path...> [--pretty] [--no-cache] [--test-files] [--kind <kind>] [--count]\n' +
+  '\n' +
+  'Analyze number formatting patterns (formatNumber, toFixed, Intl.NumberFormat, etc.).\n' +
+  '\n' +
+  '  <path...>     One or more .ts/.tsx files or directories to analyze\n' +
+  '  --pretty      Format JSON output with indentation\n' +
+  '  --no-cache    Bypass cache and recompute (also refreshes cache)\n' +
+  '  --test-files  Scan test files instead of production files\n' +
+  '  --kind        Filter observations to a specific kind\n' +
+  '  --count       Output observation kind counts instead of full data\n';
 
-  if (args.help) {
-    process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-number-format.ts <path...> [--pretty] [--no-cache] [--test-files] [--kind <kind>] [--count]\n' +
-        '\n' +
-        'Analyze number formatting patterns (formatNumber, toFixed, Intl.NumberFormat, etc.).\n' +
-        '\n' +
-        '  <path...>     One or more .ts/.tsx files or directories to analyze\n' +
-        '  --pretty      Format JSON output with indentation\n' +
-        '  --no-cache    Bypass cache and recompute (also refreshes cache)\n' +
-        '  --test-files  Scan test files instead of production files\n' +
-        '  --kind        Filter observations to a specific kind\n' +
-        '  --count       Output observation kind counts instead of full data\n',
-    );
-    process.exit(0);
-  }
+export const cliConfig: ObservationToolConfig<NumberFormatAnalysis> = {
+  cacheNamespace: 'number-format',
+  helpText: HELP_TEXT,
+  analyzeFile: analyzeNumberFormat,
+  analyzeDirectory: analyzeNumberFormatDirectory,
+};
 
-  const noCache = args.flags.has('no-cache');
-  const testFiles = args.flags.has('test-files');
-
-  if (args.paths.length === 0) {
-    fatal('No file or directory path provided. Use --help for usage.');
-  }
-
-  const allResults: NumberFormatAnalysis[] = [];
-
-  for (const targetPath of args.paths) {
-    const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
-
-    if (!fs.existsSync(absolute)) {
-      fatal(`Path does not exist: ${targetPath}`);
-    }
-
-    const stat = fs.statSync(absolute);
-
-    if (stat.isDirectory()) {
-      allResults.push(
-        ...analyzeNumberFormatDirectory(targetPath, { noCache, filter: testFiles ? 'test' : 'production' }),
-      );
-    } else {
-      const result = cached('number-format', absolute, () => analyzeNumberFormat(absolute), { noCache });
-      allResults.push(result);
-    }
-  }
-
-  const cacheStats = getCacheStats();
-  if (cacheStats.hits > 0 || cacheStats.misses > 0) {
-    process.stderr.write(`Cache: ${cacheStats.hits} hits, ${cacheStats.misses} misses\n`);
-  }
-
-  const result = allResults.length === 1 ? allResults[0] : allResults;
-  outputFiltered(result, args.pretty, {
-    kind: args.options.kind,
-    count: args.flags.has('count'),
-  });
-}
-
+/* v8 ignore next 3 */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-number-format.ts') || process.argv[1].endsWith('ast-number-format'));
-
-if (isDirectRun) {
-  main();
-}
+if (isDirectRun) runObservationToolCli(cliConfig);

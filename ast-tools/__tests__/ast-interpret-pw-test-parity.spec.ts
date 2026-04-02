@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { interpretTestParity } from '../ast-interpret-pw-test-parity';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { interpretTestParity, prettyPrint, main, type ParityReport } from '../ast-interpret-pw-test-parity';
 import type { PwSpecInventory, PwHelperIndex } from '../types';
 
 function buildInventory(overrides: Partial<PwSpecInventory> = {}): PwSpecInventory {
@@ -1267,6 +1270,346 @@ describe('ast-interpret-pw-test-parity', () => {
 
       // Falls back to 3 per delegation: max(0 + 0 + 0 + 3 + 0, 1) = 3
       expect(report.fileMatches[0].testMatches[0].sourceWeight).toBe(3);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // prettyPrint
+  // -------------------------------------------------------------------------
+
+  describe('prettyPrint', () => {
+    function buildMinimalReport(overrides: Partial<ParityReport> = {}): ParityReport {
+      return {
+        fileMatches: [],
+        score: {
+          overall: 100,
+          totalWeight: 5,
+          matchedWeight: 5,
+          byStatus: { PARITY: 1, EXPANDED: 0, REDUCED: 0, NOT_PORTED: 0 },
+        },
+        summary: {
+          totalSourceTests: 1,
+          totalTargetTests: 1,
+          netNewTargetFiles: [],
+          droppedFiles: [],
+        },
+        ...overrides,
+      };
+    }
+
+    it('includes PARITY SCORE header', () => {
+      const report = buildMinimalReport();
+      const output = prettyPrint(report);
+      expect(output).toContain('=== PARITY SCORE ===');
+    });
+
+    it('includes overall percentage', () => {
+      const report = buildMinimalReport({
+        score: {
+          overall: 75,
+          totalWeight: 4,
+          matchedWeight: 3,
+          byStatus: { PARITY: 0, EXPANDED: 1, REDUCED: 1, NOT_PORTED: 0 },
+        },
+      });
+      const output = prettyPrint(report);
+      expect(output).toContain('75%');
+    });
+
+    it('includes FILE PARITY section header', () => {
+      const report = buildMinimalReport();
+      const output = prettyPrint(report);
+      expect(output).toContain('=== FILE PARITY ===');
+    });
+
+    it('renders file match rows', () => {
+      const report = buildMinimalReport({
+        fileMatches: [
+          {
+            sourceFile: 'users.spec.ts',
+            targetFile: 'integration/users.spec.ts',
+            sourceTestCount: 2,
+            targetTestCount: 2,
+            status: 'PARITY',
+            structuralSignal: 'present',
+            testMatches: [],
+          },
+        ],
+      });
+      const output = prettyPrint(report);
+      expect(output).toContain('users.spec.ts');
+    });
+
+    it('renders (none) for missing target file', () => {
+      const report = buildMinimalReport({
+        fileMatches: [
+          {
+            sourceFile: 'dropped.spec.ts',
+            targetFile: null,
+            sourceTestCount: 1,
+            targetTestCount: 0,
+            status: 'EMPTY',
+            structuralSignal: 'none',
+            testMatches: [],
+          },
+        ],
+      });
+      const output = prettyPrint(report);
+      expect(output).toContain('(none)');
+    });
+
+    it('renders test match rows for file matches with tests', () => {
+      const report = buildMinimalReport({
+        fileMatches: [
+          {
+            sourceFile: 'teams.spec.ts',
+            targetFile: 'integration/teams.spec.ts',
+            sourceTestCount: 1,
+            targetTestCount: 1,
+            status: 'PARITY',
+            structuralSignal: 'present',
+            testMatches: [
+              {
+                sourceTest: 'create a team',
+                sourceFile: 'teams.spec.ts',
+                targetTest: 'create a team',
+                targetFile: 'integration/teams.spec.ts',
+                status: 'PARITY',
+                sourceAssertions: 3,
+                targetAssertions: 3,
+                sourceWeight: 3,
+                weightRatio: 1.0,
+                confidence: 'high',
+                similarity: 1.0,
+                matchSignals: ['name:exact'],
+                notes: [],
+                splitCoverage: [],
+              },
+            ],
+          },
+        ],
+      });
+      const output = prettyPrint(report);
+      expect(output).toContain('create a team');
+      expect(output).toContain('name:exact');
+    });
+
+    it('truncates long test names in match rows', () => {
+      const longName = 'a'.repeat(50);
+      const report = buildMinimalReport({
+        fileMatches: [
+          {
+            sourceFile: 'long.spec.ts',
+            targetFile: 'integration/long.spec.ts',
+            sourceTestCount: 1,
+            targetTestCount: 1,
+            status: 'PARITY',
+            structuralSignal: 'present',
+            testMatches: [
+              {
+                sourceTest: longName,
+                sourceFile: 'long.spec.ts',
+                targetTest: longName,
+                targetFile: 'integration/long.spec.ts',
+                status: 'PARITY',
+                sourceAssertions: 2,
+                targetAssertions: 2,
+                sourceWeight: 2,
+                weightRatio: 1.0,
+                confidence: 'high',
+                similarity: 1.0,
+                matchSignals: [],
+                notes: ['some note'],
+                splitCoverage: ['split-test'],
+              },
+            ],
+          },
+        ],
+      });
+      const output = prettyPrint(report);
+      expect(output).toContain('...');
+    });
+
+    it('marks low confidence with tilde in status', () => {
+      const report = buildMinimalReport({
+        fileMatches: [
+          {
+            sourceFile: 'feature.spec.ts',
+            targetFile: 'integration/feature.spec.ts',
+            sourceTestCount: 1,
+            targetTestCount: 1,
+            status: 'PARITY',
+            structuralSignal: 'present',
+            testMatches: [
+              {
+                sourceTest: 'renders correctly',
+                sourceFile: 'feature.spec.ts',
+                targetTest: 'renders',
+                targetFile: 'integration/feature.spec.ts',
+                status: 'PARITY',
+                sourceAssertions: 1,
+                targetAssertions: 1,
+                sourceWeight: 1,
+                weightRatio: null,
+                confidence: 'low',
+                similarity: 0.5,
+                matchSignals: [],
+                notes: [],
+                splitCoverage: [],
+              },
+            ],
+          },
+        ],
+      });
+      const output = prettyPrint(report);
+      expect(output).toContain('~');
+    });
+
+    it('includes SUMMARY section', () => {
+      const report = buildMinimalReport({
+        summary: {
+          totalSourceTests: 5,
+          totalTargetTests: 4,
+          netNewTargetFiles: ['new-feature.spec.ts'],
+          droppedFiles: ['old-feature.spec.ts'],
+        },
+      });
+      const output = prettyPrint(report);
+      expect(output).toContain('=== SUMMARY ===');
+      expect(output).toContain('5');
+      expect(output).toContain('new-feature.spec.ts');
+      expect(output).toContain('old-feature.spec.ts');
+    });
+
+    it('marks NO STRUCTURAL SIGNAL for files with structuralSignal none', () => {
+      const report = buildMinimalReport({
+        fileMatches: [
+          {
+            sourceFile: 'no-signal.spec.ts',
+            targetFile: 'integration/no-signal.spec.ts',
+            sourceTestCount: 1,
+            targetTestCount: 1,
+            status: 'PARITY',
+            structuralSignal: 'none',
+            testMatches: [
+              {
+                sourceTest: 'test x',
+                sourceFile: 'no-signal.spec.ts',
+                targetTest: 'test x',
+                targetFile: 'integration/no-signal.spec.ts',
+                status: 'PARITY',
+                sourceAssertions: 1,
+                targetAssertions: 1,
+                sourceWeight: 1,
+                weightRatio: 1.0,
+                confidence: 'high',
+                similarity: 0.5,
+                matchSignals: [],
+                notes: [],
+                splitCoverage: [],
+              },
+            ],
+          },
+        ],
+      });
+      const output = prettyPrint(report);
+      expect(output).toContain('NO STRUCTURAL SIGNAL');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // main() CLI entry point
+  // -------------------------------------------------------------------------
+
+  describe('main()', () => {
+    let stdoutChunks: string[];
+    let originalArgv: string[];
+
+    beforeEach(() => {
+      stdoutChunks = [];
+      originalArgv = process.argv;
+
+      vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+        stdoutChunks.push(String(chunk));
+        return true;
+      });
+      vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`process.exit(${code ?? 0})`);
+      }) as never);
+    });
+
+    afterEach(() => {
+      process.argv = originalArgv;
+      vi.restoreAllMocks();
+    });
+
+    it('--help exits 0 and prints usage', () => {
+      process.argv = ['node', 'ast-interpret-pw-test-parity.ts', '--help'];
+      expect(() => main()).toThrow('process.exit(0)');
+      expect(stdoutChunks.join('')).toContain('Usage:');
+    });
+
+    it('missing --source-dir exits 1 via fatal', () => {
+      process.argv = ['node', 'ast-interpret-pw-test-parity.ts', '--target-dir', '/some/dir'];
+      expect(() => main()).toThrow('process.exit(1)');
+    });
+
+    it('missing --target-dir exits 1 via fatal', () => {
+      process.argv = ['node', 'ast-interpret-pw-test-parity.ts', '--source-dir', '/some/dir'];
+      expect(() => main()).toThrow('process.exit(1)');
+    });
+
+    it('valid source-dir and target-dir produces JSON output', () => {
+      const srcDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-parity-src-'));
+      const tgtDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-parity-tgt-'));
+      fs.writeFileSync(
+        path.join(srcDir, 'feature.spec.ts'),
+        `import { test, expect } from '@playwright/test';\ntest('loads page', async ({ page }) => { await page.goto('/'); await expect(page).toHaveURL('/'); });\n`,
+      );
+      fs.writeFileSync(
+        path.join(tgtDir, 'feature.spec.ts'),
+        `import { test, expect } from '@playwright/test';\ntest('loads page', async ({ page }) => { await page.goto('/'); await expect(page).toHaveURL('/'); });\n`,
+      );
+      try {
+        process.argv = ['node', 'ast-interpret-pw-test-parity.ts', '--source-dir', srcDir, '--target-dir', tgtDir];
+        main();
+        const out = stdoutChunks.join('');
+        expect(JSON.parse(out)).toHaveProperty('fileMatches');
+      } finally {
+        fs.rmSync(srcDir, { recursive: true });
+        fs.rmSync(tgtDir, { recursive: true });
+      }
+    });
+
+    it('--pretty flag produces formatted output', () => {
+      const srcDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-parity-src-'));
+      const tgtDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pw-parity-tgt-'));
+      fs.writeFileSync(
+        path.join(srcDir, 'users.spec.ts'),
+        `import { test, expect } from '@playwright/test';\ntest('shows list', async ({ page }) => { await page.goto('/users'); await expect(page.getByRole('table')).toBeVisible(); });\n`,
+      );
+      fs.writeFileSync(
+        path.join(tgtDir, 'users.spec.ts'),
+        `import { test, expect } from '@playwright/test';\ntest('shows list', async ({ page }) => { await page.goto('/users'); await expect(page.getByRole('table')).toBeVisible(); });\n`,
+      );
+      try {
+        process.argv = [
+          'node',
+          'ast-interpret-pw-test-parity.ts',
+          '--source-dir',
+          srcDir,
+          '--target-dir',
+          tgtDir,
+          '--pretty',
+        ];
+        main();
+        const out = stdoutChunks.join('');
+        expect(out).toContain('=== PARITY SCORE ===');
+      } finally {
+        fs.rmSync(srcDir, { recursive: true });
+        fs.rmSync(tgtDir, { recursive: true });
+      }
     });
   });
 });

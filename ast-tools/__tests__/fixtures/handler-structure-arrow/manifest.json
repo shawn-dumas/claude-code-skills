@@ -1,0 +1,8 @@
+{
+  "description": "Arrow function handler with multi-line block comment in body",
+  "expectedObservations": [
+    {
+      "type": "HANDLER_INLINE_LOGIC"
+    }
+  ]
+}

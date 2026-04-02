@@ -17,10 +17,11 @@ import path from 'path';
 import fs from 'fs';
 import { execFileSync } from 'child_process';
 import { PROJECT_ROOT } from './project';
-import { parseArgs, outputFiltered, fatal } from './cli';
+import { parseArgs, outputFiltered } from './cli';
 import { truncateText, resolveCallName, findExpectInChain, getFilesInDirectory } from './shared';
 import { astConfig } from './ast-config';
-import { cached, getCacheStats } from './ast-cache';
+import { cached } from './ast-cache';
+import { runObservationToolCli, type ObservationToolConfig } from './cli-runner';
 import { gitShowFile, createVirtualProject } from './git-source';
 import type {
   VtSpecInventory,
@@ -794,93 +795,60 @@ export function extractVitestParityObservations(analysis: VtSpecInventory): Obse
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-const NAMED_OPTIONS = ['--source-branch', '--source-dir'] as const;
+const HELP_TEXT =
+  'Usage: npx tsx scripts/AST/ast-vitest-parity.ts <dir-or-file> [--pretty] [--no-cache]\n' +
+  '       npx tsx scripts/AST/ast-vitest-parity.ts --source-branch <branch> --source-dir <dir> [--pretty]\n' +
+  '\n' +
+  'Inventory Vitest spec files: describe blocks, test blocks, assertions,\n' +
+  'mocks, render calls, fixture imports, lifecycle hooks.\n' +
+  '\n' +
+  '  <dir-or-file>    File or directory of Vitest spec files to inventory\n' +
+  '  --source-branch  Git branch to read files from (instead of filesystem)\n' +
+  '  --source-dir     Directory path on the git branch\n' +
+  '  --pretty         Format JSON output with indentation\n' +
+  '  --kind <KIND>    Filter observations to a specific kind\n' +
+  '  --count          Output observation kind counts\n' +
+  '  --no-cache       Bypass cache and recompute\n';
 
-function main(): void {
-  const args = parseArgs(process.argv, { namedOptions: NAMED_OPTIONS });
-  const noCache = args.flags.has('no-cache');
-  const sourceBranch = args.options['source-branch'] ?? null;
-  const sourceDir = args.options['source-dir'] ?? null;
+export const cliConfig: ObservationToolConfig<VtSpecInventory> = {
+  cacheNamespace: 'ast-vitest-parity',
+  helpText: HELP_TEXT,
+  analyzeFile: analyzeVitestParity,
+  analyzeDirectory: analyzeVitestParityDirectory,
+  parseOptions: { namedOptions: ['--source-branch', '--source-dir'] },
+  customHandler: (args, results) => {
+    const enriched = results.map(r => ({
+      ...r,
+      observations: extractVitestParityObservations(r).observations,
+    }));
+    outputFiltered(enriched.length === 1 ? enriched[0] : enriched, args.pretty, {
+      kind: args.options.kind,
+      count: args.flags.has('count'),
+    });
+    return true;
+  },
+};
 
-  if (args.help) {
-    process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-vitest-parity.ts <dir-or-file> [--pretty] [--no-cache]\n' +
-        '       npx tsx scripts/AST/ast-vitest-parity.ts --source-branch <branch> --source-dir <dir> [--pretty]\n' +
-        '\n' +
-        'Inventory Vitest spec files: describe blocks, test blocks, assertions,\n' +
-        'mocks, render calls, fixture imports, lifecycle hooks.\n' +
-        '\n' +
-        '  <dir-or-file>    File or directory of Vitest spec files to inventory\n' +
-        '  --source-branch  Git branch to read files from (instead of filesystem)\n' +
-        '  --source-dir     Directory path on the git branch\n' +
-        '  --pretty         Format JSON output with indentation\n' +
-        '  --kind <KIND>    Filter observations to a specific kind\n' +
-        '  --count          Output observation kind counts\n' +
-        '  --no-cache       Bypass cache and recompute\n',
-    );
-    process.exit(0);
-  }
-
-  // Branch mode
+/* v8 ignore next 10 */
+const isDirectRun =
+  process.argv[1] &&
+  (process.argv[1].endsWith('ast-vitest-parity.ts') || process.argv[1].endsWith('ast-vitest-parity'));
+if (isDirectRun) {
+  // Branch mode bypasses the standard runner (no positional paths required)
+  const branchArgs = parseArgs(process.argv, { namedOptions: ['--source-branch', '--source-dir'] });
+  const sourceBranch = branchArgs.options['source-branch'];
+  const sourceDir = branchArgs.options['source-dir'];
   if (sourceBranch && sourceDir) {
     const results = analyzeVitestParityBranch(sourceBranch, sourceDir);
     const allObs = results.map(r => ({
       ...r,
       observations: extractVitestParityObservations(r).observations,
     }));
-    outputFiltered(allObs, args.pretty, {
-      kind: args.options.kind,
-      count: args.flags.has('count'),
-    });
-    return;
-  }
-
-  // File or directory mode
-  const targetPath = args.paths[0];
-  if (!targetPath) {
-    fatal('No file or directory path provided. Use --help for usage.');
-  }
-
-  const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
-
-  if (!fs.existsSync(absolute)) {
-    fatal(`Path does not exist: ${targetPath}`);
-  }
-
-  const stat = fs.statSync(absolute);
-
-  if (stat.isDirectory()) {
-    const results = analyzeVitestParityDirectory(targetPath, { noCache });
-    const allObs = results.map(r => ({
-      ...r,
-      observations: extractVitestParityObservations(r).observations,
-    }));
-    outputFiltered(allObs, args.pretty, {
-      kind: args.options.kind,
-      count: args.flags.has('count'),
+    outputFiltered(allObs, branchArgs.pretty, {
+      kind: branchArgs.options.kind,
+      count: branchArgs.flags.has('count'),
     });
   } else {
-    const result = cached('ast-vitest-parity', absolute, () => analyzeVitestParity(targetPath), { noCache });
-    const withObs = {
-      ...result,
-      observations: extractVitestParityObservations(result).observations,
-    };
-    outputFiltered(withObs, args.pretty, {
-      kind: args.options.kind,
-      count: args.flags.has('count'),
-    });
+    runObservationToolCli(cliConfig);
   }
-
-  const stats = getCacheStats();
-  if (stats.hits > 0 || stats.misses > 0) {
-    process.stderr.write(`Cache: ${stats.hits} hits, ${stats.misses} misses\n`);
-  }
-}
-
-const isDirectRun =
-  process.argv[1] &&
-  (process.argv[1].endsWith('ast-vitest-parity.ts') || process.argv[1].endsWith('ast-vitest-parity'));
-
-if (isDirectRun) {
-  main();
 }

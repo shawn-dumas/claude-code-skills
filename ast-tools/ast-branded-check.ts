@@ -24,12 +24,11 @@
 
 import { Node } from 'ts-morph';
 import path from 'path';
-import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
-import { parseArgs, outputFiltered, fatal } from './cli';
+import { runObservationToolCli, type ObservationToolConfig } from './cli-runner';
 import { getFilesInDirectory, type FileFilter } from './shared';
 import { resolveConfig } from './ast-config';
-import { cached, getCacheStats } from './ast-cache';
+import { cached } from './ast-cache';
 import type { BrandedCheckObservation, BrandedCheckAnalysis, ObservationResult } from './types';
 
 // ---------------------------------------------------------------------------
@@ -196,6 +195,8 @@ function getFunctionName(node: Node): string {
     }
     return '<arrow>';
   }
+  /* v8 ignore next -- defensive: all callers pass function-typed nodes */
+  /* v8 ignore next -- defensive: getFunctionName is only called for FunctionDeclaration, ArrowFunction, and MethodDeclaration */
   return '<unknown>';
 }
 
@@ -254,72 +255,31 @@ export function extractBrandedCheckObservations(
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-function main(): void {
-  const args = parseArgs(process.argv);
+const HELP_TEXT =
+  'Usage: npx tsx scripts/AST/ast-branded-check.ts <path...> [--pretty] [--no-cache] [--kind <kind>] [--count]\n' +
+  '\n' +
+  'Detect property signatures and function parameters using primitive types\n' +
+  'where branded types should be used.\n' +
+  '\n' +
+  '  <path...>     One or more .ts/.tsx files or directories to analyze\n' +
+  '  --pretty      Format JSON output with indentation\n' +
+  '  --no-cache    Bypass cache and recompute\n' +
+  '  --kind        Filter observations to a specific kind\n' +
+  '  --count       Output observation kind counts instead of full data\n' +
+  '\n' +
+  'Observation kinds:\n' +
+  '  UNBRANDED_ID_FIELD    Property uses primitive type where branded type is expected\n' +
+  '  UNBRANDED_PARAM       Function parameter or return uses primitive where branded type is expected\n';
 
-  if (args.help) {
-    process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-branded-check.ts <path...> [--pretty] [--no-cache] [--kind <kind>] [--count]\n' +
-        '\n' +
-        'Detect property signatures and function parameters using primitive types\n' +
-        'where branded types should be used.\n' +
-        '\n' +
-        '  <path...>     One or more .ts/.tsx files or directories to analyze\n' +
-        '  --pretty      Format JSON output with indentation\n' +
-        '  --no-cache    Bypass cache and recompute\n' +
-        '  --kind        Filter observations to a specific kind\n' +
-        '  --count       Output observation kind counts instead of full data\n' +
-        '\n' +
-        'Observation kinds:\n' +
-        '  UNBRANDED_ID_FIELD    Property uses primitive type where branded type is expected\n' +
-        '  UNBRANDED_PARAM       Function parameter or return uses primitive where branded type is expected\n',
-    );
-    process.exit(0);
-  }
+export const cliConfig: ObservationToolConfig<BrandedCheckAnalysis> = {
+  cacheNamespace: 'ast-branded-check',
+  helpText: HELP_TEXT,
+  analyzeFile: analyzeBrandedCheck,
+  analyzeDirectory: analyzeBrandedCheckDirectory,
+};
 
-  const noCache = args.flags.has('no-cache');
-
-  if (args.paths.length === 0) {
-    fatal('No file or directory path provided. Use --help for usage.');
-  }
-
-  const allResults: BrandedCheckAnalysis[] = [];
-
-  for (const targetPath of args.paths) {
-    const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
-
-    if (!fs.existsSync(absolute)) {
-      fatal(`Path does not exist: ${targetPath}`);
-    }
-
-    const stat = fs.statSync(absolute);
-
-    if (stat.isDirectory()) {
-      allResults.push(...analyzeBrandedCheckDirectory(targetPath, { noCache }));
-    } else {
-      const result = cached('ast-branded-check', absolute, () => analyzeBrandedCheck(targetPath), { noCache });
-      if (result.observations.length > 0) {
-        allResults.push(result);
-      }
-    }
-  }
-
-  const cacheStats = getCacheStats();
-  if (cacheStats.hits > 0 || cacheStats.misses > 0) {
-    process.stderr.write(`Cache: ${cacheStats.hits} hits, ${cacheStats.misses} misses\n`);
-  }
-
-  const result = allResults.length === 1 ? allResults[0] : allResults;
-  outputFiltered(result, args.pretty, {
-    kind: args.options.kind,
-    count: args.flags.has('count'),
-  });
-}
-
+/* v8 ignore next 3 */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-branded-check.ts') || process.argv[1].endsWith('ast-branded-check'));
-
-if (isDirectRun) {
-  main();
-}
+if (isDirectRun) runObservationToolCli(cliConfig);

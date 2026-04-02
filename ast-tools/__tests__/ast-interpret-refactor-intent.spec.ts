@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { interpretRefactorIntent } from '../ast-interpret-refactor-intent';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import fs from 'fs';
+import { interpretRefactorIntent, prettyPrint, main } from '../ast-interpret-refactor-intent';
 import { computeBoundaryConfidence } from '../shared';
 import { astConfig } from '../ast-config';
 import type {
@@ -360,5 +361,468 @@ describe('ast-interpret-refactor-intent', () => {
       expect(report.before.files).toEqual(['src/A.tsx', 'src/B.tsx']);
       expect(report.after.files).toEqual(['src/C.tsx']);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// prettyPrint tests
+// ---------------------------------------------------------------------------
+
+describe('prettyPrint', () => {
+  it('renders header, score, and summary lines', () => {
+    const pair = buildPair({
+      matched: [
+        {
+          before: makeHookCall('src/a.tsx', 10, 'useState'),
+          after: makeHookCall('src/a.tsx', 10, 'useState'),
+          similarity: 1.0,
+        },
+      ],
+    });
+    const report = interpretRefactorIntent(pair);
+    const output = prettyPrint(report, false);
+
+    expect(output).toContain('=== REFACTOR INTENT REPORT ===');
+    expect(output).toContain('Score: 100/100');
+    expect(output).toContain('Preserved:');
+    expect(output).toContain('Intentionally removed:');
+    expect(output).toContain('Accidentally dropped:');
+    expect(output).toContain('Added:');
+    expect(output).toContain('Changed:');
+    expect(output).toContain('=== END ===');
+  });
+
+  it('renders ACCIDENTALLY DROPPED section with weight info', () => {
+    const hook = makeHookCall('src/comp.tsx', 10, 'useState');
+    const pair = buildPair({
+      beforeObs: [hook],
+      unmatched: [hook],
+    });
+    const report = interpretRefactorIntent(pair);
+    const output = prettyPrint(report, false);
+
+    expect(output).toContain('ACCIDENTALLY DROPPED:');
+    expect(output).toContain('!! REVIEW');
+    expect(output).toContain('hookName=useState');
+    expect(output).toContain('Weight:');
+  });
+
+  it('renders INTENTIONALLY REMOVED section', () => {
+    const toast = makeSideEffect('TOAST_CALL', 'src/hook.ts', 25, {
+      object: 'toast',
+      method: 'success',
+    });
+    const auditContext: AuditContext = {
+      flaggedKinds: new Set(['TOAST_CALL']),
+      flaggedLocations: [{ file: 'src/hook.ts', line: 25, kind: 'TOAST_CALL' }],
+      refactorType: 'service-hook',
+    };
+    const pair = buildPair({
+      beforeObs: [toast],
+      unmatched: [toast],
+    });
+    const report = interpretRefactorIntent(pair, auditContext);
+    const output = prettyPrint(report, false);
+
+    expect(output).toContain('INTENTIONALLY REMOVED:');
+    expect(output).toContain('ok ');
+    expect(output).toContain('method=success');
+  });
+
+  it('renders CHANGED section with matchedTo info', () => {
+    const hookBefore = makeHookCall('src/comp.tsx', 10, 'useQuery');
+    const hookAfter = makeHookCall('src/comp.tsx', 12, 'useTeamsQuery');
+    const pair = buildPair({
+      matched: [{ before: hookBefore, after: hookAfter, similarity: 0.7 }],
+    });
+    const report = interpretRefactorIntent(pair);
+    const output = prettyPrint(report, false);
+
+    expect(output).toContain('CHANGED:');
+    expect(output).toContain('~  ');
+    expect(output).toContain('-> src/comp.tsx:12');
+  });
+
+  it('renders verbose PRESERVED section with matchedTo info', () => {
+    const hook = makeHookCall('src/a.tsx', 10, 'useState');
+    const hookAfter = makeHookCall('src/b.tsx', 15, 'useState');
+    const pair = buildPair({
+      matched: [{ before: hook, after: hookAfter, similarity: 1.0 }],
+    });
+    const report = interpretRefactorIntent(pair);
+    const output = prettyPrint(report, true);
+
+    // The PRESERVED section should list signals, not "omitted for brevity"
+    expect(output).toMatch(/PRESERVED:\n\s+ok /);
+    expect(output).toContain('-> src/b.tsx:15');
+  });
+
+  it('renders non-verbose PRESERVED with count only', () => {
+    const hook = makeHookCall('src/a.tsx', 10, 'useState');
+    const hookAfter = makeHookCall('src/a.tsx', 10, 'useState');
+    const pair = buildPair({
+      matched: [{ before: hook, after: hookAfter, similarity: 1.0 }],
+    });
+    const report = interpretRefactorIntent(pair);
+    const output = prettyPrint(report, false);
+
+    expect(output).toContain('PRESERVED: 1 signals (omitted for brevity');
+  });
+
+  it('renders verbose ADDED section', () => {
+    const novel = makeHookCall('src/a.tsx', 20, 'useEffect');
+    const pair = buildPair({ novel: [novel] });
+    const report = interpretRefactorIntent(pair);
+    const output = prettyPrint(report, true);
+
+    expect(output).toContain('ADDED:');
+    expect(output).toContain('+  ');
+    expect(output).toContain('hookName=useEffect');
+  });
+
+  it('renders non-verbose ADDED with count only', () => {
+    const novel = makeHookCall('src/a.tsx', 20, 'useEffect');
+    const pair = buildPair({ novel: [novel] });
+    const report = interpretRefactorIntent(pair);
+    const output = prettyPrint(report, false);
+
+    expect(output).toContain('ADDED: 1 signals (omitted for brevity');
+  });
+
+  it('formats signal with multiple evidence identifiers', () => {
+    const sideEffect = makeSideEffect('TOAST_CALL', 'src/hook.ts', 25, {
+      object: 'toast',
+      method: 'success',
+    });
+    const pair = buildPair({
+      beforeObs: [sideEffect],
+      unmatched: [sideEffect],
+    });
+    const report = interpretRefactorIntent(pair);
+    const output = prettyPrint(report, false);
+
+    expect(output).toContain('method=success');
+  });
+
+  it('renders medium-signal weight description for weight=1.0 kinds', () => {
+    // STATIC_IMPORT has weight 1.0 -> "medium-signal"
+    const obs = {
+      kind: 'STATIC_IMPORT' as const,
+      file: 'src/a.tsx',
+      line: 1,
+      evidence: { source: './utils', name: 'foo' },
+    } as AnyObservation;
+    const pair = buildPair({
+      beforeObs: [obs],
+      unmatched: [obs],
+    });
+    const report = interpretRefactorIntent(pair);
+    const output = prettyPrint(report, false);
+
+    expect(output).toContain('medium-signal');
+  });
+
+  it('renders low-signal weight description for weight<1.0 kinds', () => {
+    // FUNCTION_COMPLEXITY has weight 0.5 -> "low-signal"
+    const obs = {
+      kind: 'FUNCTION_COMPLEXITY' as const,
+      file: 'src/a.tsx',
+      line: 5,
+      evidence: {
+        functionName: 'doStuff',
+        endLine: 20,
+        lineCount: 15,
+        cyclomaticComplexity: 8,
+        maxNestingDepth: 3,
+        contributors: [],
+      },
+    } satisfies AnyObservation;
+    const pair = buildPair({
+      beforeObs: [obs],
+      unmatched: [obs],
+    });
+    const report = interpretRefactorIntent(pair);
+    const output = prettyPrint(report, false);
+
+    expect(output).toContain('low-signal');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// main() CLI tests
+// ---------------------------------------------------------------------------
+
+describe('main()', () => {
+  const originalArgv = process.argv;
+  let stdoutChunks: string[];
+  let writeSpy: ReturnType<typeof vi.spyOn>;
+  let exitSpy: ReturnType<typeof vi.spyOn>;
+
+  class ExitError extends Error {
+    code: number;
+    constructor(code: number) {
+      super(`process.exit(${code})`);
+      this.code = code;
+    }
+  }
+
+  beforeEach(() => {
+    stdoutChunks = [];
+    writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      stdoutChunks.push(typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk));
+      return true;
+    });
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code: number) => {
+      throw new ExitError(code ?? 0);
+    }) as never);
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+    writeSpy.mockRestore();
+    exitSpy.mockRestore();
+  });
+
+  it('--help prints usage and exits 0', () => {
+    process.argv = ['node', 'ast-interpret-refactor-intent.ts', '--help'];
+    expect(() => main()).toThrow('process.exit(0)');
+
+    const output = stdoutChunks.join('');
+    expect(output).toContain('Usage:');
+    expect(output).toContain('--signal-pair');
+    expect(output).toContain('Classifications:');
+  });
+
+  it('fails when --signal-pair is missing', () => {
+    process.argv = ['node', 'ast-interpret-refactor-intent.ts'];
+
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    try {
+      main();
+    } catch (e) {
+      expect((e as ExitError).code).toBe(1);
+    }
+
+    const errOutput = (stderrSpy.mock.calls[0]?.[0] as string) ?? '';
+    expect(errOutput).toContain('--signal-pair');
+    stderrSpy.mockRestore();
+  });
+
+  it('reads signal pair JSON and outputs report', () => {
+    const signalPair: RefactorSignalPair = buildPair({
+      matched: [
+        {
+          before: makeHookCall('src/a.tsx', 10, 'useState'),
+          after: makeHookCall('src/a.tsx', 10, 'useState'),
+          similarity: 1.0,
+        },
+      ],
+    });
+
+    const tmpFile = '/tmp/test-signal-pair.json';
+    fs.writeFileSync(tmpFile, JSON.stringify(signalPair));
+
+    process.argv = ['node', 'ast-interpret-refactor-intent.ts', '--signal-pair', tmpFile];
+
+    try {
+      main();
+    } catch (e) {
+      expect((e as ExitError).code).toBe(0);
+    }
+
+    const output = stdoutChunks.join('');
+    expect(output).toContain('"score":100');
+
+    fs.unlinkSync(tmpFile);
+  });
+
+  it('outputs pretty format with --pretty', () => {
+    const signalPair: RefactorSignalPair = buildPair({
+      matched: [
+        {
+          before: makeHookCall('src/a.tsx', 10, 'useState'),
+          after: makeHookCall('src/a.tsx', 10, 'useState'),
+          similarity: 1.0,
+        },
+      ],
+    });
+
+    const tmpFile = '/tmp/test-signal-pair-pretty.json';
+    fs.writeFileSync(tmpFile, JSON.stringify(signalPair));
+
+    process.argv = ['node', 'ast-interpret-refactor-intent.ts', '--signal-pair', tmpFile, '--pretty'];
+
+    try {
+      main();
+    } catch (e) {
+      expect((e as ExitError).code).toBe(0);
+    }
+
+    const output = stdoutChunks.join('');
+    expect(output).toContain('=== REFACTOR INTENT REPORT ===');
+    expect(output).toContain('Score: 100/100');
+
+    fs.unlinkSync(tmpFile);
+  });
+
+  it('exits 2 when score < 70', () => {
+    const hook = makeHookCall('src/a.tsx', 10, 'useState');
+    const signalPair: RefactorSignalPair = buildPair({
+      beforeObs: [hook],
+      unmatched: [hook],
+    });
+
+    const tmpFile = '/tmp/test-signal-pair-low.json';
+    fs.writeFileSync(tmpFile, JSON.stringify(signalPair));
+
+    process.argv = ['node', 'ast-interpret-refactor-intent.ts', '--signal-pair', tmpFile];
+
+    try {
+      main();
+    } catch (e) {
+      expect((e as ExitError).code).toBe(2);
+    }
+
+    fs.unlinkSync(tmpFile);
+  });
+
+  it('exits 1 when score >= 70 but has drops', () => {
+    const hooks = Array.from({ length: 8 }, (_, i) => makeHookCall('src/a.tsx', 10 + i, `useHook${i}`));
+    const hooksAfter = hooks.map(h => makeHookCall(h.file, h.line, h.evidence.hookName));
+    const dropped = makeSideEffect('CONSOLE_CALL', 'src/a.tsx', 50);
+
+    const matched = hooks.map((h, i) => ({
+      before: h as AnyObservation,
+      after: hooksAfter[i] as AnyObservation,
+      similarity: 1.0,
+    }));
+
+    const signalPair: RefactorSignalPair = buildPair({
+      beforeObs: [...hooks, dropped],
+      afterObs: hooksAfter,
+      matched,
+      unmatched: [dropped],
+    });
+
+    const tmpFile = '/tmp/test-signal-pair-review.json';
+    fs.writeFileSync(tmpFile, JSON.stringify(signalPair));
+
+    process.argv = ['node', 'ast-interpret-refactor-intent.ts', '--signal-pair', tmpFile];
+
+    try {
+      main();
+    } catch (e) {
+      expect((e as ExitError).code).toBe(1);
+    }
+
+    fs.unlinkSync(tmpFile);
+  });
+
+  it('reads --audit-context and deserializes flaggedKinds into Set', () => {
+    const toast = makeSideEffect('TOAST_CALL', 'src/hook.ts', 25, {
+      object: 'toast',
+      method: 'success',
+    });
+    const signalPair: RefactorSignalPair = buildPair({
+      beforeObs: [toast],
+      unmatched: [toast],
+    });
+    const auditContext = {
+      flaggedKinds: ['TOAST_CALL'],
+      flaggedLocations: [{ file: 'src/hook.ts', line: 25, kind: 'TOAST_CALL' }],
+      refactorType: 'service-hook',
+    };
+
+    const spFile = '/tmp/test-sp-ctx.json';
+    const acFile = '/tmp/test-ac-ctx.json';
+    fs.writeFileSync(spFile, JSON.stringify(signalPair));
+    fs.writeFileSync(acFile, JSON.stringify(auditContext));
+
+    process.argv = ['node', 'ast-interpret-refactor-intent.ts', '--signal-pair', spFile, '--audit-context', acFile];
+
+    try {
+      main();
+    } catch (e) {
+      expect((e as ExitError).code).toBe(0);
+    }
+
+    const output = stdoutChunks.join('');
+    expect(output).toContain('INTENTIONALLY_REMOVED');
+
+    fs.unlinkSync(spFile);
+    fs.unlinkSync(acFile);
+  });
+
+  it('builds minimal audit context from --refactor-type alone', () => {
+    const toast = makeSideEffect('TOAST_CALL', 'src/hook.ts', 25, {
+      object: 'toast',
+      method: 'success',
+    });
+    const signalPair: RefactorSignalPair = buildPair({
+      beforeObs: [toast],
+      unmatched: [toast],
+    });
+
+    const tmpFile = '/tmp/test-sp-rtype.json';
+    fs.writeFileSync(tmpFile, JSON.stringify(signalPair));
+
+    process.argv = [
+      'node',
+      'ast-interpret-refactor-intent.ts',
+      '--signal-pair',
+      tmpFile,
+      '--refactor-type',
+      'service-hook',
+    ];
+
+    try {
+      main();
+    } catch (e) {
+      expect((e as ExitError).code).toBe(0);
+    }
+
+    const output = stdoutChunks.join('');
+    expect(output).toContain('INTENTIONALLY_REMOVED');
+
+    fs.unlinkSync(tmpFile);
+  });
+
+  it('fails when --signal-pair points to invalid file', () => {
+    process.argv = ['node', 'ast-interpret-refactor-intent.ts', '--signal-pair', '/tmp/nonexistent-file.json'];
+
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    try {
+      main();
+    } catch (e) {
+      expect((e as ExitError).code).toBe(1);
+    }
+
+    const errOutput = (stderrSpy.mock.calls[0]?.[0] as string) ?? '';
+    expect(errOutput).toContain('Failed to read');
+    stderrSpy.mockRestore();
+  });
+
+  it('classifies kind-only flagged as low confidence intentional removal', () => {
+    const toast = makeSideEffect('TOAST_CALL', 'src/hook.ts', 25, {
+      object: 'toast',
+      method: 'success',
+    });
+    const auditContext: AuditContext = {
+      flaggedKinds: new Set(['TOAST_CALL']),
+      flaggedLocations: [{ file: 'src/other.ts', line: 99, kind: 'TOAST_CALL' }],
+      refactorType: 'service-hook',
+    };
+    const pair = buildPair({
+      beforeObs: [toast],
+      unmatched: [toast],
+    });
+    const report = interpretRefactorIntent(pair, auditContext);
+
+    const signal = report.signals[0];
+    expect(signal.classification).toBe('INTENTIONALLY_REMOVED');
+    expect(signal.confidence).toBe('low');
+    expect(signal.rationale).toContain('exact location not matched');
   });
 });

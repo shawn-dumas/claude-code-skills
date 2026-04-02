@@ -1,12 +1,11 @@
 import { type SourceFile, Node } from 'ts-morph';
 import path from 'path';
-import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
-import { parseArgs, outputFiltered, fatal } from './cli';
+import { runObservationToolCli, type ObservationToolConfig } from './cli-runner';
 import { getFilesInDirectory, truncateText, getContainingFunctionName, type FileFilter } from './shared';
 import type { StorageAccessAnalysis, StorageAccessInstance, StorageAccessType, StorageObservation } from './types';
 import { astConfig } from './ast-config';
-import { cached, getCacheStats } from './ast-cache';
+import { cached } from './ast-cache';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -159,31 +158,120 @@ export function extractStorageObservations(sf: SourceFile): StorageObservation[]
 // ---------------------------------------------------------------------------
 
 /**
- * Check whether a JSON.parse() call expression is immediately wrapped in a
- * Zod .parse() or .safeParse() call. Patterns we recognize:
+ * Check whether a JSON.parse() call is Zod-guarded via any of four patterns:
  *
- *   schema.parse(JSON.parse(...))
- *   schema.safeParse(JSON.parse(...))
+ * 1. Comment exemption: `// json-parse-exempt:` on same or preceding line
+ * 2. Direct argument: `schema.parse(JSON.parse(...))`
+ * 3. z.preprocess callback: `z.preprocess(d => JSON.parse(d), schema)`
+ * 4. Variable capture: `const raw = JSON.parse(x); schema.parse(raw);`
  *
- * The JSON.parse CallExpression is a direct argument of a CallExpression
- * whose callee ends with .parse or .safeParse.
+ * Ordered cheapest-first. False negatives are acceptable; false positives are not.
  */
 function isJsonParseZodGuarded(node: Node): boolean {
+  if (hasExemptComment(node)) return true;
+  if (isDirectZodArgument(node)) return true;
+  if (isInsideZodPreprocess(node)) return true;
+  if (isVariableCapturedThenZodParsed(node)) return true;
+  return false;
+}
+
+/** Pattern 1: `// json-parse-exempt:` on same line or line above. */
+function hasExemptComment(node: Node): boolean {
+  const sf = node.getSourceFile();
+  const fullText = sf.getFullText();
+  const lines = fullText.split('\n');
+  const lineIndex = node.getStartLineNumber() - 1;
+  for (let i = lineIndex; i >= Math.max(0, lineIndex - 1); i--) {
+    if (lines[i].includes('json-parse-exempt:')) return true;
+  }
+  return false;
+}
+
+/** Pattern 2: JSON.parse(...) is a direct argument of .parse() or .safeParse(). */
+function isDirectZodArgument(node: Node): boolean {
+  const parent = node.getParent();
+  if (!parent || !Node.isCallExpression(parent)) return false;
+  const callee = parent.getExpression();
+  if (!Node.isPropertyAccessExpression(callee)) return false;
+  const methodName = callee.getName();
+  return methodName === 'parse' || methodName === 'safeParse';
+}
+
+/** Pattern 3: JSON.parse is inside an arrow/function passed to z.preprocess(fn, schema). */
+function isInsideZodPreprocess(node: Node): boolean {
+  let current: Node | undefined = node.getParent();
+  while (current) {
+    if (Node.isArrowFunction(current) || Node.isFunctionExpression(current)) {
+      const parent = current.getParent();
+      if (parent && Node.isCallExpression(parent)) {
+        const calleeText = parent.getExpression().getText();
+        if (calleeText === 'z.preprocess' || calleeText.endsWith('.preprocess')) {
+          if (parent.getArguments().length === 2) return true;
+        }
+      }
+    }
+    if (Node.isFunctionDeclaration(current)) break;
+    current = current.getParent();
+  }
+  return false;
+}
+
+/**
+ * Pattern 4: JSON.parse assigns to a variable, and later in the same function
+ * scope .parse(varName) or .safeParse(varName) is called on that variable.
+ */
+function isVariableCapturedThenZodParsed(node: Node): boolean {
   const parent = node.getParent();
   if (!parent) return false;
 
-  // JSON.parse(...) is a direct argument of someSchema.parse(...) or .safeParse(...)
-  if (Node.isCallExpression(parent)) {
-    const callee = parent.getExpression();
-    if (Node.isPropertyAccessExpression(callee)) {
-      const methodName = callee.getName();
-      if (methodName === 'parse' || methodName === 'safeParse') {
-        return true;
-      }
+  let varName: string | null = null;
+  if (Node.isVariableDeclaration(parent)) {
+    varName = parent.getName();
+  } else if (Node.isBinaryExpression(parent) && parent.getOperatorToken().getText() === '=') {
+    const left = parent.getLeft();
+    if (Node.isIdentifier(left)) {
+      varName = left.getText();
     }
   }
+  if (!varName) return false;
 
-  return false;
+  const jsonParseLine = node.getStartLineNumber();
+
+  // Find enclosing function scope (or use source file for module scope)
+  let scopeNode: Node | undefined;
+  let walk: Node | undefined = parent.getParent();
+  while (walk) {
+    if (
+      Node.isFunctionDeclaration(walk) ||
+      Node.isArrowFunction(walk) ||
+      Node.isFunctionExpression(walk) ||
+      Node.isMethodDeclaration(walk)
+    ) {
+      scopeNode = walk;
+      break;
+    }
+    walk = walk.getParent();
+  }
+  const searchRoot = scopeNode ?? node.getSourceFile();
+
+  let found = false;
+  searchRoot.forEachDescendant(desc => {
+    if (found) return;
+    if (!Node.isCallExpression(desc)) return;
+    if (desc.getStartLineNumber() <= jsonParseLine) return;
+
+    const callee = desc.getExpression();
+    if (!Node.isPropertyAccessExpression(callee)) return;
+    const methodName = callee.getName();
+    if (methodName !== 'parse' && methodName !== 'safeParse') return;
+
+    const args = desc.getArguments();
+    if (args.length === 1 && args[0].getText() === varName) {
+      found = true;
+    }
+  });
+
+  return found;
 }
 
 // ---------------------------------------------------------------------------
@@ -406,69 +494,27 @@ export function analyzeStorageAccessDirectory(
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-function main(): void {
-  const args = parseArgs(process.argv);
+const HELP_TEXT =
+  'Usage: npx tsx scripts/AST/ast-storage-access.ts <path...> [--pretty] [--no-cache] [--test-files] [--kind <kind>] [--count]\n' +
+  '\n' +
+  'Inventory browser storage access patterns.\n' +
+  '\n' +
+  '  <path...>     One or more .ts/.tsx files or directories to analyze\n' +
+  '  --pretty      Format JSON output with indentation\n' +
+  '  --no-cache    Bypass cache and recompute (also refreshes cache)\n' +
+  '  --test-files  Scan test files instead of production files\n' +
+  '  --kind        Filter observations to a specific kind\n' +
+  '  --count       Output observation kind counts instead of full data\n';
 
-  if (args.help) {
-    process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-storage-access.ts <path...> [--pretty] [--no-cache] [--test-files] [--kind <kind>] [--count]\n' +
-        '\n' +
-        'Inventory browser storage access patterns.\n' +
-        '\n' +
-        '  <path...>     One or more .ts/.tsx files or directories to analyze\n' +
-        '  --pretty      Format JSON output with indentation\n' +
-        '  --no-cache    Bypass cache and recompute (also refreshes cache)\n' +
-        '  --test-files  Scan test files instead of production files\n' +
-        '  --kind        Filter observations to a specific kind\n' +
-        '  --count       Output observation kind counts instead of full data\n',
-    );
-    process.exit(0);
-  }
+export const cliConfig: ObservationToolConfig<StorageAccessAnalysis> = {
+  cacheNamespace: 'storage-access',
+  helpText: HELP_TEXT,
+  analyzeFile: analyzeStorageAccess,
+  analyzeDirectory: analyzeStorageAccessDirectory,
+};
 
-  const noCache = args.flags.has('no-cache');
-  const testFiles = args.flags.has('test-files');
-
-  if (args.paths.length === 0) {
-    fatal('No file or directory path provided. Use --help for usage.');
-  }
-
-  const allResults: StorageAccessAnalysis[] = [];
-
-  for (const targetPath of args.paths) {
-    const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
-
-    if (!fs.existsSync(absolute)) {
-      fatal(`Path does not exist: ${targetPath}`);
-    }
-
-    const stat = fs.statSync(absolute);
-
-    if (stat.isDirectory()) {
-      allResults.push(
-        ...analyzeStorageAccessDirectory(targetPath, { noCache, filter: testFiles ? 'test' : 'production' }),
-      );
-    } else {
-      const result = cached('storage-access', absolute, () => analyzeStorageAccess(absolute), { noCache });
-      allResults.push(result);
-    }
-  }
-
-  const cacheStats = getCacheStats();
-  if (cacheStats.hits > 0 || cacheStats.misses > 0) {
-    process.stderr.write(`Cache: ${cacheStats.hits} hits, ${cacheStats.misses} misses\n`);
-  }
-
-  const result = allResults.length === 1 ? allResults[0] : allResults;
-  outputFiltered(result, args.pretty, {
-    kind: args.options.kind,
-    count: args.flags.has('count'),
-  });
-}
-
+/* v8 ignore next 3 */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-storage-access.ts') || process.argv[1].endsWith('ast-storage-access'));
-
-if (isDirectRun) {
-  main();
-}
+if (isDirectRun) runObservationToolCli(cliConfig);

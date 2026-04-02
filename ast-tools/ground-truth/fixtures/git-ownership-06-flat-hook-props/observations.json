@@ -1,0 +1,84 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "ownership",
+  "files": {
+    "EntityManager.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/EntityManager.tsx",
+          "line": 16,
+          "column": 20,
+          "evidence": {
+            "hookName": "useEntityQuery",
+            "destructuredNames": ["data"],
+            "parentFunction": "EntityManager",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/EntityManager.tsx",
+          "line": 17,
+          "column": 22,
+          "evidence": {
+            "hookName": "useCreateMutation",
+            "destructuredNames": ["mutate"],
+            "parentFunction": "EntityManager",
+            "isReactBuiltin": false
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/EntityManager.tsx",
+          "line": 15,
+          "evidence": {
+            "componentName": "EntityManager",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/EntityManager.tsx",
+          "line": 15,
+          "evidence": {
+            "componentName": "EntityManager",
+            "propName": "useEntityQuery",
+            "propType": "() => { data: Entity[] }",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": true
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/EntityManager.tsx",
+          "line": 15,
+          "evidence": {
+            "componentName": "EntityManager",
+            "propName": "useCreateMutation",
+            "propType": "() => { mutate: (data: Entity) => void }",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": true
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/EntityManager.tsx",
+          "line": 15,
+          "evidence": {
+            "componentName": "EntityManager",
+            "propName": "title",
+            "propType": "string",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        }
+      ]
+    }
+  }
+}

@@ -276,6 +276,25 @@ describe('observations', () => {
   });
 });
 
+describe('posthog.people.set (nested property access)', () => {
+  it('detects posthog.people.set as POSTHOG_CALL via legacy analyzeSideEffects', () => {
+    const result = analyzeFixture('side-effects-posthog-people.ts');
+    const posthog = effectsOfType(result, 'POSTHOG_CALL');
+    expect(posthog).toHaveLength(1);
+    expect(posthog[0].containingFunction).toBe('identifyUser');
+    expect(posthog[0].text).toContain('posthog.people.set');
+  });
+
+  it('detects posthog.people.set as POSTHOG_CALL via extractSideEffectObservations', () => {
+    const sf = getSourceFile(fixturePath('side-effects-posthog-people.ts'));
+    const observations = extractSideEffectObservations(sf);
+    expect(observations).toHaveLength(1);
+    expect(observations[0].kind).toBe('POSTHOG_CALL');
+    expect(observations[0].evidence.object).toBe('posthog.people');
+    expect(observations[0].evidence.method).toBe('set');
+  });
+});
+
 describe('negative fixture', () => {
   it('detects shadowed console calls on property access pattern', () => {
     const result = analyzeFixture('side-effects-negative.ts');

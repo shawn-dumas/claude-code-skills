@@ -1,0 +1,4 @@
+{
+  "description": "Default export is a const arrow with non-handler name; findHandlerFunction falls through to return null",
+  "expectedObservations": []
+}

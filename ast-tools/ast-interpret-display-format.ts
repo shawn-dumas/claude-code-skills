@@ -14,6 +14,7 @@ import type {
   DisplayFormatAssessment,
   DisplayFormatAssessmentKind,
 } from './types';
+import { formatAssessmentTable } from './assessment-formatter';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -273,10 +274,7 @@ function classifyRawFormatBypass(observation: NumberFormatObservation): Classifi
   return {
     kind: 'RAW_FORMAT_BYPASS',
     confidence: 'high',
-    rationale: [
-      `uses ${callee}() directly for display formatting`,
-      `use ${replacement}() from shared utils instead`,
-    ],
+    rationale: [`uses ${callee}() directly for display formatting`, `use ${replacement}() from shared utils instead`],
     isCandidate: true,
     requiresManualReview: false,
   };
@@ -565,46 +563,28 @@ export function interpretDisplayFormat(
 // ---------------------------------------------------------------------------
 
 function formatPrettyOutput(result: AssessmentResult<DisplayFormatAssessment>, targetPath: string): string {
-  const lines: string[] = [];
-  lines.push(`Display Format Assessments: ${targetPath}`);
-  lines.push('');
-
-  if (result.assessments.length === 0) {
-    lines.push('No display convention issues found.');
-    return lines.join('\n');
-  }
-
-  lines.push(
-    ` File${' '.repeat(35)} | Line | Kind${' '.repeat(28)} | Confidence | Review`,
+  return formatAssessmentTable(
+    {
+      title: `Display Format Assessments: ${targetPath}`,
+      emptyMessage: 'No display convention issues found.',
+      columns: [
+        { header: 'File', width: 40, extract: a => a.subject.file },
+        { header: 'Line', width: 5, align: 'right', extract: a => String(a.subject.line ?? '?') },
+        { header: 'Kind', width: 33, extract: a => a.kind },
+        { header: 'Confidence', width: 10, extract: a => a.confidence },
+        { header: 'Review', width: 6, extract: a => (a.requiresManualReview ? 'yes' : 'no') },
+      ],
+      rationale: a => `  [${a.kind}] ${a.subject.symbol ?? a.subject.file}: ${a.rationale.join('; ')}`,
+    },
+    result.assessments,
   );
-  lines.push(
-    `${'-'.repeat(40)}-+------+${'-'.repeat(33)}-+------------+--------`,
-  );
-
-  for (const a of result.assessments) {
-    const file = a.subject.file.slice(0, 40).padEnd(40);
-    const line = String(a.subject.line ?? '?').padStart(5);
-    const kind = a.kind.padEnd(33);
-    const confidence = a.confidence.padEnd(10);
-    const review = a.requiresManualReview ? 'yes' : 'no ';
-    lines.push(`${file} | ${line} | ${kind} | ${confidence} | ${review}`);
-  }
-
-  lines.push('');
-  lines.push('Rationale:');
-  for (const a of result.assessments) {
-    const symbol = a.subject.symbol ?? a.subject.file;
-    lines.push(`  [${a.kind}] ${symbol}: ${a.rationale.join('; ')}`);
-  }
-
-  return lines.join('\n');
 }
 
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 
-function main(): void {
+export function main(): void {
   const args = parseArgs(process.argv);
 
   if (args.help) {
@@ -618,7 +598,7 @@ function main(): void {
         '  WRONG_PLACEHOLDER              - Uses N/A, --, etc. instead of NO_VALUE_PLACEHOLDER\n' +
         '  MISSING_PLACEHOLDER            - Table cell has no null fallback\n' +
         '  FALSY_COALESCE_NUMERIC         - || operator in numeric column hides zero\n' +
-        '  HARDCODED_DASH                 - Uses literal \'-\' instead of constant\n' +
+        "  HARDCODED_DASH                 - Uses literal '-' instead of constant\n" +
         '  RAW_FORMAT_BYPASS              - Uses toFixed/toLocaleString instead of shared formatter\n' +
         '  PERCENTAGE_PRECISION_MISMATCH  - Wrong decimal places for context\n' +
         '  ZERO_NULL_CONFLATION           - Falsy check conflates 0 with null\n' +
@@ -665,6 +645,7 @@ function main(): void {
 }
 
 // Run CLI when executed directly
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-interpret-display-format.ts') ||
@@ -673,3 +654,4 @@ const isDirectRun =
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

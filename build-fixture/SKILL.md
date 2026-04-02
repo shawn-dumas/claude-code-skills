@@ -87,8 +87,8 @@ to understand the post-mapping shape. This prevents fixture drift.
    results. Trace every field through the mapping:
    - Field renames (e.g., `total_count` -> `totalCount`)
    - Type conversions (e.g., `Number(row.uint64Field)`)
-   - Formatting (e.g., `formatDurationSeconds(row.seconds)`)
-   - Computed/derived fields (e.g., `timeSaved = usage * CONSTANT`)
+   - Formatting (e.g., `formatDuration(row.seconds)`)
+   - Computed/derived fields (e.g., `timeSavedSec = usage * CONSTANT`)
    - Percentage scale (0-100 from CH vs 0-1 fraction)
 
 4. **Response Zod schema:** Read the Zod schema that validates the handler
@@ -99,9 +99,9 @@ the data), not the raw CH wire format. Key rules:
 
 - If the handler converts UInt64 strings to numbers via `Number()`, the
   fixture must produce numbers (not strings).
-- If the handler formats durations via `formatDurationSeconds()`, the
+- If the handler formats durations via `formatDuration()`, the
   fixture must produce formatted duration strings.
-- If the handler computes `timeSaved = usage * CONSTANT`, the fixture
+- If the handler computes `timeSavedSec = usage * CONSTANT`, the fixture
   must maintain that invariant.
 - If percentages come from CH at 0-100 scale, the fixture must produce
   0-100 (not 0-1).
@@ -148,7 +148,7 @@ export function build(overrides?: Partial<MyType>, pool?: Pool): MyType {
 | Branded ID that references a pool entity | Pool picker                                                  | `p.pickUser().uid`                                                                           |
 | Branded ID not in pool                   | Brand generator                                              | `fakeSpanId()`                                                                               |
 | Branded timestamp                        | `fakeISOTimestamp()`                                         | `createdAt: fakeISOTimestamp()`                                                              |
-| Branded duration                         | `fakeSeconds()`, `fakeMilliseconds()`, `fakeMinutes()`       |                                                                                              |
+| Branded duration                         | `fakeSeconds()`                                              |                                                                                              |
 | Branded percentage                       | `fakePercentage()`                                           |                                                                                              |
 | Email from pool identity                 | `identity.email as string`                                   |                                                                                              |
 | Optional field                           | `faker.helpers.maybe(() => value, { probability: N })`       | `companyLogoUrl: faker.helpers.maybe(() => faker.image.url(), { probability: 0.3 }) ?? null` |
@@ -160,7 +160,7 @@ export function build(overrides?: Partial<MyType>, pool?: Pool): MyType {
 | Nested object                            | Call sibling builder                                         | `teamData: [buildUserTeamData(undefined, p)]`                                                |
 | Array of nested                          | `Array.from({ length: N }, () => buildX(undefined, p))`      |                                                                                              |
 | System/page names                        | `fakeSystem()`, `fakePageForSystem()`, `fakeSystemAndPage()` |                                                                                              |
-| Timestamp pair (start/end)               | `fakeTimestampPair()`                                        | Returns `{ start, end, durationSeconds }`                                                    |
+| Timestamp pair (start/end)               | `fakeTimestampPair()`                                        | Returns `{ start, end, durationSec }`                                                    |
 
 ### buildMany signature
 

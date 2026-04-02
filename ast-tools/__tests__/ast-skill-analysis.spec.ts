@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import path from 'path';
-import { analyzeSkillFile, analyzeSkillDirectory } from '../ast-skill-analysis';
+import { analyzeSkillFile, analyzeSkillDirectory, cliConfig } from '../ast-skill-analysis';
 import type { SkillAnalysisObservation, SkillAnalysisObservationKind } from '../types';
 
 // -- Helpers --
@@ -588,5 +588,121 @@ describe('role annotation parsing', () => {
       expect(withRole.length).toBeGreaterThan(0);
       expect(withoutRole.length).toBeGreaterThan(0);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Edge-case fixtures
+// ---------------------------------------------------------------------------
+
+const EDGE_CASES_DIRS = new Set(['synth-edge-cases', 'synth-no-frontmatter', 'synth-unclosed-frontmatter']);
+
+describe('edge-case fixtures', () => {
+  describe('synth-edge-cases: @/pages/ and @/root/ path aliases (lines 192, 196)', () => {
+    const result = analyzeSkillFile(path.join(FIXTURES_DIR, 'synth-edge-cases', 'SKILL.md'), EDGE_CASES_DIRS);
+
+    it('detects @/pages/ inline path reference', () => {
+      const pathRefs = findByKind(result.observations, 'SKILL_FILE_PATH_REF');
+      const pagesRef = pathRefs.find(p => p.evidence.referencedPath === '@/pages/index.tsx');
+      expect(pagesRef).toBeDefined();
+      // exists may be true or false depending on whether src/pages/index.tsx exists
+      expect(typeof pagesRef!.evidence.exists).toBe('boolean');
+    });
+
+    it('detects @/root/ inline path reference', () => {
+      const pathRefs = findByKind(result.observations, 'SKILL_FILE_PATH_REF');
+      const rootRef = pathRefs.find(p => p.evidence.referencedPath === '@/root/tsconfig.json');
+      expect(rootRef).toBeDefined();
+      expect(rootRef!.evidence.exists).toBe(true);
+    });
+
+    it('skips tree-output lines inside bash code blocks (line 294)', () => {
+      // Only pnpm build should be extracted as a command, not the tree output lines
+      const commands = findByKind(result.observations, 'SKILL_COMMAND_REF');
+      const buildCmd = commands.find(c => c.evidence.content === 'pnpm build');
+      expect(buildCmd).toBeDefined();
+      // Tree lines should not appear as commands
+      const treeCmd = commands.find(c => c.evidence.content?.includes('├'));
+      expect(treeCmd).toBeUndefined();
+    });
+  });
+
+  describe('synth-no-frontmatter: detectFrontmatterEnd early return (line 415)', () => {
+    const result = analyzeSkillFile(path.join(FIXTURES_DIR, 'synth-no-frontmatter', 'SKILL.md'), EDGE_CASES_DIRS);
+
+    it('still extracts sections when there is no frontmatter', () => {
+      const sections = findByKind(result.observations, 'SKILL_SECTION');
+      expect(sections.length).toBeGreaterThan(0);
+      const title = sections.find(s => s.evidence.text === 'synth-no-frontmatter');
+      expect(title).toBeDefined();
+    });
+
+    it('still extracts commands from bash blocks without frontmatter', () => {
+      const commands = findByKind(result.observations, 'SKILL_COMMAND_REF');
+      const testCmd = commands.find(c => c.evidence.content === 'pnpm test');
+      expect(testCmd).toBeDefined();
+    });
+  });
+
+  describe('synth-unclosed-frontmatter: detectFrontmatterEnd no-closing-delim path (line 420)', () => {
+    const result = analyzeSkillFile(path.join(FIXTURES_DIR, 'synth-unclosed-frontmatter', 'SKILL.md'), EDGE_CASES_DIRS);
+
+    it('still extracts commands when frontmatter has no closing delimiter', () => {
+      const commands = findByKind(result.observations, 'SKILL_COMMAND_REF');
+      const buildCmd = commands.find(c => c.evidence.content === 'pnpm build');
+      expect(buildCmd).toBeDefined();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fatal / error paths
+// ---------------------------------------------------------------------------
+
+describe('fatal error paths', () => {
+  let originalArgv: string[];
+
+  beforeEach(() => {
+    originalArgv = process.argv;
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new Error(`process.exit(${String(code)})`);
+    }) as never);
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+    vi.restoreAllMocks();
+  });
+
+  it('analyzeSkillFile throws (via fatal) when the file does not exist (line 705)', () => {
+    expect(() => analyzeSkillFile('/nonexistent/path/SKILL.md', new Set())).toThrow('process.exit(1)');
+  });
+
+  it('analyzeSkillDirectory throws (via fatal) when no SKILL.md files are found (line 883)', () => {
+    // Pass a real directory that has no */SKILL.md files
+    expect(() => analyzeSkillDirectory(path.join(FIXTURES_DIR, 'pages'))).toThrow('process.exit(1)');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cliConfig wrappers (analyzeSkillFileWrapped + analyzeSkillDirectoryWrapped, lines 906-915)
+// ---------------------------------------------------------------------------
+
+describe('cliConfig wrappers', () => {
+  it('cliConfig.analyzeFile resolves and analyzes a real skill file (spawn-satan)', () => {
+    // Use a real SKILL.md so analyzeSkillFileWrapped can find sibling skills
+    const filePath = path.resolve('.claude/skills/spawn-satan/SKILL.md');
+    const result = cliConfig.analyzeFile(filePath);
+    expect(result.skillName).toBe('spawn-satan');
+    const sections = findByKind(result.observations, 'SKILL_SECTION');
+    expect(sections.length).toBeGreaterThan(0);
+  });
+
+  it('cliConfig.analyzeDirectory resolves and scans a skill directory', () => {
+    // Use the real skills directory which contains */SKILL.md files
+    const results = cliConfig.analyzeDirectory('.claude/skills', {});
+    expect(Array.isArray(results)).toBe(true);
+    expect(results.length).toBeGreaterThan(0);
   });
 });

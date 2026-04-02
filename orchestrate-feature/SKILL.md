@@ -164,6 +164,12 @@ Follow the standard topological order from the codebase conventions:
 
 Not every feature needs all phases. Skip phases that have no work.
 
+8. **Visual regression** -- if the feature adds or modifies a page, consider
+   adding visual regression coverage. See `docs/visual-testing.md` for the
+   fixture stack, how to add a page test, and how to add component registry
+   entries. Visual tests run separately from integration tests and are
+   advisory-only in CI.
+
 <!-- role: emit -->
 
 ## Step 5: Generate prompts

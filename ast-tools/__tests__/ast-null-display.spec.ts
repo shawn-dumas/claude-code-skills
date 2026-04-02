@@ -244,4 +244,75 @@ describe('ast-null-display', () => {
       expect(hardcoded).toHaveLength(0);
     });
   });
+
+  describe('formatter file exemption (isFormatterFile)', () => {
+    it('emits zero observations for a known formatter file path', () => {
+      // formatDuration.ts is in formatterFilePaths config -- its hardcoded '-' return is exempt
+      const result = analyzeNullDisplay(
+        path.join(PROJECT_ROOT, 'src/shared/utils/time/formatDuration/formatDuration.ts'),
+      );
+      const hardcoded = result.observations.filter(o => o.kind === 'HARDCODED_PLACEHOLDER');
+      expect(hardcoded).toHaveLength(0);
+    });
+  });
+
+  describe('isDisplayContext edge cases (null-display-display-context.tsx)', () => {
+    it('detects HARDCODED_PLACEHOLDER for dash in VariableDeclaration (line 281)', () => {
+      const result = analyzeFixture('null-display-display-context.tsx');
+      const obs = observationsOfKind(result, 'HARDCODED_PLACEHOLDER');
+      const varDecl = obs.find(o => o.evidence.containingFunction === 'displayViaVariable');
+      expect(varDecl).toBeDefined();
+    });
+
+    it('detects HARDCODED_PLACEHOLDER for dash in ArrowFunction body (line 284)', () => {
+      const result = analyzeFixture('null-display-display-context.tsx');
+      const obs = observationsOfKind(result, 'HARDCODED_PLACEHOLDER');
+      // getPlaceholder is a const arrow function returning '-'
+      const arrowObs = obs.find(o => o.evidence.containingFunction === 'getPlaceholder');
+      expect(arrowObs).toBeDefined();
+    });
+
+    it('detects HARDCODED_PLACEHOLDER for dash in JSX expression (line 290)', () => {
+      const result = analyzeFixture('null-display-display-context.tsx');
+      const obs = observationsOfKind(result, 'HARDCODED_PLACEHOLDER');
+      const jsxObs = obs.find(o => o.evidence.containingFunction === 'DisplayJsx');
+      expect(jsxObs).toBeDefined();
+    });
+
+    it('detects NO_FALLBACK_CELL for info.getValue() pattern (lines 345-346)', () => {
+      const result = analyzeFixture('null-display-display-context.tsx');
+      const obs = observationsOfKind(result, 'NO_FALLBACK_CELL');
+      expect(obs).toHaveLength(1);
+      expect(obs[0].evidence.isTableColumn).toBe(true);
+    });
+  });
+
+  describe('ZERO_CONFLATION: block-style then-statement (lines 373-375)', () => {
+    it('detects !value guard where then-statement is a block containing return numeric-string', () => {
+      const result = analyzeFixture('null-display-block-guard.ts');
+      const obs = observationsOfKind(result, 'ZERO_CONFLATION');
+      const blockGuard = obs.find(o => o.evidence.containingFunction === 'blockGuardWithNumericReturn');
+
+      expect(blockGuard).toBeDefined();
+      expect(blockGuard!.evidence.operator).toBe('!');
+      expect(blockGuard!.evidence.fallbackValue).toBe("'0.00'");
+      expect(blockGuard!.evidence.context).toContain('!value guard with numeric string return conflates 0 with null');
+    });
+
+    it('detects !value guard where else branch proves numeric context via format function', () => {
+      const result = analyzeFixture('null-display-block-guard.ts');
+      const obs = observationsOfKind(result, 'ZERO_CONFLATION');
+      const elseGuard = obs.find(o => o.evidence.containingFunction === 'ifGuardWithNumericElse');
+
+      expect(elseGuard).toBeDefined();
+      expect(elseGuard!.evidence.operator).toBe('!');
+      expect(elseGuard!.evidence.context).toContain('!value guard where else branch proves numeric context');
+    });
+
+    it('emits exactly 2 ZERO_CONFLATION observations for the block-guard fixture', () => {
+      const result = analyzeFixture('null-display-block-guard.ts');
+      const obs = observationsOfKind(result, 'ZERO_CONFLATION');
+      expect(obs).toHaveLength(2);
+    });
+  });
 });

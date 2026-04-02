@@ -1,0 +1,8 @@
+{
+  "description": "Handler exported directly as default (export default function apiHandler) -- exercises fallback detection path",
+  "expectedObservations": [
+    {
+      "type": "HANDLER_INLINE_LOGIC"
+    }
+  ]
+}

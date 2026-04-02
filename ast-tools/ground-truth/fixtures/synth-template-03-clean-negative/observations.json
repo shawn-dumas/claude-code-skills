@@ -1,0 +1,87 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "template",
+  "files": {
+    "simple-list.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/simple-list.tsx",
+          "line": 9,
+          "column": 0,
+          "evidence": {
+            "componentName": "SimpleList",
+            "returnStartLine": 9,
+            "returnEndLine": 18,
+            "returnLineCount": 10
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/simple-list.tsx",
+          "line": 13,
+          "column": 10,
+          "evidence": {
+            "componentName": "SimpleList",
+            "methods": ["map"],
+            "chainLength": 1
+          }
+        }
+      ]
+    },
+    "conditional-render.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/conditional-render.tsx",
+          "line": 10,
+          "column": 0,
+          "evidence": {
+            "componentName": "ConditionalBanner",
+            "returnStartLine": 10,
+            "returnEndLine": 23,
+            "returnLineCount": 14
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/conditional-render.tsx",
+          "line": 12,
+          "column": 8,
+          "evidence": {
+            "componentName": "ConditionalBanner",
+            "depth": 1,
+            "description": "isVisible"
+          }
+        }
+      ]
+    },
+    "small-handler.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/small-handler.tsx",
+          "line": 9,
+          "column": 0,
+          "evidence": {
+            "componentName": "SmallForm",
+            "returnStartLine": 9,
+            "returnEndLine": 23,
+            "returnLineCount": 15
+          }
+        },
+        {
+          "kind": "JSX_INLINE_HANDLER",
+          "file": "../../../..<fixture>/small-handler.tsx",
+          "line": 15,
+          "column": 18,
+          "evidence": {
+            "componentName": "SmallForm",
+            "handlerName": "onClick",
+            "statementCount": 2
+          }
+        }
+      ]
+    }
+  }
+}

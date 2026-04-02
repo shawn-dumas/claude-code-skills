@@ -895,4 +895,31 @@ describe('ast-react-inventory', () => {
       expect(processItems!.evidence.isCallback).toBe(true);
     });
   });
+
+  describe('findReturnStatementLines edge cases', () => {
+    it('reports non-zero returnStatementLine for arrow component with expression body', () => {
+      // Badge in arrow-expression-body.tsx is `const Badge = ({ label }) => <span>{label}</span>`
+      // The funcNode is an ArrowFunction with expression body (no block), so
+      // getBody() from shared.ts returns null. findReturnStatementLines then
+      // falls through to the Node.isArrowFunction branch (lines 1204-1213) and
+      // returns the expression body's line range.
+      const result = analyzeFixture('arrow-expression-body.tsx');
+      const badge = result.components.find(c => c.name === 'Badge');
+      expect(badge).toBeDefined();
+      expect(badge!.returnStatementLine).toBeGreaterThan(0);
+      expect(badge!.returnStatementEndLine).toBeGreaterThanOrEqual(badge!.returnStatementLine);
+    });
+
+    it('reports returnStatementLine of 0 for component with no top-level return statement', () => {
+      // NoReturn in arrow-expression-body.tsx has a block body that contains JSX
+      // inside a variable initializer but no top-level return statement. The loop
+      // in findReturnStatementLines finds no ReturnStatement and falls through to
+      // the final { start: 0, end: 0 } return (line 1228).
+      const result = analyzeFixture('arrow-expression-body.tsx');
+      const noReturn = result.components.find(c => c.name === 'NoReturn');
+      expect(noReturn).toBeDefined();
+      expect(noReturn!.returnStatementLine).toBe(0);
+      expect(noReturn!.returnStatementEndLine).toBe(0);
+    });
+  });
 });

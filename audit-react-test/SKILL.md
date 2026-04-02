@@ -174,6 +174,13 @@ target path. For each file, record:
 - Test runner (Vitest, Playwright, or other -- detect from imports)
 - Number of `describe` blocks, `test`/`it` blocks
 
+**Visual spec files** (`*.visual.spec.ts` in `visual/tests/`) use a
+different fixture chain and conventions than integration or unit specs.
+They import from `visual/fixture.ts`, use `toHaveScreenshot()`, and
+follow the architecture in `docs/visual-testing.md`. Do not audit them
+against the 10 contract-first principles -- they are screenshot
+comparison tests, not behavioral assertions.
+
 <!-- role: detect -->
 
 ## Step 2: Check for orphaned tests

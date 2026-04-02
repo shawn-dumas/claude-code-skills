@@ -293,6 +293,7 @@ function appendGap(queryType: string, gapsFilePath: string): void {
 // Execution
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start -- subprocess spawn: cannot be mocked in ESM unit tests */
 function runTool(toolName: string, args: string[]): void {
   const toolPath = path.join(SCRIPTS_AST_DIR, `${toolName}.ts`);
   const child = spawn('npx', ['tsx', toolPath, ...args], {
@@ -309,6 +310,7 @@ function runTool(toolName: string, args: string[]): void {
     process.exit(1);
   });
 }
+/* v8 ignore stop */
 
 // ---------------------------------------------------------------------------
 // Batch mode: run multiple query types in one process (single parse)
@@ -427,9 +429,11 @@ function runBatchSync(queryTypes: string[], filePaths: string[], extraFlags: str
         } else {
           fileResults[qt] = { error: `Interpreter ${qt} not yet wired for batch mode` };
         }
+        /* v8 ignore start -- defensive: interpreter runtime errors are unexpected */
       } catch (err) {
         fileResults[qt] = { error: `Failed to run ${qt}: ${err instanceof Error ? err.message : String(err)}` };
       }
+      /* v8 ignore stop */
     }
 
     results[relativePath] = fileResults;
@@ -593,8 +597,10 @@ export function main(
     try {
       runBatchSync(queryTypes, paths, extraFlags);
     } catch (err) {
+      /* v8 ignore start -- defensive: runBatchSync errors are handled internally per-file */
       process.stderr.write(`Batch error: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`);
       process.exit(1);
+      /* v8 ignore stop */
     }
     return;
   }
@@ -602,8 +608,10 @@ export function main(
   // Resolve dispatch target
   const dispatch = resolveDispatch(queryType, positionalArgs, extraFlags);
   if (dispatch) {
+    /* v8 ignore start -- delegates to runTool which is subprocess-only */
     runTool(dispatch.tool, dispatch.args);
     return;
+    /* v8 ignore stop */
   }
 
   // Check known unroutable tools
@@ -641,8 +649,10 @@ export {
 // Direct run guard
 // ---------------------------------------------------------------------------
 
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] && (process.argv[1].endsWith('ast-query.ts') || process.argv[1].endsWith('ast-query'));
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

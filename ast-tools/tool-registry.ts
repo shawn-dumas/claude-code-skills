@@ -236,6 +236,12 @@ export const TOOL_REGISTRY: ReadonlyMap<string, ToolEntry> = new Map(entries.map
 /**
  * Run all registered observation tools on a single source file.
  * Each tool's output is cached by file content hash via `cached()`.
+ *
+ * Cache namespace uses "-obs" suffix to avoid collisions with per-tool
+ * full-analysis caches. Several tools (storage-access, jsx-analysis,
+ * react-inventory, etc.) cache their full analysis object under the bare
+ * tool name. The registry caches flattened AnyObservation[] arrays. Without
+ * the suffix, whichever runs first poisons the cache for the other.
  */
 export function runAllObservers(
   sourceFile: SourceFile,
@@ -244,7 +250,12 @@ export function runAllObservers(
 ): AnyObservation[] {
   const observations: AnyObservation[] = [];
   for (const entry of entries) {
-    const result = cached<AnyObservation[]>(entry.name, filePath, () => entry.analyze(sourceFile, filePath), options);
+    const result = cached<AnyObservation[]>(
+      entry.name + '-obs',
+      filePath,
+      () => entry.analyze(sourceFile, filePath),
+      options,
+    );
     observations.push(...result);
   }
   return observations;
@@ -266,7 +277,12 @@ export function runObservers(
     if (!entry) {
       throw new Error(`Unknown tool name: '${name}'. Available: ${getToolNames().join(', ')}`);
     }
-    const result = cached<AnyObservation[]>(entry.name, filePath, () => entry.analyze(sourceFile, filePath), options);
+    const result = cached<AnyObservation[]>(
+      entry.name + '-obs',
+      filePath,
+      () => entry.analyze(sourceFile, filePath),
+      options,
+    );
     observations.push(...result);
   }
   return observations;

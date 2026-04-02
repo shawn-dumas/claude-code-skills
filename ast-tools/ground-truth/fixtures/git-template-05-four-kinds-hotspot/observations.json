@@ -1,0 +1,65 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "template",
+  "files": {
+    "component.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 53,
+          "column": 0,
+          "evidence": {
+            "componentName": "ProductivityByDateContainer",
+            "returnStartLine": 53,
+            "returnEndLine": 103,
+            "returnLineCount": 51
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 59,
+          "column": 12,
+          "evidence": {
+            "componentName": "ProductivityByDateContainer",
+            "depth": 1,
+            "description": "isTableLoadingVisible"
+          }
+        },
+        {
+          "kind": "JSX_INLINE_HANDLER",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 72,
+          "column": 27,
+          "evidence": {
+            "componentName": "ProductivityByDateContainer",
+            "handlerName": "onClickRow",
+            "statementCount": 1
+          }
+        },
+        {
+          "kind": "JSX_COMPLEX_CLASSNAME",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 85,
+          "column": 25,
+          "evidence": {
+            "componentName": "ProductivityByDateContainer",
+            "ternaryCount": 1
+          }
+        },
+        {
+          "kind": "JSX_GUARD_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 92,
+          "column": 10,
+          "evidence": {
+            "componentName": "ProductivityByDateContainer",
+            "conditionCount": 1,
+            "description": "!!correctedChartData?.aux.events.length && ( <div className='basis-1/4'> <AUX..."
+          }
+        }
+      ]
+    }
+  }
+}

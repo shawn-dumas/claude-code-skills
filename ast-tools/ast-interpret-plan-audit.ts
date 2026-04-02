@@ -584,7 +584,7 @@ export function prettyPrint(report: PlanAuditVerdictReport, verbose: boolean): s
 // CLI
 // ---------------------------------------------------------------------------
 
-function main(): void {
+export function main(): void {
   const args = parseArgs(process.argv, { namedOptions: ['--prompts'] });
 
   if (args.help) {
@@ -642,6 +642,7 @@ function main(): void {
   process.exit(0);
 }
 
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-interpret-plan-audit.ts') || process.argv[1].endsWith('ast-interpret-plan-audit'));
@@ -649,3 +650,4 @@ const isDirectRun =
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

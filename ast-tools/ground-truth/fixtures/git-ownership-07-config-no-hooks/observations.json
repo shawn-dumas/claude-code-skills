@@ -1,0 +1,33 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "ownership",
+  "files": {
+    "ConfigPanel.tsx": {
+      "hookObservations": [],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/ConfigPanel.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "ConfigPanel",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/ConfigPanel.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "ConfigPanel",
+            "propName": "config",
+            "propType": "Config",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        }
+      ]
+    }
+  }
+}

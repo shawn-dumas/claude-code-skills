@@ -555,7 +555,7 @@ Trace the handler's data pipeline end-to-end:
 
 4. **Duration fields:** Check whether the SQL returns milliseconds or
    seconds. Document the unit in a type comment on the row type field.
-   If the handler formats via `formatDurationSeconds()` or similar, the
+   If the handler formats via `formatDuration()` or similar, the
    fixture must produce formatted duration strings (post-mapping shape).
 
 5. **Fixture builder shape:** Verify that the fixture builder produces

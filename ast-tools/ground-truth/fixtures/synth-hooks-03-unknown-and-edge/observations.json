@@ -1,0 +1,75 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "hooks",
+  "files": {
+    "component.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 13,
+          "column": 29,
+          "evidence": {
+            "hookName": "useState",
+            "importSource": "react",
+            "destructuredNames": ["value", "setValue"],
+            "parentFunction": "EdgeCasePanel",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 14,
+          "column": 21,
+          "evidence": {
+            "hookName": "useCustomAnalytics",
+            "importSource": "@/utils/analytics",
+            "destructuredNames": [],
+            "parentFunction": "EdgeCasePanel",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 15,
+          "column": 21,
+          "evidence": {
+            "hookName": "useDebounce",
+            "importSource": "some-third-party-lib",
+            "destructuredNames": [],
+            "parentFunction": "EdgeCasePanel",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 16,
+          "column": 18,
+          "evidence": {
+            "hookName": "useRouter",
+            "importSource": "next/router",
+            "destructuredNames": [],
+            "parentFunction": "EdgeCasePanel",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 17,
+          "column": 23,
+          "evidence": {
+            "hookName": "useFilterScope",
+            "importSource": "@/page_blocks/dashboard/context/filterScope",
+            "destructuredNames": ["filters"],
+            "parentFunction": "EdgeCasePanel",
+            "isReactBuiltin": false
+          }
+        }
+      ]
+    }
+  }
+}

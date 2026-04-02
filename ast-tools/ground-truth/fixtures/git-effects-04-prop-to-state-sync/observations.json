@@ -1,0 +1,39 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "effects",
+  "files": {
+    "component.tsx": {
+      "effectObservations": [
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 30,
+          "evidence": {
+            "effectLine": 30,
+            "parentFunction": "WorkstreamsTableExtract",
+            "depArray": ["initialRowSelection"],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 32,
+          "evidence": {
+            "effectLine": 30,
+            "identifier": "initialRowSelection"
+          }
+        },
+        {
+          "kind": "EFFECT_STATE_SETTER_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 31,
+          "evidence": {
+            "effectLine": 30,
+            "identifier": "setRowSelection"
+          }
+        }
+      ]
+    }
+  }
+}

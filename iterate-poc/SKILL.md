@@ -203,6 +203,20 @@ Classify each:
 | `src/fixtures/domains/<domain>.fixture.ts` | modify | Generate new field      |
 | ...                                        | ...    | ...                     |
 
+### 3.1b Visual Regression Impact
+
+If the change modifies page layout, component rendering, or data display,
+check whether visual regression baselines exist for the affected pages:
+
+```bash
+ls visual/tests/__screenshots__/ | grep -i "<page-slug>"
+```
+
+If baselines exist, they will need updating after the code change. Add
+`pnpm test:visual:update` to the verification section of affected
+prompts. If the change adds a new page that should have visual coverage,
+reference `docs/visual-testing.md` for how to add a visual spec.
+
 ### 3.2 Scope Classification
 
 Classify the change:

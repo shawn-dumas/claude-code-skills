@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import path from 'path';
 import { analyzeSkillFile, analyzeSkillDirectory } from '../ast-skill-analysis';
-import { interpretSkillQuality } from '../ast-interpret-skill-quality';
+import { interpretSkillQuality, main } from '../ast-interpret-skill-quality';
 import type { SkillQualityAssessment, SkillQualityAssessmentKind } from '../types';
 
 // -- Helpers --
@@ -545,5 +545,177 @@ describe('role annotation assessments', () => {
       const drift = findByKind(report.assessments, 'CONVENTION_DRIFT');
       expect(drift).toHaveLength(0);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// prettyPrint (covered via main --pretty)
+// ---------------------------------------------------------------------------
+
+describe('prettyPrint (via main --pretty)', () => {
+  let stdoutChunks: string[];
+  let originalArgv: string[];
+
+  beforeEach(() => {
+    stdoutChunks = [];
+    originalArgv = process.argv;
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      stdoutChunks.push(String(chunk));
+      return true;
+    });
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new Error(`process.exit(${code})`);
+    }) as never);
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+    vi.restoreAllMocks();
+  });
+
+  it('renders header with skill name, category, and score', () => {
+    process.argv = ['node', 'ast-interpret-skill-quality.ts', FIXTURES_DIR + '/skill-positive.md', '--pretty'];
+    main();
+    const out = stdoutChunks.join('');
+    expect(out).toContain('Skill Quality:');
+    expect(out).toContain('Score:');
+  });
+
+  it('renders "No issues found." when skill is clean', () => {
+    process.argv = ['node', 'ast-interpret-skill-quality.ts', FIXTURES_DIR + '/skill-minimal.md', '--pretty'];
+    main();
+    const out = stdoutChunks.join('');
+    expect(out).toContain('No issues found.');
+  });
+
+  it('renders issue table when stale paths exist', () => {
+    process.argv = ['node', 'ast-interpret-skill-quality.ts', FIXTURES_DIR + '/skill-negative.md', '--pretty'];
+    main();
+    const out = stdoutChunks.join('');
+    // Table header row
+    expect(out).toContain('Line | Assessment');
+    // Details section
+    expect(out).toContain('Details:');
+  });
+
+  it('renders score summary fields in header line', () => {
+    process.argv = ['node', 'ast-interpret-skill-quality.ts', FIXTURES_DIR + '/skill-negative.md', '--pretty'];
+    main();
+    const out = stdoutChunks.join('');
+    expect(out).toContain('Stale:');
+    expect(out).toContain('Missing sections:');
+    expect(out).toContain('Convention drift:');
+  });
+
+  it('renders line number as dash (-) for assessments without a line', () => {
+    // build-synthetic-missing has MISSING_SECTION which has no line
+    process.argv = [
+      'node',
+      'ast-interpret-skill-quality.ts',
+      FIXTURES_DIR + '/build-synthetic-missing/SKILL.md',
+      '--pretty',
+    ];
+    main();
+    const out = stdoutChunks.join('');
+    // MISSING_SECTION rows have no line number so they render as '-'
+    expect(out).toContain('    -');
+  });
+
+  it('renders multiple skill reports when given a directory', () => {
+    process.argv = ['node', 'ast-interpret-skill-quality.ts', '.claude/skills', '--pretty'];
+    main();
+    const out = stdoutChunks.join('');
+    expect(out).toContain('Skill Quality:');
+    expect(out).toContain('Score:');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// main() CLI
+// ---------------------------------------------------------------------------
+
+describe('main() CLI', () => {
+  let stdoutChunks: string[];
+  let originalArgv: string[];
+
+  beforeEach(() => {
+    stdoutChunks = [];
+    originalArgv = process.argv;
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      stdoutChunks.push(String(chunk));
+      return true;
+    });
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new Error(`process.exit(${code})`);
+    }) as never);
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+    vi.restoreAllMocks();
+  });
+
+  it('--help exits 0 and prints Usage', () => {
+    process.argv = ['node', 'ast-interpret-skill-quality.ts', '--help'];
+    expect(() => main()).toThrow('process.exit(0)');
+    expect(stdoutChunks.join('')).toContain('Usage:');
+  });
+
+  it('--help output lists assessment kinds', () => {
+    process.argv = ['node', 'ast-interpret-skill-quality.ts', '--help'];
+    expect(() => main()).toThrow('process.exit(0)');
+    const out = stdoutChunks.join('');
+    expect(out).toContain('STALE_FILE_PATH');
+    expect(out).toContain('BROKEN_CROSS_REF');
+    expect(out).toContain('MISSING_SECTION');
+  });
+
+  it('no args exits 1', () => {
+    process.argv = ['node', 'ast-interpret-skill-quality.ts'];
+    expect(() => main()).toThrow('process.exit(1)');
+  });
+
+  it('non-existent path exits 1', () => {
+    process.argv = ['node', 'ast-interpret-skill-quality.ts', '/tmp/does-not-exist-skill-quality-test.md'];
+    expect(() => main()).toThrow('process.exit(1)');
+  });
+
+  it('valid file path produces JSON output with skillName and assessments', () => {
+    process.argv = ['node', 'ast-interpret-skill-quality.ts', FIXTURES_DIR + '/skill-positive.md'];
+    main();
+    const result = JSON.parse(stdoutChunks.join('')) as { skillName: string; assessments: unknown[] };
+    expect(result.skillName).toBeDefined();
+    expect(Array.isArray(result.assessments)).toBe(true);
+  });
+
+  it('relative file path resolves and produces output', () => {
+    const rel = path.relative(process.cwd(), FIXTURES_DIR + '/skill-positive.md');
+    process.argv = ['node', 'ast-interpret-skill-quality.ts', rel];
+    main();
+    const result = JSON.parse(stdoutChunks.join('')) as { skillName: string };
+    expect(result.skillName).toBeDefined();
+  });
+
+  it('directory path produces JSON output with multiple reports', () => {
+    process.argv = ['node', 'ast-interpret-skill-quality.ts', '.claude/skills'];
+    main();
+    const result = JSON.parse(stdoutChunks.join('')) as unknown[];
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('multiple paths produce a JSON array of reports', () => {
+    process.argv = [
+      'node',
+      'ast-interpret-skill-quality.ts',
+      FIXTURES_DIR + '/skill-positive.md',
+      FIXTURES_DIR + '/skill-minimal.md',
+    ];
+    main();
+    const result = JSON.parse(stdoutChunks.join('')) as unknown[];
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(2);
   });
 });

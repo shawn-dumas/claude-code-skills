@@ -1,0 +1,114 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "hooks",
+  "files": {
+    "component.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 16,
+          "column": 23,
+          "evidence": {
+            "hookName": "useQueryClient",
+            "importSource": "@tanstack/react-query",
+            "destructuredNames": [],
+            "parentFunction": "OpportunitiesFiltersContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 17,
+          "column": 28,
+          "evidence": {
+            "hookName": "usePosthogContext",
+            "importSource": "src/ui/providers/posthogProvider.tsx",
+            "destructuredNames": ["featureFlags"],
+            "parentFunction": "OpportunitiesFiltersContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 18,
+          "column": 21,
+          "evidence": {
+            "hookName": "useAuthState",
+            "importSource": "src/ui/providers/context/auth/index.tsx",
+            "destructuredNames": ["roles"],
+            "parentFunction": "OpportunitiesFiltersContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "column": 35,
+          "evidence": {
+            "hookName": "useDashboardFiltersState",
+            "importSource": "src/ui/providers/context/layout/index.ts",
+            "destructuredNames": ["setFiltersSubmitted"],
+            "parentFunction": "OpportunitiesFiltersContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 20,
+          "column": 39,
+          "evidence": {
+            "hookName": "useOpportunitiesUrlParams",
+            "importSource": "../useOpportunitiesUrlParams",
+            "destructuredNames": ["urlFilters", "setUrlFilters"],
+            "parentFunction": "OpportunitiesFiltersContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 21,
+          "column": 27,
+          "evidence": {
+            "hookName": "useTeamsListQuery",
+            "importSource": "src/ui/services/hooks/queries/teams/index.ts",
+            "destructuredNames": ["teams"],
+            "parentFunction": "OpportunitiesFiltersContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 22,
+          "column": 22,
+          "evidence": {
+            "hookName": "useMemo",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "OpportunitiesFiltersContainer",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 23,
+          "column": 24,
+          "evidence": {
+            "hookName": "useCallback",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "OpportunitiesFiltersContainer",
+            "isReactBuiltin": true
+          }
+        }
+      ]
+    }
+  }
+}

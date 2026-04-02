@@ -1,0 +1,488 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "template",
+  "files": {
+    "long-return-medium.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/long-return-medium.tsx",
+          "line": 20,
+          "column": 0,
+          "evidence": {
+            "componentName": "TeamDashboardPanel",
+            "returnStartLine": 20,
+            "returnEndLine": 127,
+            "returnLineCount": 108
+          }
+        },
+        {
+          "kind": "JSX_GUARD_CHAIN",
+          "file": "../../../..<fixture>/long-return-medium.tsx",
+          "line": 26,
+          "column": 8,
+          "evidence": {
+            "componentName": "TeamDashboardPanel",
+            "conditionCount": 1,
+            "description": "showFilters && ( <div className='filters-section'> <label htmlFor='search'>Se..."
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-medium.tsx",
+          "line": 42,
+          "column": 41,
+          "evidence": {
+            "componentName": "TeamDashboardPanel",
+            "methods": ["filter"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-medium.tsx",
+          "line": 46,
+          "column": 41,
+          "evidence": {
+            "componentName": "TeamDashboardPanel",
+            "methods": ["filter"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-medium.tsx",
+          "line": 50,
+          "column": 49,
+          "evidence": {
+            "componentName": "TeamDashboardPanel",
+            "methods": ["map"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-medium.tsx",
+          "line": 65,
+          "column": 12,
+          "evidence": {
+            "componentName": "TeamDashboardPanel",
+            "methods": ["map"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_COMPLEX_CLASSNAME",
+          "file": "../../../..<fixture>/long-return-medium.tsx",
+          "line": 66,
+          "column": 44,
+          "evidence": {
+            "componentName": "TeamDashboardPanel",
+            "ternaryCount": 1
+          }
+        },
+        {
+          "kind": "JSX_COMPLEX_CLASSNAME",
+          "file": "../../../..<fixture>/long-return-medium.tsx",
+          "line": 79,
+          "column": 34,
+          "evidence": {
+            "componentName": "TeamDashboardPanel",
+            "ternaryCount": 1
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/long-return-medium.tsx",
+          "line": 80,
+          "column": 20,
+          "evidence": {
+            "componentName": "TeamDashboardPanel",
+            "depth": 1,
+            "description": "member.active"
+          }
+        },
+        {
+          "kind": "JSX_INLINE_HANDLER",
+          "file": "../../../..<fixture>/long-return-medium.tsx",
+          "line": 84,
+          "column": 48,
+          "evidence": {
+            "componentName": "TeamDashboardPanel",
+            "handlerName": "onClick",
+            "statementCount": 1
+          }
+        }
+      ]
+    },
+    "long-return-high.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 18,
+          "column": 0,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "returnStartLine": 18,
+            "returnEndLine": 191,
+            "returnLineCount": 174
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 34,
+          "column": 15,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "methods": ["filter"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 38,
+          "column": 15,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "methods": ["filter"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 42,
+          "column": 15,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "methods": ["filter"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 49,
+          "column": 14,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "methods": ["map"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_INLINE_STYLE",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 50,
+          "column": 54,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "hasComputedValues": true
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 69,
+          "column": 14,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "methods": ["map"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_GUARD_CHAIN",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 75,
+          "column": 22,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "conditionCount": 1,
+            "description": "row.trend === 'up' && 'Rising'"
+          }
+        },
+        {
+          "kind": "JSX_GUARD_CHAIN",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 76,
+          "column": 22,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "conditionCount": 1,
+            "description": "row.trend === 'down' && 'Falling'"
+          }
+        },
+        {
+          "kind": "JSX_GUARD_CHAIN",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 77,
+          "column": 22,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "conditionCount": 1,
+            "description": "row.trend === 'flat' && 'Steady'"
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 92,
+          "column": 16,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "methods": ["filter", "map"],
+            "chainLength": 2
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 92,
+          "column": 16,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "methods": ["filter"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 104,
+          "column": 16,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "methods": ["filter", "map"],
+            "chainLength": 2
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 104,
+          "column": 16,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "methods": ["filter"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 116,
+          "column": 16,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "methods": ["filter", "map"],
+            "chainLength": 2
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/long-return-high.tsx",
+          "line": 116,
+          "column": 16,
+          "evidence": {
+            "componentName": "AnalyticsDashboard",
+            "methods": ["filter"],
+            "chainLength": 1
+          }
+        }
+      ]
+    },
+    "iife-component.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/iife-component.tsx",
+          "line": 10,
+          "column": 0,
+          "evidence": {
+            "componentName": "StatusDisplay",
+            "returnStartLine": 10,
+            "returnEndLine": 34,
+            "returnLineCount": 25
+          }
+        },
+        {
+          "kind": "JSX_IIFE",
+          "file": "../../../..<fixture>/iife-component.tsx",
+          "line": 13,
+          "column": 8,
+          "evidence": {
+            "componentName": "StatusDisplay",
+            "description": "IIFE (20 lines)"
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/iife-component.tsx",
+          "line": 27,
+          "column": 14,
+          "evidence": {
+            "componentName": "StatusDisplay",
+            "methods": ["map"],
+            "chainLength": 1
+          }
+        }
+      ]
+    },
+    "deep-ternary.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/deep-ternary.tsx",
+          "line": 15,
+          "column": 0,
+          "evidence": {
+            "componentName": "UserBadge",
+            "returnStartLine": 15,
+            "returnEndLine": 32,
+            "returnLineCount": 18
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/deep-ternary.tsx",
+          "line": 19,
+          "column": 10,
+          "evidence": {
+            "componentName": "UserBadge",
+            "depth": 3,
+            "description": "user.role === 'admin'"
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/deep-ternary.tsx",
+          "line": 28,
+          "column": 10,
+          "evidence": {
+            "componentName": "UserBadge",
+            "depth": 2,
+            "description": "user.tier === 'enterprise'"
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/deep-ternary.tsx",
+          "line": 30,
+          "column": 33,
+          "evidence": {
+            "componentName": "UserBadge",
+            "depth": 1,
+            "description": "isOnline"
+          }
+        }
+      ]
+    },
+    "clean-short.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/clean-short.tsx",
+          "line": 10,
+          "column": 0,
+          "evidence": {
+            "componentName": "CleanCard",
+            "returnStartLine": 10,
+            "returnEndLine": 20,
+            "returnLineCount": 11
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/clean-short.tsx",
+          "line": 15,
+          "column": 10,
+          "evidence": {
+            "componentName": "CleanCard",
+            "methods": ["map"],
+            "chainLength": 1
+          }
+        }
+      ]
+    },
+    "shallow-ternary.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/shallow-ternary.tsx",
+          "line": 10,
+          "column": 0,
+          "evidence": {
+            "componentName": "StatusMessage",
+            "returnStartLine": 10,
+            "returnEndLine": 15,
+            "returnLineCount": 6
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/shallow-ternary.tsx",
+          "line": 12,
+          "column": 8,
+          "evidence": {
+            "componentName": "StatusMessage",
+            "depth": 1,
+            "description": "isLoading"
+          }
+        },
+        {
+          "kind": "JSX_GUARD_CHAIN",
+          "file": "../../../..<fixture>/shallow-ternary.tsx",
+          "line": 13,
+          "column": 8,
+          "evidence": {
+            "componentName": "StatusMessage",
+            "conditionCount": 1,
+            "description": "error && <p className='error'>{error}</p>"
+          }
+        }
+      ]
+    },
+    "two-kinds-below-threshold.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/two-kinds-below-threshold.tsx",
+          "line": 14,
+          "column": 0,
+          "evidence": {
+            "componentName": "UserList",
+            "returnStartLine": 14,
+            "returnEndLine": 24,
+            "returnLineCount": 11
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/two-kinds-below-threshold.tsx",
+          "line": 17,
+          "column": 8,
+          "evidence": {
+            "componentName": "UserList",
+            "methods": ["map"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/two-kinds-below-threshold.tsx",
+          "line": 20,
+          "column": 18,
+          "evidence": {
+            "componentName": "UserList",
+            "depth": 1,
+            "description": "user.active"
+          }
+        }
+      ]
+    }
+  }
+}

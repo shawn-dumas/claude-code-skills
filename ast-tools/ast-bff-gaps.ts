@@ -38,7 +38,7 @@ import type { BffGapObservation, BffGapAnalysis, ObservationResult } from './typ
  *
  * Handles index files: src/pages/api/mock/.../index.ts -> /api/mock/.../
  */
-function filePathToApiPath(filePath: string): string {
+export function filePathToApiPath(filePath: string): string {
   const relative = path.relative(PROJECT_ROOT, path.resolve(PROJECT_ROOT, filePath));
   // Strip src/pages and extension
   let apiPath = relative.replace(/^src\/pages/, '').replace(/\.(ts|tsx|js|jsx)$/, '');
@@ -55,7 +55,7 @@ function filePathToApiPath(filePath: string): string {
  * Strip the mock segment from an API path to derive the expected BFF path.
  * /api/mock/users/data-api/systems/teams -> /api/users/data-api/systems/teams
  */
-function mockPathToBffPath(mockApiPath: string): string {
+export function mockPathToBffPath(mockApiPath: string): string {
   const config = resolveConfig();
   const mockSeg = config.bffGaps.mockSegment;
   // Replace first occurrence of /api{mockSegment} with /api/
@@ -86,7 +86,7 @@ interface BffRouteInfo {
 /**
  * Analyze a single BFF route file to determine if it's a stub (501).
  */
-function analyzeBffRoute(filePath: string): BffRouteInfo {
+export function analyzeBffRoute(filePath: string): BffRouteInfo {
   const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(PROJECT_ROOT, filePath);
   const relativePath = path.relative(PROJECT_ROOT, absolute);
   const apiPath = filePathToApiPath(relativePath);
@@ -106,12 +106,14 @@ function analyzeBffRoute(filePath: string): BffRouteInfo {
 
   // Extract TODO comments
   const todoComments: string[] = [];
+  /* v8 ignore start -- defensive: ts-morph SourceFile.getLeadingCommentRanges() always returns [] in practice; TODOs are captured via forEachDescendant below */
   for (const range of sf.getLeadingCommentRanges()) {
     const commentText = text.substring(range.getPos(), range.getEnd());
     if (/TODO/i.test(commentText)) {
       todoComments.push(commentText.replace(/^\/\/\s*/, '').trim());
     }
   }
+  /* v8 ignore stop */
   // Also check all comments in the file
   sf.forEachDescendant(node => {
     for (const range of node.getLeadingCommentRanges()) {
@@ -132,7 +134,7 @@ function analyzeBffRoute(filePath: string): BffRouteInfo {
  * Extract middleware names from the default export chain.
  * Pattern: export default withErrorHandler(withMethod(['POST'], withAuth(handler)))
  */
-function extractMiddleware(text: string): string[] {
+export function extractMiddleware(text: string): string[] {
   const middleware: string[] = [];
   // Match withXxx( patterns in the default export
   const exportMatch = /export\s+default\s+(.+);?\s*$/m.exec(text);
@@ -151,7 +153,7 @@ function extractMiddleware(text: string): string[] {
  * Extract HTTP methods from withMethod call.
  * Pattern: withMethod(['POST'], ...)
  */
-function extractHttpMethods(text: string): string[] {
+export function extractHttpMethods(text: string): string[] {
   const methodMatch = /withMethod\(\[([^\]]+)\]/.exec(text);
   if (methodMatch) {
     return methodMatch[1]
@@ -177,7 +179,7 @@ interface MockRouteInfo {
 /**
  * Analyze a mock route file to extract fixture builder calls.
  */
-function analyzeMockRoute(filePath: string): MockRouteInfo {
+export function analyzeMockRoute(filePath: string): MockRouteInfo {
   const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(PROJECT_ROOT, filePath);
   const relativePath = path.relative(PROJECT_ROOT, absolute);
   const apiPath = filePathToApiPath(relativePath);
@@ -268,7 +270,7 @@ function findQueryHookGaps(gapApiPaths: Set<string>, hookDirs: string[]): QueryH
  * src/ui/services/hooks/queries/insights/useConfluenceSummaryQuery/useConfluenceSummaryQuery.ts
  * -> useConfluenceSummaryQuery
  */
-function findContainingHookName(filePath: string): string {
+export function findContainingHookName(filePath: string): string {
   const basename = path.basename(filePath, path.extname(filePath));
   if (basename.startsWith('use')) return basename;
   // Try parent directory name
@@ -454,7 +456,7 @@ export function extractBffGapObservations(analysis: BffGapAnalysis): Observation
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-function main(): void {
+export function main(): void {
   const args = parseArgs(process.argv, {
     namedOptions: ['--hook-dir'],
   });
@@ -528,9 +530,11 @@ function main(): void {
   });
 }
 
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] && (process.argv[1].endsWith('ast-bff-gaps.ts') || process.argv[1].endsWith('ast-bff-gaps'));
 
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

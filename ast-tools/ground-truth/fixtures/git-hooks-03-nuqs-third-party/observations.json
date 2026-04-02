@@ -1,0 +1,62 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "hooks",
+  "files": {
+    "component.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 11,
+          "column": 24,
+          "evidence": {
+            "hookName": "useQueryStates",
+            "importSource": "nuqs",
+            "destructuredNames": ["urlFilters"],
+            "parentFunction": "TeamProductivityContainer",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "column": 48,
+          "evidence": {
+            "hookName": "useMemo",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "TeamProductivityContainer",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 25,
+          "column": 23,
+          "evidence": {
+            "hookName": "useMemo",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "TeamProductivityContainer",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 26,
+          "column": 43,
+          "evidence": {
+            "hookName": "useOperationalAnalysisQuery",
+            "importSource": "src/ui/services/hooks/queries/insights/index.ts",
+            "destructuredNames": ["data", "isLoading", "isFetching"],
+            "parentFunction": "TeamProductivityContainer",
+            "isReactBuiltin": false
+          }
+        }
+      ]
+    }
+  }
+}

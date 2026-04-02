@@ -1439,7 +1439,7 @@ const PROJECT_CONFIG_FILENAME = '.ast-config.json';
  * Arrays replace (not concatenate). Objects merge recursively.
  * Set-typed fields accept arrays in JSON and are converted to Sets.
  */
-function mergeConfig(base: AstConfig, overrides: Record<string, unknown>): AstConfig {
+export function mergeConfig(base: AstConfig, overrides: Record<string, unknown>): AstConfig {
   const result: Record<string, unknown> = {};
 
   for (const [sectionKey, sectionValue] of Object.entries(base)) {
@@ -1546,7 +1546,7 @@ export function resolveConfig(): AstConfig {
 // CLI entry point (--dump-priority-rules)
 // ---------------------------------------------------------------------------
 
-function main(): void {
+export function main(): void {
   const args = process.argv.slice(2);
 
   if (args.includes('--dump-priority-rules')) {
@@ -1576,11 +1576,13 @@ function main(): void {
   process.exit(1);
 }
 
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] && (process.argv[1].endsWith('ast-config.ts') || process.argv[1].endsWith('ast-config'));
 
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */
 
 export type { AstConfig };

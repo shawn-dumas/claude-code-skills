@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { astConfig, PRIORITY_RULES, lookupPriority } from '../ast-config';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { astConfig, PRIORITY_RULES, lookupPriority, mergeConfig, main } from '../ast-config';
 
 describe('ast-config', () => {
   describe('config structure', () => {
@@ -676,6 +676,111 @@ describe('ast-config', () => {
       it('returns P4 for made-up kind', () => {
         expect(lookupPriority('foo-bar-baz')).toBe('P4');
       });
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // mergeConfig
+  // -----------------------------------------------------------------------
+
+  describe('mergeConfig', () => {
+    it('returns base config when overrides is empty', () => {
+      const result = mergeConfig(astConfig, {});
+      expect(result.react).toBeDefined();
+      expect(result.hooks).toBeDefined();
+    });
+
+    it('overrides scalar values', () => {
+      const result = mergeConfig(astConfig, {
+        complexity: { maxCyclomaticComplexity: 99 },
+      });
+      expect(result.complexity.maxCyclomaticComplexity).toBe(99);
+    });
+
+    it('converts arrays to Sets for Set-typed fields', () => {
+      const result = mergeConfig(astConfig, {
+        hooks: { ambientLeafHooks: ['myCustomHook'] },
+      });
+      expect(result.hooks.ambientLeafHooks).toBeInstanceOf(Set);
+      expect(result.hooks.ambientLeafHooks.has('myCustomHook')).toBe(true);
+    });
+
+    it('deep-merges nested objects', () => {
+      const result = mergeConfig(astConfig, {
+        jsx: { thresholds: { chainedTernaryDepth: 99 } },
+      });
+      expect(result.jsx.thresholds.chainedTernaryDepth).toBe(99);
+    });
+
+    it('preserves base fields not in overrides', () => {
+      const result = mergeConfig(astConfig, {
+        complexity: { maxCyclomaticComplexity: 99 },
+      });
+      // Other sections should be unchanged
+      expect(result.testing).toBeDefined();
+      expect(result.imports).toBeDefined();
+    });
+
+    it('includes override keys not in base (forward-compatible)', () => {
+      const result = mergeConfig(astConfig, {
+        complexity: { newFutureField: 42 },
+      });
+      expect((result.complexity as Record<string, unknown>).newFutureField).toBe(42);
+    });
+
+    it('ignores non-object override sections', () => {
+      const result = mergeConfig(astConfig, {
+        react: 'invalid',
+      } as Record<string, unknown>);
+      // Should keep original react section
+      expect(result.react).toBeDefined();
+      expect(typeof result.react).toBe('object');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // main() CLI
+  // -----------------------------------------------------------------------
+
+  describe('main()', () => {
+    let stdoutChunks: string[];
+    let originalArgv: string[];
+
+    beforeEach(() => {
+      stdoutChunks = [];
+      originalArgv = process.argv;
+      vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+        stdoutChunks.push(String(chunk));
+        return true;
+      });
+      vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`process.exit(${code})`);
+      }) as never);
+    });
+
+    afterEach(() => {
+      process.argv = originalArgv;
+      vi.restoreAllMocks();
+    });
+
+    it('--help exits 0', () => {
+      process.argv = ['node', 'ast-config.ts', '--help'];
+      expect(() => main()).toThrow('process.exit(0)');
+      expect(stdoutChunks.join('')).toContain('Usage:');
+    });
+
+    it('--dump-priority-rules prints table and exits 0', () => {
+      process.argv = ['node', 'ast-config.ts', '--dump-priority-rules'];
+      expect(() => main()).toThrow('process.exit(0)');
+      const output = stdoutChunks.join('');
+      expect(output).toContain('Kind');
+      expect(output).toContain('Priority');
+    });
+
+    it('no args exits 1', () => {
+      process.argv = ['node', 'ast-config.ts'];
+      expect(() => main()).toThrow('process.exit(1)');
     });
   });
 });

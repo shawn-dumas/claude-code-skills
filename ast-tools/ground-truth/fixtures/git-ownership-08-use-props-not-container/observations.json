@@ -1,0 +1,123 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "ownership",
+  "files": {
+    "ThemeToggle.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/ThemeToggle.tsx",
+          "line": 14,
+          "column": 24,
+          "evidence": {
+            "hookName": "useBreakpoint",
+            "destructuredNames": ["isMobile"],
+            "parentFunction": "ThemeToggle",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/ThemeToggle.tsx",
+          "line": 15,
+          "column": 15,
+          "evidence": {
+            "hookName": "useRef",
+            "destructuredNames": [],
+            "parentFunction": "ThemeToggle",
+            "isReactBuiltin": true,
+            "isMemberCall": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/ThemeToggle.tsx",
+          "line": 17,
+          "column": 3,
+          "evidence": {
+            "hookName": "useClickAway",
+            "destructuredNames": [],
+            "parentFunction": "ThemeToggle",
+            "isReactBuiltin": false
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/ThemeToggle.tsx",
+          "line": 13,
+          "evidence": {
+            "componentName": "ThemeToggle",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/ThemeToggle.tsx",
+          "line": 13,
+          "evidence": {
+            "componentName": "ThemeToggle",
+            "propName": "useBreakpoint",
+            "propType": "() => { isMobile: boolean; isTablet: boolean }",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": true
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/ThemeToggle.tsx",
+          "line": 13,
+          "evidence": {
+            "componentName": "ThemeToggle",
+            "propName": "useClickAway",
+            "propType": "(ref: React.RefObject<HTMLElement>, handler: () => void) => void",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": true
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/ThemeToggle.tsx",
+          "line": 13,
+          "evidence": {
+            "componentName": "ThemeToggle",
+            "propName": "label",
+            "propType": "string",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/ThemeToggle.tsx",
+          "line": 13,
+          "evidence": {
+            "componentName": "ThemeToggle",
+            "propName": "onToggle",
+            "propType": "() => void",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": true
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/ThemeToggle.tsx",
+          "line": 13,
+          "evidence": {
+            "componentName": "ThemeToggle",
+            "propName": "isActive",
+            "propType": "boolean",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        }
+      ]
+    }
+  }
+}

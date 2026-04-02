@@ -1,6 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import path from 'path';
-import { analyzeTestParity, analyzeHelperFile, extractTestParityObservations } from '../ast-pw-test-parity';
+import {
+  analyzeTestParity,
+  analyzeHelperFile,
+  analyzeTestParityBranch,
+  buildHelperIndex,
+  buildHelperIndexFromBranch,
+  extractTestParityObservations,
+  cliConfig,
+} from '../ast-pw-test-parity';
+import { runObservationToolCli } from '../cli-runner';
 import { PROJECT_ROOT } from '../project';
 
 const fixture = (name: string) => path.join(PROJECT_ROOT, 'scripts/AST/__tests__/fixtures', name);
@@ -273,6 +282,95 @@ describe('ast-pw-test-parity', () => {
       const arrow = entries.find(e => e.qualifiedName === 'helperWithArrow');
       expect(arrow).toBeDefined();
       expect(arrow!.assertionCount).toBe(1);
+    });
+  });
+
+  describe('buildHelperIndex', () => {
+    it('builds an index from a directory of helper files', () => {
+      const index = buildHelperIndex([path.join(PROJECT_ROOT, 'scripts/AST/__tests__/fixtures')]);
+      expect(index).toHaveProperty('entries');
+      expect(index).toHaveProperty('lookup');
+      expect(Array.isArray(index.entries)).toBe(true);
+    });
+
+    it('returns empty index for a directory with no helper files', () => {
+      // Use a dir that only has spec files, not helper files
+      const index = buildHelperIndex([path.join(PROJECT_ROOT, 'scripts/AST/__tests__/fixtures/bff-gaps')]);
+      expect(index.entries).toHaveLength(0);
+    });
+  });
+
+  describe('cliConfig via runObservationToolCli', () => {
+    let stdoutChunks: string[];
+    let originalArgv: string[];
+
+    beforeEach(() => {
+      stdoutChunks = [];
+      originalArgv = process.argv;
+
+      vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+        stdoutChunks.push(String(chunk));
+        return true;
+      });
+      vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`process.exit(${code ?? 0})`);
+      }) as never);
+    });
+
+    afterEach(() => {
+      process.argv = originalArgv;
+      vi.restoreAllMocks();
+    });
+
+    it('--help exits 0 and prints usage', () => {
+      process.argv = ['node', 'ast-pw-test-parity.ts', '--help'];
+      expect(() => runObservationToolCli(cliConfig)).toThrow('process.exit(0)');
+      expect(stdoutChunks.join('')).toContain('Usage:');
+    });
+
+    it('single file analysis produces JSON output with filePath', () => {
+      const fixturePath = path.join(PROJECT_ROOT, 'scripts/AST/__tests__/fixtures/pw-spec-positive.spec.ts');
+      process.argv = ['node', 'ast-pw-test-parity.ts', fixturePath];
+      runObservationToolCli(cliConfig);
+      const out = stdoutChunks.join('');
+      const parsed = JSON.parse(out) as { filePath: string };
+      expect(parsed).toHaveProperty('filePath');
+    });
+  });
+
+  describe('analyzeTestParityBranch', () => {
+    it('returns empty array for a non-existent branch', () => {
+      // gitListSpecFiles catches the git error and returns []
+      const result = analyzeTestParityBranch('nonexistent-branch-xyzzy-12345', 'integration/tests/');
+      expect(result).toEqual([]);
+    });
+
+    it('returns empty array for an empty directory on a valid branch', () => {
+      // Use a path that does not contain any .spec.ts files even on HEAD
+      const result = analyzeTestParityBranch('HEAD', 'scripts/AST/__tests__/fixtures/bff-gaps/');
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('buildHelperIndexFromBranch', () => {
+    it('returns empty index for a non-existent branch', () => {
+      const index = buildHelperIndexFromBranch('nonexistent-branch-xyzzy-12345', ['integration/helpers/']);
+      expect(index.entries).toEqual([]);
+      expect(index.lookup).toEqual({});
+    });
+  });
+
+  describe('isFileSkipGuard detection', () => {
+    it('does not produce a test block for test.skip(true) guard calls', () => {
+      // The skip-guard fixture has test.skip(true) at file level plus 2 real tests
+      const result = analyzeTestParity(fixture('pw-spec-skip-guard.spec.ts'));
+
+      // The test.skip(true) call at file level should be skipped
+      // Only the 2 real test() calls should appear
+      const skipGuardTests = result.tests.filter(t => t.name === '');
+      expect(skipGuardTests).toHaveLength(0);
+      expect(result.tests.length).toBe(2);
     });
   });
 });

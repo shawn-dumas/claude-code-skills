@@ -1031,7 +1031,7 @@ function formatPrettyOutput(result: AssessmentResult<TestQualityAssessment>, fil
 // CLI
 // ---------------------------------------------------------------------------
 
-function main(): void {
+export function main(): void {
   const args = parseArgs(process.argv);
 
   if (args.help) {
@@ -1174,6 +1174,7 @@ function getDomainDir(subjectPath: string): string {
 }
 
 // Run CLI when executed directly
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-interpret-test-quality.ts') || process.argv[1].endsWith('ast-interpret-test-quality'));
@@ -1181,3 +1182,4 @@ const isDirectRun =
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

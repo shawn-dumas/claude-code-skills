@@ -230,11 +230,11 @@ objects. Use `build()` for singles, `buildMany(n)` for arrays.
 
 ```typescript
 // BAD
-const row = { active_time_ms: 1000 } as unknown as HostTimeRow;
+const row = { active_time_sec: 1 } as unknown as HostTimeRow;
 
 // GOOD -- when the consuming function accepts Partial<T> or you only
 // need a subset of fields for the assertion
-const row = { active_time_ms: 1000 } satisfies Partial<HostTimeRow>;
+const row = { active_time_sec: 1 } satisfies Partial<HostTimeRow>;
 ```
 
 ### Pattern 3: Typed literal (when cast is unnecessary)

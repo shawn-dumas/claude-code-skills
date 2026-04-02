@@ -1,0 +1,88 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "ownership",
+  "files": {
+    "DataLoader.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/DataLoader.tsx",
+          "line": 6,
+          "column": 26,
+          "evidence": {
+            "hookName": "useTeamQuery",
+            "importSource": "@/services/hooks/queries/team",
+            "destructuredNames": ["team"],
+            "parentFunction": "DataLoader",
+            "isReactBuiltin": false
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/DataLoader.tsx",
+          "line": 5,
+          "evidence": {
+            "componentName": "DataLoader",
+            "kind": "function"
+          }
+        }
+      ]
+    },
+    "NavLink.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/NavLink.tsx",
+          "line": 11,
+          "column": 18,
+          "evidence": {
+            "hookName": "useRouter",
+            "importSource": "next/router",
+            "destructuredNames": [],
+            "parentFunction": "NavLink",
+            "isReactBuiltin": false
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/NavLink.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "NavLink",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/NavLink.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "NavLink",
+            "propName": "href",
+            "propType": "string",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/NavLink.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "NavLink",
+            "propName": "label",
+            "propType": "string",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        }
+      ]
+    }
+  }
+}

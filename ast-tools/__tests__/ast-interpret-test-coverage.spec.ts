@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import path from 'path';
 import fs from 'fs';
-import { interpretTestCoverage, groupByDirectory, computeDirectoryStats } from '../ast-interpret-test-coverage';
+import { interpretTestCoverage, groupByDirectory, computeDirectoryStats, main } from '../ast-interpret-test-coverage';
 import { analyzeTestCoverageDirectory, extractTestCoverageObservations } from '../ast-test-coverage';
 import type { TestCoverageObservation } from '../types';
 
@@ -330,5 +330,182 @@ describe('ast-interpret-test-coverage', () => {
       // Verify against manifest
       expect(result.assessments.length).toBe(manifest.expectedAssessments);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// main() CLI tests
+// ---------------------------------------------------------------------------
+
+describe('main()', () => {
+  const originalArgv = process.argv;
+  let stdoutChunks: string[];
+
+  class ExitError extends Error {
+    code: number;
+    constructor(code: number) {
+      super(`process.exit(${code})`);
+      this.code = code;
+    }
+  }
+
+  beforeEach(() => {
+    stdoutChunks = [];
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      stdoutChunks.push(typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk));
+      return true;
+    });
+    vi.spyOn(process, 'exit').mockImplementation(((code: number) => {
+      throw new ExitError(code ?? 0);
+    }) as never);
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
+    vi.restoreAllMocks();
+  });
+
+  it('--help prints usage and exits 0', async () => {
+    process.argv = ['node', 'ast-interpret-test-coverage.ts', '--help'];
+
+    await expect(main()).rejects.toThrow('process.exit(0)');
+
+    const out = stdoutChunks.join('');
+    expect(out).toContain('Usage:');
+    expect(out).toContain('--pretty');
+  });
+
+  it('errors when stdin is a TTY', async () => {
+    process.argv = ['node', 'ast-interpret-test-coverage.ts'];
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    // stdin.isTTY is true in test environment by default
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+
+    await expect(main()).rejects.toThrow('process.exit(1)');
+
+    const errOut = (stderrSpy.mock.calls[0]?.[0] as string) ?? '';
+    expect(errOut).toContain('No input');
+  });
+
+  function mockStdin(data: string): void {
+    Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true });
+    const orig = process.stdin.on.bind(process.stdin);
+    vi.spyOn(process.stdin, 'on').mockImplementation(((event: string, cb: (...args: unknown[]) => void) => {
+      if (event === 'data') {
+        setTimeout(() => cb(Buffer.from(data)), 0);
+        return process.stdin;
+      }
+      if (event === 'end') {
+        setTimeout(() => cb(), 1);
+        return process.stdin;
+      }
+      return orig(event, cb);
+    }) as typeof process.stdin.on);
+  }
+
+  it('parses array of observations from stdin and outputs JSON', async () => {
+    const observations = [makeObs('src/foo.ts', 'UNTESTED', 'HIGH', 'P2', 4.0)];
+    const input = JSON.stringify([{ filePath: 'src/foo.ts', observations }]);
+
+    mockStdin(input);
+    process.argv = ['node', 'ast-interpret-test-coverage.ts', '--json'];
+
+    await main();
+
+    const out = stdoutChunks.join('');
+    expect(out).toContain('TEST_GAP');
+    expect(out).toContain('UNTESTED');
+  });
+
+  it('parses single object with observations from stdin', async () => {
+    const observations = [makeObs('src/bar.ts', 'UNTESTED', 'MEDIUM', 'P3', 2.0)];
+    const input = JSON.stringify({ filePath: 'src/bar.ts', observations });
+
+    mockStdin(input);
+    process.argv = ['node', 'ast-interpret-test-coverage.ts'];
+
+    await main();
+
+    const out = stdoutChunks.join('');
+    expect(out).toContain('TEST_GAP');
+  });
+
+  it('parses raw array of observations from stdin', async () => {
+    const observations = [makeObs('src/baz.ts', 'UNTESTED', 'HIGH', 'P2', 5.0)];
+    const input = JSON.stringify(observations);
+
+    mockStdin(input);
+    process.argv = ['node', 'ast-interpret-test-coverage.ts'];
+
+    await main();
+
+    const out = stdoutChunks.join('');
+    expect(out).toContain('TEST_GAP');
+  });
+
+  it('--pretty outputs formatted directory summary', async () => {
+    const observations = [
+      makeObs('src/containers/FooContainer.ts', 'UNTESTED', 'HIGH', 'P2', 4.0),
+      makeObs('src/containers/Bar.ts', 'TESTED', 'LOW', 'P4', 0.5),
+    ];
+    const input = JSON.stringify([{ filePath: 'src/containers', observations }]);
+
+    mockStdin(input);
+    process.argv = ['node', 'ast-interpret-test-coverage.ts', '--pretty'];
+
+    await main();
+
+    const out = stdoutChunks.join('');
+    expect(out).toContain('Test Coverage Gap Assessments');
+    expect(out).toContain('src/containers');
+    expect(out).toContain('P2');
+    expect(out).toContain('Total gaps:');
+  });
+
+  it('--pretty with no gaps outputs "No test gaps found"', async () => {
+    const observations = [makeObs('src/ok.ts', 'TESTED', 'LOW', 'P4', 0.5)];
+    const input = JSON.stringify([{ filePath: 'src/ok.ts', observations }]);
+
+    mockStdin(input);
+    process.argv = ['node', 'ast-interpret-test-coverage.ts', '--pretty'];
+
+    await main();
+
+    const out = stdoutChunks.join('');
+    expect(out).toContain('No test gaps found');
+  });
+
+  it('--count outputs assessment kind counts', async () => {
+    const observations = [
+      makeObs('src/a.ts', 'UNTESTED', 'HIGH', 'P2', 4.0),
+      makeObs('src/b.ts', 'UNTESTED', 'MEDIUM', 'P3', 2.0),
+    ];
+    const input = JSON.stringify(observations);
+
+    mockStdin(input);
+    process.argv = ['node', 'ast-interpret-test-coverage.ts', '--count'];
+
+    await main();
+
+    const out = stdoutChunks.join('');
+    const parsed = JSON.parse(out);
+    expect(parsed.TEST_GAP).toBe(2);
+  });
+
+  it('errors on empty stdin', async () => {
+    mockStdin('');
+    process.argv = ['node', 'ast-interpret-test-coverage.ts'];
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    await expect(main()).rejects.toThrow('process.exit(1)');
+  });
+
+  it('errors on invalid JSON', async () => {
+    mockStdin('not json');
+    process.argv = ['node', 'ast-interpret-test-coverage.ts'];
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    await expect(main()).rejects.toThrow('process.exit(1)');
   });
 });

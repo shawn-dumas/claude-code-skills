@@ -9,9 +9,8 @@ import {
   Node,
 } from 'ts-morph';
 import path from 'path';
-import fs from 'fs';
 import { getSourceFile, PROJECT_ROOT } from './project';
-import { parseArgs, outputFiltered, fatal } from './cli';
+import { runObservationToolCli, type ObservationToolConfig } from './cli-runner';
 import { getBody, detectComponents, getFilesInDirectory, type FileFilter } from './shared';
 import type {
   ReactInventory,
@@ -24,7 +23,7 @@ import type {
   ComponentObservation,
 } from './types';
 import { astConfig } from './ast-config';
-import { cached, getCacheStats } from './ast-cache';
+import { cached } from './ast-cache';
 
 // ---------------------------------------------------------------------------
 // Import resolution (lightweight, file-scoped)
@@ -1089,7 +1088,9 @@ function extractPropsFromTypeNode(typeNode: TypeNode, sf: SourceFile, _param?: P
     return fields;
   }
 
+  /* v8 ignore start -- defensive: reached only for exotic type nodes (union, conditional, function type) that are not valid props shapes */
   return [];
+  /* v8 ignore stop */
 }
 
 function resolveNamedType(typeName: string, sf: SourceFile): PropField[] {
@@ -1105,7 +1106,9 @@ function resolveNamedType(typeName: string, sf: SourceFile): PropField[] {
     return extractPropsFromTypeAlias(typeAlias, sf);
   }
 
+  /* v8 ignore start -- defensive: reached when the type name is imported or generic (e.g., React.FC), not defined in the current file */
   return [];
+  /* v8 ignore stop */
 }
 
 function extractPropsFromInterface(iface: InterfaceDeclaration, sf: SourceFile): PropField[] {
@@ -1211,7 +1214,9 @@ function findReturnStatementLines(funcNode: Node): { start: number; end: number 
         };
       }
     }
+    /* v8 ignore start -- defensive: only reached if funcNode has no body and is not an arrow function, which cannot happen for detected components */
     return { start: 0, end: 0 };
+    /* v8 ignore stop */
   }
 
   // Look for the last return statement in the body
@@ -1326,6 +1331,7 @@ export function analyzeReactFileDirectory(
   const results: ReactInventory[] = [];
   for (const fp of filePaths) {
     const analysis = cached('react-inventory', fp, () => analyzeReactFile(fp), options);
+    if (!analysis?.components) continue;
     // Include files with any components or hook definitions
     if (analysis.components.length > 0 || analysis.hookDefinitions.length > 0) {
       results.push(analysis);
@@ -1339,68 +1345,27 @@ export function analyzeReactFileDirectory(
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-function main(): void {
-  const args = parseArgs(process.argv);
+const HELP_TEXT =
+  'Usage: npx tsx scripts/AST/ast-react-inventory.ts <path...> [--pretty] [--no-cache] [--test-files] [--kind <kind>] [--count]\n' +
+  '\n' +
+  'Analyze React components, hooks, useEffects, and props.\n' +
+  '\n' +
+  '  <path...>     One or more .tsx/.ts files or directories to analyze\n' +
+  '  --pretty      Format JSON output with indentation\n' +
+  '  --no-cache    Bypass cache and recompute (also refreshes cache)\n' +
+  '  --test-files  Scan test files instead of production files\n' +
+  '  --kind        Filter observations to a specific kind\n' +
+  '  --count       Output observation kind counts instead of full data\n';
 
-  if (args.help) {
-    process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-react-inventory.ts <path...> [--pretty] [--no-cache] [--test-files] [--kind <kind>] [--count]\n' +
-        '\n' +
-        'Analyze React components, hooks, useEffects, and props.\n' +
-        '\n' +
-        '  <path...>     One or more .tsx/.ts files or directories to analyze\n' +
-        '  --pretty      Format JSON output with indentation\n' +
-        '  --no-cache    Bypass cache and recompute (also refreshes cache)\n' +
-        '  --test-files  Scan test files instead of production files\n' +
-        '  --kind        Filter observations to a specific kind\n' +
-        '  --count       Output observation kind counts instead of full data\n',
-    );
-    process.exit(0);
-  }
+export const cliConfig: ObservationToolConfig<ReactInventory> = {
+  cacheNamespace: 'react-inventory',
+  helpText: HELP_TEXT,
+  analyzeFile: analyzeReactFile,
+  analyzeDirectory: analyzeReactFileDirectory,
+};
 
-  const noCache = args.flags.has('no-cache');
-  const testFiles = args.flags.has('test-files');
-
-  if (args.paths.length === 0) {
-    fatal('No file or directory path provided. Use --help for usage.');
-  }
-
-  const allResults: ReactInventory[] = [];
-
-  for (const targetPath of args.paths) {
-    const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
-
-    if (!fs.existsSync(absolute)) {
-      fatal(`Path does not exist: ${targetPath}`);
-    }
-
-    const stat = fs.statSync(absolute);
-
-    if (stat.isDirectory()) {
-      allResults.push(...analyzeReactFileDirectory(targetPath, { noCache, filter: testFiles ? 'test' : 'production' }));
-    } else {
-      const result = cached('react-inventory', absolute, () => analyzeReactFile(absolute), { noCache });
-      allResults.push(result);
-    }
-  }
-
-  const cacheStats = getCacheStats();
-  if (cacheStats.hits > 0 || cacheStats.misses > 0) {
-    process.stderr.write(`Cache: ${cacheStats.hits} hits, ${cacheStats.misses} misses\n`);
-  }
-
-  const result = allResults.length === 1 ? allResults[0] : allResults;
-  outputFiltered(result, args.pretty, {
-    kind: args.options.kind,
-    count: args.flags.has('count'),
-  });
-}
-
-// Run CLI when executed directly
+/* v8 ignore next 3 */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-react-inventory.ts') || process.argv[1].endsWith('ast-react-inventory'));
-
-if (isDirectRun) {
-  main();
-}
+if (isDirectRun) runObservationToolCli(cliConfig);

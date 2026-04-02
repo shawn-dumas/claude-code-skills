@@ -758,4 +758,53 @@ describe('ast-test-analysis', () => {
       expect(hookCallAssertions.length + mutationAssertions.length).toBe(implAssertions.length);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // SPY_DECLARATION
+  // ---------------------------------------------------------------------------
+
+  describe('SPY_DECLARATION', () => {
+    it('emits SPY_DECLARATION for vi.spyOn calls with 2+ arguments', () => {
+      // Covers line 1072 in ast-test-analysis.ts where the SPY_DECLARATION
+      // observation is pushed when spyOn() is called with at least 2 arguments.
+      const result = analyzeFixture('test-spy-declaration.spec.ts');
+      const spyObs = result.observations.filter(o => o.kind === 'SPY_DECLARATION');
+
+      expect(spyObs.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('records the spy target and method in evidence', () => {
+      const result = analyzeFixture('test-spy-declaration.spec.ts');
+      const spyObs = result.observations.filter(o => o.kind === 'SPY_DECLARATION');
+
+      const warnSpy = spyObs.find(o => o.evidence.spyMethod === 'warn');
+      expect(warnSpy).toBeDefined();
+      expect(warnSpy!.evidence.spyTarget).toBeDefined();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // SEQUENTIAL_MOCK_RESPONSE -- interrupted sequence path
+  // ---------------------------------------------------------------------------
+
+  describe('SEQUENTIAL_MOCK_RESPONSE interrupted sequence', () => {
+    it('detects 3+ sequential mockResponseOnce calls interrupted by a non-sequential statement', () => {
+      // Covers line 1386 in ast-test-analysis.ts: the "else" branch that fires
+      // when consecutiveCount >= 3 and the current statement is NOT a
+      // mockResponseOnce call (interrupted sequence, as opposed to the trailing
+      // sequence path on line 1398 which is already covered).
+      const result = analyzeFixture('test-analysis-mock-ordering-interrupted.spec.ts');
+      const seqObs = result.observations.filter(o => o.kind === 'SEQUENTIAL_MOCK_RESPONSE');
+
+      expect(seqObs.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('records sequentialCount of 3 for the interrupted sequence', () => {
+      const result = analyzeFixture('test-analysis-mock-ordering-interrupted.spec.ts');
+      const seqObs = result.observations.filter(o => o.kind === 'SEQUENTIAL_MOCK_RESPONSE');
+
+      const threeCall = seqObs.find(o => o.evidence.sequentialCount === 3);
+      expect(threeCall).toBeDefined();
+    });
+  });
 });

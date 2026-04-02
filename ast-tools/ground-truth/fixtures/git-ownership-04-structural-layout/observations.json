@@ -1,0 +1,126 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "ownership",
+  "files": {
+    "DashboardContent.tsx": {
+      "hookObservations": [],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/DashboardContent.tsx",
+          "line": 11,
+          "evidence": {
+            "componentName": "DashboardContent",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/DashboardContent.tsx",
+          "line": 11,
+          "evidence": {
+            "componentName": "DashboardContent",
+            "propName": "children",
+            "propType": "React.ReactNode",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/DashboardContent.tsx",
+          "line": 11,
+          "evidence": {
+            "componentName": "DashboardContent",
+            "propName": "pageTitle",
+            "propType": "string",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/DashboardContent.tsx",
+          "line": 11,
+          "evidence": {
+            "componentName": "DashboardContent",
+            "propName": "filterComponent",
+            "propType": "React.ReactNode | null",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/DashboardContent.tsx",
+          "line": 11,
+          "evidence": {
+            "componentName": "DashboardContent",
+            "propName": "filtersVisible",
+            "propType": "boolean",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        }
+      ]
+    },
+    "RequireRoles.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/RequireRoles.tsx",
+          "line": 11,
+          "column": 29,
+          "evidence": {
+            "hookName": "useAuthState",
+            "importSource": "src/ui/providers/context/auth/index.tsx",
+            "destructuredNames": ["roles", "logOut"],
+            "parentFunction": "RequireRoles",
+            "isReactBuiltin": false
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/RequireRoles.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "RequireRoles",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/RequireRoles.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "RequireRoles",
+            "propName": "allowedRoles",
+            "propType": "string[]",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/RequireRoles.tsx",
+          "line": 10,
+          "evidence": {
+            "componentName": "RequireRoles",
+            "propName": "children",
+            "propType": "React.ReactNode",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        }
+      ]
+    }
+  }
+}

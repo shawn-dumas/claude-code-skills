@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
-import { analyzeExportSurface, extractExportSurfaceObservations } from '../ast-export-surface';
+import {
+  analyzeExportSurface,
+  analyzeExportSurfaceDirectory,
+  extractExportSurfaceObservations,
+  cliConfig,
+} from '../ast-export-surface';
 import type { ExportSurfaceAnalysis, ExportSurfaceObservation } from '../types';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
@@ -104,5 +109,67 @@ describe('ast-export-surface', () => {
     const obsResult = extractExportSurfaceObservations(result);
     expect(obsResult.filePath).toBe(result.filePath);
     expect(obsResult.observations).toEqual(result.observations);
+  });
+});
+
+describe('analyzeExportSurfaceDirectory', () => {
+  it('analyzes all production files in a directory', () => {
+    const results = analyzeExportSurfaceDirectory(FIXTURES_DIR);
+    expect(results.length).toBeGreaterThan(0);
+    for (const r of results) {
+      expect(r.filePath).toBeDefined();
+      expect(Array.isArray(r.observations)).toBe(true);
+    }
+  });
+});
+
+describe('cliConfig.preHandler', () => {
+  it('returns false when --from-git is not provided', () => {
+    const args = {
+      paths: [],
+      pretty: false,
+      help: false,
+      options: {},
+      flags: new Set<string>(),
+    };
+    const result = cliConfig.preHandler!(args);
+    expect(result).toBe(false);
+  });
+});
+
+describe('ast-export-surface: namespace export fallback', () => {
+  it('classifies namespace export as const (fallback kind)', () => {
+    // A namespace declaration is not a FunctionDeclaration/ClassDeclaration/TypeAlias/Interface/Enum/Variable.
+    // classifyExportKind falls through to the final return 'const'.
+    const result = analyzeExportSurface(fixturePath('export-surface-namespace.ts'));
+    const nsExport = result.observations.find(e => e.evidence.name === 'Utils');
+    expect(nsExport).toBeDefined();
+    expect(nsExport!.evidence.exportKind).toBe('const');
+    expect(nsExport!.evidence.isTypeOnly).toBe(false);
+  });
+});
+
+describe('analyzeExportSurfaceDirectory', () => {
+  it('analyzes all production files in a directory', () => {
+    const results = analyzeExportSurfaceDirectory(FIXTURES_DIR);
+    expect(results.length).toBeGreaterThan(0);
+    for (const r of results) {
+      expect(r.filePath).toBeDefined();
+      expect(Array.isArray(r.observations)).toBe(true);
+    }
+  });
+});
+
+describe('cliConfig.preHandler', () => {
+  it('returns false when --from-git is not provided', () => {
+    const args = {
+      paths: [],
+      pretty: false,
+      help: false,
+      options: {},
+      flags: new Set<string>(),
+    };
+    const result = cliConfig.preHandler!(args);
+    expect(result).toBe(false);
   });
 });

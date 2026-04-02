@@ -13,11 +13,7 @@ import path from 'path';
 import fs from 'fs';
 import { PROJECT_ROOT } from './project';
 import { parseArgs, outputFiltered, fatal } from './cli';
-import type {
-  PeerDepAnalysis,
-  PeerDepObservation,
-  ObservationResult,
-} from './types';
+import type { PeerDepAnalysis, PeerDepObservation, ObservationResult } from './types';
 
 // ---------------------------------------------------------------------------
 // Semver range evaluation (no external dependency)
@@ -129,7 +125,14 @@ function satisfiesComparator(version: ParsedVersion, comparator: string): boolea
   }
 
   // Handle x-ranges: 1.x, 1.2.x, 1.*, 1.2.*
-  if (/[xX*]/.test(trimmed) && !trimmed.startsWith('>=') && !trimmed.startsWith('<=') && !trimmed.startsWith('>') && !trimmed.startsWith('<') && !trimmed.startsWith('=')) {
+  if (
+    /[xX*]/.test(trimmed) &&
+    !trimmed.startsWith('>=') &&
+    !trimmed.startsWith('<=') &&
+    !trimmed.startsWith('>') &&
+    !trimmed.startsWith('<') &&
+    !trimmed.startsWith('=')
+  ) {
     return satisfiesXRange(version, trimmed);
   }
 
@@ -267,10 +270,7 @@ function satisfiesAndGroup(version: ParsedVersion, group: string): boolean {
   // Handle hyphen ranges: 1.0.0 - 2.0.0 -> >=1.0.0 <=2.0.0
   const hyphenMatch = /^(\S+)\s+-\s+(\S+)$/.exec(group);
   if (hyphenMatch) {
-    return (
-      satisfiesComparator(version, `>=${hyphenMatch[1]}`) &&
-      satisfiesComparator(version, `<=${hyphenMatch[2]}`)
-    );
+    return satisfiesComparator(version, `>=${hyphenMatch[1]}`) && satisfiesComparator(version, `<=${hyphenMatch[2]}`);
   }
 
   // Normalize spacing: collapse ">= 16" into ">=16", "<= 19" into "<=19", etc.
@@ -516,7 +516,7 @@ function formatPrettyTable(analysis: PeerDepAnalysis): string {
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-function main(): void {
+export function main(): void {
   const args = parseArgs(process.argv);
 
   if (args.help) {
@@ -555,10 +555,11 @@ function main(): void {
   });
 }
 
+/* v8 ignore start */
 const isDirectRun =
-  process.argv[1] &&
-  (process.argv[1].endsWith('ast-peer-deps.ts') || process.argv[1].endsWith('ast-peer-deps'));
+  process.argv[1] && (process.argv[1].endsWith('ast-peer-deps.ts') || process.argv[1].endsWith('ast-peer-deps'));
 
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

@@ -1,0 +1,112 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "ownership",
+  "files": {
+    "UserRoleSelect.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/UserRoleSelect.tsx",
+          "line": 13,
+          "column": 50,
+          "evidence": {
+            "hookName": "useChangeUserTeamRoleMutation",
+            "importSource": "src/ui/services/hooks/mutations/users/index.ts",
+            "destructuredNames": ["changeUserRoleForTeam"],
+            "parentFunction": "UserRoleSelect",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/UserRoleSelect.tsx",
+          "line": 14,
+          "column": 39,
+          "evidence": {
+            "hookName": "useState",
+            "importSource": "react",
+            "destructuredNames": ["isUpdating", "setIsUpdating"],
+            "parentFunction": "UserRoleSelect",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/UserRoleSelect.tsx",
+          "line": 16,
+          "column": 21,
+          "evidence": {
+            "hookName": "useMemo",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "UserRoleSelect",
+            "isReactBuiltin": true
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/UserRoleSelect.tsx",
+          "line": 12,
+          "evidence": {
+            "componentName": "UserRoleSelect",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/UserRoleSelect.tsx",
+          "line": 12,
+          "evidence": {
+            "componentName": "UserRoleSelect",
+            "propName": "userName",
+            "propType": "string",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/UserRoleSelect.tsx",
+          "line": 12,
+          "evidence": {
+            "componentName": "UserRoleSelect",
+            "propName": "teamId",
+            "propType": "string",
+            "isOptional": true,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/UserRoleSelect.tsx",
+          "line": 12,
+          "evidence": {
+            "componentName": "UserRoleSelect",
+            "propName": "roles",
+            "propType": "string[]",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/UserRoleSelect.tsx",
+          "line": 12,
+          "evidence": {
+            "componentName": "UserRoleSelect",
+            "propName": "onClearAssignments",
+            "propType": "(id: string) => Promise<void>",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": true
+          }
+        }
+      ]
+    }
+  }
+}

@@ -421,7 +421,7 @@ function deserializeAuditContext(raw: {
   };
 }
 
-function main(): void {
+export function main(): void {
   const namedOptions = ['--signal-pair', '--audit-context', '--refactor-type'] as const;
   const args = parseArgs(process.argv, namedOptions);
 
@@ -498,6 +498,7 @@ function main(): void {
 }
 
 // Run CLI when executed directly
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-interpret-refactor-intent.ts') ||
@@ -506,3 +507,4 @@ const isDirectRun =
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

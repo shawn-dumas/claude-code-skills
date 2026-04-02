@@ -80,6 +80,22 @@ describe('ast-interpret-effects', () => {
       expect(result.assessments[0].confidence).toBe('high');
     });
 
+    it('classifies fetch + setState + cleanup as DERIVED_STATE with medium confidence', () => {
+      // Covers: line 226 false branch (!hasCleanup skipped) and line 232 true branch (medium)
+      const observations: EffectObservation[] = [
+        makeLocation('test.tsx', 10),
+        makeObs('EFFECT_FETCH_CALL', 'test.tsx', 11, 10, { identifier: 'fetch' }),
+        makeObs('EFFECT_STATE_SETTER_CALL', 'test.tsx', 12, 10, { identifier: 'setData' }),
+        makeObs('EFFECT_CLEANUP_PRESENT', 'test.tsx', 14, 10),
+      ];
+
+      const result = interpretEffects(observations);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('DERIVED_STATE');
+      expect(result.assessments[0].confidence).toBe('medium');
+    });
+
     it('classifies prop mirror as DERIVED_STATE with medium confidence', () => {
       const observations: EffectObservation[] = [
         makeLocation('test.tsx', 10),
@@ -97,6 +113,55 @@ describe('ast-interpret-effects', () => {
       expect(result.assessments[0].rationale[0]).toContain('setUser');
     });
 
+    it('classifies exact setX/X prop mirror (setterMirrorsProp line 139 path)', () => {
+      // setter='setData', prop='Data' -> 'setdata' === 'set'+'data' = true -> line 139 executes
+      const observations: EffectObservation[] = [
+        makeLocation('test.tsx', 10),
+        makeObs('EFFECT_DEP_ENTRY', 'test.tsx', 10, 10, { identifier: 'Data' }),
+        makeObs('EFFECT_PROP_READ', 'test.tsx', 11, 10, { identifier: 'Data' }),
+        makeObs('EFFECT_STATE_SETTER_CALL', 'test.tsx', 11, 10, { identifier: 'setData' }),
+      ];
+
+      const result = interpretEffects(observations);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('DERIVED_STATE');
+      expect(result.assessments[0].confidence).toBe('medium');
+    });
+
+    it('classifies lowercase matching prop mirror (setterMirrorsProp line 145 path)', () => {
+      // setter='setCount', prop='count' -> withoutSet='Count', withoutSetLower='count' === 'count' -> line 145
+      const observations: EffectObservation[] = [
+        makeLocation('test.tsx', 10),
+        makeObs('EFFECT_DEP_ENTRY', 'test.tsx', 10, 10, { identifier: 'count' }),
+        makeObs('EFFECT_PROP_READ', 'test.tsx', 11, 10, { identifier: 'count' }),
+        makeObs('EFFECT_STATE_SETTER_CALL', 'test.tsx', 11, 10, { identifier: 'setCount' }),
+      ];
+
+      const result = interpretEffects(observations);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('DERIVED_STATE');
+      expect(result.assessments[0].confidence).toBe('medium');
+    });
+
+    it('does not mirror when prop has value-prefix but stripped name differs from setter root', () => {
+      // setter='setRowSelection', prop='initialValue' ->
+      // propLower.startsWith('initial') = true, stripped='value', 'value' !== 'rowselection' -> false branch
+      const observations: EffectObservation[] = [
+        makeLocation('test.tsx', 10),
+        makeObs('EFFECT_DEP_ENTRY', 'test.tsx', 10, 10, { identifier: 'initialValue' }),
+        makeObs('EFFECT_PROP_READ', 'test.tsx', 11, 10, { identifier: 'initialValue' }),
+        makeObs('EFFECT_STATE_SETTER_CALL', 'test.tsx', 11, 10, { identifier: 'setRowSelection' }),
+      ];
+
+      const result = interpretEffects(observations);
+
+      // prop does not mirror setter -> not DERIVED_STATE via prop-mirror path
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).not.toBe('DERIVED_STATE');
+    });
+
     it('classifies context derivation as DERIVED_STATE with low confidence', () => {
       const observations: EffectObservation[] = [
         makeLocation('test.tsx', 10),
@@ -109,6 +174,22 @@ describe('ast-interpret-effects', () => {
       expect(result.assessments).toHaveLength(1);
       expect(result.assessments[0].kind).toBe('DERIVED_STATE');
       expect(result.assessments[0].confidence).toBe('low');
+    });
+  });
+
+  describe('timer without state setter falls through to NECESSARY', () => {
+    it('classifies timer-only effect (no setState) as NECESSARY, not TIMER_RACE', () => {
+      // classifyTimerRace returns null when !group.hasStateSetter.
+      // Falls through to classifyNecessary.
+      const observations: EffectObservation[] = [
+        makeLocation('test.tsx', 10),
+        makeObs('EFFECT_TIMER_CALL', 'test.tsx', 11, 10, { identifier: 'requestAnimationFrame' }),
+      ];
+
+      const result = interpretEffects(observations);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('NECESSARY');
     });
   });
 
@@ -193,6 +274,21 @@ describe('ast-interpret-effects', () => {
       expect(result.assessments[0].rationale[0]).toContain('DOM-typed ref');
     });
 
+    it('includes cleanup in rationale when DOM-typed ref has cleanup', () => {
+      // Exercises the hasDomRef + hasCleanup branch inside classifyDomEffect.
+      const observations: EffectObservation[] = [
+        makeLocation('test.tsx', 10),
+        makeObs('EFFECT_REF_TOUCH', 'test.tsx', 11, 10, { identifier: 'containerRef', isDomRef: true }),
+        makeObs('EFFECT_CLEANUP_PRESENT', 'test.tsx', 10, 10),
+      ];
+
+      const result = interpretEffects(observations);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('DOM_EFFECT');
+      expect(result.assessments[0].rationale).toContain('has cleanup function');
+    });
+
     it('classifies DOM API access as DOM_EFFECT', () => {
       const observations: EffectObservation[] = [
         makeLocation('test.tsx', 10),
@@ -204,6 +300,21 @@ describe('ast-interpret-effects', () => {
       expect(result.assessments).toHaveLength(1);
       expect(result.assessments[0].kind).toBe('DOM_EFFECT');
       expect(result.assessments[0].confidence).toBe('high');
+    });
+
+    it('includes ref touch in rationale when DOM API effect also has ref access', () => {
+      // hasDomApi + hasRefTouch -> both notes added to rationale.
+      const observations: EffectObservation[] = [
+        makeLocation('test.tsx', 10),
+        makeObs('EFFECT_DOM_API', 'test.tsx', 11, 10, { targetObject: 'document', method: 'querySelector' }),
+        makeObs('EFFECT_REF_TOUCH', 'test.tsx', 12, 10, { identifier: 'divRef' }),
+      ];
+
+      const result = interpretEffects(observations);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('DOM_EFFECT');
+      expect(result.assessments[0].rationale).toContain('contains ref.current access');
     });
   });
 
@@ -220,6 +331,25 @@ describe('ast-interpret-effects', () => {
       expect(result.assessments[0].kind).toBe('EXTERNAL_SUBSCRIPTION');
       expect(result.assessments[0].confidence).toBe('medium');
       expect(result.assessments[0].isCandidate).toBe(false);
+    });
+  });
+
+  describe('NECESSARY: cleanup with state setter (no deps)', () => {
+    it('classifies cleanup + setState with no dep entries as NECESSARY via cleanup-with-empty-deps rationale', () => {
+      // cleanup + stateSetter: classifyExternalSubscription requires !hasStateSetter, so it
+      // skips. classifyDerivedState requires fetch/async/prop/context, so it skips.
+      // Falls through to classifyNecessary where the else-if branch fires.
+      const observations: EffectObservation[] = [
+        makeLocation('test.tsx', 10),
+        makeObs('EFFECT_CLEANUP_PRESENT', 'test.tsx', 10, 10),
+        makeObs('EFFECT_STATE_SETTER_CALL', 'test.tsx', 11, 10, { identifier: 'setFlag' }),
+      ];
+
+      const result = interpretEffects(observations);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('NECESSARY');
+      expect(result.assessments[0].rationale[0]).toBe('cleanup-only effect with empty deps');
     });
   });
 
@@ -435,6 +565,67 @@ describe('ast-interpret-effects', () => {
       expect(result.assessments[0].kind).toBe('EVENT_HANDLER_DISGUISED');
       expect(result.assessments[0].confidence).toBe('medium');
       expect(result.assessments[0].isCandidate).toBe(true);
+    });
+
+    it('falls through body-read check when all deps are callbacks or prop reads (no state deps)', () => {
+      // Covers line 325 false branch: propRead='onSubmit' starts with 'on' but
+      // depEntries.some(d => !d.startsWith('on') && !propReads.includes(d)) = false
+      // because 'count' IS in propReads and 'onSubmit' starts with 'on'.
+      // The second loop at line 323 enters but falls through without classifying.
+      const observations: EffectObservation[] = [
+        makeLocation('test.tsx', 10),
+        makeObs('EFFECT_DEP_ENTRY', 'test.tsx', 10, 10, { identifier: 'count' }),
+        makeObs('EFFECT_DEP_ENTRY', 'test.tsx', 10, 10, { identifier: 'onSubmit' }),
+        makeObs('EFFECT_PROP_READ', 'test.tsx', 11, 10, { identifier: 'onSubmit' }),
+        makeObs('EFFECT_PROP_READ', 'test.tsx', 11, 10, { identifier: 'count' }),
+      ];
+
+      const result = interpretEffects(observations);
+
+      // No EVENT_HANDLER_DISGUISED via the body-read check (falls through both paths)
+      // No other classification matches either -> NECESSARY (fallback)
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('NECESSARY');
+    });
+
+    it('classifies guard-then-call pattern as EVENT_HANDLER_DISGUISED (low confidence)', () => {
+      // Covers isLikelyFunctionDep true branches:
+      // 'onSearch' is in depEntries but NOT in bodyDepCalls, so isLikelyFunctionDep('onSearch')
+      // is evaluated -> returns true (on[A-Z] pattern) -> filtered from dataDeps.
+      // 'count' is a plain data dep -> dataDeps = ['count'] -> guard-then-call detected.
+      const observations: EffectObservation[] = [
+        makeLocation('test.tsx', 10),
+        makeObs('EFFECT_DEP_ENTRY', 'test.tsx', 10, 10, { identifier: 'count' }),
+        makeObs('EFFECT_DEP_ENTRY', 'test.tsx', 10, 10, { identifier: 'onSearch' }),
+        makeObs('EFFECT_BODY_DEP_CALL', 'test.tsx', 11, 10, { identifier: 'submitData' }),
+        makeObs('EFFECT_DEP_ENTRY', 'test.tsx', 10, 10, { identifier: 'submitData' }),
+      ];
+
+      const result = interpretEffects(observations);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('EVENT_HANDLER_DISGUISED');
+      expect(result.assessments[0].confidence).toBe('low');
+    });
+
+    it('covers isLikelyFunctionDep true branches for handle, set, and dispatch', () => {
+      // Tests that handleClick, setFilter, and dispatch are recognized as function deps
+      // and filtered out, leaving only 'count' as the data dep.
+      const observations: EffectObservation[] = [
+        makeLocation('test.tsx', 10),
+        makeObs('EFFECT_DEP_ENTRY', 'test.tsx', 10, 10, { identifier: 'count' }),
+        makeObs('EFFECT_DEP_ENTRY', 'test.tsx', 10, 10, { identifier: 'handleClick' }),
+        makeObs('EFFECT_DEP_ENTRY', 'test.tsx', 10, 10, { identifier: 'setFilter' }),
+        makeObs('EFFECT_DEP_ENTRY', 'test.tsx', 10, 10, { identifier: 'dispatch' }),
+        makeObs('EFFECT_BODY_DEP_CALL', 'test.tsx', 11, 10, { identifier: 'submitData' }),
+        makeObs('EFFECT_DEP_ENTRY', 'test.tsx', 10, 10, { identifier: 'submitData' }),
+      ];
+
+      const result = interpretEffects(observations);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('EVENT_HANDLER_DISGUISED');
+      expect(result.assessments[0].confidence).toBe('low');
     });
   });
 

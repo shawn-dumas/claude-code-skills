@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
 import fs from 'fs';
-import { analyzeBrandedCheck, analyzeBrandedCheckDirectory } from '../ast-branded-check';
+import {
+  analyzeBrandedCheck,
+  analyzeBrandedCheckDirectory,
+  extractBrandedCheckObservations,
+} from '../ast-branded-check';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
 
@@ -209,5 +213,148 @@ describe('ast-branded-check: evidence fields', () => {
       o => o.kind === 'UNBRANDED_PARAM' && o.evidence.parameterName === 'return',
     );
     expect(returnObs.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Excluded type name patterns (UNBRANDED_ID_FIELD)
+// ---------------------------------------------------------------------------
+
+describe('ast-branded-check: UNBRANDED_ID_FIELD excluded type names', () => {
+  it('does not flag userId: string inside a type named with excluded pattern (e.g. UserResponse)', () => {
+    const result = analyzeBrandedCheck(path.join(FIXTURES_DIR, 'branded-type-excluded-type.ts'));
+    const fieldObs = result.observations.filter(o => o.kind === 'UNBRANDED_ID_FIELD');
+
+    // UserResponse and CreateUserRequest should NOT be flagged
+    const responseObs = fieldObs.filter(
+      o => o.evidence.containingType === 'UserResponse' || o.evidence.containingType === 'CreateUserRequest',
+    );
+    expect(responseObs).toHaveLength(0);
+  });
+
+  it('does flag userId: string inside a type with no excluded pattern (e.g. UserRecord)', () => {
+    const result = analyzeBrandedCheck(path.join(FIXTURES_DIR, 'branded-type-excluded-type.ts'));
+    const fieldObs = result.observations.filter(o => o.kind === 'UNBRANDED_ID_FIELD');
+
+    const recordObs = fieldObs.filter(o => o.evidence.containingType === 'UserRecord');
+    expect(recordObs.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getFunctionName: arrow function as class property declaration
+// ---------------------------------------------------------------------------
+
+describe('ast-branded-check: arrow function as class property declaration', () => {
+  it('uses the property name for an arrow function assigned as a class property', () => {
+    const result = analyzeBrandedCheck(path.join(FIXTURES_DIR, 'branded-type-arrow-property.ts'));
+    const paramObs = result.observations.filter(o => o.kind === 'UNBRANDED_PARAM');
+
+    // fetchUser is a class property arrow function -> functionName should be 'fetchUser'
+    const fetchUserObs = paramObs.find(o => o.evidence.functionName === 'fetchUser');
+    expect(fetchUserObs).toBeDefined();
+    expect(fetchUserObs!.evidence.parameterName).toBe('userId');
+  });
+
+  it('uses "<arrow>" for an arrow function not assigned to a variable or class property', () => {
+    const result = analyzeBrandedCheck(path.join(FIXTURES_DIR, 'branded-type-arrow-property.ts'));
+    const paramObs = result.observations.filter(o => o.kind === 'UNBRANDED_PARAM');
+
+    // handlers.getUser arrow is an object literal property -- not a VariableDeclaration or PropertyDeclaration
+    const arrowObs = paramObs.find(o => o.evidence.functionName === '<arrow>');
+    expect(arrowObs).toBeDefined();
+    expect(arrowObs!.evidence.parameterName).toBe('userId');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractBrandedCheckObservations
+// ---------------------------------------------------------------------------
+
+describe('ast-branded-check: extractBrandedCheckObservations', () => {
+  it('returns an ObservationResult with matching filePath and observations', () => {
+    const analysis = analyzeBrandedCheck(fixturePath('branded-type-gaps-bare-param', 'service.ts'));
+    const result = extractBrandedCheckObservations(analysis);
+
+    expect(result.filePath).toBe(analysis.filePath);
+    expect(result.observations).toBe(analysis.observations);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Excluded type name patterns (UNBRANDED_ID_FIELD)
+// ---------------------------------------------------------------------------
+
+describe('ast-branded-check: UNBRANDED_ID_FIELD excluded type names', () => {
+  it('does not flag userId: string inside a type named with excluded pattern (e.g. UserResponse)', () => {
+    const result = analyzeBrandedCheck(path.join(FIXTURES_DIR, 'branded-type-excluded-type.ts'));
+    const fieldObs = result.observations.filter(o => o.kind === 'UNBRANDED_ID_FIELD');
+
+    // UserResponse and CreateUserRequest should NOT be flagged
+    const responseObs = fieldObs.filter(
+      o => o.evidence.containingType === 'UserResponse' || o.evidence.containingType === 'CreateUserRequest',
+    );
+    expect(responseObs).toHaveLength(0);
+  });
+
+  it('does flag userId: string inside a type with no excluded pattern (e.g. UserRecord)', () => {
+    const result = analyzeBrandedCheck(path.join(FIXTURES_DIR, 'branded-type-excluded-type.ts'));
+    const fieldObs = result.observations.filter(o => o.kind === 'UNBRANDED_ID_FIELD');
+
+    const recordObs = fieldObs.filter(o => o.evidence.containingType === 'UserRecord');
+    expect(recordObs.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getFunctionName: arrow function as class property declaration
+// ---------------------------------------------------------------------------
+
+describe('ast-branded-check: arrow function as class property declaration', () => {
+  it('uses the property name for an arrow function assigned as a class property', () => {
+    const result = analyzeBrandedCheck(path.join(FIXTURES_DIR, 'branded-type-arrow-property.ts'));
+    const paramObs = result.observations.filter(o => o.kind === 'UNBRANDED_PARAM');
+
+    // fetchUser is a class property arrow function -> functionName should be 'fetchUser'
+    const fetchUserObs = paramObs.find(o => o.evidence.functionName === 'fetchUser');
+    expect(fetchUserObs).toBeDefined();
+    expect(fetchUserObs!.evidence.parameterName).toBe('userId');
+  });
+
+  it('uses "<arrow>" for an arrow function not assigned to a variable or class property', () => {
+    const result = analyzeBrandedCheck(path.join(FIXTURES_DIR, 'branded-type-arrow-property.ts'));
+    const paramObs = result.observations.filter(o => o.kind === 'UNBRANDED_PARAM');
+
+    // handlers.getUser arrow is an object literal property -- not a VariableDeclaration or PropertyDeclaration
+    const arrowObs = paramObs.find(o => o.evidence.functionName === '<arrow>');
+    expect(arrowObs).toBeDefined();
+    expect(arrowObs!.evidence.parameterName).toBe('userId');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Path exclusion (schema / spec / brand files)
+// ---------------------------------------------------------------------------
+
+describe('ast-branded-check: path exclusion', () => {
+  it('returns empty observations for files matching excluded path patterns (e.g. .spec.ts)', () => {
+    // Use the current spec file itself -- it matches '.spec.ts' exclusion pattern
+    const specFilePath = path.join(FIXTURES_DIR, '../ast-branded-check.spec.ts');
+    const result = analyzeBrandedCheck(specFilePath);
+    expect(result.observations).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractBrandedCheckObservations
+// ---------------------------------------------------------------------------
+
+describe('ast-branded-check: extractBrandedCheckObservations', () => {
+  it('returns an ObservationResult with matching filePath and observations', () => {
+    const analysis = analyzeBrandedCheck(fixturePath('branded-type-gaps-bare-param', 'service.ts'));
+    const result = extractBrandedCheckObservations(analysis);
+
+    expect(result.filePath).toBe(analysis.filePath);
+    expect(result.observations).toBe(analysis.observations);
   });
 });

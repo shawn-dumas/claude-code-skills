@@ -1,0 +1,205 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "test-quality",
+  "files": {
+    "domain-a/component.spec.tsx": {
+      "observations": [
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "importSource": "vitest",
+            "specifiers": ["describe", "it", "expect", "vi"]
+          }
+        },
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 2,
+          "column": 1,
+          "evidence": {
+            "importSource": "@testing-library/react",
+            "specifiers": ["render", "screen"]
+          }
+        },
+        {
+          "kind": "MOCK_DECLARATION",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 5,
+          "column": 5,
+          "evidence": {
+            "target": "next/router",
+            "returnShapeText": "() => ({ useRouter: vi.fn(() => ({ push: vi.fn() })), })"
+          }
+        },
+        {
+          "kind": "MOCK_DECLARATION",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 9,
+          "column": 9,
+          "evidence": {
+            "target": "firebase/auth",
+            "returnShapeText": "() => ({ getAuth: vi.fn(), })"
+          }
+        },
+        {
+          "kind": "MOCK_DECLARATION",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 13,
+          "column": 13,
+          "evidence": {
+            "target": "./useLocalState",
+            "returnShapeText": "() => ({ useLocalState: vi.fn(() => ({ count: 5, setCount: vi.fn() })), })"
+          }
+        },
+        {
+          "kind": "MOCK_TARGET_RESOLVED",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 13,
+          "column": 13,
+          "evidence": {
+            "target": "./useLocalState",
+            "resolvedPath": "../../../..<fixture>/domain-a/useLocalState.ts",
+            "exportNames": ["useLocalState"],
+            "fileExtension": ".ts"
+          }
+        },
+        {
+          "kind": "MOCK_DECLARATION",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 17,
+          "column": 17,
+          "evidence": {
+            "target": "../domain-b/useRemoteData",
+            "returnShapeText": "() => ({ useRemoteData: vi.fn(() => ({ data: [], setData: vi.fn() })), })"
+          }
+        },
+        {
+          "kind": "MOCK_TARGET_RESOLVED",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 17,
+          "column": 17,
+          "evidence": {
+            "target": "../domain-b/useRemoteData",
+            "resolvedPath": "../../../..<fixture>/domain-b/useRemoteData.ts",
+            "exportNames": ["useRemoteData"],
+            "fileExtension": ".ts"
+          }
+        },
+        {
+          "kind": "MOCK_DECLARATION",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 21,
+          "column": 21,
+          "evidence": {
+            "target": "../domain-b/useExternalConfig",
+            "returnShapeText": "() => ({ useExternalConfig: vi.fn(() => ({ config: {}, setConfig: vi.fn() })), })"
+          }
+        },
+        {
+          "kind": "MOCK_TARGET_RESOLVED",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 21,
+          "column": 21,
+          "evidence": {
+            "target": "../domain-b/useExternalConfig",
+            "resolvedPath": "../../../..<fixture>/domain-b/useExternalConfig.ts",
+            "exportNames": ["useExternalConfig"],
+            "fileExtension": ".ts"
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 28,
+          "column": 769,
+          "evidence": {
+            "matcherName": "toBeInTheDocument",
+            "expectArgText": "screen.getByText('Status')",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 27,
+          "column": 714,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "DESCRIBE_BLOCK",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 25,
+          "column": 648,
+          "evidence": {
+            "describeName": "StatusPanel"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 26,
+          "column": 682,
+          "evidence": {
+            "testName": "renders title"
+          }
+        },
+        {
+          "kind": "MOCK_INTERNAL",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 13,
+          "column": 1,
+          "evidence": {
+            "target": "./useLocalState",
+            "resolvedPath": "../../../..<fixture>/domain-a/useLocalState.ts",
+            "confidence": "high"
+          },
+          "authoritative": true
+        },
+        {
+          "kind": "MOCK_INTERNAL",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 17,
+          "column": 1,
+          "evidence": {
+            "target": "../domain-b/useRemoteData",
+            "resolvedPath": "../../../..<fixture>/domain-b/useRemoteData.ts",
+            "confidence": "high"
+          },
+          "authoritative": true
+        },
+        {
+          "kind": "MOCK_INTERNAL",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 21,
+          "column": 1,
+          "evidence": {
+            "target": "../domain-b/useExternalConfig",
+            "resolvedPath": "../../../..<fixture>/domain-b/useExternalConfig.ts",
+            "confidence": "high"
+          },
+          "authoritative": true
+        },
+        {
+          "kind": "MISSING_CLEANUP",
+          "file": "../../../..<fixture>/domain-a/component.spec.tsx",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "hasMocks": true,
+            "hasTimers": false
+          },
+          "authoritative": true
+        }
+      ],
+      "subjectPath": "../../../..<fixture>/domain-a/component.tsx",
+      "subjectExists": true
+    }
+  }
+}

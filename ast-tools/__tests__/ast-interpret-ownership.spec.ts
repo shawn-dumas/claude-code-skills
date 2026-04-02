@@ -125,6 +125,32 @@ function makeSideEffect(
 
 describe('ast-interpret-ownership', () => {
   describe('DDAU_COMPONENT classification', () => {
+    it('classifies component with props + no container hooks + side effects as DDAU_COMPONENT with medium confidence', () => {
+      // hasProps + noContainerHooks + !hasNoSideEffects -> medium confidence DDAU.
+      // Side effect is CONSOLE_CALL (not TOAST_CALL so no container signal added).
+      const file = 'LeafWithLog.tsx';
+      const componentObservations: ComponentObservation[] = [
+        makeComponentDecl(file, 5, 'LeafWithLog'),
+        makePropField(file, 6, 'LeafWithLog', 'data'),
+      ];
+      const sideEffectObservations: SideEffectObservation[] = [makeSideEffect(file, 10, 'CONSOLE_CALL', 'LeafWithLog')];
+
+      const inputs: OwnershipInputs = {
+        hookAssessments: [],
+        componentObservations,
+        hookObservations: [],
+        sideEffectObservations,
+      };
+
+      const result = interpretOwnership(inputs);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('DDAU_COMPONENT');
+      expect(result.assessments[0].confidence).toBe('medium');
+      expect(result.assessments[0].requiresManualReview).toBe(true);
+      expect(result.assessments[0].rationale.some(r => r.includes('side effect'))).toBe(true);
+    });
+
     it('classifies pure DDAU component (props only, no service hooks) as DDAU_COMPONENT with high confidence', () => {
       const file = 'test.tsx';
       const componentObservations: ComponentObservation[] = [
@@ -222,6 +248,97 @@ describe('ast-interpret-ownership', () => {
       expect(result.assessments[0].kind).toBe('CONTAINER');
       expect(result.assessments[0].confidence).toBe('medium');
     });
+
+    it('includes toast call in rationale for medium-confidence container (signalCount === 2)', () => {
+      // toast + service hook = exactly 2 signals -> medium confidence CONTAINER.
+      // Component name must NOT end with "Container" (would add a 3rd signal).
+      // Exercises the toastCallCount > 0 branch in the signalCount === 2 block.
+      const file = 'DataView.tsx';
+      const componentObservations: ComponentObservation[] = [makeComponentDecl(file, 5, 'DataView')];
+      const hookObservations: HookObservation[] = [
+        makeHookCall(file, 10, 'useTeamQuery', 'DataView', {
+          importSource: '@/services/hooks/queries/team',
+        }),
+      ];
+      const hookAssessments: HookAssessment[] = [
+        makeHookAssessment(file, 10, 'useTeamQuery', 'LIKELY_SERVICE_HOOK', 'high'),
+      ];
+      const sideEffectObservations: SideEffectObservation[] = [makeSideEffect(file, 20, 'TOAST_CALL', 'DataView')];
+
+      const inputs: OwnershipInputs = {
+        hookAssessments,
+        componentObservations,
+        hookObservations,
+        sideEffectObservations,
+      };
+
+      const result = interpretOwnership(inputs);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('CONTAINER');
+      expect(result.assessments[0].confidence).toBe('medium');
+      expect(result.assessments[0].rationale.some(r => r.includes('toast call'))).toBe(true);
+    });
+
+    it('classifies as CONTAINER with high confidence when 3 signals but serviceHookCount is 0', () => {
+      // Covers line 240 false branch: signalCount >= 3 but serviceHookCount === 0
+      // Signals: containers/ dir (1) + context hook (1) + router hook (1) = 3
+      const hookObservations: HookObservation[] = [
+        makeHookCall('/containers/DataPanel.tsx', 10, 'useAuth', 'DataPanel', {
+          importSource: '@/providers/context/auth',
+        }),
+        makeHookCall('/containers/DataPanel.tsx', 11, 'useRouter', 'DataPanel'),
+      ];
+      const hookAssessments: HookAssessment[] = [
+        makeHookAssessment('/containers/DataPanel.tsx', 10, 'useAuth', 'LIKELY_CONTEXT_HOOK', 'high'),
+      ];
+
+      const inputs: OwnershipInputs = {
+        hookAssessments,
+        componentObservations: [makeComponentDecl('/containers/DataPanel.tsx', 5, 'DataPanel')],
+        hookObservations,
+      };
+
+      const result = interpretOwnership(inputs);
+
+      // containers/ dir (1) + context hook (1) + router hook (1) = 3 signals -> high confidence CONTAINER
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('CONTAINER');
+      expect(result.assessments[0].confidence).toBe('high');
+      // serviceHookCount === 0, so 'service hook(s)' reason is NOT in rationale
+      expect(result.assessments[0].rationale.some(r => r.includes('service hook'))).toBe(false);
+    });
+
+    it('classifies as CONTAINER with high confidence when 3 signals but no Container suffix', () => {
+      // Covers line 252 false branch: signalCount >= 3 but hasContainerSuffix === false
+      // Signals: serviceHookCount=2 (counts as 2: ">0" + ">=2"), contextHookCount=1 -> count=3
+      const file = 'TeamPage.tsx';
+      const hookObservations: HookObservation[] = [
+        makeHookCall(file, 10, 'useTeamQuery', 'TeamPage', { importSource: '@/services/hooks/queries/team' }),
+        makeHookCall(file, 11, 'useUsersQuery', 'TeamPage', { importSource: '@/services/hooks/queries/users' }),
+        makeHookCall(file, 12, 'useAuth', 'TeamPage', { importSource: '@/providers/context/auth' }),
+      ];
+      const hookAssessments: HookAssessment[] = [
+        makeHookAssessment(file, 10, 'useTeamQuery', 'LIKELY_SERVICE_HOOK', 'high'),
+        makeHookAssessment(file, 11, 'useUsersQuery', 'LIKELY_SERVICE_HOOK', 'high'),
+        makeHookAssessment(file, 12, 'useAuth', 'LIKELY_CONTEXT_HOOK', 'high'),
+      ];
+
+      const inputs: OwnershipInputs = {
+        hookAssessments,
+        componentObservations: [makeComponentDecl(file, 5, 'TeamPage')],
+        hookObservations,
+      };
+
+      const result = interpretOwnership(inputs);
+
+      // 2 service hooks (2 signals) + 1 context hook (1 signal) = 3 -> high confidence
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('CONTAINER');
+      expect(result.assessments[0].confidence).toBe('high');
+      // hasContainerSuffix === false, so 'name ends with Container' NOT in rationale
+      expect(result.assessments[0].rationale.some(r => r.includes('name ends with Container'))).toBe(false);
+    });
   });
 
   describe('LEAF_VIOLATION classification', () => {
@@ -302,6 +419,39 @@ describe('ast-interpret-ownership', () => {
   });
 
   describe('AMBIGUOUS classification', () => {
+    it('classifies service hook (low confidence) + props as AMBIGUOUS with service+props rationale', () => {
+      // A LIKELY_SERVICE_HOOK with LOW confidence is not a "disallowed hook"
+      // (hasDisallowedHook only returns medium/high). So classifyLeafViolation skips it.
+      // containerSignals.serviceHookCount > 0 is still true (counts all service hooks).
+      // classifyAmbiguous fires with serviceHookCount>0 + hasProps + no container suffix/dir.
+      const file = 'WeirdMixed.tsx';
+      const componentObservations: ComponentObservation[] = [
+        makeComponentDecl(file, 5, 'WeirdMixed'),
+        makePropField(file, 6, 'WeirdMixed', 'data'),
+      ];
+      const hookObservations: HookObservation[] = [
+        makeHookCall(file, 10, 'useTeamQuery', 'WeirdMixed', {
+          importSource: '@/services/hooks/queries/team',
+        }),
+      ];
+      const hookAssessments: HookAssessment[] = [
+        // Low confidence service hook: counts in serviceHookCount but NOT a "disallowed hook"
+        makeHookAssessment(file, 10, 'useTeamQuery', 'LIKELY_SERVICE_HOOK', 'low'),
+      ];
+
+      const inputs: OwnershipInputs = {
+        hookAssessments,
+        componentObservations,
+        hookObservations,
+      };
+
+      const result = interpretOwnership(inputs);
+
+      expect(result.assessments).toHaveLength(1);
+      expect(result.assessments[0].kind).toBe('AMBIGUOUS');
+      expect(result.assessments[0].rationale.some(r => r.includes('service hooks AND props'))).toBe(true);
+    });
+
     it('classifies one service hook with no other container signals as AMBIGUOUS (not CONTAINER low)', () => {
       const file = 'WeirdComponent.tsx';
       const componentObservations: ComponentObservation[] = [makeComponentDecl(file, 5, 'WeirdComponent')];

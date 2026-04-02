@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "hooks",
+  "files": {
+    "component.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 16,
+          "column": 39,
+          "evidence": {
+            "hookName": "useTypewriter",
+            "importSource": "./useTypewriter",
+            "destructuredNames": ["currentText", "isComplete"],
+            "parentFunction": "ResponseMessage",
+            "isReactBuiltin": false
+          }
+        }
+      ]
+    }
+  }
+}

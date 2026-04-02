@@ -1,0 +1,114 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "hooks",
+  "files": {
+    "component.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 16,
+          "column": 35,
+          "evidence": {
+            "hookName": "useState",
+            "importSource": "react",
+            "destructuredNames": ["selected", "setSelected"],
+            "parentFunction": "ServiceAndContextPanel",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 17,
+          "column": 26,
+          "evidence": {
+            "hookName": "useTeamQuery",
+            "importSource": "@/services/hooks/queries/team",
+            "destructuredNames": ["team"],
+            "parentFunction": "ServiceAndContextPanel",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 18,
+          "column": 27,
+          "evidence": {
+            "hookName": "useUsersQuery",
+            "importSource": "src/ui/services/hooks/queries/users/index.ts",
+            "destructuredNames": ["users"],
+            "parentFunction": "ServiceAndContextPanel",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "column": 34,
+          "evidence": {
+            "hookName": "useUpdateUserMutation",
+            "importSource": "src/ui/services/hooks/mutations/users/index.ts",
+            "destructuredNames": ["updateUser"],
+            "parentFunction": "ServiceAndContextPanel",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 20,
+          "column": 20,
+          "evidence": {
+            "hookName": "useAuthState",
+            "importSource": "src/ui/providers/context/auth/index.tsx",
+            "destructuredNames": ["user"],
+            "parentFunction": "ServiceAndContextPanel",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 21,
+          "column": 28,
+          "evidence": {
+            "hookName": "usePosthogContext",
+            "importSource": "@/providers/context/posthog",
+            "destructuredNames": ["featureFlags"],
+            "parentFunction": "ServiceAndContextPanel",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 22,
+          "column": 21,
+          "evidence": {
+            "hookName": "useTeams",
+            "importSource": "@/providers/context/teams",
+            "destructuredNames": ["teams"],
+            "parentFunction": "ServiceAndContextPanel",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 23,
+          "column": 27,
+          "evidence": {
+            "hookName": "useQuery",
+            "importSource": "@tanstack/react-query",
+            "destructuredNames": ["extra"],
+            "parentFunction": "ServiceAndContextPanel",
+            "isReactBuiltin": false
+          }
+        }
+      ]
+    }
+  }
+}

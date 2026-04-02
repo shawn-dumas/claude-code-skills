@@ -243,17 +243,54 @@ describe('formatter file exemption', () => {
     const result = analyzeNumberFormat(
       path.join(PROJECT_ROOT, 'src', 'shared', 'utils', 'table', 'formatCellValue', 'formatCellValue.ts'),
     );
-    const rawObs = result.observations.filter(
-      o => o.kind === 'RAW_TO_LOCALE_STRING' || o.kind === 'RAW_TO_FIXED',
-    );
+    const rawObs = result.observations.filter(o => o.kind === 'RAW_TO_LOCALE_STRING' || o.kind === 'RAW_TO_FIXED');
     expect(rawObs).toHaveLength(0);
   });
 
   it('does NOT emit RAW_TO_FIXED for fixture files in src/fixtures/', () => {
-    const result = analyzeNumberFormat(
-      path.join(PROJECT_ROOT, 'src', 'fixtures', 'brand.ts'),
-    );
+    const result = analyzeNumberFormat(path.join(PROJECT_ROOT, 'src', 'fixtures', 'brand.ts'));
     const rawObs = result.observations.filter(o => o.kind === 'RAW_TO_FIXED');
     expect(rawObs).toHaveLength(0);
+  });
+});
+
+describe('edge-case context paths', () => {
+  function analyzeEdgeCases() {
+    return analyzeNumberFormat(fixturePath('number-format-edge-cases.tsx'));
+  }
+
+  it('reports context as "argument" when a format call is passed as an argument (line 43)', () => {
+    const result = analyzeEdgeCases();
+    const formatCalls = result.observations.filter(o => o.kind === 'FORMAT_NUMBER_CALL');
+    // exampleFormatAsArgument wraps formatNumber inside someWrapper(...)
+    const asArg = formatCalls.find(o => o.evidence.context === 'argument');
+    expect(asArg).toBeDefined();
+    expect(asArg!.evidence.callee).toBe('formatNumber');
+  });
+
+  it('reports context as "jsx-attribute" when a format call is inside a JSX expression (line 48)', () => {
+    const result = analyzeEdgeCases();
+    const formatCalls = result.observations.filter(o => o.kind === 'FORMAT_NUMBER_CALL');
+    // ExampleJsxFormat renders formatNumber(value) directly inside JSX
+    const inJsx = formatCalls.find(o => o.evidence.context === 'jsx-attribute');
+    expect(inJsx).toBeDefined();
+    expect(inJsx!.evidence.callee).toBe('formatNumber');
+  });
+
+  it('returns undefined from parseNumericArg when the argument is not a NumericLiteral (line 71)', () => {
+    const result = analyzeEdgeCases();
+    // exampleToFixedVariable calls num.toFixed(places) where places is an Identifier
+    const rawFixed = result.observations.filter(o => o.kind === 'RAW_TO_FIXED');
+    const variableArg = rawFixed.find(o => o.evidence.decimalPlaces === undefined);
+    expect(variableArg).toBeDefined();
+  });
+
+  it('emits PERCENTAGE_DISPLAY for a bare identifier call inside a % template (lines 288-290)', () => {
+    const result = analyzeEdgeCases();
+    const pctObs = result.observations.filter(o => o.kind === 'PERCENTAGE_DISPLAY');
+    // exampleBareCallInPercent uses `${customRound(value)}%` where customRound is a bare identifier
+    const bareCall = pctObs.find(o => o.evidence.callee === 'customRound');
+    expect(bareCall).toBeDefined();
+    expect(bareCall!.evidence.decimalPlaces).toBeUndefined();
   });
 });

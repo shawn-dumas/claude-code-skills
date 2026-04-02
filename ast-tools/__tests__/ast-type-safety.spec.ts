@@ -245,6 +245,175 @@ describe('analyzeTypeSafetyDirectory', () => {
   });
 });
 
+describe('trust boundary edge cases', () => {
+  const EDGE_FIXTURE = fixturePath('type-safety-trust-boundary-edge.ts');
+
+  describe('process.env trust boundary', () => {
+    it('detects process.env property access as TRUST_BOUNDARY_CAST', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const trustCasts = observationsOfKind(observations, 'TRUST_BOUNDARY_CAST');
+      const processEnvCast = trustCasts.find(o => o.evidence.trustBoundarySource === 'process.env');
+      expect(processEnvCast).toBeDefined();
+    });
+
+    it('records trustBoundarySource as process.env', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const trustCasts = observationsOfKind(observations, 'TRUST_BOUNDARY_CAST');
+      const processEnvCast = trustCasts.find(o => o.evidence.trustBoundarySource === 'process.env');
+      expect(processEnvCast?.evidence.trustBoundarySource).toBe('process.env');
+    });
+  });
+
+  describe('readStorage trust boundary (unknown source)', () => {
+    it('detects readStorage() cast as TRUST_BOUNDARY_CAST', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const trustCasts = observationsOfKind(observations, 'TRUST_BOUNDARY_CAST');
+      const readStorageCast = trustCasts.find(o => o.evidence.sourceExpression?.includes('readStorage'));
+      expect(readStorageCast).toBeDefined();
+    });
+
+    it('records trustBoundarySource as undefined for readStorage', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const trustCasts = observationsOfKind(observations, 'TRUST_BOUNDARY_CAST');
+      const readStorageCast = trustCasts.find(o => o.evidence.sourceExpression?.includes('readStorage'));
+      expect(readStorageCast?.evidence.trustBoundarySource).toBeUndefined();
+    });
+  });
+
+  describe('as unknown as with inline block comment justification', () => {
+    it('marks cast with trailing /* */ comment on same line as hasJustification: true', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const doubleCasts = observationsOfKind(observations, 'AS_UNKNOWN_AS_CAST');
+      const inlineBlockCommentJustified = doubleCasts.find(o => o.evidence.hasJustification === true);
+      expect(inlineBlockCommentJustified).toBeDefined();
+    });
+  });
+});
+
+describe('trust boundary edge cases', () => {
+  const EDGE_FIXTURE = fixturePath('type-safety-trust-boundary-edge.ts');
+
+  describe('violation analysis of edge fixture (isNonNullGuarded / hasPrecedingGuard paths)', () => {
+    it('analyzes edge fixture violations including non-null assertions inside function bodies', () => {
+      // Running analyzeTypeSafety (violation path) exercises isNonNullGuarded -> hasPrecedingGuard,
+      // covering lines 188-215, 233 (statement guard loop), and 364 (isCatchClauseDescendant return false).
+      const result = analyzeFixture('type-safety-trust-boundary-edge.ts');
+      // Should produce NON_NULL_ASSERTION violations for val! and m.get('key')!
+      const nonNullViolations = violationsOfType(result, 'NON_NULL_ASSERTION');
+      expect(nonNullViolations.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('detects has-guard statement as guarded (hasPrecedingGuard path)', () => {
+      const result = analyzeFixture('type-safety-trust-boundary-edge.ts');
+      const nonNullViolations = violationsOfType(result, 'NON_NULL_ASSERTION');
+      // m.get('key')! preceded by m.has('key') statement -> guarded: true
+      const guarded = nonNullViolations.find(v => v.context === 'guarded: true');
+      expect(guarded).toBeDefined();
+    });
+  });
+
+  describe('process.env trust boundary', () => {
+    it('detects process.env property access as TRUST_BOUNDARY_CAST', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const trustCasts = observationsOfKind(observations, 'TRUST_BOUNDARY_CAST');
+      const processEnvCast = trustCasts.find(o => o.evidence.trustBoundarySource === 'process.env');
+      expect(processEnvCast).toBeDefined();
+    });
+
+    it('records trustBoundarySource as process.env', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const trustCasts = observationsOfKind(observations, 'TRUST_BOUNDARY_CAST');
+      const processEnvCast = trustCasts.find(o => o.evidence.trustBoundarySource === 'process.env');
+      expect(processEnvCast?.evidence.trustBoundarySource).toBe('process.env');
+    });
+  });
+
+  describe('readStorage trust boundary (unknown source)', () => {
+    it('detects readStorage() cast as TRUST_BOUNDARY_CAST', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const trustCasts = observationsOfKind(observations, 'TRUST_BOUNDARY_CAST');
+      const readStorageCast = trustCasts.find(o => o.evidence.sourceExpression?.includes('readStorage'));
+      expect(readStorageCast).toBeDefined();
+    });
+
+    it('records trustBoundarySource as undefined for readStorage', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const trustCasts = observationsOfKind(observations, 'TRUST_BOUNDARY_CAST');
+      const readStorageCast = trustCasts.find(o => o.evidence.sourceExpression?.includes('readStorage'));
+      expect(readStorageCast?.evidence.trustBoundarySource).toBeUndefined();
+    });
+  });
+
+  describe('as unknown as with inline block comment justification', () => {
+    it('marks cast with trailing /* */ comment on same line as hasJustification: true', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const doubleCasts = observationsOfKind(observations, 'AS_UNKNOWN_AS_CAST');
+      const inlineBlockCommentJustified = doubleCasts.find(o => o.evidence.hasJustification === true);
+      expect(inlineBlockCommentJustified).toBeDefined();
+    });
+  });
+
+  describe('non-null assertion with non-guard preceding statement (hasGuard: false via loop)', () => {
+    it('marks non-null assertion as hasGuard: false when preceding statement is not a guard', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const nonNullAssertions = observationsOfKind(observations, 'NON_NULL_ASSERTION');
+      // The fixture has val! preceded by `const prepared = 'preprocessing'` (not a guard)
+      const unguarded = nonNullAssertions.find(
+        o => o.evidence.hasGuard === false && o.evidence.sourceExpression === 'val',
+      );
+      expect(unguarded).toBeDefined();
+    });
+
+    it('marks non-null assertion as hasGuard: false when preceded by unrelated if-statement', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const nonNullAssertions = observationsOfKind(observations, 'NON_NULL_ASSERTION');
+      // `val!` preceded by `if (someCondition) {}` -- condition is unrelated to `val`,
+      // so matchesNullGuard returns false, and the loop ends without finding a guard.
+      // This exercises the Node.isIfStatement branch in detectGuardType (lines 481-483).
+      const multiUnguarded = nonNullAssertions.filter(
+        o => o.evidence.hasGuard === false && o.evidence.sourceExpression === 'val',
+      );
+      // Both fixtures (5 and 6) produce val! with hasGuard: false
+      expect(multiUnguarded.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('detectGuardType: nodeStmtIndex <= 0 (first statement in block)', () => {
+    it('marks non-null assertion as hasGuard: false when it is the first statement', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const nonNullAssertions = observationsOfKind(observations, 'NON_NULL_ASSERTION');
+      // `useAsFirstStatement`: val! is the only statement; nodeStmtIndex = 0 -> hasGuard: false
+      const firstStmt = nonNullAssertions.find(
+        o =>
+          o.evidence.hasGuard === false && o.evidence.sourceExpression === 'val' && o.evidence.guardType === undefined,
+      );
+      expect(firstStmt).toBeDefined();
+    });
+  });
+
+  describe('detectGuardType: has-guard via preceding statement (line 479)', () => {
+    it('marks non-null assertion as hasGuard: true, guardType: has-check via preceding has() statement', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const nonNullAssertions = observationsOfKind(observations, 'NON_NULL_ASSERTION');
+      const hasCheck = nonNullAssertions.find(
+        o => o.evidence.hasGuard === true && o.evidence.guardType === 'has-check',
+      );
+      expect(hasCheck).toBeDefined();
+    });
+  });
+
+  describe('detectGuardType: null-check if-statement preceding assertion (line 484)', () => {
+    it('marks non-null assertion as hasGuard: true, guardType: null-check via preceding if (val !== null)', () => {
+      const observations = extractTypeSafetyObservations(EDGE_FIXTURE);
+      const nonNullAssertions = observationsOfKind(observations, 'NON_NULL_ASSERTION');
+      const nullCheck = nonNullAssertions.find(
+        o => o.evidence.hasGuard === true && o.evidence.guardType === 'null-check',
+      );
+      expect(nullCheck).toBeDefined();
+    });
+  });
+});
+
 describe('extractTypeSafetyObservations', () => {
   describe('observation kinds', () => {
     it('extracts AS_ANY_CAST observations', () => {

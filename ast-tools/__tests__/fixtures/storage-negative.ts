@@ -44,7 +44,22 @@ function zodSafeParseGuarded() {
   return result;
 }
 
+// 10. Variable capture with NO Zod call (must still be JSON_PARSE_CALL)
+function captureButNoZod() {
+  const raw = JSON.parse('{"x": 1}');
+  doSomething(raw);
+}
+
+// 11. Variable capture with .parse() on a DIFFERENT variable (must still be JSON_PARSE_CALL)
+function captureButDifferentVar() {
+  const raw = JSON.parse('{}');
+  const result = schema.parse(otherVar);
+  return result;
+}
+
 // --- Dummy declarations to prevent unresolved reference errors ---
 declare const window: { localStorage: Storage };
 declare const sessionStorage: Storage;
 declare const schema: { parse: (v: unknown) => unknown; safeParse: (v: unknown) => unknown };
+declare function doSomething(x: unknown): void;
+declare const otherVar: unknown;

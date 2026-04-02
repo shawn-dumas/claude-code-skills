@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "hooks",
+  "files": {
+    "component.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 14,
+          "column": 23,
+          "evidence": {
+            "hookName": "useMemo",
+            "importSource": "react",
+            "destructuredNames": [],
+            "parentFunction": "MicroworkflowDetailsContainer",
+            "isReactBuiltin": true
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 16,
+          "column": 32,
+          "evidence": {
+            "hookName": "useMicroworkflowDetailsQuery",
+            "importSource": "src/ui/services/hooks/queries/insights/index.ts",
+            "destructuredNames": ["data", "isFetching"],
+            "parentFunction": "MicroworkflowDetailsContainer",
+            "isReactBuiltin": false
+          }
+        }
+      ]
+    }
+  }
+}

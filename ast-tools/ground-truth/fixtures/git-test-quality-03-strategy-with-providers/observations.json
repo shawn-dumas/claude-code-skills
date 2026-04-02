@@ -1,0 +1,161 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "test-quality",
+  "files": {
+    "container.spec.tsx": {
+      "observations": [
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "importSource": "vitest",
+            "specifiers": ["describe", "it", "expect", "vi", "afterEach"]
+          }
+        },
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 2,
+          "column": 1,
+          "evidence": {
+            "importSource": "@testing-library/react",
+            "specifiers": ["render", "screen"]
+          }
+        },
+        {
+          "kind": "MOCK_DECLARATION",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 6,
+          "column": 6,
+          "evidence": {
+            "target": "./useQuery",
+            "returnShapeText": "() => ({ useItemsQuery: vi.fn(() => ({ data: [], isLoading: false })), })"
+          }
+        },
+        {
+          "kind": "MOCK_TARGET_RESOLVED",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 6,
+          "column": 6,
+          "evidence": {
+            "target": "./useQuery",
+            "resolvedPath": "../../../..<fixture>/useQuery.ts",
+            "exportNames": ["useItemsQuery"],
+            "fileExtension": ".ts"
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 23,
+          "column": 665,
+          "evidence": {
+            "matcherName": "toBeInTheDocument",
+            "expectArgText": "screen.getByText('Hello Alice')",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 13,
+          "column": 431,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "PROVIDER_WRAPPER",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 3,
+          "column": 1,
+          "evidence": {
+            "providerName": "QueryClientProvider"
+          }
+        },
+        {
+          "kind": "PROVIDER_WRAPPER",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 10,
+          "column": 1,
+          "evidence": {
+            "providerName": "QueryClient("
+          }
+        },
+        {
+          "kind": "PROVIDER_WRAPPER",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 12,
+          "column": 1,
+          "evidence": {
+            "providerName": "renderWith"
+          }
+        },
+        {
+          "kind": "AFTER_EACH_BLOCK",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 16,
+          "column": 512,
+          "evidence": {}
+        },
+        {
+          "kind": "CLEANUP_CALL",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 16,
+          "column": 512,
+          "evidence": {
+            "cleanupType": "queryClient.clear"
+          }
+        },
+        {
+          "kind": "DESCRIBE_BLOCK",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 20,
+          "column": 558,
+          "evidence": {
+            "describeName": "Container"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 21,
+          "column": 590,
+          "evidence": {
+            "testName": "renders name"
+          }
+        },
+        {
+          "kind": "TEST_HELPER_DELEGATION",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 22,
+          "column": 1,
+          "evidence": {
+            "delegationType": "helper",
+            "functionName": "renderWith",
+            "argCount": 1,
+            "isImported": false
+          }
+        },
+        {
+          "kind": "MOCK_INTERNAL",
+          "file": "../../../..<fixture>/container.spec.tsx",
+          "line": 6,
+          "column": 1,
+          "evidence": {
+            "target": "./useQuery",
+            "resolvedPath": "../../../..<fixture>/useQuery.ts",
+            "confidence": "high"
+          },
+          "authoritative": true
+        }
+      ],
+      "subjectPath": "../../../..<fixture>/container.tsx",
+      "subjectExists": true
+    }
+  }
+}

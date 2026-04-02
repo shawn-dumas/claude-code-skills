@@ -1,0 +1,373 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "test-quality",
+  "files": {
+    "data-sourcing.spec.tsx": {
+      "observations": [
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/data-sourcing.spec.tsx",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "importSource": "vitest",
+            "specifiers": ["describe", "it", "expect"]
+          }
+        },
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/data-sourcing.spec.tsx",
+          "line": 2,
+          "column": 1,
+          "evidence": {
+            "importSource": "@testing-library/react",
+            "specifiers": ["render", "screen"]
+          }
+        },
+        {
+          "kind": "FIXTURE_IMPORT",
+          "file": "../../../..<fixture>/data-sourcing.spec.tsx",
+          "line": 4,
+          "column": 1,
+          "evidence": {
+            "fixtureSource": "@/fixtures/domains/items.fixture",
+            "importSource": "@/fixtures/domains/items.fixture",
+            "specifiers": ["buildItems"]
+          }
+        },
+        {
+          "kind": "SHARED_MUTABLE_IMPORT",
+          "file": "../../../..<fixture>/data-sourcing.spec.tsx",
+          "line": 5,
+          "column": 1,
+          "evidence": {
+            "importSource": "./__tests__/constants",
+            "specifiers": ["SHARED_TEST_DATA"]
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/data-sourcing.spec.tsx",
+          "line": 11,
+          "column": 414,
+          "evidence": {
+            "matcherName": "toBeInTheDocument",
+            "expectArgText": "screen.getByRole('list')",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/data-sourcing.spec.tsx",
+          "line": 16,
+          "column": 566,
+          "evidence": {
+            "matcherName": "toBeVisible",
+            "expectArgText": "screen.getByRole('list')",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/data-sourcing.spec.tsx",
+          "line": 10,
+          "column": 374,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/data-sourcing.spec.tsx",
+          "line": 15,
+          "column": 515,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "DESCRIBE_BLOCK",
+          "file": "../../../..<fixture>/data-sourcing.spec.tsx",
+          "line": 7,
+          "column": 270,
+          "evidence": {
+            "describeName": "ItemList"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/data-sourcing.spec.tsx",
+          "line": 8,
+          "column": 301,
+          "evidence": {
+            "testName": "renders fixture items"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/data-sourcing.spec.tsx",
+          "line": 14,
+          "column": 477,
+          "evidence": {
+            "testName": "renders shared data"
+          }
+        },
+        {
+          "kind": "TEST_HELPER_DELEGATION",
+          "file": "../../../..<fixture>/data-sourcing.spec.tsx",
+          "line": 9,
+          "column": 1,
+          "evidence": {
+            "delegationType": "helper",
+            "functionName": "buildItems",
+            "argCount": 1,
+            "isImported": true,
+            "sourceFile": "@/fixtures/domains/items.fixture"
+          }
+        },
+        {
+          "kind": "DATA_SOURCING_VIOLATION",
+          "file": "../../../..<fixture>/data-sourcing.spec.tsx",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "asAnyCount": 0,
+            "hasSharedMutable": true
+          },
+          "authoritative": true
+        }
+      ],
+      "subjectPath": "../../../..<fixture>/data-sourcing.tsx",
+      "subjectExists": true
+    },
+    "orphaned.spec.ts": {
+      "observations": [
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/orphaned.spec.ts",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "importSource": "vitest",
+            "specifiers": ["describe", "it", "expect"]
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/orphaned.spec.ts",
+          "line": 6,
+          "column": 166,
+          "evidence": {
+            "matcherName": "toBe",
+            "expectArgText": "calculateTotal([1, 2, 3])",
+            "isScreenQuery": false,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "DESCRIBE_BLOCK",
+          "file": "../../../..<fixture>/orphaned.spec.ts",
+          "line": 4,
+          "column": 99,
+          "evidence": {
+            "describeName": "calculateTotal"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/orphaned.spec.ts",
+          "line": 5,
+          "column": 136,
+          "evidence": {
+            "testName": "sums values"
+          }
+        }
+      ],
+      "subjectPath": "./deleted-module",
+      "subjectExists": false
+    },
+    "bloated.spec.tsx": {
+      "observations": [
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "importSource": "vitest",
+            "specifiers": ["describe", "it", "expect", "vi"]
+          }
+        },
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 2,
+          "column": 1,
+          "evidence": {
+            "importSource": "@testing-library/react",
+            "specifiers": ["render", "screen"]
+          }
+        },
+        {
+          "kind": "MOCK_DECLARATION",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 5,
+          "column": 5,
+          "evidence": {
+            "target": "./useHelperA",
+            "returnShapeText": "() => ({ useHelperA: vi.fn(() => [0, vi.fn()]), })"
+          }
+        },
+        {
+          "kind": "MOCK_TARGET_RESOLVED",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 5,
+          "column": 5,
+          "evidence": {
+            "target": "./useHelperA",
+            "resolvedPath": "../../../..<fixture>/useHelperA.ts",
+            "exportNames": ["useHelperA"],
+            "fileExtension": ".ts"
+          }
+        },
+        {
+          "kind": "MOCK_DECLARATION",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 9,
+          "column": 9,
+          "evidence": {
+            "target": "./useHelperB",
+            "returnShapeText": "() => ({ useHelperB: vi.fn(() => ['', vi.fn()]), })"
+          }
+        },
+        {
+          "kind": "MOCK_TARGET_RESOLVED",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 9,
+          "column": 9,
+          "evidence": {
+            "target": "./useHelperB",
+            "resolvedPath": "../../../..<fixture>/useHelperB.ts",
+            "exportNames": ["useHelperB"],
+            "fileExtension": ".ts"
+          }
+        },
+        {
+          "kind": "MOCK_DECLARATION",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 13,
+          "column": 13,
+          "evidence": {
+            "target": "./useHelperC",
+            "returnShapeText": "() => ({ useHelperC: vi.fn(() => [false, vi.fn()]), })"
+          }
+        },
+        {
+          "kind": "MOCK_TARGET_RESOLVED",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 13,
+          "column": 13,
+          "evidence": {
+            "target": "./useHelperC",
+            "resolvedPath": "../../../..<fixture>/useHelperC.ts",
+            "exportNames": ["useHelperC"],
+            "fileExtension": ".ts"
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 20,
+          "column": 507,
+          "evidence": {
+            "matcherName": "toBeInTheDocument",
+            "expectArgText": "screen.getByText('42')",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 19,
+          "column": 465,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "DESCRIBE_BLOCK",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 17,
+          "column": 397,
+          "evidence": {
+            "describeName": "BloatedWidget"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 18,
+          "column": 433,
+          "evidence": {
+            "testName": "renders value"
+          }
+        },
+        {
+          "kind": "MOCK_INTERNAL",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 5,
+          "column": 1,
+          "evidence": {
+            "target": "./useHelperA",
+            "resolvedPath": "../../../..<fixture>/useHelperA.ts",
+            "confidence": "high"
+          },
+          "authoritative": true
+        },
+        {
+          "kind": "MOCK_INTERNAL",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 9,
+          "column": 1,
+          "evidence": {
+            "target": "./useHelperB",
+            "resolvedPath": "../../../..<fixture>/useHelperB.ts",
+            "confidence": "high"
+          },
+          "authoritative": true
+        },
+        {
+          "kind": "MOCK_INTERNAL",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 13,
+          "column": 1,
+          "evidence": {
+            "target": "./useHelperC",
+            "resolvedPath": "../../../..<fixture>/useHelperC.ts",
+            "confidence": "high"
+          },
+          "authoritative": true
+        },
+        {
+          "kind": "MISSING_CLEANUP",
+          "file": "../../../..<fixture>/bloated.spec.tsx",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "hasMocks": true,
+            "hasTimers": false
+          },
+          "authoritative": true
+        }
+      ],
+      "subjectPath": "../../../..<fixture>/bloated.tsx",
+      "subjectExists": true
+    }
+  }
+}

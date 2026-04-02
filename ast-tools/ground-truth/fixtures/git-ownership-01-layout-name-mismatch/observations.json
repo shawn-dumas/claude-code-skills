@@ -1,0 +1,99 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "ownership",
+  "files": {
+    "EightFlowDashboardLayout.tsx": {
+      "hookObservations": [
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/EightFlowDashboardLayout.tsx",
+          "line": 14,
+          "column": 20,
+          "evidence": {
+            "hookName": "useAuthState",
+            "importSource": "src/ui/providers/context/auth/index.tsx",
+            "destructuredNames": ["user"],
+            "parentFunction": "EightFlowDashboardLayout",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/EightFlowDashboardLayout.tsx",
+          "line": 15,
+          "column": 20,
+          "evidence": {
+            "hookName": "usePathname",
+            "importSource": "next/navigation",
+            "destructuredNames": [],
+            "parentFunction": "EightFlowDashboardLayout",
+            "isReactBuiltin": false
+          }
+        },
+        {
+          "kind": "HOOK_CALL",
+          "file": "../../../..<fixture>/EightFlowDashboardLayout.tsx",
+          "line": 16,
+          "column": 27,
+          "evidence": {
+            "hookName": "useDashboardFiltersState",
+            "importSource": "src/ui/providers/context/layout/index.ts",
+            "destructuredNames": ["isCollapsed"],
+            "parentFunction": "EightFlowDashboardLayout",
+            "isReactBuiltin": false
+          }
+        }
+      ],
+      "componentObservations": [
+        {
+          "kind": "COMPONENT_DECLARATION",
+          "file": "../../../..<fixture>/EightFlowDashboardLayout.tsx",
+          "line": 13,
+          "evidence": {
+            "componentName": "EightFlowDashboardLayout",
+            "kind": "function"
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/EightFlowDashboardLayout.tsx",
+          "line": 13,
+          "evidence": {
+            "componentName": "EightFlowDashboardLayout",
+            "propName": "children",
+            "propType": "React.ReactNode",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/EightFlowDashboardLayout.tsx",
+          "line": 13,
+          "evidence": {
+            "componentName": "EightFlowDashboardLayout",
+            "propName": "filtersType",
+            "propType": "string | null",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        },
+        {
+          "kind": "PROP_FIELD",
+          "file": "../../../..<fixture>/EightFlowDashboardLayout.tsx",
+          "line": 13,
+          "evidence": {
+            "componentName": "EightFlowDashboardLayout",
+            "propName": "pageName",
+            "propType": "string",
+            "isOptional": false,
+            "hasDefault": false,
+            "isCallback": false
+          }
+        }
+      ]
+    }
+  }
+}

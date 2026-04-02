@@ -1,0 +1,168 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "test-quality",
+  "files": {
+    "widget.spec.tsx": {
+      "observations": [
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "importSource": "vitest",
+            "specifiers": ["describe", "it", "expect", "vi"]
+          }
+        },
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 2,
+          "column": 1,
+          "evidence": {
+            "importSource": "@testing-library/react",
+            "specifiers": ["render", "screen"]
+          }
+        },
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 3,
+          "column": 1,
+          "evidence": {
+            "importSource": "@testing-library/user-event",
+            "specifiers": ["userEvent"]
+          }
+        },
+        {
+          "kind": "MOCK_DECLARATION",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 6,
+          "column": 6,
+          "evidence": {
+            "target": "./hooks",
+            "returnShapeText": "() => ({ useDropdownScrollHandler: () => ({ current: null }), })"
+          }
+        },
+        {
+          "kind": "MOCK_TARGET_RESOLVED",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 6,
+          "column": 6,
+          "evidence": {
+            "target": "./hooks",
+            "resolvedPath": "../../../..<fixture>/hooks.ts",
+            "exportNames": ["useDropdownScrollHandler", "useBreakpoints"],
+            "fileExtension": ".ts"
+          }
+        },
+        {
+          "kind": "MOCK_DECLARATION",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 10,
+          "column": 10,
+          "evidence": {
+            "target": "next/router",
+            "returnShapeText": "() => ({ useRouter: vi.fn(() => ({ push: vi.fn() })), })"
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 17,
+          "column": 508,
+          "evidence": {
+            "matcherName": "toBeInTheDocument",
+            "expectArgText": "screen.getByText('Choose')",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 24,
+          "column": 769,
+          "evidence": {
+            "matcherName": "toHaveBeenCalledWith",
+            "expectArgText": "onSelect",
+            "isScreenQuery": false,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 16,
+          "column": 444,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 22,
+          "column": 651,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "DESCRIBE_BLOCK",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 14,
+          "column": 377,
+          "evidence": {
+            "describeName": "SelectWidget"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 15,
+          "column": 412,
+          "evidence": {
+            "testName": "renders label"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 20,
+          "column": 573,
+          "evidence": {
+            "testName": "fires onSelect callback"
+          }
+        },
+        {
+          "kind": "MOCK_INTERNAL",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 6,
+          "column": 1,
+          "evidence": {
+            "target": "./hooks",
+            "resolvedPath": "../../../..<fixture>/hooks.ts",
+            "confidence": "high"
+          },
+          "authoritative": true
+        },
+        {
+          "kind": "MISSING_CLEANUP",
+          "file": "../../../..<fixture>/widget.spec.tsx",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "hasMocks": true,
+            "hasTimers": false
+          },
+          "authoritative": true
+        }
+      ],
+      "subjectPath": "../../../..<fixture>/widget.tsx",
+      "subjectExists": true
+    }
+  }
+}

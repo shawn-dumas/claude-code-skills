@@ -6,6 +6,7 @@ import { extractJsxObservations } from './ast-jsx-analysis';
 import { computeBoundaryConfidence, getFilesInDirectory } from './shared';
 import { astConfig } from './ast-config';
 import type { JsxObservation, ObservationRef, AssessmentResult, Assessment } from './types';
+import { formatAssessmentTable } from './assessment-formatter';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -366,36 +367,27 @@ export function interpretTemplate(observations: readonly JsxObservation[]): Asse
 // ---------------------------------------------------------------------------
 
 function formatPrettyOutput(result: AssessmentResult<TemplateAssessment>, filePath: string): string {
-  const lines: string[] = [];
-  lines.push(`Template Assessments: ${filePath}`);
-  lines.push('');
-
-  if (result.assessments.length === 0) {
-    lines.push('No template complexity issues found.');
-    return lines.join('\n');
-  }
-
-  // Header
-  lines.push(' Line | Component            | Assessment           | Confidence | Rationale');
-  lines.push('------+----------------------+----------------------+------------+----------------------------------');
-
-  for (const a of result.assessments) {
-    const line = String(a.subject.line ?? '?').padStart(5);
-    const component = (a.subject.symbol ?? 'unknown').slice(0, 20).padEnd(20);
-    const assessment = a.kind.padEnd(20);
-    const confidence = a.confidence.padEnd(10);
-    const rationale = a.rationale.join('; ').slice(0, 50);
-    lines.push(`${line} | ${component} | ${assessment} | ${confidence} | ${rationale}`);
-  }
-
-  return lines.join('\n');
+  return formatAssessmentTable(
+    {
+      title: `Template Assessments: ${filePath}`,
+      emptyMessage: 'No template complexity issues found.',
+      columns: [
+        { header: 'Line', width: 5, align: 'right', extract: a => String(a.subject.line ?? '?') },
+        { header: 'Component', width: 20, extract: a => a.subject.symbol ?? 'unknown' },
+        { header: 'Assessment', width: 20, extract: a => a.kind },
+        { header: 'Confidence', width: 10, extract: a => a.confidence },
+        { header: 'Rationale', width: 50, extract: a => a.rationale.join('; ') },
+      ],
+    },
+    result.assessments,
+  );
 }
 
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 
-function main(): void {
+export function main(): void {
   const args = parseArgs(process.argv);
 
   if (args.help) {
@@ -466,6 +458,7 @@ function main(): void {
 }
 
 // Run CLI when executed directly
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-interpret-template.ts') || process.argv[1].endsWith('ast-interpret-template'));
@@ -473,3 +466,4 @@ const isDirectRun =
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

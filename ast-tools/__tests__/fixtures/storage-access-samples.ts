@@ -90,6 +90,39 @@ function jsCookieRemove() {
   Cookies.remove('custom_token');
 }
 
+// --- Pattern A: variable capture + later Zod call (should be JSON_PARSE_ZOD_GUARDED) ---
+function zodGuardedViaConstCapture() {
+  const raw = JSON.parse(someString);
+  return someSchema.parse(raw);
+}
+
+function zodGuardedViaLetReassignment() {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(someString);
+  } catch {
+    raw = undefined;
+  }
+  return someSchema.safeParse(raw);
+}
+
+// --- Pattern B: inside z.preprocess callback (should be JSON_PARSE_ZOD_GUARDED) ---
+const preprocessSchema = z.preprocess(data => {
+  if (typeof data !== 'string') return data;
+  try {
+    return JSON.parse(data as string) as unknown;
+  } catch {
+    return data;
+  }
+}, someSchema);
+
+// --- Pattern C: comment-based exemption (should be JSON_PARSE_ZOD_GUARDED) ---
+function exemptViaComment() {
+  // json-parse-exempt: infrastructure boundary, validated downstream
+  const data = JSON.parse(someString);
+  return data;
+}
+
 // --- Dummy declarations to prevent unresolved reference errors ---
 declare const someSchema: { parse: (v: unknown) => unknown; safeParse: (v: unknown) => unknown };
 declare const someString: string;
@@ -98,3 +131,4 @@ declare function readStorage(key: string, schema: unknown): unknown;
 declare function writeStorage(key: string, value: unknown): void;
 declare function removeStorage(key: string): void;
 declare const Cookies: { get: (k: string) => string; set: (k: string, v: string) => void; remove: (k: string) => void };
+declare const z: { preprocess: (fn: (d: unknown) => unknown, schema: unknown) => unknown };

@@ -1,0 +1,8 @@
+{
+  "description": "Function expression handler (const handler = async function ...)",
+  "expectedObservations": [
+    {
+      "type": "HANDLER_INLINE_LOGIC"
+    }
+  ]
+}

@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import path from 'path';
 import fs from 'fs';
-import { analyzeHandlerStructure, analyzeHandlerStructureDirectory } from '../ast-handler-structure';
+import {
+  analyzeHandlerStructure,
+  analyzeHandlerStructureDirectory,
+  extractHandlerStructureObservations,
+} from '../ast-handler-structure';
 
 const FIXTURES_DIR = path.join(__dirname, 'fixtures');
 
@@ -157,5 +161,167 @@ describe('ast-handler-structure: directory analysis', () => {
     const allObs = results.flatMap(r => r.observations);
     const inlineObs = allObs.filter(o => o.kind === 'HANDLER_INLINE_LOGIC');
     expect(inlineObs.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Arrow function and function expression handler tests
+// ---------------------------------------------------------------------------
+
+describe('ast-handler-structure: arrow function handler', () => {
+  it('detects HANDLER_INLINE_LOGIC for handler defined as arrow function', () => {
+    const result = analyzeHandlerStructure(fixturePath('handler-structure-arrow', 'arrow.ts'));
+    const inlineObs = result.observations.filter(o => o.kind === 'HANDLER_INLINE_LOGIC');
+    expect(inlineObs).toHaveLength(1);
+    expect(inlineObs[0].evidence.handlerLines).toBeGreaterThan(15);
+  });
+
+  it('does not inflate line count with multi-line block comments in arrow function body', () => {
+    const result = analyzeHandlerStructure(fixturePath('handler-structure-arrow', 'arrow.ts'));
+    const inlineObs = result.observations.filter(o => o.kind === 'HANDLER_INLINE_LOGIC');
+    // Block comment lines should be excluded; only real logic lines counted
+    expect(inlineObs[0].evidence.handlerLines).toBeLessThan(30);
+  });
+});
+
+describe('ast-handler-structure: function expression handler', () => {
+  it('detects HANDLER_INLINE_LOGIC for handler defined as function expression', () => {
+    const result = analyzeHandlerStructure(fixturePath('handler-structure-func-expr', 'func-expr.ts'));
+    const inlineObs = result.observations.filter(o => o.kind === 'HANDLER_INLINE_LOGIC');
+    expect(inlineObs).toHaveLength(1);
+    expect(inlineObs[0].evidence.handlerLines).toBeGreaterThan(15);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractHandlerStructureObservations
+// ---------------------------------------------------------------------------
+
+describe('ast-handler-structure: extractHandlerStructureObservations', () => {
+  it('returns standard ObservationResult shape', () => {
+    const analysis = analyzeHandlerStructure(fixturePath('handler-structure-inline', 'reports.ts'));
+    const obsResult = extractHandlerStructureObservations(analysis);
+    expect(obsResult.filePath).toBe(analysis.filePath);
+    expect(obsResult.observations).toEqual(analysis.observations);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Arrow function and function expression handler tests
+// ---------------------------------------------------------------------------
+
+describe('ast-handler-structure: arrow function handler', () => {
+  it('detects HANDLER_INLINE_LOGIC for handler defined as arrow function', () => {
+    const result = analyzeHandlerStructure(fixturePath('handler-structure-arrow', 'arrow.ts'));
+    const inlineObs = result.observations.filter(o => o.kind === 'HANDLER_INLINE_LOGIC');
+    expect(inlineObs).toHaveLength(1);
+    expect(inlineObs[0].evidence.handlerLines).toBeGreaterThan(15);
+  });
+
+  it('does not inflate line count with multi-line block comments in arrow function body', () => {
+    const result = analyzeHandlerStructure(fixturePath('handler-structure-arrow', 'arrow.ts'));
+    const inlineObs = result.observations.filter(o => o.kind === 'HANDLER_INLINE_LOGIC');
+    // Block comment lines should be excluded; only real logic lines counted
+    expect(inlineObs[0].evidence.handlerLines).toBeLessThan(30);
+  });
+});
+
+describe('ast-handler-structure: function expression handler', () => {
+  it('detects HANDLER_INLINE_LOGIC for handler defined as function expression', () => {
+    const result = analyzeHandlerStructure(fixturePath('handler-structure-func-expr', 'func-expr.ts'));
+    const inlineObs = result.observations.filter(o => o.kind === 'HANDLER_INLINE_LOGIC');
+    expect(inlineObs).toHaveLength(1);
+    expect(inlineObs[0].evidence.handlerLines).toBeGreaterThan(15);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Default export function handler tests
+// ---------------------------------------------------------------------------
+
+describe('ast-handler-structure: export default function handler', () => {
+  it('detects HANDLER_INLINE_LOGIC for export default function (non-standard name)', () => {
+    const result = analyzeHandlerStructure(fixturePath('handler-structure-default-export', 'default-export.ts'));
+    const inlineObs = result.observations.filter(o => o.kind === 'HANDLER_INLINE_LOGIC');
+    expect(inlineObs).toHaveLength(1);
+    expect(inlineObs[0].evidence.handlerLines).toBeGreaterThan(15);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractHandlerStructureObservations
+// ---------------------------------------------------------------------------
+
+describe('ast-handler-structure: extractHandlerStructureObservations', () => {
+  it('returns standard ObservationResult shape', () => {
+    const analysis = analyzeHandlerStructure(fixturePath('handler-structure-inline', 'reports.ts'));
+    const obsResult = extractHandlerStructureObservations(analysis);
+    expect(obsResult.filePath).toBe(analysis.filePath);
+    expect(obsResult.observations).toEqual(analysis.observations);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Arrow function and function expression handler tests
+// ---------------------------------------------------------------------------
+
+describe('ast-handler-structure: arrow function handler', () => {
+  it('detects HANDLER_INLINE_LOGIC for handler defined as arrow function', () => {
+    const result = analyzeHandlerStructure(fixturePath('handler-structure-arrow', 'arrow.ts'));
+    const inlineObs = result.observations.filter(o => o.kind === 'HANDLER_INLINE_LOGIC');
+    expect(inlineObs).toHaveLength(1);
+    expect(inlineObs[0].evidence.handlerLines).toBeGreaterThan(15);
+  });
+
+  it('does not inflate line count with multi-line block comments in arrow function body', () => {
+    const result = analyzeHandlerStructure(fixturePath('handler-structure-arrow', 'arrow.ts'));
+    const inlineObs = result.observations.filter(o => o.kind === 'HANDLER_INLINE_LOGIC');
+    // Block comment lines should be excluded; only real logic lines counted
+    expect(inlineObs[0].evidence.handlerLines).toBeLessThan(30);
+  });
+});
+
+describe('ast-handler-structure: function expression handler', () => {
+  it('detects HANDLER_INLINE_LOGIC for handler defined as function expression', () => {
+    const result = analyzeHandlerStructure(fixturePath('handler-structure-func-expr', 'func-expr.ts'));
+    const inlineObs = result.observations.filter(o => o.kind === 'HANDLER_INLINE_LOGIC');
+    expect(inlineObs).toHaveLength(1);
+    expect(inlineObs[0].evidence.handlerLines).toBeGreaterThan(15);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Default export function handler tests
+// ---------------------------------------------------------------------------
+
+describe('ast-handler-structure: export default function handler', () => {
+  it('detects HANDLER_INLINE_LOGIC for export default function (non-standard name)', () => {
+    const result = analyzeHandlerStructure(fixturePath('handler-structure-default-export', 'default-export.ts'));
+    const inlineObs = result.observations.filter(o => o.kind === 'HANDLER_INLINE_LOGIC');
+    expect(inlineObs).toHaveLength(1);
+    expect(inlineObs[0].evidence.handlerLines).toBeGreaterThan(15);
+  });
+});
+
+describe('ast-handler-structure: no standard handler found (return null path)', () => {
+  it('emits no observations when handler cannot be identified', () => {
+    // This fixture has a const arrow function exported as default with a non-handler name.
+    // findHandlerFunction cannot find it, so handlerNode is null and no inline-logic obs is emitted.
+    const result = analyzeHandlerStructure(fixturePath('handler-structure-no-handler', 'no-handler.ts'));
+    const inlineObs = result.observations.filter(o => o.kind === 'HANDLER_INLINE_LOGIC');
+    expect(inlineObs).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractHandlerStructureObservations
+// ---------------------------------------------------------------------------
+
+describe('ast-handler-structure: extractHandlerStructureObservations', () => {
+  it('returns standard ObservationResult shape', () => {
+    const analysis = analyzeHandlerStructure(fixturePath('handler-structure-inline', 'reports.ts'));
+    const obsResult = extractHandlerStructureObservations(analysis);
+    expect(obsResult.filePath).toBe(analysis.filePath);
+    expect(obsResult.observations).toEqual(analysis.observations);
   });
 });

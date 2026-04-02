@@ -78,6 +78,12 @@ Also read:
 - `integration/constants.ts` -- shared test ID constants
 - `integration/constants.ts` -- shared constants
 
+**If building a visual spec** (`*.visual.spec.ts`): also read
+`docs/visual-testing.md` for the 3-layer fixture stack (integration
+fixture -> visual fixture -> test-specific intercepts), LIFO route
+priority, Date.now freeze, and `waitForPageReady` conventions. Visual
+specs import from `visual/fixture.ts`, not `integration/fixture.ts`.
+
 Match the existing import style, test structure, and helper patterns.
 
 <!-- role: workflow -->

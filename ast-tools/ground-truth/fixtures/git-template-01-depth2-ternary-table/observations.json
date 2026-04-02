@@ -1,0 +1,121 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "template",
+  "files": {
+    "component.tsx": {
+      "observations": [
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 10,
+          "column": 0,
+          "evidence": {
+            "componentName": "SortIcon",
+            "returnStartLine": 10,
+            "returnEndLine": 10,
+            "returnLineCount": 1
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 10,
+          "column": 10,
+          "evidence": {
+            "componentName": "SortIcon",
+            "depth": 1,
+            "description": "sortOrder === 'desc'"
+          }
+        },
+        {
+          "kind": "JSX_RETURN_BLOCK",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 20,
+          "column": 0,
+          "evidence": {
+            "componentName": "TableHead",
+            "returnStartLine": 20,
+            "returnEndLine": 71,
+            "returnLineCount": 52
+          }
+        },
+        {
+          "kind": "JSX_TRANSFORM_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 22,
+          "column": 8,
+          "evidence": {
+            "componentName": "TableHead",
+            "methods": ["map"],
+            "chainLength": 1
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 31,
+          "column": 39,
+          "evidence": {
+            "componentName": "TableHead",
+            "depth": 1,
+            "description": "sort"
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 40,
+          "column": 31,
+          "evidence": {
+            "componentName": "TableHead",
+            "depth": 2,
+            "description": "previousSortOrder === 'none'"
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 57,
+          "column": 24,
+          "evidence": {
+            "componentName": "TableHead",
+            "depth": 1,
+            "description": "header.column.getCanSort()"
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 58,
+          "column": 26,
+          "evidence": {
+            "componentName": "TableHead",
+            "depth": 2,
+            "description": "sort === 'asc'"
+          }
+        },
+        {
+          "kind": "JSX_INLINE_STYLE",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 59,
+          "column": 22,
+          "evidence": {
+            "componentName": "TableHead",
+            "hasComputedValues": true
+          }
+        },
+        {
+          "kind": "JSX_TERNARY_CHAIN",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 59,
+          "column": 32,
+          "evidence": {
+            "componentName": "TableHead",
+            "depth": 1,
+            "description": "header.column.getCanSort()"
+          }
+        }
+      ]
+    }
+  }
+}

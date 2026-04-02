@@ -22,6 +22,12 @@ This project uses Playwright with:
 - Config: Chromium only, 180s timeout, monocart reporter, `integration/tests/` dir
 - Two modes: real-auth tests (Okta/OneLogin/Google) and mock-data tests
 
+**Visual specs** (`*.visual.spec.ts` in `visual/tests/`) use a different
+fixture chain: `visual/fixture.ts` extends `integration/fixture.ts` and
+adds a Date.now freeze. They also use LIFO route priority for
+deterministic data intercepts. See `docs/visual-testing.md` for the full
+architecture before refactoring visual specs.
+
 Relevant testing philosophy principles for integration tests:
 
 - **P8 User Outcomes**: Assert on visible text, roles, states — not DOM structure

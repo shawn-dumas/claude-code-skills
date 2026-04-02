@@ -140,6 +140,7 @@ function analyzeFile(filePath: string): DateObservation[] {
 
   return cached('ast-date-handling', absolute, () => {
     const sf = getSourceFile(absolute);
+    /* v8 ignore next -- defensive: getSourceFile always returns a SourceFile or throws */
     if (!sf) return [];
 
     const obs: DateObservation[] = [];
@@ -309,13 +310,13 @@ function buildSummary(observations: DateObservation[]): {
 // Public API (for registry adapter if registered later)
 // ---------------------------------------------------------------------------
 
-export { analyzeFile as analyzeDateHandling };
+export { analyzeFile as analyzeDateHandling, buildSummary, classifyLayer };
 
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 
-function main(): void {
+export function main(): void {
   const args = parseArgs(process.argv, {
     extraBooleanFlags: ['--summary'],
   });
@@ -390,6 +391,7 @@ function main(): void {
 }
 
 // Run CLI when executed directly
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-date-handling.ts') || process.argv[1].endsWith('ast-date-handling'));
@@ -397,3 +399,4 @@ const isDirectRun =
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

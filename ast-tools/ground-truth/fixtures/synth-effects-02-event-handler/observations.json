@@ -1,0 +1,122 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "effects",
+  "files": {
+    "component.tsx": {
+      "effectObservations": [
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 13,
+          "evidence": {
+            "effectLine": 13,
+            "parentFunction": "EventHandlerDisguised",
+            "depArray": ["onSelect"],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 15,
+          "evidence": {
+            "effectLine": 13,
+            "identifier": "onSelect"
+          }
+        },
+        {
+          "kind": "EFFECT_BODY_DEP_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 14,
+          "evidence": {
+            "effectLine": 13,
+            "identifier": "onSelect"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 14,
+          "evidence": {
+            "effectLine": 13,
+            "identifier": "onSelect"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 14,
+          "evidence": {
+            "effectLine": 13,
+            "identifier": "selectedId"
+          }
+        },
+        {
+          "kind": "EFFECT_LOCATION",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 17,
+          "evidence": {
+            "effectLine": 17,
+            "parentFunction": "EventHandlerDisguised",
+            "depArray": ["count", "onChange", "value"],
+            "identifier": "useEffect"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "count"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "onChange"
+          }
+        },
+        {
+          "kind": "EFFECT_DEP_ENTRY",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 19,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "value"
+          }
+        },
+        {
+          "kind": "EFFECT_BODY_DEP_CALL",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 18,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "onChange"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 18,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "onChange"
+          }
+        },
+        {
+          "kind": "EFFECT_PROP_READ",
+          "file": "../../../..<fixture>/component.tsx",
+          "line": 18,
+          "evidence": {
+            "effectLine": 17,
+            "identifier": "count"
+          }
+        }
+      ]
+    }
+  }
+}

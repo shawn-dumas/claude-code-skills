@@ -304,7 +304,7 @@ function parseObservationsFromJson(json: string): TestCoverageObservation[] {
 // CLI
 // ---------------------------------------------------------------------------
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const flags = new Set(args.filter(a => a.startsWith('--')).map(a => a.replace(/^--/, '')));
 
@@ -357,6 +357,7 @@ async function main(): Promise<void> {
 }
 
 // Run CLI when executed directly
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-interpret-test-coverage.ts') ||
@@ -367,3 +368,4 @@ if (isDirectRun) {
     fatal(`Unhandled error: ${e}`);
   });
 }
+/* v8 ignore stop */

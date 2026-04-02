@@ -1,8 +1,8 @@
 import path from 'path';
 import fs from 'fs';
 import { PROJECT_ROOT } from './project';
-import { parseArgs, outputFiltered, fatal } from './cli';
 import { getFilesInDirectory, type FileFilter } from './shared';
+import { runObservationToolCli, type ObservationToolConfig } from './cli-runner';
 import { astConfig } from './ast-config';
 import { analyzeComplexity, analyzeComplexityDirectory } from './ast-complexity';
 import { buildDependencyGraph } from './ast-imports';
@@ -249,71 +249,52 @@ export function extractTestCoverageAnalysis(results: TestCoverageResult[]): Test
 }
 
 // ---------------------------------------------------------------------------
+// CLI wrappers (single-file builds its own context)
+// ---------------------------------------------------------------------------
+
+function analyzeTestCoverageFileWrapped(filePath: string): TestCoverageAnalysis {
+  const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(PROJECT_ROOT, filePath);
+  const dir = path.dirname(absolute);
+  const complexityResult = analyzeComplexity(filePath);
+  const complexityMap = new Map<string, ComplexityAnalysis>();
+  complexityMap.set(complexityResult.filePath, complexityResult);
+
+  const graph = buildDependencyGraph(dir, { filter: 'all' });
+  const result = analyzeTestCoverageForFile(filePath, complexityMap, graph.edges);
+  return {
+    filePath: result.filePath,
+    observations: [extractTestCoverageObservations(result).observations[0]],
+  };
+}
+
+function analyzeTestCoverageDirectoryWrapped(dirPath: string): TestCoverageAnalysis[] {
+  const coverageResults = analyzeTestCoverageDirectory(dirPath);
+  return extractTestCoverageAnalysis(coverageResults);
+}
+
+// ---------------------------------------------------------------------------
 // CLI entry point
 // ---------------------------------------------------------------------------
 
-function main(): void {
-  const args = parseArgs(process.argv);
+const HELP_TEXT =
+  'Usage: npx tsx scripts/AST/ast-test-coverage.ts <path...> [--pretty] [--kind <kind>] [--count]\n' +
+  '\n' +
+  'Analyze test coverage status and risk-based priority for production files.\n' +
+  '\n' +
+  '  <path...>     One or more directories to analyze\n' +
+  '  --pretty      Format JSON output with indentation\n' +
+  '  --kind        Filter observations to a specific kind\n' +
+  '  --count       Output observation kind counts instead of full data\n';
 
-  if (args.help) {
-    process.stdout.write(
-      'Usage: npx tsx scripts/AST/ast-test-coverage.ts <path...> [--pretty] [--kind <kind>] [--count]\n' +
-        '\n' +
-        'Analyze test coverage status and risk-based priority for production files.\n' +
-        '\n' +
-        '  <path...>     One or more directories to analyze\n' +
-        '  --pretty      Format JSON output with indentation\n' +
-        '  --kind        Filter observations to a specific kind\n' +
-        '  --count       Output observation kind counts instead of full data\n',
-    );
-    process.exit(0);
-  }
+export const cliConfig: ObservationToolConfig<TestCoverageAnalysis> = {
+  cacheNamespace: 'ast-test-coverage',
+  helpText: HELP_TEXT,
+  analyzeFile: analyzeTestCoverageFileWrapped,
+  analyzeDirectory: analyzeTestCoverageDirectoryWrapped,
+};
 
-  if (args.paths.length === 0) {
-    fatal('No directory path provided. Use --help for usage.');
-  }
-
-  const allResults: TestCoverageAnalysis[] = [];
-
-  for (const targetPath of args.paths) {
-    const absolute = path.isAbsolute(targetPath) ? targetPath : path.resolve(PROJECT_ROOT, targetPath);
-
-    if (!fs.existsSync(absolute)) {
-      fatal(`Path does not exist: ${targetPath}`);
-    }
-
-    const stat = fs.statSync(absolute);
-
-    if (stat.isDirectory()) {
-      const coverageResults = analyzeTestCoverageDirectory(targetPath);
-      allResults.push(...extractTestCoverageAnalysis(coverageResults));
-    } else {
-      // Single file mode: build minimal context
-      const dir = path.dirname(absolute);
-      const complexityResult = analyzeComplexity(targetPath);
-      const complexityMap = new Map<string, ComplexityAnalysis>();
-      complexityMap.set(complexityResult.filePath, complexityResult);
-
-      const graph = buildDependencyGraph(dir, { filter: 'all' });
-      const result = analyzeTestCoverageForFile(targetPath, complexityMap, graph.edges);
-      allResults.push({
-        filePath: result.filePath,
-        observations: [extractTestCoverageObservations(result).observations[0]],
-      });
-    }
-  }
-
-  const result = allResults.length === 1 ? allResults[0] : allResults;
-  outputFiltered(result, args.pretty, {
-    kind: args.options.kind,
-    count: args.flags.has('count'),
-  });
-}
-
+/* v8 ignore next 3 */
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('ast-test-coverage.ts') || process.argv[1].endsWith('ast-test-coverage'));
-
-if (isDirectRun) {
-  main();
-}
+if (isDirectRun) runObservationToolCli(cliConfig);

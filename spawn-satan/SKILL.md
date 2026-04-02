@@ -134,7 +134,34 @@ conventions, and any other rules the project defines).
 
 Review scope: <mode used and range/SHA>
 
-Focus on:
+## Tool hierarchy for cross-referencing
+
+When you need to verify claims about the codebase beyond the provided
+diff and file contents (e.g., "is this symbol used elsewhere?", "does
+this export have consumers?", "what type does this function return?"),
+use the AST tool dispatcher for all TS/TSX source queries:
+
+  npx tsx scripts/AST/ast-query.ts <query-type> <path>
+
+Do NOT use the built-in Grep tool or `rg` on TS/TSX source files.
+Run `npx tsx scripts/AST/ast-query.ts --help` for available query types.
+
+Examples:
+  WRONG: grep -rn "useProductivityOverviewQuery" src/
+  WRONG: rg "useProductivityOverviewQuery" src/
+  RIGHT: npx tsx scripts/AST/ast-query.ts symbol useProductivityOverviewQuery src/ --pretty
+
+  WRONG: grep -rn "as any" src/shared/types/
+  RIGHT: npx tsx scripts/AST/ast-query.ts as-any src/shared/types/ --pretty
+
+  WRONG: grep -rn "import.*ActivityFlow" src/
+  RIGHT: npx tsx scripts/AST/ast-query.ts symbol ActivityFlow src/ --pretty
+
+The Grep tool and `rg`/`grep` are acceptable only for non-code files
+(docs, plans, markdown, JSON, SQL, SKILL.md).
+
+## Focus on
+
 - Correctness bugs (wrong logic, wrong types, missing edge cases)
 - Contract violations (breaking the project's documented conventions)
 - Missed edge cases (null, empty, boundary conditions)

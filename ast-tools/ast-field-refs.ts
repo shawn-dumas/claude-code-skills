@@ -51,7 +51,7 @@ interface FieldRefsResult {
 // Analysis
 // ---------------------------------------------------------------------------
 
-function analyzeFile(filePath: string, fieldName: string): FieldReference[] {
+export function analyzeFile(filePath: string, fieldName: string): FieldReference[] {
   const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(PROJECT_ROOT, filePath);
   const relativePath = path.relative(PROJECT_ROOT, absolute);
 
@@ -171,7 +171,7 @@ function analyzeFile(filePath: string, fieldName: string): FieldReference[] {
 // CLI
 // ---------------------------------------------------------------------------
 
-function main(): void {
+export function main(): void {
   const args = parseArgs(process.argv, {
     namedOptions: ['--field'],
   });
@@ -240,9 +240,11 @@ function main(): void {
 }
 
 // Run CLI when executed directly
+/* v8 ignore start */
 const isDirectRun =
   process.argv[1] && (process.argv[1].endsWith('ast-field-refs.ts') || process.argv[1].endsWith('ast-field-refs'));
 
 if (isDirectRun) {
   main();
 }
+/* v8 ignore stop */

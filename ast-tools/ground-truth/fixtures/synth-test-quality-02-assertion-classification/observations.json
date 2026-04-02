@@ -1,0 +1,260 @@
+{
+  "generatedAt": "2026-04-01",
+  "tool": "test-quality",
+  "files": {
+    "component.spec.tsx": {
+      "observations": [
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 1,
+          "column": 1,
+          "evidence": {
+            "importSource": "vitest",
+            "specifiers": ["describe", "it", "expect", "vi"]
+          }
+        },
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 2,
+          "column": 1,
+          "evidence": {
+            "importSource": "@testing-library/react",
+            "specifiers": ["render", "screen"]
+          }
+        },
+        {
+          "kind": "TEST_HELPER_IMPORT",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 3,
+          "column": 1,
+          "evidence": {
+            "importSource": "@testing-library/user-event",
+            "specifiers": ["userEvent"]
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 9,
+          "column": 345,
+          "evidence": {
+            "matcherName": "toBeInTheDocument",
+            "expectArgText": "screen.getByText('Submit')",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 14,
+          "column": 518,
+          "evidence": {
+            "matcherName": "toBeVisible",
+            "expectArgText": "screen.getByRole('button', { name: 'Save' })",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 21,
+          "column": 789,
+          "evidence": {
+            "matcherName": "toHaveBeenCalledTimes",
+            "expectArgText": "onClick",
+            "isScreenQuery": false,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 26,
+          "column": 958,
+          "evidence": {
+            "matcherName": "toBeDisabled",
+            "expectArgText": "screen.getByRole('button')",
+            "isScreenQuery": true,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 31,
+          "column": 1136,
+          "evidence": {
+            "matcherName": "toMatchSnapshot",
+            "expectArgText": "container",
+            "isScreenQuery": false,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 36,
+          "column": 1255,
+          "evidence": {
+            "matcherName": "toHaveBeenCalledTimes",
+            "expectArgText": "handler",
+            "isScreenQuery": false,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "ASSERTION_CALL",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 42,
+          "column": 1405,
+          "evidence": {
+            "matcherName": "toHaveBeenCalled",
+            "expectArgText": "useCustomHook",
+            "isScreenQuery": false,
+            "isResultCurrent": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 8,
+          "column": 282,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 13,
+          "column": 457,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 19,
+          "column": 675,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 25,
+          "column": 888,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "RENDER_CALL",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 30,
+          "column": 1075,
+          "evidence": {
+            "isRenderHook": false,
+            "hasWrapper": false
+          }
+        },
+        {
+          "kind": "DESCRIBE_BLOCK",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 6,
+          "column": 206,
+          "evidence": {
+            "describeName": "ActionButton"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 7,
+          "column": 241,
+          "evidence": {
+            "testName": "renders the label text"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 12,
+          "column": 410,
+          "evidence": {
+            "testName": "is visible when not disabled"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 17,
+          "column": 595,
+          "evidence": {
+            "testName": "calls onClick when clicked"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 24,
+          "column": 840,
+          "evidence": {
+            "testName": "is disabled when prop is true"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 29,
+          "column": 1018,
+          "evidence": {
+            "testName": "matches snapshot"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 34,
+          "column": 1182,
+          "evidence": {
+            "testName": "checks internal mock call"
+          }
+        },
+        {
+          "kind": "TEST_BLOCK",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 39,
+          "column": 1306,
+          "evidence": {
+            "testName": "verifies hook was called"
+          }
+        },
+        {
+          "kind": "IMPLEMENTATION_ASSERTION",
+          "file": "../../../..<fixture>/component.spec.tsx",
+          "line": 42,
+          "column": 1,
+          "evidence": {
+            "hookName": "useCustomHook",
+            "assertionType": "hook-call-args",
+            "pattern": "expect(useCustomHook).toHaveBeenCalled();"
+          },
+          "authoritative": true
+        }
+      ],
+      "subjectPath": "../../../..<fixture>/component.tsx",
+      "subjectExists": true
+    }
+  }
+}

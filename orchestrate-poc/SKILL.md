@@ -1388,6 +1388,10 @@ orchestrate-feature for the exact format). Key rules:
     Manual if filter integration only requires wiring nuqs
     `useQueryStates` in the existing container.
   - Phase 9 (tests): `/build-react-test`
+  - Phase 10 (visual regression, optional): if the PoC adds a new page,
+    consider adding visual regression tests. See `docs/visual-testing.md`
+    for the fixture stack and how to add page/component tests. Use
+    `/build-playwright-test` with a visual spec target.
 
   **Decision rule summary:** Default rule: if it owns orchestration,
   state, or hooks, treat it as a container task (`build-react-route`).
@@ -2101,4 +2105,4 @@ To add a new domain fixture, use the `/build-fixture` skill.
 
 `UserId`, `TeamId`, `OrganizationId`, `WorkstreamId`, `SpanId`,
 `ProjectId`, `ISOTimestamp`, `ISODate`, `Email`, `UrlString`, `UrlHost`,
-`UnixMilliseconds`, `Seconds`, `Milliseconds`, `Minutes`, `Percentage`
+`UnixMilliseconds`, `Seconds`, `Percentage`
