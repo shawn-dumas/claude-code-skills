@@ -1,7 +1,7 @@
 ---
 name: record-verification-gif
 description: Record a verification GIF of a bug fix by driving the browser through a sequence of steps, capturing screenshots at each step, and stitching them into an animated GIF. Optionally attaches the GIF to a Jira ticket.
-allowed-tools: mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_resize, mcp__playwright__browser_click, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_press_key, mcp__playwright__browser_wait_for, mcp__playwright__browser_evaluate, mcp__playwright__browser_fill_form, mcp__playwright__browser_install, mcp__playwright__browser_run_code, mcp__playwright__browser_close, mcp__atlassian__jira_update_issue, Bash(ffmpeg:*), Bash(mkdir:*), Bash(ls:*), Bash(rm:*), Bash(cp:*), Bash(curl:*), Bash(which:*), Bash(brew:*), Read
+allowed-tools: mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_resize, mcp__playwright__browser_click, mcp__playwright__browser_take_screenshot, mcp__playwright__browser_press_key, mcp__playwright__browser_wait_for, mcp__playwright__browser_evaluate, mcp__playwright__browser_fill_form, mcp__playwright__browser_install, mcp__playwright__browser_run_code, mcp__playwright__browser_close, mcp__atlassian__jira_update_issue, mcp__atlassian__jira_add_comment, Bash(ffmpeg:*), Bash(mkdir:*), Bash(ls:*), Bash(rm:*), Bash(cp:*), Bash(curl:*), Bash(which:*), Bash(brew:*), Read
 argument-hint: <ticket-id-or-description> [--attach <JIRA-KEY>] [--output <path>]
 ---
 
@@ -233,7 +233,10 @@ Report the frame count, file size, duration, and output path to the user.
 
 ## Phase 4: Attach to Jira (optional)
 
-If `--attach <JIRA-KEY>` was specified:
+If `--attach <JIRA-KEY>` was specified, this is a two-step process:
+first upload the file, then add a comment that references it.
+
+### Step 1: Upload the attachment
 
 ```
 mcp__atlassian__jira_update_issue(
@@ -243,7 +246,28 @@ mcp__atlassian__jira_update_issue(
 )
 ```
 
-Report success or failure.
+### Step 2: Add a comment with context
+
+```
+mcp__atlassian__jira_add_comment(
+  issue_key: "<JIRA-KEY>",
+  body: "**Verification (<environment>):** see attached `<filename>`
+
+Recorded against <URL> (<version>, <commit>). The GIF walks through the reproduction steps:
+
+<numbered list of what happens in the GIF>
+
+**What:** <one-line description of the fix>
+
+**Where:** <what was broken and in which file/module>
+
+**Why:** <root cause explanation>"
+)
+```
+
+The comment must reference the attached filename so readers can find
+it. The what/where/why section gives context without requiring the
+reader to find the PR.
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: record-verification-webm
 description: Record a verification WebM video of a bug fix by driving the browser through a scripted sequence using playwright-cli with native video recording. Optionally attaches the video to a Jira ticket.
-allowed-tools: Bash(playwright-cli:*), Bash(curl:*), Bash(which:*), Bash(brew:*), Bash(ls:*), Bash(mkdir:*), Bash(mv:*), Bash(cp:*), Bash(docker:*), Bash(sleep:*), mcp__atlassian__jira_update_issue, Read
+allowed-tools: Bash(playwright-cli:*), Bash(curl:*), Bash(which:*), Bash(brew:*), Bash(ls:*), Bash(mkdir:*), Bash(mv:*), Bash(cp:*), Bash(docker:*), Bash(sleep:*), Bash(ffmpeg:*), mcp__atlassian__jira_update_issue, mcp__atlassian__jira_add_comment, Read
 argument-hint: <ticket-id-or-description> [--attach <JIRA-KEY>] [--output <path>]
 ---
 
@@ -33,6 +33,18 @@ If not installed:
 
 ```bash
 npm install -g @playwright/cli
+```
+
+### Check ffmpeg
+
+```bash
+which ffmpeg
+```
+
+If not installed:
+
+```bash
+brew install ffmpeg
 ```
 
 ### Check dev server
@@ -146,12 +158,31 @@ clicks and interactions.
 
 ### Stop recording and save
 
-`video-stop` accepts an optional output path. Pass the desired path
-directly to avoid an extra copy step.
+`video-stop` saves to `.playwright-cli/` and returns the path. Copy
+the raw video to the output location:
 
 ```bash
-playwright-cli video-stop <OUTPUT_PATH>
+playwright-cli video-stop
+# Returns: [Video](.playwright-cli/video-<timestamp>.webm)
+cp .playwright-cli/video-<timestamp>.webm <RAW_PATH>
 ```
+
+---
+
+<!-- role: workflow -->
+
+## Phase 4: Speed up
+
+Always produce a 2.5x speed version of the raw video. This is the
+default output -- the raw recording is kept as a working file only.
+
+```bash
+ffmpeg -i <RAW_PATH> -filter:v "setpts=0.4*PTS" -an <OUTPUT_PATH> -y
+```
+
+`0.4*PTS` = 2.5x speed. The `-an` flag drops audio (WebM recordings
+from playwright-cli have no audio track, but the flag prevents ffmpeg
+warnings).
 
 Default output is `~/Desktop/<ticket-or-description>.webm`.
 
@@ -167,7 +198,7 @@ Report the file size and output path to the user.
 
 <!-- role: workflow -->
 
-## Phase 4: Cleanup
+## Phase 5: Cleanup
 
 ```bash
 playwright-cli close
@@ -177,9 +208,12 @@ playwright-cli close
 
 <!-- role: workflow -->
 
-## Phase 5: Attach to Jira (optional)
+## Phase 6: Attach to Jira (optional)
 
-If `--attach <JIRA-KEY>` was specified:
+If `--attach <JIRA-KEY>` was specified, this is a two-step process:
+first upload the file, then add a comment that references it.
+
+### Step 1: Upload the attachment
 
 ```
 mcp__atlassian__jira_update_issue(
@@ -189,7 +223,28 @@ mcp__atlassian__jira_update_issue(
 )
 ```
 
-Report success or failure.
+### Step 2: Add a comment with context
+
+```
+mcp__atlassian__jira_add_comment(
+  issue_key: "<JIRA-KEY>",
+  body: "**Verification video (<environment>):** see attached `<filename>` (2.5x speed)
+
+Recorded against <URL> (<version>, <commit>). The video walks through the reproduction steps:
+
+<numbered list of what happens in the video>
+
+**What:** <one-line description of the fix>
+
+**Where:** <what was broken and in which file/module>
+
+**Why:** <root cause explanation>"
+)
+```
+
+The comment must reference the attached filename so readers can find
+it. The what/where/why section gives context without requiring the
+reader to find the PR.
 
 ---
 
