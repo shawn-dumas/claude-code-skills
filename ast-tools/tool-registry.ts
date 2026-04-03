@@ -48,6 +48,15 @@ import { analyzeBrandedCheck, extractBrandedCheckObservations } from './ast-bran
 // ast-behavioral: behavioral fingerprint observations
 import { extractBehavioralObservations } from './ast-behavioral';
 
+// ast-nr-client: New Relic browser agent gap detection
+import { analyzeNrClient, extractNrClientObservations } from './ast-nr-client';
+
+// ast-nr-server: New Relic server APM gap detection
+import { analyzeNrServer, extractNrServerObservations } from './ast-nr-server';
+
+// ast-error-flow: catch block error sink classification
+import { analyzeErrorFlow, extractErrorFlowObservations } from './ast-error-flow';
+
 // ---------------------------------------------------------------------------
 // Registry types
 // ---------------------------------------------------------------------------
@@ -201,6 +210,24 @@ function behavioralAdapter(sf: SourceFile, _filePath: string): AnyObservation[] 
   return [...extractBehavioralObservations(sf)];
 }
 
+function nrClientAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
+  const analysis = analyzeNrClient(filePath);
+  const result = extractNrClientObservations(analysis);
+  return [...result.observations];
+}
+
+function nrServerAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
+  const analysis = analyzeNrServer(filePath);
+  const result = extractNrServerObservations(analysis);
+  return [...result.observations];
+}
+
+function errorFlowAdapter(_sf: SourceFile, filePath: string): AnyObservation[] {
+  const analysis = analyzeErrorFlow(filePath);
+  const result = extractErrorFlowObservations(analysis);
+  return [...result.observations];
+}
+
 // ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
@@ -229,6 +256,9 @@ const entries: ToolEntry[] = [
   { name: 'handler-structure', analyze: handlerStructureAdapter },
   { name: 'branded-check', analyze: brandedCheckAdapter },
   { name: 'behavioral', analyze: behavioralAdapter },
+  { name: 'nr-client', analyze: nrClientAdapter },
+  { name: 'nr-server', analyze: nrServerAdapter },
+  { name: 'error-flow', analyze: errorFlowAdapter },
 ];
 
 export const TOOL_REGISTRY: ReadonlyMap<string, ToolEntry> = new Map(entries.map(e => [e.name, e]));

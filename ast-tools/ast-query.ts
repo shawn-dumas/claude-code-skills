@@ -100,6 +100,11 @@ const ROUTES: ReadonlyMap<string, StandardRoute> = new Map([
   ['exports', { tool: 'ast-export-surface', flags: [] }],
   ['behavioral', { tool: 'ast-behavioral', flags: [] }],
 
+  // New Relic observability
+  ['nr-client', { tool: 'ast-nr-client', flags: [] }],
+  ['nr-server', { tool: 'ast-nr-server', flags: [] }],
+  ['error-flow', { tool: 'ast-error-flow', flags: [] }],
+
   // Interpreters
   ['interpret-effects', { tool: 'ast-interpret-effects', flags: [] }],
   ['interpret-hooks', { tool: 'ast-interpret-hooks', flags: [] }],
@@ -205,6 +210,11 @@ Available query types:
     errors         Query/mutation error handling coverage
     exports        Export surface from isolated files
     behavioral     Behavioral fingerprint (defaults, guards, literals)
+
+  New Relic observability:
+    nr-client      NR browser agent integration patterns and gaps
+    nr-server      NR server APM integration patterns and gaps
+    error-flow     Catch block error sink classification
 
   Interpreters:
     interpret-effects         Classify each useEffect
@@ -481,8 +491,19 @@ function parseDispatcherArgs(argv: string[]): {
     }
 
     if (arg.startsWith('--')) {
-      // Named options consume the next arg as their value
-      const namedOptions = ['--kind', '--source-branch', '--field', '--before', '--after'];
+      // Named options consume the next arg as their value.
+      // SYNC: When adding a named option to a tool's CLI parser (e.g., parseArgs
+      // namedOptions in ast-pw-test-parity.ts or ast-interpret-pw-test-parity.ts),
+      // also add it here so the dispatcher forwards it correctly.
+      const namedOptions = [
+        '--kind',
+        '--source-branch',
+        '--source-dir',
+        '--target-dir',
+        '--field',
+        '--before',
+        '--after',
+      ];
       if (namedOptions.includes(arg) && i + 1 < raw.length) {
         extraFlags.push(arg, raw[i + 1]);
         i++;

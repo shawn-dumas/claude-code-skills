@@ -1193,14 +1193,8 @@ function extractProviderObservations(sf: SourceFile, filePath: string): TestObse
   const fullText = sf.getFullText();
 
   for (const signal of astConfig.testing.providerSignals) {
-    // Find all occurrences of the signal in the file
-    let searchPos = 0;
-    while (true) {
-      const idx = fullText.indexOf(signal, searchPos);
-      if (idx === -1) break;
-      searchPos = idx + 1;
-
-      // Get line number from position
+    const idx = fullText.indexOf(signal);
+    if (idx !== -1) {
       const textBefore = fullText.substring(0, idx);
       const line = textBefore.split('\n').length;
 
@@ -1209,7 +1203,6 @@ function extractProviderObservations(sf: SourceFile, filePath: string): TestObse
           providerName: signal,
         }),
       );
-      break; // Only record once per signal type
     }
   }
 

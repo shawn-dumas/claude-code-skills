@@ -888,6 +888,7 @@ export interface PwTestBlock {
   navigations: string[];
   pomUsages: string[];
   helperDelegations: PwHelperDelegation[];
+  isSkipped?: boolean;
 }
 
 /** Per-function/method assertion count from a helper or POM file. */
@@ -939,6 +940,7 @@ export type PwParityObservationEvidence = {
   navigationCount?: number;
   pomCount?: number;
   helperDelegationCount?: number;
+  isSkipped?: boolean;
   // PW_ASSERTION
   matcher?: string;
   target?: string;
@@ -1453,7 +1455,10 @@ export type AnyObservation =
   | PeerDepObservation
   | TestCoverageObservation
   | HandlerStructureObservation
-  | BehavioralObservation;
+  | BehavioralObservation
+  | NrClientObservation
+  | NrServerObservation
+  | ErrorFlowObservation;
 
 /**
  * Unified result from running one or more observation tools on a single file.
@@ -1831,6 +1836,113 @@ export interface SkillQualityReport {
   readonly conventionDriftCount: number;
   readonly missingRoleCount: number;
   readonly missingRequiredRoleCount: number;
+}
+
+// ============================================================
+// ast-nr-client output (New Relic browser agent gap detection)
+// ============================================================
+
+export type NrClientObservationKind =
+  | 'NR_NREUM_CALL'
+  | 'NR_REPORT_ERROR_CALL'
+  | 'NR_MONITOR_API_CALL'
+  | 'NR_ROUTE_TRACKER'
+  | 'NR_SCRIPT_INJECTION'
+  | 'NR_TRACER_MISUSE'
+  | 'NR_MISSING_ERROR_HANDLER'
+  | 'NR_MISSING_USER_ID'
+  | 'NR_MISSING_ROUTE_TRACK'
+  | 'NR_MISSING_UNHANDLED_REJECTION'
+  | 'NR_MISSING_WEB_VITALS';
+
+export type NrClientObservationEvidence = {
+  readonly callSite?: string;
+  readonly nreumMethod?: string;
+  readonly wrapperFunction?: string;
+  readonly containingFunction?: string;
+  readonly componentName?: string;
+  readonly pageFile?: string;
+  readonly reason?: string;
+  readonly preStartedVariable?: string;
+  readonly interactionLine?: number;
+};
+
+export type NrClientObservation = Observation<NrClientObservationKind, NrClientObservationEvidence>;
+
+export interface NrClientAnalysis {
+  filePath: string;
+  observations: NrClientObservation[];
+  summary: {
+    nreumCalls: number;
+    reportErrorCalls: number;
+    monitorApiCalls: number;
+    missingCount: number;
+  };
+}
+
+// ============================================================
+// ast-nr-server output (New Relic server APM gap detection)
+// ============================================================
+
+export type NrServerObservationKind =
+  | 'NR_APM_IMPORT'
+  | 'NR_NOTICE_ERROR_CALL'
+  | 'NR_CUSTOM_ATTRS_CALL'
+  | 'NR_CUSTOM_SEGMENT'
+  | 'NR_TXN_NAME_CALL'
+  | 'NR_MISSING_ERROR_REPORT'
+  | 'NR_MISSING_CUSTOM_ATTRS'
+  | 'NR_MISSING_DB_SEGMENT'
+  | 'NR_MISSING_TXN_NAME'
+  | 'NR_MISSING_STARTUP_HOOK';
+
+export type NrServerObservationEvidence = {
+  readonly callSite?: string;
+  readonly middleware?: string;
+  readonly containingFunction?: string;
+  readonly dbClient?: string;
+  readonly routePath?: string;
+  readonly catchBlockLine?: number;
+  readonly errorSink?: string;
+  readonly reason?: string;
+  readonly checkedPaths?: string;
+};
+
+export type NrServerObservation = Observation<NrServerObservationKind, NrServerObservationEvidence>;
+
+export interface NrServerAnalysis {
+  filePath: string;
+  observations: NrServerObservation[];
+  summary: {
+    apmImports: number;
+    noticeErrorCalls: number;
+    customAttrsCalls: number;
+    missingCount: number;
+  };
+}
+
+// ============================================================
+// ast-error-flow output (catch block error sink classification)
+// ============================================================
+
+export type ErrorFlowObservationKind = 'ERROR_SINK_TYPE';
+
+export type ErrorSinkClassification = 'console' | 'newrelic' | 'rethrow' | 'swallowed' | 'response' | 'callback';
+
+export type ErrorFlowObservationEvidence = {
+  readonly sink: ErrorSinkClassification;
+  readonly catchLine: number;
+  readonly containingFunction: string;
+  readonly sinkExpression?: string;
+  readonly hasMultipleSinks?: boolean;
+};
+
+export type ErrorFlowObservation = Observation<ErrorFlowObservationKind, ErrorFlowObservationEvidence>;
+
+export interface ErrorFlowAnalysis {
+  filePath: string;
+  observations: ErrorFlowObservation[];
+  summary: Readonly<Record<ErrorSinkClassification, number>>;
 }
 
 // ============================================================

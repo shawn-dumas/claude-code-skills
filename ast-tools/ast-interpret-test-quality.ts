@@ -1085,7 +1085,7 @@ export function main(): void {
 
   const stat = fs.statSync(absolute);
   let allAssessments: TestQualityAssessment[] = [];
-  let displayPath = targetPath;
+  let displayPath: string;
 
   if (stat.isDirectory()) {
     // Find all test files in directory

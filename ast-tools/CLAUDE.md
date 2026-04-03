@@ -35,6 +35,9 @@ These tools are registered in `tool-registry.ts` and can be run via
 | ast-pw-test-parity | `ast-query.ts pw-parity <path>` | Inventories Playwright spec structure, assertions, route intercepts |
 | ast-vitest-parity | `ast-query.ts vitest-parity <path>` | Inventories Vitest spec structure, assertions, mocks, renders |
 | ast-branded-check | `ast-query.ts branded <path>` | Detects unbranded ID fields and unbranded function params (UNBRANDED_PARAM) |
+| ast-nr-client | `ast-query.ts nr-client <path>` | Detects NR browser agent (NREUM) integration patterns and gaps |
+| ast-nr-server | `ast-query.ts nr-server <path>` | Detects NR server APM integration patterns and gaps |
+| ast-error-flow | `ast-query.ts error-flow <path>` | Classifies catch block error sinks (console, newrelic, rethrow, swallowed, response, callback) |
 
 ### Standalone Tools (not in registry)
 
@@ -194,6 +197,9 @@ table whenever a new kind is added to `types.ts`.
 | `ast-number-format` | `FORMAT_NUMBER_CALL`, `FORMAT_INT_CALL`, `FORMAT_DURATION_CALL`, `FORMAT_CELL_VALUE_CALL`, `RAW_TO_FIXED`, `RAW_TO_LOCALE_STRING`, `PERCENTAGE_DISPLAY`, `INTL_NUMBER_FORMAT` | `ast-interpret-display-format` |
 | `ast-null-display` | `NULL_COALESCE_FALLBACK`, `FALSY_COALESCE_FALLBACK`, `NO_FALLBACK_CELL`, `HARDCODED_PLACEHOLDER`, `EMPTY_STATE_MESSAGE`, `ZERO_CONFLATION` | `ast-interpret-display-format` |
 | `ast-peer-deps` | `PEER_DEP_SATISFIED`, `PEER_DEP_VIOLATED`, `PEER_DEP_OPTIONAL_MISSING` | (observation-only, JSON metadata) |
+| `ast-nr-client` | `NR_NREUM_CALL`, `NR_REPORT_ERROR_CALL`, `NR_MONITOR_API_CALL`, `NR_ROUTE_TRACKER`, `NR_SCRIPT_INJECTION`, `NR_TRACER_MISUSE`, `NR_MISSING_ERROR_HANDLER`, `NR_MISSING_USER_ID`, `NR_MISSING_ROUTE_TRACK`, `NR_MISSING_UNHANDLED_REJECTION`, `NR_MISSING_WEB_VITALS` | (observation-only) |
+| `ast-nr-server` | `NR_APM_IMPORT`, `NR_NOTICE_ERROR_CALL`, `NR_CUSTOM_ATTRS_CALL`, `NR_CUSTOM_SEGMENT`, `NR_TXN_NAME_CALL`, `NR_MISSING_ERROR_REPORT`, `NR_MISSING_CUSTOM_ATTRS`, `NR_MISSING_DB_SEGMENT`, `NR_MISSING_TXN_NAME`, `NR_MISSING_STARTUP_HOOK` | (observation-only) |
+| `ast-error-flow` | `ERROR_SINK_TYPE` | (observation-only) |
 
 ## 3. Calibration
 

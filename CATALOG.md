@@ -654,6 +654,48 @@ Swaps one package for another. Maps the old API surface to the new package, rewr
 /replace-npm-package react-csv react-csv-downloader
 ```
 
+## Observability Skills
+
+These skills audit, build, and refactor New Relic integration across the client (NREUM browser agent) and server (Node.js APM).
+
+### audit-nr-observability
+
+**Read-only diagnostic.** Audits New Relic integration gaps across both client and server using `ast-nr-client`, `ast-nr-server`, and `ast-error-flow` AST tools. Produces a gap list showing where NR should be called but is not, classified by severity (CRITICAL/HIGH/MEDIUM/LOW).
+
+Run this before implementing NR integration or after adding new error handling to verify coverage.
+
+```
+/audit-nr-observability
+/audit-nr-observability src/server/
+```
+
+### build-nr-client-integration
+
+Implements client-side NR browser agent gaps. Each gap ID (C1-C5) maps to a specific integration point: global error listeners, user ID custom attributes, auth page naming, web vitals reporting, and custom performance marks.
+
+```
+/build-nr-client-integration C1
+/build-nr-client-integration C1 C2 C4
+```
+
+### build-nr-server-integration
+
+Implements server-side NR APM gaps. Gap IDs (S1-S6) cover: installing the newrelic package, creating config, adding noticeError to middleware, setting custom attributes in auth, and wrapping ClickHouse queries in custom segments. S1 and S2 are prerequisites for all other server gaps.
+
+```
+/build-nr-server-integration S1 S2
+/build-nr-server-integration S3 S4
+```
+
+### refactor-error-handler
+
+Refactors catch blocks to add NR error reporting alongside existing `console.error` calls. Uses `ast-error-flow` to identify console-only sinks, then adds the appropriate NR reporting call (client: `reportErrorToNewRelic`, server: `newrelic.noticeError`). Additive only -- does not remove existing console logging.
+
+```
+/refactor-error-handler src/server/middleware/
+/refactor-error-handler src/ui/providers/
+```
+
 ## Test Quality Skills
 
 ### audit-react-test

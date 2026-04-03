@@ -373,4 +373,80 @@ describe('ast-pw-test-parity', () => {
       expect(result.tests.length).toBe(2);
     });
   });
+
+  describe('skip variant detection', () => {
+    it('marks test.skip with body as isSkipped', () => {
+      const result = analyzeTestParity(fixture('pw-spec-skip-variants.spec.ts'));
+      const skipped = result.tests.find(t => t.name === 'skipped test with body');
+      expect(skipped).toBeDefined();
+      expect(skipped!.isSkipped).toBe(true);
+      // 2-arg form still extracts assertions
+      expect(skipped!.assertionCount).toBe(1);
+    });
+
+    it('marks test.fixme with body as isSkipped', () => {
+      const result = analyzeTestParity(fixture('pw-spec-skip-variants.spec.ts'));
+      const fixme = result.tests.find(t => t.name === 'fixme test with body');
+      expect(fixme).toBeDefined();
+      expect(fixme!.isSkipped).toBe(true);
+    });
+
+    it('marks test.todo (1-arg) as isSkipped with 0 assertions', () => {
+      const result = analyzeTestParity(fixture('pw-spec-skip-variants.spec.ts'));
+      const todo = result.tests.find(t => t.name === 'todo test placeholder');
+      expect(todo).toBeDefined();
+      expect(todo!.isSkipped).toBe(true);
+      expect(todo!.assertionCount).toBe(0);
+    });
+
+    it('does not mark active tests as isSkipped', () => {
+      const result = analyzeTestParity(fixture('pw-spec-skip-variants.spec.ts'));
+      const active = result.tests.find(t => t.name === 'active test');
+      expect(active).toBeDefined();
+      expect(active!.isSkipped).toBeUndefined();
+    });
+
+    it('marks tests inside describe.skip as isSkipped (transitive)', () => {
+      const result = analyzeTestParity(fixture('pw-spec-skip-variants.spec.ts'));
+      const inside = result.tests.find(t => t.name === 'inside skipped describe');
+      const also = result.tests.find(t => t.name === 'also inside skipped describe');
+      expect(inside).toBeDefined();
+      expect(inside!.isSkipped).toBe(true);
+      expect(also).toBeDefined();
+      expect(also!.isSkipped).toBe(true);
+    });
+
+    it('marks tests inside describe.fixme as isSkipped (transitive)', () => {
+      const result = analyzeTestParity(fixture('pw-spec-skip-variants.spec.ts'));
+      const inside = result.tests.find(t => t.name === 'inside fixme describe');
+      expect(inside).toBeDefined();
+      expect(inside!.isSkipped).toBe(true);
+    });
+
+    it('extracts describes from describe.skip and describe.fixme', () => {
+      const result = analyzeTestParity(fixture('pw-spec-skip-variants.spec.ts'));
+      expect(result.describes).toContain('skipped describe block');
+      expect(result.describes).toContain('fixme describe block');
+    });
+
+    it('emits isSkipped in PW_TEST_BLOCK observation evidence', () => {
+      const analysis = analyzeTestParity(fixture('pw-spec-skip-variants.spec.ts'));
+      const obs = extractTestParityObservations(analysis);
+      const testBlocks = obs.observations.filter(o => o.kind === 'PW_TEST_BLOCK');
+
+      const skippedObs = testBlocks.find(o => o.evidence.testName === 'skipped test with body');
+      expect(skippedObs!.evidence.isSkipped).toBe(true);
+
+      const activeObs = testBlocks.find(o => o.evidence.testName === 'active test');
+      expect(activeObs!.evidence.isSkipped).toBeUndefined();
+    });
+
+    it('counts total tests including skipped variants', () => {
+      const result = analyzeTestParity(fixture('pw-spec-skip-variants.spec.ts'));
+      // 3 direct skip/fixme/todo + 1 active + 2 inside describe.skip + 1 inside describe.fixme = 7
+      expect(result.tests.length).toBe(7);
+      const skipped = result.tests.filter(t => t.isSkipped === true);
+      expect(skipped.length).toBe(6); // all except 'active test'
+    });
+  });
 });

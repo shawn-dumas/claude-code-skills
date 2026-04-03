@@ -87,14 +87,64 @@ function hasBeforeEach(sf: SourceFile): boolean {
 // Describe block extraction (resolveCallName imported from shared.ts)
 // ---------------------------------------------------------------------------
 
+/**
+ * Resolve the base expression text for a call like `test.describe.skip(...)`.
+ * For `test.describe.skip`, the expression is a nested PropertyAccessExpression:
+ *   test.describe.skip -> getName()='skip', getExpression()=test.describe
+ *   test.describe -> getName()='describe', getExpression()=test
+ * We want to know if "describe" appears in the chain before the terminal method.
+ */
+function hasDescribeInChain(expr: Node): boolean {
+  if (!Node.isPropertyAccessExpression(expr)) return false;
+  const base = expr.getExpression();
+  // describe.skip(...) -> base is identifier 'describe'
+  if (Node.isIdentifier(base) && base.getText() === 'describe') return true;
+  // test.describe.skip(...) -> base is test.describe
+  if (Node.isPropertyAccessExpression(base) && base.getName() === 'describe') return true;
+  return false;
+}
+
+/** Check if a CallExpression is a describe variant (describe, describe.skip, etc.). */
+function isDescribeCall(node: Node): node is import('ts-morph').CallExpression {
+  if (!Node.isCallExpression(node)) return false;
+  const callName = resolveCallName(node);
+  if (callName === 'describe') return true;
+  // For 'skip'/'fixme'/'todo', verify describe is in the expression chain
+  if (callName === 'skip' || callName === 'fixme' || callName === 'todo') {
+    const expr = node.getExpression();
+    return hasDescribeInChain(expr);
+  }
+  return false;
+}
+
+/** Check if a describe CallExpression is a skipped variant (describe.skip/fixme/todo). */
+function isSkippedDescribeCall(node: Node): boolean {
+  if (!Node.isCallExpression(node)) return false;
+  const callName = resolveCallName(node);
+  if (callName !== 'skip' && callName !== 'fixme' && callName !== 'todo') return false;
+  const expr = node.getExpression();
+  return hasDescribeInChain(expr);
+}
+
+/**
+ * Walk up the AST from a node to check if it is inside a skipped describe block.
+ * Returns true if any ancestor CallExpression is describe.skip/describe.fixme/describe.todo.
+ */
+function isInsideSkippedDescribe(node: Node): boolean {
+  let current: Node | undefined = node.getParent();
+  while (current) {
+    if (isSkippedDescribeCall(current)) return true;
+    current = current.getParent();
+  }
+  return false;
+}
+
 function extractDescribes(sf: SourceFile): string[] {
   const describes: string[] = [];
 
   sf.forEachDescendant(node => {
     if (!Node.isCallExpression(node)) return;
-
-    const name = resolveCallName(node);
-    if (name !== 'describe') return;
+    if (!isDescribeCall(node)) return;
 
     const args = node.getArguments();
     if (args.length > 0 && Node.isStringLiteral(args[0])) {
@@ -112,15 +162,12 @@ function extractDescribes(sf: SourceFile): string[] {
 function findEnclosingDescribe(node: Node): string | null {
   let current: Node | undefined = node.getParent();
   while (current) {
-    if (Node.isCallExpression(current)) {
-      const name = resolveCallName(current);
-      if (name === 'describe') {
-        const args = current.getArguments();
-        if (args.length > 0 && Node.isStringLiteral(args[0])) {
-          return args[0].getLiteralValue();
-        }
-        return '<unnamed describe>';
+    if (isDescribeCall(current)) {
+      const args = current.getArguments();
+      if (args.length > 0 && Node.isStringLiteral(args[0])) {
+        return args[0].getLiteralValue();
       }
+      return '<unnamed describe>';
     }
     current = current.getParent();
   }
@@ -435,7 +482,7 @@ function extractTestBlocks(sf: SourceFile, specFilePath?: string): PwTestBlock[]
     factoryTestLines.add(f.testCallNode.getStartLineNumber());
   }
 
-  const testCallNames = new Set(['test', 'it', 'only', 'skip', 'fixme']);
+  const testCallNames = new Set(['test', 'it', 'only', 'skip', 'fixme', 'todo']);
 
   sf.forEachDescendant(node => {
     if (!Node.isCallExpression(node)) return;
@@ -443,7 +490,7 @@ function extractTestBlocks(sf: SourceFile, specFilePath?: string): PwTestBlock[]
     const callName = resolveCallName(node);
     if (!testCallNames.has(callName)) return;
 
-    // For 'only'/'skip'/'fixme', verify the base is test/it
+    // For 'only'/'skip'/'fixme'/'todo', verify the base is test/it
     if (callName !== 'test' && callName !== 'it') {
       const expr = node.getExpression();
       if (!Node.isPropertyAccessExpression(expr)) return;
@@ -462,7 +509,35 @@ function extractTestBlocks(sf: SourceFile, specFilePath?: string): PwTestBlock[]
     if (!Node.isCallExpression(testNode)) continue;
     if (isFileSkipGuard(testNode)) continue;
 
+    const callName = resolveCallName(testNode);
+    const isSkipped = callName === 'skip' || callName === 'fixme' || callName === 'todo';
+
     const args = testNode.getArguments();
+
+    // Handle 1-arg form: test.skip('name') / test.fixme('name') / test.todo('name')
+    // Only accept string literal args. Non-literal 1-arg forms like test.skip(someCondition)
+    // are conditional skips (runtime guards), not test placeholders.
+    if (args.length === 1 && isSkipped) {
+      const nameArg = args[0];
+      if (!Node.isStringLiteral(nameArg)) continue;
+      const testName = nameArg.getLiteralValue();
+      const line = testNode.getStartLineNumber();
+      const describeParent = findEnclosingDescribe(testNode);
+      tests.push({
+        name: testName,
+        line,
+        describeParent,
+        assertionCount: 0,
+        assertions: [],
+        routeIntercepts: [],
+        navigations: [],
+        pomUsages: [],
+        helperDelegations: [],
+        isSkipped: true,
+      });
+      continue;
+    }
+
     if (args.length < 2) continue;
 
     const nameArg = args[0];
@@ -480,12 +555,16 @@ function extractTestBlocks(sf: SourceFile, specFilePath?: string): PwTestBlock[]
     const callback = args[args.length - 1];
     const signals = extractTestBodySignals(callback);
 
+    // Check for transitive skip from enclosing describe.skip/describe.fixme
+    const transitiveSkip = isInsideSkippedDescribe(testNode);
+
     tests.push({
       name: testName,
       line,
       describeParent,
       assertionCount: signals.assertions.length,
       ...signals,
+      ...(isSkipped || transitiveSkip ? { isSkipped: true } : {}),
     });
   }
 
@@ -507,6 +586,10 @@ function extractTestBlocks(sf: SourceFile, specFilePath?: string): PwTestBlock[]
     const fCallback = fArgs[fArgs.length - 1];
     const factorySignals = extractTestBodySignals(fCallback);
 
+    // Detect if the factory test() call itself is skipped
+    const fCallName = resolveCallName(factoryTestNode);
+    const factorySkipped = fCallName === 'skip' || fCallName === 'fixme' || fCallName === 'todo';
+
     // Create one PwTestBlock per invocation, with the resolved name.
     // Spread all arrays to avoid shared mutable references across siblings.
     for (const inv of invocations) {
@@ -520,6 +603,7 @@ function extractTestBlocks(sf: SourceFile, specFilePath?: string): PwTestBlock[]
         navigations: [...factorySignals.navigations],
         pomUsages: [...factorySignals.pomUsages],
         helperDelegations: [...factorySignals.helperDelegations],
+        ...(factorySkipped ? { isSkipped: true } : {}),
       });
     }
   }
@@ -1062,6 +1146,7 @@ export function extractTestParityObservations(analysis: PwSpecInventory): Observ
         navigationCount: test.navigations.length,
         pomCount: test.pomUsages.length,
         helperDelegationCount: test.helperDelegations.length,
+        ...(test.isSkipped ? { isSkipped: true } : {}),
       }),
     );
 

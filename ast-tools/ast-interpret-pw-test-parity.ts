@@ -46,6 +46,8 @@ export type ParityStatus = 'PARITY' | 'REDUCED' | 'EXPANDED' | 'NOT_PORTED';
 
 export type FileParityStatus = 'EXPANDED' | 'PARITY' | 'SHRUNK' | 'EMPTY' | 'NOT_MAPPED';
 
+export type NotPortedReason = 'SKIPPED_IN_SOURCE' | 'NO_FILE_MAPPING' | 'TARGET_FILE_MISSING' | 'NO_TEST_MATCH';
+
 export interface TestMatch {
   sourceTest: string;
   sourceFile: string;
@@ -62,6 +64,8 @@ export interface TestMatch {
   notes: string[];
   /** Target tests that share structural signals with this match (split detection) */
   splitCoverage: string[];
+  isSkipped?: boolean;
+  notPortedReason?: NotPortedReason;
 }
 
 export interface FileMatch {
@@ -80,7 +84,10 @@ export interface ParityScore {
   overall: number;
   totalWeight: number;
   matchedWeight: number;
+  /** Total counts (active + skipped) */
   byStatus: Record<ParityStatus, number>;
+  /** Counts for active (non-skipped) tests only -- these drive the score */
+  byStatusActive: Record<ParityStatus, number>;
 }
 
 export interface ParityReport {
@@ -88,6 +95,8 @@ export interface ParityReport {
   score: ParityScore;
   summary: {
     totalSourceTests: number;
+    activeSourceTests: number;
+    skippedSourceTests: number;
     totalTargetTests: number;
     netNewTargetFiles: string[];
     droppedFiles: string[];
@@ -469,15 +478,29 @@ function computeScore(fileMatches: FileMatch[]): ParityScore {
     EXPANDED: 0,
     NOT_PORTED: 0,
   };
+  const byStatusActive: Record<ParityStatus, number> = {
+    PARITY: 0,
+    REDUCED: 0,
+    EXPANDED: 0,
+    NOT_PORTED: 0,
+  };
 
   let totalWeight = 0;
   let matchedWeight = 0;
 
   for (const fm of fileMatches) {
     for (const tm of fm.testMatches) {
+      byStatus[tm.status]++;
+
+      // Exclude skipped source tests from the denominator entirely.
+      // They don't represent real coverage expectations.
+      if (tm.isSkipped) {
+        continue;
+      }
+
+      byStatusActive[tm.status]++;
       const weight = tm.sourceWeight;
       totalWeight += weight;
-      byStatus[tm.status]++;
 
       if (tm.status === 'PARITY' || tm.status === 'EXPANDED') {
         matchedWeight += weight;
@@ -488,9 +511,11 @@ function computeScore(fileMatches: FileMatch[]): ParityScore {
     }
   }
 
-  const overall = totalWeight > 0 ? Math.round((matchedWeight / totalWeight) * 100) : 0;
+  // Edge case: all-skipped = 100% (no active tests to port), no-tests = 0%
+  const hasAnySkipped = fileMatches.some(fm => fm.testMatches.some(tm => tm.isSkipped));
+  const overall = totalWeight > 0 ? Math.round((matchedWeight / totalWeight) * 100) : hasAnySkipped ? 100 : 0;
 
-  return { overall, totalWeight, matchedWeight, byStatus };
+  return { overall, totalWeight, matchedWeight, byStatus, byStatusActive };
 }
 
 // ---------------------------------------------------------------------------
@@ -528,6 +553,9 @@ export function interpretTestParity(
     if (targetFileName) mappedTargetFiles.add(targetFileName);
 
     if (!target) {
+      // Classify NOT_PORTED reason: no mapping vs mapping exists but target missing
+      const noTargetReason: NotPortedReason = targetFileName ? 'TARGET_FILE_MISSING' : 'NO_FILE_MAPPING';
+
       fileMatches.push({
         sourceFile: source.filePath,
         targetFile: targetFileName ?? null,
@@ -535,22 +563,27 @@ export function interpretTestParity(
         targetTestCount: 0,
         status: 'NOT_MAPPED',
         structuralSignal: 'none',
-        testMatches: source.tests.map(t => ({
-          sourceTest: t.name,
-          sourceFile: source.filePath,
-          targetTest: null,
-          targetFile: null,
-          status: 'NOT_PORTED' as ParityStatus,
-          sourceAssertions: t.assertionCount,
-          targetAssertions: 0,
-          sourceWeight: computeTestWeight(t, sourceHelpers),
-          weightRatio: null,
-          confidence: 'high' as const,
-          similarity: 0,
-          matchSignals: [],
-          notes: ['No matching file in target'],
-          splitCoverage: [],
-        })),
+        testMatches: source.tests.map(t => {
+          const skipped = t.isSkipped === true;
+          return {
+            sourceTest: t.name,
+            sourceFile: source.filePath,
+            targetTest: null,
+            targetFile: null,
+            status: 'NOT_PORTED' as ParityStatus,
+            sourceAssertions: t.assertionCount,
+            targetAssertions: 0,
+            sourceWeight: computeTestWeight(t, sourceHelpers),
+            weightRatio: null,
+            confidence: 'high' as const,
+            similarity: 0,
+            matchSignals: [],
+            notes: ['No matching file in target'],
+            splitCoverage: [],
+            ...(skipped ? { isSkipped: true } : {}),
+            notPortedReason: skipped ? 'SKIPPED_IN_SOURCE' : noTargetReason,
+          };
+        }),
       });
       continue;
     }
@@ -560,6 +593,8 @@ export function interpretTestParity(
 
     for (const sourceTest of source.tests) {
       const match = findBestMatch(sourceTest, target.tests, usedTargetIndices);
+
+      const skipped = sourceTest.isSkipped === true;
 
       if (match) {
         usedTargetIndices.add(match.index);
@@ -582,6 +617,7 @@ export function interpretTestParity(
           matchSignals: match.signals,
           notes: buildNotes(sourceTest, targetTest),
           splitCoverage: [],
+          ...(skipped ? { isSkipped: true } : {}),
         });
       } else {
         testMatches.push({
@@ -599,6 +635,8 @@ export function interpretTestParity(
           matchSignals: [],
           notes: buildNotes(sourceTest, null),
           splitCoverage: [],
+          ...(skipped ? { isSkipped: true } : {}),
+          notPortedReason: skipped ? 'SKIPPED_IN_SOURCE' : 'NO_TEST_MATCH',
         });
       }
     }
@@ -657,11 +695,17 @@ export function interpretTestParity(
 
   const score = computeScore(fileMatches);
 
+  const allSourceTests = sourceInventories.flatMap(s => s.tests);
+  const totalSourceTests = allSourceTests.length;
+  const skippedSourceTests = allSourceTests.filter(t => t.isSkipped === true).length;
+
   return {
     fileMatches,
     score,
     summary: {
-      totalSourceTests: sourceInventories.reduce((sum, s) => sum + s.tests.length, 0),
+      totalSourceTests,
+      activeSourceTests: totalSourceTests - skippedSourceTests,
+      skippedSourceTests,
       totalTargetTests: targetInventories.reduce((sum, t) => sum + t.tests.length, 0),
       netNewTargetFiles,
       droppedFiles: fileMatches
@@ -685,10 +729,20 @@ export function prettyPrint(report: ParityReport): string {
   lines.push('=== PARITY SCORE ===\n');
   lines.push(`Overall:  ${report.score.overall}%`);
   lines.push(`Weight:   ${report.score.matchedWeight.toFixed(1)} / ${report.score.totalWeight.toFixed(1)}`);
-  lines.push(`PARITY:   ${report.score.byStatus.PARITY}`);
-  lines.push(`EXPANDED: ${report.score.byStatus.EXPANDED}`);
-  lines.push(`REDUCED:  ${report.score.byStatus.REDUCED}`);
-  lines.push(`NOT_PORTED: ${report.score.byStatus.NOT_PORTED}`);
+
+  const { byStatus, byStatusActive } = report.score;
+  const hasSkipped = report.summary.skippedSourceTests > 0;
+  const fmtStatus = (label: string, status: ParityStatus): string => {
+    const total = byStatus[status];
+    const active = byStatusActive[status];
+    return hasSkipped && total !== active
+      ? `${label} ${total} (${active} active, ${total - active} skipped)`
+      : `${label} ${total}`;
+  };
+  lines.push(fmtStatus('PARITY:   ', 'PARITY'));
+  lines.push(fmtStatus('EXPANDED: ', 'EXPANDED'));
+  lines.push(fmtStatus('REDUCED:  ', 'REDUCED'));
+  lines.push(fmtStatus('NOT_PORTED:', 'NOT_PORTED'));
 
   lines.push('\n=== FILE PARITY ===\n');
   lines.push(
@@ -734,7 +788,8 @@ export function prettyPrint(report: ParityReport): string {
       const signalStr = tm.matchSignals.length > 0 ? tm.matchSignals.join(' ') : '';
       const noteStr = tm.notes.length > 0 ? tm.notes[0] : '';
       const splitStr = tm.splitCoverage.length > 0 ? `[split:${tm.splitCoverage.length}]` : '';
-      const detail = [signalStr, noteStr, splitStr].filter(Boolean).join(' | ');
+      const reasonStr = tm.notPortedReason ? `[${tm.notPortedReason}]` : '';
+      const detail = [signalStr, noteStr, splitStr, reasonStr].filter(Boolean).join(' | ');
       const confMark = tm.confidence === 'low' ? '~' : ' ';
       const wrStr = tm.weightRatio !== null ? tm.weightRatio.toFixed(2) : '-';
 
@@ -751,7 +806,12 @@ export function prettyPrint(report: ParityReport): string {
   }
 
   lines.push('\n=== SUMMARY ===\n');
-  lines.push(`Source tests:       ${report.summary.totalSourceTests}`);
+  const { totalSourceTests, activeSourceTests, skippedSourceTests } = report.summary;
+  if (skippedSourceTests > 0) {
+    lines.push(`Source tests:       ${totalSourceTests} (${activeSourceTests} active, ${skippedSourceTests} skipped)`);
+  } else {
+    lines.push(`Source tests:       ${totalSourceTests}`);
+  }
   lines.push(`Target tests:       ${report.summary.totalTargetTests}`);
   lines.push(
     `Net-new files:      ${report.summary.netNewTargetFiles.length} (${report.summary.netNewTargetFiles.join(', ')})`,

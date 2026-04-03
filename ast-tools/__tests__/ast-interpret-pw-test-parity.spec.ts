@@ -1274,6 +1274,364 @@ describe('ast-interpret-pw-test-parity', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Skip-aware scoring
+  // -------------------------------------------------------------------------
+
+  describe('skip-aware scoring', () => {
+    it('excludes skipped source tests from denominator', () => {
+      const source = buildInventory({
+        filePath: 'skip-score.spec.ts',
+        tests: [
+          {
+            name: 'active test',
+            line: 10,
+            describeParent: null,
+            assertionCount: 5,
+            assertions: [],
+            routeIntercepts: [],
+            navigations: [],
+            pomUsages: [],
+            helperDelegations: [],
+          },
+          {
+            name: 'skipped test',
+            line: 20,
+            describeParent: null,
+            assertionCount: 5,
+            assertions: [],
+            routeIntercepts: [],
+            navigations: [],
+            pomUsages: [],
+            helperDelegations: [],
+            isSkipped: true,
+          },
+        ],
+      });
+
+      const target = buildInventory({
+        filePath: 'integration/tests/skip-score.spec.ts',
+        tests: [
+          {
+            name: 'active test',
+            line: 30,
+            describeParent: null,
+            assertionCount: 5,
+            assertions: [],
+            routeIntercepts: [],
+            navigations: [],
+            pomUsages: [],
+            helperDelegations: [],
+          },
+        ],
+      });
+
+      const report = interpretTestParity([source], [target], { 'skip-score.spec.ts': 'skip-score.spec.ts' });
+
+      // Active test matches at PARITY. Skipped test is NOT_PORTED but excluded
+      // from denominator. Score should be 100% (only the active test counts).
+      expect(report.score.overall).toBe(100);
+      expect(report.summary.activeSourceTests).toBe(1);
+      expect(report.summary.skippedSourceTests).toBe(1);
+    });
+
+    it('excludes skipped source test from weight even when it matches a target', () => {
+      const source = buildInventory({
+        filePath: 'skip-match.spec.ts',
+        tests: [
+          {
+            name: 'active test',
+            line: 10,
+            describeParent: null,
+            assertionCount: 5,
+            assertions: [],
+            routeIntercepts: [],
+            navigations: [],
+            pomUsages: [],
+            helperDelegations: [],
+          },
+          {
+            name: 'skipped but matches target',
+            line: 20,
+            describeParent: null,
+            assertionCount: 3,
+            assertions: [],
+            routeIntercepts: [],
+            navigations: [],
+            pomUsages: [],
+            helperDelegations: [],
+            isSkipped: true,
+          },
+        ],
+      });
+
+      const target = buildInventory({
+        filePath: 'integration/tests/skip-match.spec.ts',
+        tests: [
+          {
+            name: 'active test',
+            line: 30,
+            describeParent: null,
+            assertionCount: 5,
+            assertions: [],
+            routeIntercepts: [],
+            navigations: [],
+            pomUsages: [],
+            helperDelegations: [],
+          },
+          {
+            name: 'skipped but matches target',
+            line: 40,
+            describeParent: null,
+            assertionCount: 3,
+            assertions: [],
+            routeIntercepts: [],
+            navigations: [],
+            pomUsages: [],
+            helperDelegations: [],
+          },
+        ],
+      });
+
+      const report = interpretTestParity([source], [target], { 'skip-match.spec.ts': 'skip-match.spec.ts' });
+
+      // The skipped test matches the target (PARITY) but is excluded from
+      // the weight denominator. Score should be 100% from the active test only.
+      expect(report.score.overall).toBe(100);
+      expect(report.summary.activeSourceTests).toBe(1);
+      expect(report.summary.skippedSourceTests).toBe(1);
+
+      const skippedMatch = report.fileMatches[0].testMatches.find(tm => tm.sourceTest === 'skipped but matches target');
+      expect(skippedMatch).toBeDefined();
+      expect(skippedMatch!.isSkipped).toBe(true);
+      expect(skippedMatch!.status).toBe('PARITY');
+      // Matched tests should NOT have notPortedReason
+      expect(skippedMatch!.notPortedReason).toBeUndefined();
+    });
+
+    it('returns 100% when all source tests are skipped', () => {
+      const source = buildInventory({
+        filePath: 'all-skipped.spec.ts',
+        tests: [
+          {
+            name: 'skipped A',
+            line: 10,
+            describeParent: null,
+            assertionCount: 0,
+            assertions: [],
+            routeIntercepts: [],
+            navigations: [],
+            pomUsages: [],
+            helperDelegations: [],
+            isSkipped: true,
+          },
+        ],
+      });
+
+      const target = buildInventory({
+        filePath: 'integration/tests/all-skipped.spec.ts',
+        tests: [],
+      });
+
+      const report = interpretTestParity([source], [target], { 'all-skipped.spec.ts': 'all-skipped.spec.ts' });
+
+      // All skipped -> 100% (no active tests to port)
+      expect(report.score.overall).toBe(100);
+      expect(report.summary.skippedSourceTests).toBe(1);
+      expect(report.summary.activeSourceTests).toBe(0);
+    });
+
+    it('sets notPortedReason to SKIPPED_IN_SOURCE for skipped tests', () => {
+      const source = buildInventory({
+        filePath: 'reason.spec.ts',
+        tests: [
+          {
+            name: 'skipped test',
+            line: 10,
+            describeParent: null,
+            assertionCount: 0,
+            assertions: [],
+            routeIntercepts: [],
+            navigations: [],
+            pomUsages: [],
+            helperDelegations: [],
+            isSkipped: true,
+          },
+        ],
+      });
+      const target = buildInventory({ filePath: 'integration/tests/reason.spec.ts', tests: [] });
+
+      const report = interpretTestParity([source], [target], { 'reason.spec.ts': 'reason.spec.ts' });
+
+      expect(report.fileMatches[0].testMatches[0].notPortedReason).toBe('SKIPPED_IN_SOURCE');
+      expect(report.fileMatches[0].testMatches[0].isSkipped).toBe(true);
+    });
+
+    it('sets notPortedReason to NO_FILE_MAPPING when no mapping exists', () => {
+      const source = buildInventory({
+        filePath: 'unmapped.spec.ts',
+        tests: [
+          {
+            name: 'unmapped test',
+            line: 10,
+            describeParent: null,
+            assertionCount: 3,
+            assertions: [],
+            routeIntercepts: [],
+            navigations: [],
+            pomUsages: [],
+            helperDelegations: [],
+          },
+        ],
+      });
+
+      // No mapping entry for 'unmapped.spec.ts'
+      const report = interpretTestParity([source], [], {});
+
+      expect(report.fileMatches[0].testMatches[0].notPortedReason).toBe('NO_FILE_MAPPING');
+    });
+
+    it('sets notPortedReason to TARGET_FILE_MISSING when mapping exists but target not found', () => {
+      const source = buildInventory({
+        filePath: 'missing-target.spec.ts',
+        tests: [
+          {
+            name: 'orphan test',
+            line: 10,
+            describeParent: null,
+            assertionCount: 2,
+            assertions: [],
+            routeIntercepts: [],
+            navigations: [],
+            pomUsages: [],
+            helperDelegations: [],
+          },
+        ],
+      });
+
+      // Mapping exists but no target inventory has that file
+      const report = interpretTestParity([source], [], { 'missing-target.spec.ts': 'nonexistent.spec.ts' });
+
+      expect(report.fileMatches[0].testMatches[0].notPortedReason).toBe('TARGET_FILE_MISSING');
+    });
+
+    it('sets notPortedReason to NO_TEST_MATCH when file matched but test not found', () => {
+      const source = buildInventory({
+        filePath: 'no-match.spec.ts',
+        tests: [
+          {
+            name: 'unique source test xyz',
+            line: 10,
+            describeParent: null,
+            assertionCount: 3,
+            assertions: [],
+            routeIntercepts: [],
+            navigations: [],
+            pomUsages: [],
+            helperDelegations: [],
+          },
+        ],
+      });
+
+      const target = buildInventory({
+        filePath: 'integration/tests/no-match.spec.ts',
+        tests: [
+          {
+            name: 'completely different test abc',
+            line: 20,
+            describeParent: null,
+            assertionCount: 2,
+            assertions: [],
+            routeIntercepts: [],
+            navigations: [],
+            pomUsages: [],
+            helperDelegations: [],
+          },
+        ],
+      });
+
+      const report = interpretTestParity([source], [target], { 'no-match.spec.ts': 'no-match.spec.ts' });
+
+      expect(report.fileMatches[0].testMatches[0].notPortedReason).toBe('NO_TEST_MATCH');
+    });
+
+    it('shows notPortedReason in prettyPrint output', () => {
+      const report: ParityReport = {
+        fileMatches: [
+          {
+            sourceFile: 'reason.spec.ts',
+            targetFile: null,
+            sourceTestCount: 1,
+            targetTestCount: 0,
+            status: 'NOT_MAPPED',
+            structuralSignal: 'none',
+            testMatches: [
+              {
+                sourceTest: 'unmapped test',
+                sourceFile: 'reason.spec.ts',
+                targetTest: null,
+                targetFile: null,
+                status: 'NOT_PORTED',
+                sourceAssertions: 0,
+                targetAssertions: 0,
+                sourceWeight: 1,
+                weightRatio: null,
+                confidence: 'high',
+                similarity: 0,
+                matchSignals: [],
+                notes: [],
+                splitCoverage: [],
+                notPortedReason: 'NO_FILE_MAPPING',
+              },
+            ],
+          },
+        ],
+        score: {
+          overall: 0,
+          totalWeight: 1,
+          matchedWeight: 0,
+          byStatus: { PARITY: 0, EXPANDED: 0, REDUCED: 0, NOT_PORTED: 1 },
+          byStatusActive: { PARITY: 0, EXPANDED: 0, REDUCED: 0, NOT_PORTED: 1 },
+        },
+        summary: {
+          totalSourceTests: 1,
+          activeSourceTests: 1,
+          skippedSourceTests: 0,
+          totalTargetTests: 0,
+          netNewTargetFiles: [],
+          droppedFiles: [],
+        },
+      };
+
+      const output = prettyPrint(report);
+      expect(output).toContain('[NO_FILE_MAPPING]');
+    });
+
+    it('shows active/skipped breakdown in prettyPrint summary', () => {
+      const report: ParityReport = {
+        fileMatches: [],
+        score: {
+          overall: 100,
+          totalWeight: 0,
+          matchedWeight: 0,
+          byStatus: { PARITY: 0, EXPANDED: 0, REDUCED: 0, NOT_PORTED: 1 },
+          byStatusActive: { PARITY: 0, EXPANDED: 0, REDUCED: 0, NOT_PORTED: 0 },
+        },
+        summary: {
+          totalSourceTests: 10,
+          activeSourceTests: 7,
+          skippedSourceTests: 3,
+          totalTargetTests: 7,
+          netNewTargetFiles: [],
+          droppedFiles: [],
+        },
+      };
+
+      const output = prettyPrint(report);
+      expect(output).toContain('10 (7 active, 3 skipped)');
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // prettyPrint
   // -------------------------------------------------------------------------
 
@@ -1286,9 +1644,12 @@ describe('ast-interpret-pw-test-parity', () => {
           totalWeight: 5,
           matchedWeight: 5,
           byStatus: { PARITY: 1, EXPANDED: 0, REDUCED: 0, NOT_PORTED: 0 },
+          byStatusActive: { PARITY: 1, EXPANDED: 0, REDUCED: 0, NOT_PORTED: 0 },
         },
         summary: {
           totalSourceTests: 1,
+          activeSourceTests: 1,
+          skippedSourceTests: 0,
           totalTargetTests: 1,
           netNewTargetFiles: [],
           droppedFiles: [],
@@ -1310,6 +1671,7 @@ describe('ast-interpret-pw-test-parity', () => {
           totalWeight: 4,
           matchedWeight: 3,
           byStatus: { PARITY: 0, EXPANDED: 1, REDUCED: 1, NOT_PORTED: 0 },
+          byStatusActive: { PARITY: 0, EXPANDED: 1, REDUCED: 1, NOT_PORTED: 0 },
         },
       });
       const output = prettyPrint(report);
@@ -1469,6 +1831,8 @@ describe('ast-interpret-pw-test-parity', () => {
       const report = buildMinimalReport({
         summary: {
           totalSourceTests: 5,
+          activeSourceTests: 5,
+          skippedSourceTests: 0,
           totalTargetTests: 4,
           netNewTargetFiles: ['new-feature.spec.ts'],
           droppedFiles: ['old-feature.spec.ts'],
