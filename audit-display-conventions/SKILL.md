@@ -63,6 +63,7 @@ Summary of convention areas:
 | Zero vs null         | Zero is a value, not missing. `formatInt(0)` = `"0"`, never `'-'`.                       |
 | Null coalescing      | Use `??` for numeric columns. Use `\|\|` only for string columns with explicit comment.  |
 | Empty state messages | Tables: `'There is no data'`. Never `'No data available'`.                               |
+| BFF null-vs-zero     | All BFF mapper coercion goes through `gmork()`. No inline `?? 0`, `\|\| 0`, or `!= null ? Number(x) : 0`. Config: `theNothing.ts`. |
 
 <!-- role: workflow -->
 
@@ -185,6 +186,15 @@ not cover. They produce lower-confidence findings.
   ```bash
   rg "\\? ''" $ARGUMENTS --no-heading
   ```
+
+- If auditing BFF mappers (`src/server/handlers/users/data-api/`), check
+  for raw null coercion that bypasses gmork:
+  ```bash
+  rg '\?\? 0|!= null \? Number|\|\| 0|parseInt.*\|\| 0' src/server/handlers/users/data-api/ --no-heading
+  ```
+  Any match is a finding: "raw coercion in BFF mapper -- should use gmork".
+  Cross-reference against `theNothing.ts` entries. A coercion on a display
+  field not in theNothing is also a finding (missing config entry).
 
 Note: Do NOT grep for hardcoded `'-'` in `src/shared/utils/number/` or
 `src/shared/utils/time/` -- the formatter implementations are exempt per

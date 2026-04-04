@@ -335,6 +335,11 @@ export async function createGroup(organizationId: number, body: CreateBody, type
 - Pure data transformation functions (no DB access) should be separate from
   I/O functions that query the database.
 - Every function has explicit parameter types and return type annotation.
+- **ClickHouse mappers**: All numeric coercion on display fields MUST go
+  through `gmork()` from `@/server/lib/gmork`. No inline `?? 0`, `|| 0`,
+  `!= null ? Number(x) : 0`. Add an entry in `src/shared/constants/theNothing.ts`
+  for each numeric display field. Use `notApplicable` if null should display as
+  "-", `measuredZero` if 0 is a valid measurement.
 
 ### 4c. Handler file (`index.ts` or `[id].ts`)
 

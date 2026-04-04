@@ -301,6 +301,19 @@ FAIL if Postgres enrichment uses client-supplied UIDs directly.
 WARN if the handler defines its own inline authorization CTE when a shared one
 exists in the domain.
 
+### Null-vs-zero in mappers (gmork check)
+
+If the handler has a `.logic.ts` file with mapper functions (map*, extract*,
+enrich*, build*Response, toResponseEntries):
+
+- Does every numeric coercion on a display field go through `gmork()`?
+- Are there inline `?? 0`, `|| 0`, `!= null ? Number(x) : 0`, or
+  `parseInt(x) || 0` patterns that bypass gmork?
+- Does every coerced field have an entry in `src/shared/constants/theNothing.ts`?
+
+FAIL if a display field has raw coercion instead of a gmork call.
+WARN if a field is coerced through gmork but has no theNothing entry.
+
 ## Step 5: Cross-reference with consumers
 
 Trace the handler's consumer chain:
