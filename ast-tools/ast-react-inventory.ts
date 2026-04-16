@@ -1263,6 +1263,43 @@ function detectHookDefinitions(sf: SourceFile): string[] {
   return hookDefs;
 }
 
+/**
+ * Detect top-level custom-hook function bodies. Unlike `detectComponents`
+ * (which requires a JSX return), this returns any `useXxx` function whose
+ * body we can walk for `useEffect` / `useMemo` / `useCallback` /
+ * `useLayoutEffect` calls.
+ *
+ * Pure-TS custom hooks (no JSX) are the main target -- `useTypewriter`,
+ * `useAuthStateObserver`, etc. `detectComponents` filters these out, so
+ * their useEffects are invisible to hooks inventory callers. Walking
+ * them here closes that gap.
+ *
+ * Components (PascalCase) are excluded so the hook-body path does not
+ * duplicate observations already produced by the component path.
+ */
+function detectHookBodies(sf: SourceFile): { name: string; line: number; funcNode: Node }[] {
+  const bodies: { name: string; line: number; funcNode: Node }[] = [];
+
+  for (const func of sf.getFunctions()) {
+    const name = func.getName();
+    if (!name || !isHookCall(name)) continue;
+    bodies.push({ name, line: func.getStartLineNumber(), funcNode: func });
+  }
+
+  for (const varStmt of sf.getVariableStatements()) {
+    for (const decl of varStmt.getDeclarationList().getDeclarations()) {
+      const name = decl.getName();
+      if (!isHookCall(name)) continue;
+      const init = decl.getInitializer();
+      if (init && (Node.isArrowFunction(init) || Node.isFunctionExpression(init))) {
+        bodies.push({ name, line: decl.getStartLineNumber(), funcNode: init });
+      }
+    }
+  }
+
+  return bodies;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -1311,6 +1348,43 @@ export function analyzeReactFile(filePath: string): ReactInventory {
       returnStatementEndLine: returnLines.end,
     };
   });
+
+  // Pure-TS custom hooks (no JSX return). `detectComponents` filters
+  // these out because they aren't PascalCase + don't contain JSX, so the
+  // useEffects in their bodies would otherwise be invisible to `hooks`
+  // inventory callers. Walk them here so observations flow uniformly.
+  //
+  // Overlap guard: `detectHookBodies` could in principle return the same
+  // node as a component (a PascalCase function named `Use...` would not
+  // qualify, but defensively dedupe by line so we never produce two
+  // ComponentInfo entries for the same declaration).
+  const hookBodies = detectHookBodies(sf);
+  const componentLines = new Set(components.map(c => c.line));
+  for (const body of hookBodies) {
+    if (componentLines.has(body.line)) continue;
+
+    const hookCalls = extractHookCalls(body.funcNode, body.name);
+    const useEffects = extractUseEffects(body.funcNode, body.name, sf);
+    const effectObservations = extractAllEffectObservations(body.funcNode, body.name, relativePath);
+    const returnLines = findReturnStatementLines(body.funcNode);
+    const hookObs = extractHookObservations(body.funcNode, body.name, relativePath, resolvedImports);
+    allHookObservations.push(...hookObs);
+
+    components.push({
+      name: body.name,
+      line: body.line,
+      kind: 'hook',
+      // Custom hooks don't have "props" in the component sense; their
+      // destructured args are a different concept and not currently
+      // emitted by this tool.
+      props: [],
+      hookCalls,
+      useEffects,
+      effectObservations,
+      returnStatementLine: returnLines.start,
+      returnStatementEndLine: returnLines.end,
+    });
+  }
 
   return {
     filePath: relativePath,

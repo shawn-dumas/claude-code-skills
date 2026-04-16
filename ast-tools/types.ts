@@ -69,7 +69,14 @@ export interface PropField {
 export interface ComponentInfo {
   name: string;
   line: number;
-  kind: 'function' | 'arrow' | 'memo' | 'forwardRef';
+  /**
+   * Function shape. `hook` covers pure-TS custom hooks (name starts with
+   * `use`, no JSX return) -- they are enumerated so `useEffect` /
+   * `useMemo` / `useCallback` / `useLayoutEffect` inside their bodies
+   * is visible to inventory callers. Callers that only care about
+   * components should filter by `kind !== 'hook'`.
+   */
+  kind: 'function' | 'arrow' | 'memo' | 'forwardRef' | 'hook';
   props: PropField[];
   hookCalls: HookCall[];
   useEffects: UseEffectInfo[];

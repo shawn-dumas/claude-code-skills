@@ -344,6 +344,59 @@ describe('ast-react-inventory', () => {
     });
   });
 
+  describe('pure-TS custom hooks (no JSX return)', () => {
+    it('emits ComponentInfo entries with kind=hook for top-level useXxx functions', () => {
+      const result = analyzeFixture('pure-ts-hook.ts');
+      const hookBodies = result.components.filter(c => c.kind === 'hook');
+
+      expect(hookBodies.map(c => c.name).sort()).toEqual(['useArrowHook', 'useExampleHook']);
+    });
+
+    it('detects useEffect + useLayoutEffect inside function-declaration hook body', () => {
+      const result = analyzeFixture('pure-ts-hook.ts');
+      const hook = result.components.find(c => c.name === 'useExampleHook');
+
+      expect(hook).toBeDefined();
+      const effectHooks = hook!.hookCalls.filter(h => h.name === 'useEffect' || h.name === 'useLayoutEffect');
+      expect(effectHooks.map(h => h.name).sort()).toEqual(['useEffect', 'useLayoutEffect']);
+      expect(hook!.useEffects.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('detects useMemo + useCallback inside hook body', () => {
+      const result = analyzeFixture('pure-ts-hook.ts');
+      const hook = result.components.find(c => c.name === 'useExampleHook');
+
+      const names = hook!.hookCalls.map(h => h.name);
+      expect(names).toContain('useMemo');
+      expect(names).toContain('useCallback');
+    });
+
+    it('detects useEffect inside arrow-function hook body', () => {
+      const result = analyzeFixture('pure-ts-hook.ts');
+      const hook = result.components.find(c => c.name === 'useArrowHook');
+
+      expect(hook).toBeDefined();
+      expect(hook!.kind).toBe('hook');
+      const effectHooks = hook!.hookCalls.filter(h => h.name === 'useEffect');
+      expect(effectHooks).toHaveLength(1);
+    });
+
+    it('emits HOOK_CALL observations for hook-body hooks', () => {
+      const result = analyzeFixture('pure-ts-hook.ts');
+      const useEffectObs = result.hookObservations.filter(
+        o => o.kind === 'HOOK_CALL' && o.evidence.hookName === 'useEffect',
+      );
+      // useExampleHook contributes one, useArrowHook contributes one.
+      expect(useEffectObs.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('hookDefinitions still lists the hook names for back-compat', () => {
+      const result = analyzeFixture('pure-ts-hook.ts');
+      expect(result.hookDefinitions).toContain('useExampleHook');
+      expect(result.hookDefinitions).toContain('useArrowHook');
+    });
+  });
+
   describe('output structure', () => {
     it('conforms to ReactInventory interface', () => {
       const result = analyzeFixture('simple-component.tsx');
