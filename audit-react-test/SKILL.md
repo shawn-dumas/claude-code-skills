@@ -144,6 +144,15 @@ Examples that do NOT qualify:
 
 `[AST-confirmed]` findings get +1 concern-level bump.
 
+### Mutation-confirmed tagging
+
+A finding qualifies for `[mutation-confirmed]` tagging when it is derived
+from `mutation-survivors.ts` output against a current stryker report.
+Tagging goes in the `description` prefix (e.g., `"[mutation-confirmed] ..."`);
+there is no dedicated schema field for it yet. Unlike `[AST-confirmed]`,
+mutation confirmation does NOT apply a concern-level bump -- the finding is
+advisory, not elevated. Use it alongside `[AST-confirmed]` when both apply.
+
 ### Delete threshold (report policy)
 
 `DELETE_CANDIDATE` assessments are emitted when a test file has >= 3
@@ -462,6 +471,62 @@ For each test file, check whether it covers the component's full public API:
 - List all callbacks and check whether each has a test asserting it fires
 - Flag untested props/callbacks as **COVERAGE_GAP**
 
+<!-- role: detect -->
+
+## Step 13b: Mutation survivors (advisory)
+
+Advisory enrichment. If a stryker report exists for any SUT in the target,
+surface surviving mutants as findings alongside the structural audit. Does
+not block or downgrade other findings.
+
+### 1. Report presence and freshness
+
+```bash
+# Report present?
+test -f reports/mutation/mutation.json || echo "no report"
+
+# For each SUT, check report is newer than SUT:
+test reports/mutation/mutation.json -nt <SUT> && echo "current" || echo "stale"
+```
+
+- If no report, note in the audit summary: "No mutation report available. Run `npx tsx scripts/run-mutation.ts <SUT>` for any SUT of interest." Skip the rest of this step.
+- If the report is stale for a specific SUT, note: "Mutation report stale relative to <SUT>; re-run `npx tsx scripts/run-mutation.ts <SUT>`." Do not emit findings for that SUT from this step.
+
+### 2. Extract survivor clusters
+
+For each SUT with a current report:
+
+```bash
+npx tsx scripts/mutation-survivors.ts <SUT> --json
+```
+
+Exit code 1 means the SUT is not in the report's `mutate` field (expected --
+stryker only mutates configured files). Skip those SUTs.
+
+### 3. Emit findings
+
+For each survivor cluster in the JSON output:
+
+- **kind**: `mutation-survivor`
+- **category**: `test-gap`
+- **priority**: P4 if `mutants.length >= 5` on one line; P5 otherwise
+- **file**: the SUT path (the component, hook, or utility under test)
+- **line**: `cluster.line`
+- **description**: `"[mutation-confirmed] Mutation survivors at <SUT>:<cluster.line>: <mutators>. Cluster size: <N>."` Include 2-3 representative `replacement` values.
+- **fix**: `"Run /close-mutation-gaps <SUT>"`
+- **astConfirmed**: `false`
+- **requiresManualReview**: `false`
+
+### 4. Interaction with structural findings
+
+If a spec has an `ASSERTION_IMPLEMENTATION` or `ASSERTION_SNAPSHOT` finding
+and the related SUT has surviving mutants, mention the cross-reference in
+the structural finding's description. Do not bump its priority -- mutation
+evidence is orthogonal to P8 violation severity. Surviving mutants on a
+component SUT are especially strong signal because they typically indicate
+the spec asserts on rendered output without exercising enough props/states
+to exercise the mutated branch.
+
 <!-- role: emit -->
 
 ## Step 14: Produce the audit report
@@ -616,6 +681,7 @@ findings:
 | missing-cleanup | ast-interpret-test-quality | CLEANUP_INCOMPLETE assessment (P10) |
 | as-any | ast-type-safety | AS_ANY_CAST, EXPLICIT_ANY_ANNOTATION observations in test files (P6) |
 | style | Manual | Debug artifacts, code style issues in test files |
+| mutation-survivor | Manual / mutation-survivors.ts | Surviving mutant on a SUT line with no killing test assertion. Tag `[mutation-confirmed]` in description. |
 
 ### Rules
 
