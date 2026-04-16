@@ -4,6 +4,7 @@ description: Generate a new React service hook (useQuery or useMutation) that fe
 context: fork
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 argument-hint: <domain/useHookName> <description>
+tier: semi-closed
 ---
 
 Generate a new React service hook. `$ARGUMENTS`

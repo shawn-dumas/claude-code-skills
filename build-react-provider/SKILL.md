@@ -4,6 +4,7 @@ description: Generate a new scoped context provider (XxxScopeProvider) that hold
 context: fork
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 argument-hint: <XxxScope> <description>
+tier: semi-closed
 ---
 
 Generate a new scoped context provider. `$ARGUMENTS`

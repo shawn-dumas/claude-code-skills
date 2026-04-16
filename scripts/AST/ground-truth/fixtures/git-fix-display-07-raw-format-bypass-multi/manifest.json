@@ -1,0 +1,18 @@
+{
+  "tool": "fix-display-conventions",
+  "created": "2026-04-16",
+  "source": "git-history-reduced",
+  "sourceCommit": "2e0d2285d",
+  "sourcePath": "src/shared/ui/MetricsDisplay/MetricsDisplay.stories.tsx",
+  "files": ["before.tsx", "after.tsx"],
+  "expectedTransforms": [
+    { "line": 13, "callee": "toLocaleString", "kind": "RAW_FORMAT_BYPASS" },
+    { "line": 17, "callee": "toLocaleString", "kind": "RAW_FORMAT_BYPASS" },
+    { "line": 24, "callee": "toLocaleString", "kind": "RAW_FORMAT_BYPASS" },
+    { "line": 29, "callee": "toLocaleString", "kind": "RAW_FORMAT_BYPASS" }
+  ],
+  "transform": "replace `x.toLocaleString()` with `formatInt(x)`",
+  "importAdded": "formatInt from '@/shared/utils' (single import added, covers all 4 sites)",
+  "notes": "Multi-instance toLocaleString test. 4 transforms across 2 export arrays. Covers both bare-call (`x.toLocaleString()`) and template-literal-embedded (`$${x.toLocaleString()}`) forms. Fixer should apply all 4 and add one import.",
+  "status": "validated"
+}

@@ -4,6 +4,7 @@ description: Generate a new DDAU React component that receives all data via prop
 context: fork
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 argument-hint: <ParentDir/ComponentName> <description>
+tier: semi-closed
 ---
 
 Generate a new DDAU React component. `$ARGUMENTS`

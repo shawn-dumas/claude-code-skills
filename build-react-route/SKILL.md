@@ -4,6 +4,7 @@ description: Generate a new route page file with a DDAU container. Creates the t
 context: fork
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 argument-hint: <pages/path/page-name> <description>
+tier: semi-closed
 ---
 
 Generate a new Next.js page with a DDAU container. `$ARGUMENTS`

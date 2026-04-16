@@ -4,6 +4,7 @@ description: Build New Relic browser agent integration for client-side gaps. Add
 context: fork
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash
 argument-hint: <gap-id> (e.g., C1, C2, C3 -- see audit-nr-observability output)
+tier: open
 ---
 
 Implement the New Relic browser agent integration for the specified gap(s)

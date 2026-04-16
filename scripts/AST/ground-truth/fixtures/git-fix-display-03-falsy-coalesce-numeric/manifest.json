@@ -1,0 +1,20 @@
+{
+  "tool": "fix-display-conventions",
+  "created": "2026-04-15",
+  "source": "git-history",
+  "sourceCommit": "2e0d2285d",
+  "sourcePath": "src/ui/page_blocks/dashboard/opportunities/MicroworkflowsByUserTable/useMicroworkflowsByUserTableColumns.tsx",
+  "files": ["before.tsx", "after.tsx"],
+  "fixtureRole": "negative (gated by review=yes)",
+  "expectedInterpreterOutput": {
+    "kind": "FALSY_COALESCE_NUMERIC",
+    "confidence": "medium",
+    "requiresManualReview": true
+  },
+  "humanTransformInCommit": {
+    "description": "replaced string '-' with NO_VALUE_PLACEHOLDER identifier, kept || coalescing",
+    "notes": "source has eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing with explicit comment 'empty string should display -' fallback'. The author intentionally kept || instead of ?? because empty strings are meaningful in this column. A pure HARDCODED_DASH fixer would replace the literal but leave the ||. The interpreter overclassifies as FALSY_COALESCE_NUMERIC, triggering review=yes, which correctly blocks auto-fix."
+  },
+  "expectedFixerBehavior": "skip (requiresManualReview=true). Source unchanged after fixer runs. This is the fixture that proves the review gate works under superficial similarity to auto-fixable kinds.",
+  "status": "validated"
+}

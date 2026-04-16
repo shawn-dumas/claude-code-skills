@@ -4,6 +4,7 @@ description: Generate a new Next.js API route handler with co-located schema, pu
 context: fork
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write
 argument-hint: The API endpoint path and HTTP methods (e.g., '/api/users/teams POST,PUT')
+tier: open
 ---
 
 Generate a new Next.js BFF API route handler. `$ARGUMENTS`

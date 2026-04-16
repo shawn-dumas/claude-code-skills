@@ -1,0 +1,22 @@
+{
+  "tool": "fix-display-conventions",
+  "created": "2026-04-15",
+  "source": "git-history",
+  "sourceCommit": "2e0d2285d",
+  "sourcePath": "src/ui/page_blocks/dashboard/operational-status/useOperationalStatusTableColumns.tsx",
+  "files": ["before.tsx", "after.tsx"],
+  "expectedTransforms": [
+    { "line": 46, "kind": "HARDCODED_DASH", "context": "if (!value) return '-'" },
+    { "line": 53, "kind": "HARDCODED_DASH", "context": "status ? ... : '-'" },
+    { "line": 62, "kind": "HARDCODED_DASH", "context": "status ? RealtimeStatusLabels[status] : '-'" },
+    { "line": 82, "kind": "HARDCODED_DASH", "context": "value != null ? formatDuration(value) : '-'" },
+    { "line": 93, "kind": "HARDCODED_DASH", "context": "value ? upperCaseToNormal(value) : '-'" },
+    { "line": 102, "kind": "HARDCODED_DASH", "context": "value != null ? formatDuration(value) : '-'" },
+    { "line": 111, "kind": "HARDCODED_DASH", "context": "value != null ? formatDuration(value) : '-'" },
+    { "line": 125, "kind": "HARDCODED_DASH", "context": "cell.getValue() ?? '-'" }
+  ],
+  "transform": "replace string literal '-' with NO_VALUE_PLACEHOLDER identifier",
+  "importAdded": "NO_VALUE_PLACEHOLDER from '@/shared/constants'",
+  "notes": "Multi-instance test. 8 HARDCODED_DASH in one file across varied AST contexts (return, ternary, coalesce). All high confidence, review=no. Fixer should apply all 8 and add one import.",
+  "status": "validated"
+}

@@ -4,6 +4,7 @@ description: Generate a new non-React TypeScript module (utility, transformer, v
 context: fork
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write
 argument-hint: The module name and purpose (e.g., 'calculatePeriodEnds -- compute start/end dates for billing periods')
+tier: open
 ---
 
 Generate a new TypeScript module. `$ARGUMENTS`

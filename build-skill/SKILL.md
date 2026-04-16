@@ -4,6 +4,7 @@ description: Generate a new SKILL.md from a category template. Copies the matchi
 context: fork
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 argument-hint: <skill-name> <category> <one-sentence-description>
+tier: closed
 ---
 
 Generate a new skill file at `.claude/skills/$SKILL_NAME/SKILL.md`.

@@ -4,6 +4,7 @@ description: Generate a new domain fixture file for the centralized test data sy
 context: fork
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 argument-hint: <domain-name> [description]
+tier: closed
 ---
 
 Generate a new domain fixture. `$ARGUMENTS`

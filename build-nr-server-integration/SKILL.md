@@ -4,6 +4,7 @@ description: Build New Relic server APM integration. Installs the newrelic packa
 context: fork
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash
 argument-hint: <gap-id> (e.g., S1, S2, S3, S4, S6 -- see audit-nr-observability output)
+tier: open
 ---
 
 Implement the New Relic server APM integration for the specified gap(s)

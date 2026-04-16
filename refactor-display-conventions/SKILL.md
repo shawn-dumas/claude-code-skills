@@ -32,7 +32,28 @@ file example, and what tool would detect it. No exceptions.
 
 <!-- role: workflow -->
 
-## Step 0: Run AST analysis (if no prior audit)
+## Step 0: Auto-apply safe transforms
+
+Run the display-format fixer before any manual work. The fixer applies
+all high-confidence, `requiresManualReview: false` transforms
+(MISSING_PLACEHOLDER, HARDCODED_DASH, INCONSISTENT_EMPTY_MESSAGE,
+RAW_FORMAT_BYPASS) and skips everything else:
+
+```bash
+npx tsx scripts/AST/ast-fix-display-format.ts $ARGUMENTS --write --pretty
+```
+
+The JSON output reports `applied` (transforms written) and `skipped`
+(gated by the interpreter's review flag or unsupported kind). Commit
+the auto-applied set as a separate commit so human review focuses on
+the residual.
+
+The skipped set is your worklist for the steps below. Auto-fixed
+lines are already correct; do not re-visit them.
+
+<!-- role: workflow -->
+
+## Step 0b: Run AST analysis (if no prior audit)
 
 If an audit report already exists, skip to Step 1. Otherwise, run the
 same AST tool commands as the audit skill Step 0 on `$ARGUMENTS`:

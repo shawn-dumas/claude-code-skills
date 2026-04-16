@@ -4,6 +4,7 @@ description: Generate a Playwright integration spec for a page route. Uses page.
 context: fork
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 argument-hint: <route-path-or-page-file> [description]
+tier: semi-closed
 ---
 
 Generate a Playwright integration test for the route or page at `$ARGUMENTS`.

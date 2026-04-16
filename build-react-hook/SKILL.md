@@ -4,6 +4,7 @@ description: Generate a new React custom hook (DOM utility or state utility). No
 context: fork
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 argument-hint: <useHookName> <description>
+tier: semi-closed
 ---
 
 Generate a new React custom hook. `$ARGUMENTS`

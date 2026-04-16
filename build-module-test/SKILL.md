@@ -4,6 +4,7 @@ description: Generate a test file for a non-React module (utility, server proces
 context: fork
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 argument-hint: <path/to/production-file.ts>
+tier: semi-closed
 ---
 
 Generate a test file for the production module at `$ARGUMENTS`.

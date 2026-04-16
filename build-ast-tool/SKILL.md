@@ -4,6 +4,7 @@ description: Build a new AST analysis tool for scripts/AST/. Use when a pattern 
 context: fork
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Task
 argument-hint: <pattern-class name from GAPS.md>
+tier: closed
 ---
 
 <!-- role: guidance -->

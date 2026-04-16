@@ -4,6 +4,7 @@ description: Generate a contract-first test file for a component, container, hoo
 context: fork
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash
 argument-hint: <path/to/production-file.tsx> [unit|integration]
+tier: semi-closed
 ---
 
 Generate a test file for the production module at `$ARGUMENTS`.
@@ -41,9 +42,23 @@ compliant (scores 7+/10), report that and suggest using a future
 
 ## Step 0b: Run AST analysis on the production file
 
+Start with the build manifest, which consolidates structural facts
+(exports, primary component props, hook calls, data-layer usages,
+imports) into a single JSON input:
+
 ```bash
-npx tsx scripts/AST/ast-query.ts hooks $ARGUMENTS --pretty
-npx tsx scripts/AST/ast-query.ts data-layer $ARGUMENTS --pretty
+npx tsx scripts/AST/ast-build-manifest.ts $ARGUMENTS --pretty
+```
+
+The manifest replaces ad-hoc file inventory in Step 1 (exports, Props
+interface, hook return type, dependency classification). Do not
+re-extract what the manifest already provides.
+
+Then run the ownership interpreter (still a separate concern since
+classification depends on interpret-hooks and effect observations that
+the manifest does not consume):
+
+```bash
 npx tsx scripts/AST/ast-query.ts interpret-ownership $ARGUMENTS --pretty
 ```
 
@@ -749,7 +764,20 @@ describe('myFunction', () => {
 ## Step 7: Verify
 
 1. Run `npx tsc --noEmit -p tsconfig.check.json` — fix any type errors in the new spec file.
-2. Run `npx tsx scripts/AST/ast-query.ts complexity <path-to-new-spec> --pretty`.
+2. Run the build-output validator:
+   ```bash
+   npx tsx scripts/AST/ast-validate-build-output.ts <path-to-new-spec> --pretty
+   ```
+   Exits non-zero if any gate fails. Gates:
+   - `no-internal-mocking` (no MOCK_INTERNAL_VIOLATION)
+   - `type-safe-data-sourcing` (no shared mutable constants, no `as any` on data)
+   - `cleanup-complete` (timers/storage/fetchApi cleanup present)
+   - `not-orphaned` (subject file exists)
+   - `user-visible-assertions-present` (at least one user-visible assertion)
+
+   If any gate fails, fix the spec and re-run. Do not proceed until all
+   gates pass.
+3. Run `npx tsx scripts/AST/ast-query.ts complexity <path-to-new-spec> --pretty`.
    Every function must have cyclomatic complexity <= 10. Test setup
    functions can be complex — if any exceed 10, decompose them before
    proceeding.

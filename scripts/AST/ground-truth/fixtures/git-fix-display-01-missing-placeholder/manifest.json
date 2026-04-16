@@ -1,0 +1,19 @@
+{
+  "tool": "fix-display-conventions",
+  "created": "2026-04-15",
+  "source": "git-history",
+  "sourceCommit": "2e0d2285d",
+  "sourcePath": "src/ui/page_blocks/settings/Urls/useUrlsTableColumns.tsx",
+  "files": ["before.tsx", "after.tsx"],
+  "expectedTransforms": [
+    {
+      "line": 53,
+      "symbol": "cell",
+      "kind": "MISSING_PLACEHOLDER",
+      "transform": "append `?? NO_VALUE_PLACEHOLDER` to bare `cell.getValue()`",
+      "importAdded": "NO_VALUE_PLACEHOLDER from '@/shared/constants'",
+      "notes": "Interpreter classifies bare getValue() in a cell fn as MISSING_PLACEHOLDER at high confidence (auto-fixable per commit message). Transform is structurally local: wrap the expression in a `?? NO_VALUE_PLACEHOLDER` coalesce, then ensure the import exists."
+    }
+  ],
+  "status": "validated"
+}

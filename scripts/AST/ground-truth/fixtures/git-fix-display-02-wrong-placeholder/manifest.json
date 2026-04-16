@@ -1,0 +1,22 @@
+{
+  "tool": "fix-display-conventions",
+  "created": "2026-04-15",
+  "source": "git-history",
+  "sourceCommit": "2e0d2285d",
+  "sourcePath": "src/ui/components/8flow/ProfileMenu/ProfileMenu.tsx",
+  "files": ["before.tsx", "after.tsx"],
+  "fixtureRole": "negative (gated by review=yes for N/A)",
+  "expectedInterpreterOutput": {
+    "kind": "WRONG_PLACEHOLDER",
+    "confidence": "high",
+    "requiresManualReview": true
+  },
+  "humanTransformInCommit": {
+    "line": 64,
+    "symbol": "userInfo.email",
+    "description": "replaced string literal 'N/A' with NO_VALUE_PLACEHOLDER identifier, kept surrounding `||`",
+    "notes": "The commit kept `||` here, did not upgrade to `??`. That is a deliberate non-convergence with FALSY_COALESCE_NUMERIC: strings are fine to coalesce with ||, numbers are not. The fixer would need to know the receiver type to decide, which is why the interpreter gates N/A cases to manual review."
+  },
+  "expectedFixerBehavior": "skip (requiresManualReview=true because fallback is 'N/A'). Source unchanged after fixer runs. 'N/A' may be semantic 'not applicable' text rather than a placeholder for missing data; the gate prevents the fixer from rewriting intentional 'N/A' as NO_VALUE_PLACEHOLDER.",
+  "status": "validated"
+}

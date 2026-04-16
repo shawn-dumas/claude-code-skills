@@ -53,6 +53,25 @@ These tools operate on non-TypeScript inputs or have specialized APIs.
 | ast-field-refs | `npx tsx scripts/AST/ast-field-refs.ts <path> --field <name>` | Finds all structural references to a field/property name (access, destructuring, type defs, string literals) |
 | ast-date-handling | `npx tsx scripts/AST/ast-date-handling.ts <path> [--summary]` | Detects raw Date usage vs. Temporal/formatDate. Classifies by layer (fe/bff/shared). Use `--summary` for raw/proper ratio. |
 | ast-audit | `npx tsx scripts/AST/ast-audit.ts <path> [--output <dir>] [--json] [--diff <dir>]` | Deterministic codebase audit: runs all tools + interpreters, maps to findings, renders report. Replaces agent-driven audit. |
+| ast-build-manifest | `npx tsx scripts/AST/ast-build-manifest.ts <path> [--pretty]` | Emits structural constraint manifest for build-* skills: structural kind, exports, primary component props, hook calls, data-layer usages, imports. Consumed by build-react-test Step 0b. |
+| ast-validate-build-output | `npx tsx scripts/AST/ast-validate-build-output.ts <path> [--pretty]` | Validates a generated test file against contract-first gates: no internal mocking, type-safe data sourcing, cleanup present, user-visible assertions. Exits non-zero on failure. Consumed by build-react-test Step 7. |
+
+### Write-Capable Tools (codemods)
+
+These tools consume interpreter assessments and modify source files in place.
+They are the only AST tools that mutate the codebase; all other tools are
+read-only. Each fixer creates its own ts-morph `Project` instance (not the
+shared cached `getProject()`) so write-capable configuration (quote style,
+manipulation settings) does not contaminate the read-only observation tools.
+
+Fixers only apply transforms when the upstream interpreter gates
+`requiresManualReview: false` and `confidence: 'high'`. Assessments that
+trigger the review gate are listed in the JSON output under `skipped` and
+are left for agent or human handling via the consuming skill.
+
+| Tool | CLI | Description |
+|---|---|---|
+| ast-fix-display-format | `npx tsx scripts/AST/ast-fix-display-format.ts <path> [--write] [--stdout]` | Consumes `ast-interpret-display-format` assessments. Auto-applies MISSING_PLACEHOLDER, HARDCODED_DASH, INCONSISTENT_EMPTY_MESSAGE, RAW_FORMAT_BYPASS transforms. Skips all review=yes kinds. `--write` modifies files in place; `--stdout` prints modified source. |
 
 ### Interpreters
 
@@ -136,6 +155,9 @@ interpret-ownership, interpret-branches).
 - `npx tsx scripts/AST/ast-plan-audit.ts <path>`
 - `npx tsx scripts/AST/ast-skill-analysis.ts <path>`
 - `npx tsx scripts/AST/ast-refactor-intent.ts --before <dir> --after <dir>`
+- `npx tsx scripts/AST/ast-fix-display-format.ts <path> [--write] [--stdout]`
+- `npx tsx scripts/AST/ast-build-manifest.ts <path> [--pretty]`
+- `npx tsx scripts/AST/ast-validate-build-output.ts <path> [--pretty]`
 
 ## 2. Observation/Assessment Architecture
 
