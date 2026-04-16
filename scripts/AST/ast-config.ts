@@ -1510,7 +1510,7 @@ let resolvedConfig: AstConfig | null = null;
  * For standalone/external use:
  *   1. Set `AST_PROJECT_ROOT` env var to point at your repo
  *   2. Create `.ast-config.json` in your repo root with overrides
- *   3. Run tools via `npx tsx ast-tools/ast-complexity.ts src/`
+ *   3. Run tools via `npx tsx scripts/AST/ast-complexity.ts src/`
  *
  * The JSON file uses the same structure as `AstConfig`, with two differences:
  *   - Set fields accept JSON arrays (e.g., `"ambientLeafHooks": ["useBreakpoints"]`)
