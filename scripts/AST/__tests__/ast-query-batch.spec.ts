@@ -94,7 +94,7 @@ describe('ast-query batch mode', () => {
     });
 
     it('returns effect classification', () => {
-      const presFile = 'src/ui/page_blocks/dashboard/ui/InsightsFilters/InsightsFilters.tsx';
+      const presFile = 'scripts/AST/__tests__/fixtures/component-with-effects.tsx';
       const output = runBatch('interpret-effects', presFile);
       const file = getFileResult(output, presFile);
 
@@ -127,7 +127,7 @@ describe('ast-query batch mode', () => {
 
       const typeDispatches = result.assessments.filter(a => a.kind === 'TYPE_DISPATCH');
       expect(typeDispatches).toHaveLength(1);
-      expect(typeDispatches[0].subject.line).toBe(133);
+      expect(typeDispatches[0].subject.line).toBe(132);
     });
 
     it('ownership classifies container as CONTAINER with high confidence', () => {

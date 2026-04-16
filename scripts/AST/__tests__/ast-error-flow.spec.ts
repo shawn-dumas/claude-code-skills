@@ -127,14 +127,16 @@ describe('ast-error-flow', () => {
   });
 
   describe('real-world smoke tests', () => {
-    it('withErrorHandler has 3 console + 6 response sinks', () => {
+    it('withErrorHandler has 3 console + 3 newrelic + 6 response sinks', () => {
       const result = analyzeErrorFlow('src/server/middleware/withErrorHandler.ts');
       const consoleSinks = sinksOfType(result, 'console');
+      const newrelicSinks = sinksOfType(result, 'newrelic');
       const responseSinks = sinksOfType(result, 'response');
 
       expect(consoleSinks).toHaveLength(3);
+      expect(newrelicSinks).toHaveLength(3);
       expect(responseSinks).toHaveLength(6);
-      expect(result.observations).toHaveLength(9);
+      expect(result.observations).toHaveLength(12);
     });
 
     it('errorTracking.ts has console sink (NR fallback)', () => {

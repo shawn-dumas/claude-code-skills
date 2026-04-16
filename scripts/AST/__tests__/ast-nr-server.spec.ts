@@ -93,20 +93,22 @@ describe('ast-nr-server', () => {
   });
 
   describe('real-world smoke tests', () => {
-    it('withErrorHandler.ts has 1 NR_MISSING_ERROR_REPORT (console.error, no noticeError)', () => {
+    it('withErrorHandler.ts has 0 NR_MISSING_ERROR_REPORT (noticeError calls present)', () => {
       const result = analyzeNrServer('src/server/middleware/withErrorHandler.ts');
       const missing = obsOfKind(result, 'NR_MISSING_ERROR_REPORT');
+      const noticeError = obsOfKind(result, 'NR_NOTICE_ERROR_CALL');
 
-      expect(missing).toHaveLength(1);
-      expect(missing[0].evidence.containingFunction).toBe('withErrorHandler');
+      expect(missing).toHaveLength(0);
+      expect(noticeError.length).toBeGreaterThanOrEqual(3);
     });
 
-    it('withAuth.ts has 1 NR_MISSING_CUSTOM_ATTRS (has userId, no addCustomAttributes)', () => {
+    it('withAuth.ts has 0 NR_MISSING_CUSTOM_ATTRS (addCustomAttributes present)', () => {
       const result = analyzeNrServer('src/server/middleware/withAuth.ts');
       const missing = obsOfKind(result, 'NR_MISSING_CUSTOM_ATTRS');
+      const customAttrs = obsOfKind(result, 'NR_CUSTOM_ATTRS_CALL');
 
-      expect(missing).toHaveLength(1);
-      expect(missing[0].evidence.middleware).toBe('withAuth');
+      expect(missing).toHaveLength(0);
+      expect(customAttrs).toHaveLength(1);
     });
 
     it('withErrorHandler.ts has 0 positive NR observations (no APM installed)', () => {
@@ -116,12 +118,11 @@ describe('ast-nr-server', () => {
       expect(positive).toHaveLength(0);
     });
 
-    it('withErrorHandler.ts has 1 NR_MISSING_STARTUP_HOOK (no instrumentation.ts)', () => {
+    it('withErrorHandler.ts has 0 NR_MISSING_STARTUP_HOOK (instrumentation.ts present)', () => {
       const result = analyzeNrServer('src/server/middleware/withErrorHandler.ts');
       const missing = obsOfKind(result, 'NR_MISSING_STARTUP_HOOK');
 
-      expect(missing).toHaveLength(1);
-      expect(missing[0].evidence.checkedPaths).toContain('instrumentation.ts');
+      expect(missing).toHaveLength(0);
     });
 
     it('non-middleware files do not produce NR_MISSING_STARTUP_HOOK', () => {
