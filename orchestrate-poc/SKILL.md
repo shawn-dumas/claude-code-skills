@@ -1382,6 +1382,13 @@ orchestrate-feature for the exact format). Key rules:
     presentational leaves that receive data via props and fire callbacks.
     If a "component" needs to call hooks, manage URL state, or
     orchestrate data, it is actually a container and belongs in Phase 5.
+    Neither phase 5 nor phase 6 should emit a useEffect that reads
+    URL state (`pathname`, `useQueryStates` output, `window.location`,
+    etc.); ESLint's FSM URL-state guard blocks this in
+    `src/ui/page_blocks/**` and `src/ui/providers/**`. Side effects
+    tied to navigation events register as FSM lifecycle hooks in
+    `src/shared/utils/urlStateHooks.ts`. See CLAUDE.md "URL state FSM"
+    section for the decision table.
   - Phase 7 (wiring): manual (follows `docs/adding-dashboard-pages.md`)
   - Phase 8 (filters): `/build-react-component` if the filter UI is a
     pure presentational component receiving filter state via props.

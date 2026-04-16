@@ -148,6 +148,20 @@ Decision tree after stripping queries and derived state:
 
 ### 2e. useEffect discipline
 
+**URL-dep useEffects in providers are lint-blocked.** ESLint's
+`no-restricted-syntax` rule fires on useEffects whose dep list
+contains URL-derived identifiers (`pathname`, `searchParams`,
+`urlState`, `urlFilters`, `query`, `asPath`), references URL-derived
+member expressions (`router.pathname`, `router.query`), or reads
+`window.location` in the body. Scope: `src/ui/providers/**`. If the
+refactor target has such a useEffect, three options in preference
+order:
+1. Delete it if the state it derives is already reactive via props or context.
+2. Migrate it to an FSM lifecycle hook in `src/shared/utils/urlStateHooks.ts` — see CLAUDE.md "URL state FSM" section for the registry decision table (`renderInitHooks` for render-1 closure timing, `arriveDeeplinkHooks` / `arriveTransferHooks` / `arriveStashHooks` for navigation, `postMountHooks` for post-settle effects, `logoutHooks` for teardown).
+3. If migration is out of scope for the current refactor, grandfather with an inline `// eslint-disable-next-line no-restricted-syntax -- <reason + migration ticket>` and file a follow-up in `$PLANS_DIR/continuation-prompts/2026-04-15-user-frontend-render-phase-slot-migration.md`.
+
+The grandfathered sites in `src/ui/providers/context/auth/hooks/useAuthStateObserver.ts` and `src/ui/providers/posthogProvider.tsx` follow pattern 3 and are the reference examples.
+
 Review effect assessments from `ast-interpret-effects`:
 
 - **`DERIVED_STATE`** -- providers should not have these (data fetching

@@ -133,6 +133,13 @@ exist.
 - Reads URL state via nuqs `useQueryState` / `useQueryStates` for any
   URL-worthy state (filters, sort, tab, date range, pagination, selected
   team/user). Passes values as data props and setters as callback props.
+  Do NOT write `useEffect(() => {...}, [pathname, urlFilters, ...])`
+  to react to URL changes — the re-render from nuqs handles that.
+  ESLint's FSM URL-state guard blocks this useEffect pattern in
+  `src/ui/page_blocks/**`. If you need side effects tied to navigation
+  events (depart, arrive, transfer, post-mount, write-table), register
+  an FSM lifecycle hook in `src/shared/utils/urlStateHooks.ts`. See
+  CLAUDE.md "URL state FSM" section for the decision table.
 - Manages storage reads/writes via `readStorage`/`writeStorage`/`removeStorage`
   from `@/shared/utils/typedStorage` (if applicable). Never use raw
   `localStorage`/`sessionStorage`. If a key stores URL-worthy state, use nuqs

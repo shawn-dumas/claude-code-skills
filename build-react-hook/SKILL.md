@@ -76,6 +76,16 @@ Create `src/shared/hooks/<useHookName>/` if it does not exist.
   disconnect observer, etc.)
 - For state hooks: no useEffect unless it falls into the "keep" categories
   (external subscription, unmount cleanup)
+- **URL-derived state is NOT a "keep" category.** If the hook reads
+  `pathname`, `useQueryStates` output, `useSearchParams`, or
+  `window.location`, it belongs in `src/shared/utils/urlStateHooks.ts`
+  as an FSM lifecycle hook, not a `src/shared/hooks/use*.ts` utility.
+  ESLint's FSM URL-state guard blocks the useEffect form in
+  `src/ui/page_blocks/**` and `src/ui/providers/**`. See CLAUDE.md
+  "URL state FSM" section for the decision table. Shared-hooks are
+  exempt (scope of the guard is page_blocks + providers only), but
+  if the hook's CONSUMERS live in those trees, the consumer will trip
+  the guard when it calls the hook inside a useEffect with a URL dep.
 - JSDoc comment describing purpose, parameters, and return value (per
   the "JSDoc and Comments" policy in CLAUDE.md)
 - No default export

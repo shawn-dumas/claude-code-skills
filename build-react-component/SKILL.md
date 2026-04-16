@@ -68,6 +68,19 @@ If the component needs to detect client-side rendering for hydration-sensitive c
 as a lazy initializer instead of `useState(false)` + `useEffect(() => setMounted(true), [])`.
 The lazy initializer avoids an extra render cycle.
 
+**Do NOT emit a useEffect that derives state from URL inputs**
+(`pathname`, `useQueryStates` output, `useSearchParams`, `router.pathname`,
+`router.query`, or `window.location` reads) when generating into
+`src/ui/page_blocks/**` or `src/ui/providers/**`. ESLint's
+`no-restricted-syntax` rule blocks these at pre-commit. Components
+in those trees are DDAU leaves and should not be reading URL state
+directly anyway; if the component seems to need URL-derived state,
+it is probably a container and belongs in `build-react-route`. If the
+container genuinely needs render-1 URL-derived state (closure-safety),
+register a `renderInitHook` in `src/shared/utils/urlStateHooks.ts`.
+See CLAUDE.md "URL state FSM" section for the intent-to-registry
+decision table.
+
 <!-- role: emit -->
 
 ## Step 4: Generate the files
