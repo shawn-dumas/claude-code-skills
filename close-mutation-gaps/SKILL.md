@@ -14,7 +14,7 @@ Close mutation survivors in `$ARGUMENTS` by adding targeted tests to the existin
 
 ## Preconditions
 
-- A stryker run has already produced `reports/mutation/mutation.json` at the repo root.
+- A stryker run has already produced `reports/mutation/mutation.json` at the repo root. To produce one for the target file: `npx tsx scripts/run-mutation.ts $ARGUMENTS`.
 - The target file has at least one Survived or NoCoverage mutant in that report.
 - The existing spec file for the target is in `__tests__/<basename>.spec.ts` (same directory) or `__tests__/<basename>.spec.tsx`.
 - Tests are currently passing (`pnpm vitest run <spec>` exits 0 before you begin).
@@ -163,14 +163,13 @@ Do not commit failing tests.
 
 ## Step 6: Run targeted stryker to verify kill rate (optional but recommended)
 
-If time permits, narrow stryker to just this file temporarily and confirm the kill rate improved:
+If time permits, re-run stryker against just this file and confirm the kill rate improved:
 
 ```bash
-# Temporary one-file stryker config (do not commit this -- revert after).
-# Edit stryker.config.json mutate field to just the target file, run, compare.
+npx tsx scripts/run-mutation.ts $ARGUMENTS
 ```
 
-This is optional because the final verification is the full rerun in Step 8 (after all files are closed).
+This invokes stryker with `--mutate $ARGUMENTS` so no config edits are needed. The final verification is the full rerun in Step 8 (after all files are closed).
 
 <!-- role: workflow -->
 
