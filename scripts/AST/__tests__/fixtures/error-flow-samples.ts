@@ -84,8 +84,19 @@ function handleSwallowedWithAssignment() {
   }
 }
 
+// 10. OTel recordError (server-side NR reporting via OTel SDK)
+function handleWithOtelRecordError() {
+  try {
+    doSomething();
+  } catch (err) {
+    console.error('Failed:', err);
+    recordError(err, { requestId: '123' });
+  }
+}
+
 // Helpers to make TypeScript happy
 declare function doSomething(): void;
 declare function reportErrorToNewRelic(err: unknown): void;
+declare function recordError(err: unknown, attributes?: Record<string, string>): void;
 declare const res: { status(code: number): { json(body: unknown): void } };
 declare function onError(err: unknown): void;
