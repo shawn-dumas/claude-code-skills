@@ -14,35 +14,68 @@ generative step in the middle remains agent-driven.
 
 ## Shape
 
-Emitted by `scripts/AST/ast-build-manifest.ts`. Reference implementation:
-`BuildManifest` interface in that file.
+Emitted by `scripts/AST/ast-build-manifest.ts`. The authoritative contract
+is the exported Zod schema `BuildManifestSchema` in that file; the
+`BuildManifest` TypeScript type is derived via `z.infer<typeof
+BuildManifestSchema>`. The tool calls `BuildManifestSchema.safeParse(...)`
+at its output boundary, so programmatic consumers receive a
+runtime-validated manifest and CLI consumers that re-parse the JSON with
+the same schema get the same guarantees.
+
+Zod is intentional here and absent from other AST tools. This tool is
+the only one whose output is a cross-skill contract consumed by generator
+skills (`build-react-test` and future semi-closed `build-*`) across
+process boundaries. Other AST tools emit observations to in-repo
+interpreters that share the TS type system, so `readonly interface`
+definitions in `types.ts` suffice. When a tool's output leaves the
+process as JSON and becomes input to an agent that will re-read it,
+runtime validation earns its keep.
 
 ```typescript
-interface BuildManifest {
-  file: string;                        // relative path from PROJECT_ROOT
-  structuralKind: 'component' | 'hook' | 'mixed' | 'utility';
-  exports: {
-    name: string;                      // exported identifier
-    kind: string;                      // TypeScript SyntaxKind name (e.g., 'VariableDeclaration')
-    line: number;                      // 1-indexed line in production file
-  }[];
-  primaryComponent?: {                 // present when structuralKind != 'hook' && != 'utility'
-    name: string;
-    line: number;
-    props: PropField[];                // see types.ts for PropField shape
-  };
-  hookCalls: HookCall[];               // see types.ts for HookCall shape (from ast-react-inventory)
-  dataLayer: {
-    queryHooks: { name: string; line: number }[];
-    mutationHooks: { name: string; line: number }[];
-    fetchApiCalls: { endpoint: string; line: number }[];
-  };
-  imports: {
-    module: string;                    // specifier as written in source
-    named: string[];                   // named import identifiers
-  }[];
-}
+import { z } from 'zod';
+
+export const BuildManifestSchema = z.object({
+  file: z.string(),                                  // relative path from PROJECT_ROOT
+  structuralKind: z.enum(['component', 'hook', 'mixed', 'utility']),
+  exports: z.array(z.object({
+    name: z.string(),                                // exported identifier
+    kind: z.string(),                                // TypeScript SyntaxKind name (e.g., 'VariableDeclaration')
+    line: z.number(),                                // 1-indexed line in production file
+  })),
+  primaryComponent: z.object({                       // present when structuralKind != 'hook' && != 'utility'
+    name: z.string(),
+    line: z.number(),
+    props: z.array(PropFieldSchema),                 // shape matches ast-react-inventory's PropField
+  }).optional(),
+  hookCalls: z.array(HookCallSchema),                // shape matches ast-react-inventory's HookCall
+  dataLayer: z.object({
+    queryHooks: z.array(z.object({ name: z.string(), line: z.number() })),
+    mutationHooks: z.array(z.object({ name: z.string(), line: z.number() })),
+    fetchApiCalls: z.array(z.object({ endpoint: z.string(), line: z.number() })),
+  }),
+  imports: z.array(z.object({
+    module: z.string(),                              // specifier as written in source
+    named: z.array(z.string()),                      // named import identifiers
+  })),
+});
+
+export type BuildManifest = z.infer<typeof BuildManifestSchema>;
 ```
+
+Consumers that want the same runtime validation on the CLI side can
+import the schema directly, keeping in mind that the module side-effect
+loads `ts-morph` via the analyzer imports -- fine for test/build tooling
+already running in that process, heavy for a thin wrapper that only
+wants to re-parse JSON:
+
+```typescript
+import { BuildManifestSchema } from '../scripts/AST/ast-build-manifest';
+const parsed = BuildManifestSchema.parse(JSON.parse(cliStdout).manifests[0]);
+```
+
+If a cheap schema-only import becomes a real consumer need, split
+`BuildManifestSchema` into a standalone `ast-build-manifest.schema.ts`.
+No consumers require that today.
 
 ## What the manifest is (and is not)
 

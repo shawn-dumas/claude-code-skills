@@ -1,30 +1,78 @@
 import path from 'path';
 import fs from 'fs';
+import { z } from 'zod';
 import { parseArgs, output, fatal } from './cli';
 import { PROJECT_ROOT, getSourceFile } from './project';
 import { analyzeReactFile } from './ast-react-inventory';
 import { analyzeDataLayer } from './ast-data-layer';
 import type { HookCall, PropField } from './types';
 
-type StructuralKind = 'component' | 'hook' | 'mixed' | 'utility';
+export const HookCallSchema = z.object({
+  name: z.string(),
+  line: z.number(),
+  column: z.number(),
+  parentFunction: z.string(),
+  destructuredNames: z.array(z.string()),
+});
 
-export interface BuildManifest {
-  readonly file: string;
-  readonly structuralKind: StructuralKind;
-  readonly exports: { readonly name: string; readonly kind: string; readonly line: number }[];
-  readonly primaryComponent?: {
-    readonly name: string;
-    readonly line: number;
-    readonly props: readonly PropField[];
-  };
-  readonly hookCalls: readonly HookCall[];
-  readonly dataLayer: {
-    readonly queryHooks: readonly { readonly name: string; readonly line: number }[];
-    readonly mutationHooks: readonly { readonly name: string; readonly line: number }[];
-    readonly fetchApiCalls: readonly { readonly endpoint: string; readonly line: number }[];
-  };
-  readonly imports: readonly { readonly module: string; readonly named: readonly string[] }[];
-}
+export const PropFieldSchema = z.object({
+  name: z.string(),
+  type: z.string(),
+  optional: z.boolean(),
+  hasDefault: z.boolean(),
+  isCallback: z.boolean(),
+});
+
+// Compile-time guards: the Zod schemas above must match the canonical
+// interfaces in types.ts exactly. If anyone adds, removes, or retypes a
+// field on either side without updating the other, tsc fails at the
+// assignment below. This prevents silent schema/type drift (tools strip
+// or reject fields at runtime that the interface still advertises, or
+// vice versa). Each guard asserts two-way assignability by casting a
+// value-shape through both directions.
+type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
+const _HOOK_CALL_PARITY: AssertEqual<HookCall, z.infer<typeof HookCallSchema>> = true;
+const _PROP_FIELD_PARITY: AssertEqual<PropField, z.infer<typeof PropFieldSchema>> = true;
+// Reference the constants so unused-locals/exports don't strip them.
+void _HOOK_CALL_PARITY;
+void _PROP_FIELD_PARITY;
+
+export const StructuralKindSchema = z.enum(['component', 'hook', 'mixed', 'utility']);
+
+export const BuildManifestSchema = z.object({
+  file: z.string(),
+  structuralKind: StructuralKindSchema,
+  exports: z.array(
+    z.object({
+      name: z.string(),
+      kind: z.string(),
+      line: z.number(),
+    }),
+  ),
+  primaryComponent: z
+    .object({
+      name: z.string(),
+      line: z.number(),
+      props: z.array(PropFieldSchema),
+    })
+    .optional(),
+  hookCalls: z.array(HookCallSchema),
+  dataLayer: z.object({
+    queryHooks: z.array(z.object({ name: z.string(), line: z.number() })),
+    mutationHooks: z.array(z.object({ name: z.string(), line: z.number() })),
+    fetchApiCalls: z.array(z.object({ endpoint: z.string(), line: z.number() })),
+  }),
+  imports: z.array(
+    z.object({
+      module: z.string(),
+      named: z.array(z.string()),
+    }),
+  ),
+});
+
+export type BuildManifest = z.infer<typeof BuildManifestSchema>;
+
+type StructuralKind = z.infer<typeof StructuralKindSchema>;
 
 function classifyStructurally(filePath: string, componentCount: number, hookOnlyCount: number): StructuralKind {
   const isHookFile = /\/use[A-Z]/.test(filePath);
@@ -80,7 +128,7 @@ export function buildManifest(filePath: string): BuildManifest {
     .filter(u => u.type === 'FETCH_API_CALL')
     .map(u => ({ endpoint: u.text, line: u.line }));
 
-  return {
+  const candidate = {
     file: path.relative(PROJECT_ROOT, absolute),
     structuralKind: classifyStructurally(absolute, componentEntries.length, hookEntries.length),
     exports: extractExports(absolute),
@@ -91,6 +139,16 @@ export function buildManifest(filePath: string): BuildManifest {
     dataLayer: { queryHooks, mutationHooks, fetchApiCalls },
     imports: extractImports(absolute),
   };
+  const parsed = BuildManifestSchema.safeParse(candidate);
+  if (!parsed.success) {
+    // This fires only when an upstream analyzer (ast-react-inventory,
+    // ast-data-layer, extractExports/extractImports) drifts from the
+    // manifest schema. The compile-time parity guards at the top of this
+    // file catch shape mismatches at the HookCall/PropField layer, but
+    // everything else relies on this runtime check.
+    throw new Error(`manifest schema validation failed for ${filePath}: ${parsed.error.message}`);
+  }
+  return parsed.data;
 }
 
 export function main(): void {
