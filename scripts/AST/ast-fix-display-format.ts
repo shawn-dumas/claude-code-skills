@@ -15,15 +15,18 @@ const FORMAT_INT_NAME = 'formatInt';
 const FORMAT_NUMBER_NAME = 'formatNumber';
 const CANONICAL_EMPTY_MESSAGE = astConfig.displayFormat.canonicalEmptyMessage;
 const WRONG_EMPTY_MESSAGES = astConfig.displayFormat.wrongEmptyMessages;
+const WRONG_PLACEHOLDERS = astConfig.displayFormat.wrongPlaceholders;
 
 const SUPPORTED_KINDS = new Set<string>([
   'MISSING_PLACEHOLDER',
   'HARDCODED_DASH',
   'INCONSISTENT_EMPTY_MESSAGE',
   'RAW_FORMAT_BYPASS',
+  'PERCENTAGE_PRECISION_MISMATCH',
+  'WRONG_PLACEHOLDER',
 ]);
 
-const KINDS_REQUIRING_NO_VALUE_IMPORT = new Set<string>(['MISSING_PLACEHOLDER', 'HARDCODED_DASH']);
+const KINDS_REQUIRING_NO_VALUE_IMPORT = new Set<string>(['MISSING_PLACEHOLDER', 'HARDCODED_DASH', 'WRONG_PLACEHOLDER']);
 
 export interface FixResult {
   file: string;
@@ -139,6 +142,18 @@ function findRawFormatCallAtLine(source: SourceFile, line: number): CallExpressi
   });
 }
 
+function applyWrongPlaceholder(source: SourceFile, line: number): { ok: true } | { ok: false; reason: string } {
+  const lit = findStringLiteralAtLine(source, line, s => {
+    const val = s.getLiteralValue();
+    return WRONG_PLACEHOLDERS.has(val) && val !== 'N/A';
+  });
+  if (!lit) {
+    return { ok: false, reason: 'no non-N/A wrong placeholder literal at line' };
+  }
+  lit.replaceWithText(NO_VALUE_CONST);
+  return { ok: true };
+}
+
 function applyRawFormatBypass(
   source: SourceFile,
   line: number,
@@ -172,6 +187,25 @@ function applyRawFormatBypass(
   return { ok: true };
 }
 
+function applyPercentagePrecisionMismatch(
+  source: SourceFile,
+  line: number,
+  expectedDecimals: number,
+  importsNeeded: Set<typeof FORMAT_INT_NAME | typeof FORMAT_NUMBER_NAME>,
+): { ok: true } | { ok: false; reason: string } {
+  const call = findRawFormatCallAtLine(source, line);
+  if (!call) {
+    return { ok: false, reason: 'no toFixed/toLocaleString call at line' };
+  }
+
+  const pae = call.getExpression().asKindOrThrow(SyntaxKind.PropertyAccessExpression);
+  const receiver = pae.getExpression().getText();
+
+  call.replaceWithText(`${FORMAT_NUMBER_NAME}(${receiver}, ${expectedDecimals})`);
+  importsNeeded.add(FORMAT_NUMBER_NAME);
+  return { ok: true };
+}
+
 function createFixerProject(): Project {
   return new Project({
     tsConfigFilePath: path.join(PROJECT_ROOT, 'tsconfig.json'),
@@ -193,7 +227,26 @@ export function fixSourceFile(filePath: string): FixResult {
   const skipped: FixResult['skipped'] = [];
   const formatImportsNeeded = new Set<typeof FORMAT_INT_NAME | typeof FORMAT_NUMBER_NAME>();
 
-  for (const a of assessments) {
+  // When PERCENTAGE_PRECISION_MISMATCH and RAW_FORMAT_BYPASS target the same
+  // line, the precision handler is strictly better (it also fixes the raw call
+  // AND corrects the decimal count). Drop the redundant RAW_FORMAT_BYPASS so
+  // the precision handler can operate on the intact toFixed call.
+  const precisionLines = new Set(
+    assessments
+      .filter(
+        a =>
+          a.kind === 'PERCENTAGE_PRECISION_MISMATCH' &&
+          a.confidence === 'high' &&
+          !a.requiresManualReview &&
+          a.subject.line !== undefined,
+      )
+      .map(a => a.subject.line!),
+  );
+  const deduped = assessments.filter(
+    a => !(a.kind === 'RAW_FORMAT_BYPASS' && a.subject.line !== undefined && precisionLines.has(a.subject.line)),
+  );
+
+  for (const a of deduped) {
     if (a.subject.line === undefined) {
       continue;
     }
@@ -220,6 +273,14 @@ export function fixSourceFile(filePath: string): FixResult {
       result = applyInconsistentEmptyMessage(source, line);
     } else if (a.kind === 'RAW_FORMAT_BYPASS') {
       result = applyRawFormatBypass(source, line, formatImportsNeeded);
+    } else if (a.kind === 'WRONG_PLACEHOLDER') {
+      result = applyWrongPlaceholder(source, line);
+    } else if (a.kind === 'PERCENTAGE_PRECISION_MISMATCH') {
+      if (a.expectedDecimals === undefined) {
+        result = { ok: false, reason: 'no expectedDecimals on assessment' };
+      } else {
+        result = applyPercentagePrecisionMismatch(source, line, a.expectedDecimals, formatImportsNeeded);
+      }
     } else {
       result = { ok: false, reason: 'no handler' };
     }

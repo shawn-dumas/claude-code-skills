@@ -26,6 +26,7 @@ interface ClassificationResult {
   rationale: string[];
   isCandidate: boolean;
   requiresManualReview: boolean;
+  expectedDecimals?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -328,8 +329,9 @@ function classifyPercentagePrecision(observation: NumberFormatObservation): Clas
       `${context} context expects ${expectedDecimals} decimal places, found ${detectedDecimals}`,
       `detected via ${functionMatch ? 'function name' : ''}${functionMatch && pathMatch ? ' + ' : ''}${pathMatch ? 'file path' : ''}`,
     ].filter(Boolean),
-    isCandidate: false,
+    isCandidate: confidence === 'high',
     requiresManualReview: !(functionMatch && pathMatch),
+    expectedDecimals,
   };
 }
 
@@ -550,6 +552,7 @@ export function interpretDisplayFormat(
         basedOn: buildBasedOnNumber(observation),
         isCandidate: percentagePrecision.isCandidate,
         requiresManualReview: percentagePrecision.requiresManualReview,
+        expectedDecimals: percentagePrecision.expectedDecimals,
       });
       continue;
     }

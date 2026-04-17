@@ -1282,7 +1282,10 @@ export type DisplayFormatAssessmentKind =
   | 'ZERO_NULL_CONFLATION'
   | 'INCONSISTENT_EMPTY_MESSAGE';
 
-export type DisplayFormatAssessment = Assessment<DisplayFormatAssessmentKind>;
+export type DisplayFormatAssessment = Assessment<DisplayFormatAssessmentKind> & {
+  /** Expected decimal places for PERCENTAGE_PRECISION_MISMATCH assessments. */
+  readonly expectedDecimals?: number;
+};
 
 // --------------------------------------------------------------------------
 // ast-peer-deps observations

@@ -1,0 +1,23 @@
+{
+  "tool": "fix-display-conventions",
+  "created": "2026-04-16",
+  "source": "synthetic",
+  "sourcePath": null,
+  "files": ["before.tsx", "after.tsx"],
+  "expectedTransforms": [
+    {
+      "line": 13,
+      "kind": "MISSING_PLACEHOLDER",
+      "transform": "append `?? NO_VALUE_PLACEHOLDER` after getValue()",
+      "importAdded": "NO_VALUE_PLACEHOLDER from '@/shared/constants'"
+    },
+    {
+      "line": 17,
+      "kind": "WRONG_PLACEHOLDER",
+      "transform": "replace '--' literal with NO_VALUE_PLACEHOLDER identifier",
+      "importAdded": "NO_VALUE_PLACEHOLDER from '@/shared/constants'",
+      "notes": "Non-N/A wrong placeholder ('--') is auto-fixable: review=no, confidence=high. Mirrors fixture-02 (N/A case) which is gated by review=yes. Also exercises MISSING_PLACEHOLDER on line 13 as a multi-transform case."
+    }
+  ],
+  "status": "validated"
+}

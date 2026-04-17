@@ -1,0 +1,19 @@
+{
+  "tool": "fix-display-conventions",
+  "created": "2026-04-16",
+  "source": "synthetic",
+  "sourcePath": null,
+  "files": ["before.tsx", "after.tsx"],
+  "expectedTransforms": [
+    {
+      "line": 10,
+      "symbol": "getValue",
+      "kind": "RAW_FORMAT_BYPASS",
+      "callee": "toFixed",
+      "transform": "replace `x.toFixed(2)` with `formatNumber(x, 2)`",
+      "importAdded": "formatNumber from '@/shared/utils'",
+      "notes": "Exercises the toFixed branch of RAW_FORMAT_BYPASS. Fixture-06 covers toLocaleString; this fixture covers the other branch. Non-percentage context (no % in template), so PERCENTAGE_PRECISION_MISMATCH does not fire."
+    }
+  ],
+  "status": "validated"
+}
