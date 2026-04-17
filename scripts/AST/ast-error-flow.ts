@@ -24,8 +24,8 @@ import type {
 // Sink classification helpers
 // ---------------------------------------------------------------------------
 
-/** Identifiers that indicate New Relic error reporting (client or OTel). */
-const NR_REPORT_FUNCTIONS = new Set(['reportErrorToNewRelic', 'noticeError', 'recordError']);
+/** Identifiers that indicate New Relic error reporting. */
+const NR_REPORT_FUNCTIONS = new Set(['reportErrorToNewRelic', 'noticeError']);
 
 const NR_REPORT_METHODS = new Set(['noticeError']);
 
