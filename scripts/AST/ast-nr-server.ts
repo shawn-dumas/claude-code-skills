@@ -1,9 +1,15 @@
 /**
  * AST NR Server Tool
  *
- * Detects New Relic server APM integration patterns and gaps in BFF
- * handler and middleware code. Identifies both existing NR call sites
- * and locations where NR integration is missing.
+ * Detects server-side observability patterns and gaps. NR is still the
+ * observability platform, but the SDK layer is now OpenTelemetry (PR #1377).
+ * The proprietary newrelic Node agent was replaced by:
+ *   - otelTracer.ts: withSpan, recordError, setSpanAttributes
+ *   - withChSegment.ts: ClickHouse span wrapper
+ *   - instrumentation.ts + otel-instrumentation.js: SDK bootstrap
+ *
+ * Positive observations detect OTel call sites. Gap observations detect
+ * locations where OTel integration is missing.
  */
 
 import fs from 'fs';
@@ -16,27 +22,32 @@ import { cached } from './ast-cache';
 import type { NrServerAnalysis, NrServerObservation, ObservationResult } from './types';
 
 // ---------------------------------------------------------------------------
-// Known NR APM identifiers
+// Known OTel module paths
 // ---------------------------------------------------------------------------
 
-const NR_APM_MODULES = new Set(['newrelic']);
+const OTEL_MODULES = new Set(['@/server/lib/otelTracer', '@/server/lib/withChSegment', '@opentelemetry/api']);
+
+/** OTel wrapper function names that indicate active observability. */
+const OTEL_ERROR_FUNCTIONS = new Set(['recordError']);
+const OTEL_ATTRS_FUNCTIONS = new Set(['setSpanAttributes']);
+const OTEL_SPAN_FUNCTIONS = new Set(['withSpan', 'withChSegment']);
 
 /** DB query method patterns. */
 const DB_QUERY_METHODS = new Set(['query', 'select', 'insert', 'update', 'delete', 'execute', 'exec']);
 
 // ---------------------------------------------------------------------------
-// Detection: existing NR integration (positive observations)
+// Detection: existing OTel integration (positive observations)
 // ---------------------------------------------------------------------------
 
-function detectApmImports(filePath: string, relativePath: string): NrServerObservation[] {
+function detectOtelImports(filePath: string, relativePath: string): NrServerObservation[] {
   const sf = getSourceFile(filePath);
   const observations: NrServerObservation[] = [];
 
   for (const importDecl of sf.getImportDeclarations()) {
     const moduleSpec = importDecl.getModuleSpecifierValue();
-    if (NR_APM_MODULES.has(moduleSpec)) {
+    if (OTEL_MODULES.has(moduleSpec)) {
       observations.push({
-        kind: 'NR_APM_IMPORT',
+        kind: 'OTEL_TRACER_IMPORT',
         file: relativePath,
         line: importDecl.getStartLineNumber(),
         evidence: {
@@ -49,7 +60,7 @@ function detectApmImports(filePath: string, relativePath: string): NrServerObser
   return observations;
 }
 
-function detectNoticeErrorCalls(filePath: string, relativePath: string): NrServerObservation[] {
+function detectRecordErrorCalls(filePath: string, relativePath: string): NrServerObservation[] {
   const sf = getSourceFile(filePath);
   const observations: NrServerObservation[] = [];
 
@@ -59,10 +70,11 @@ function detectNoticeErrorCalls(filePath: string, relativePath: string): NrServe
     const expr = node.getExpression();
     const text = expr.getText();
 
-    // newrelic.noticeError(...)
-    if (text.endsWith('.noticeError') || text === 'noticeError') {
+    // recordError(...) -- standalone or property access
+    const fnName = text.includes('.') ? text.split('.').pop() : text;
+    if (fnName && OTEL_ERROR_FUNCTIONS.has(fnName)) {
       observations.push({
-        kind: 'NR_NOTICE_ERROR_CALL',
+        kind: 'OTEL_RECORD_ERROR_CALL',
         file: relativePath,
         line: node.getStartLineNumber(),
         evidence: {
@@ -76,7 +88,7 @@ function detectNoticeErrorCalls(filePath: string, relativePath: string): NrServe
   return observations;
 }
 
-function detectCustomAttrsCalls(filePath: string, relativePath: string): NrServerObservation[] {
+function detectSetAttrsCalls(filePath: string, relativePath: string): NrServerObservation[] {
   const sf = getSourceFile(filePath);
   const observations: NrServerObservation[] = [];
 
@@ -86,9 +98,10 @@ function detectCustomAttrsCalls(filePath: string, relativePath: string): NrServe
     const expr = node.getExpression();
     const text = expr.getText();
 
-    if (text.endsWith('.addCustomAttributes') || text === 'addCustomAttributes') {
+    const fnName = text.includes('.') ? text.split('.').pop() : text;
+    if (fnName && OTEL_ATTRS_FUNCTIONS.has(fnName)) {
       observations.push({
-        kind: 'NR_CUSTOM_ATTRS_CALL',
+        kind: 'OTEL_SET_ATTRS_CALL',
         file: relativePath,
         line: node.getStartLineNumber(),
         evidence: {
@@ -102,7 +115,7 @@ function detectCustomAttrsCalls(filePath: string, relativePath: string): NrServe
   return observations;
 }
 
-function detectCustomSegments(filePath: string, relativePath: string): NrServerObservation[] {
+function detectSpanCalls(filePath: string, relativePath: string): NrServerObservation[] {
   const sf = getSourceFile(filePath);
   const observations: NrServerObservation[] = [];
 
@@ -112,44 +125,25 @@ function detectCustomSegments(filePath: string, relativePath: string): NrServerO
     const expr = node.getExpression();
     const text = expr.getText();
 
-    if (
-      text.endsWith('.startSegment') ||
-      text.endsWith('.startWebTransaction') ||
-      text.endsWith('.startBackgroundTransaction')
-    ) {
+    const fnName = text.includes('.') ? text.split('.').pop() : text;
+    if (fnName && OTEL_SPAN_FUNCTIONS.has(fnName)) {
+      // Extract span name from first argument if it's a string literal
+      const args = node.getArguments();
+      let spanName: string | undefined;
+      if (args[0] && Node.isStringLiteral(args[0])) {
+        spanName = args[0].getLiteralText();
+      } else if (args[0] && Node.isTemplateExpression(args[0])) {
+        spanName = truncateText(args[0].getText(), 40);
+      }
+
       observations.push({
-        kind: 'NR_CUSTOM_SEGMENT',
+        kind: 'OTEL_SPAN_CALL',
         file: relativePath,
         line: node.getStartLineNumber(),
         evidence: {
           callSite: truncateText(node.getText(), 80),
           containingFunction: getContainingFunctionName(node),
-        },
-      });
-    }
-  });
-
-  return observations;
-}
-
-function detectTxnNameCalls(filePath: string, relativePath: string): NrServerObservation[] {
-  const sf = getSourceFile(filePath);
-  const observations: NrServerObservation[] = [];
-
-  sf.forEachDescendant(node => {
-    if (!Node.isCallExpression(node)) return;
-
-    const expr = node.getExpression();
-    const text = expr.getText();
-
-    if (text.endsWith('.setTransactionName') || text === 'setTransactionName') {
-      observations.push({
-        kind: 'NR_TXN_NAME_CALL',
-        file: relativePath,
-        line: node.getStartLineNumber(),
-        evidence: {
-          callSite: truncateText(node.getText(), 80),
-          containingFunction: getContainingFunctionName(node),
+          spanName,
         },
       });
     }
@@ -159,11 +153,11 @@ function detectTxnNameCalls(filePath: string, relativePath: string): NrServerObs
 }
 
 // ---------------------------------------------------------------------------
-// Detection: missing NR integration (gap observations)
+// Detection: missing OTel integration (gap observations)
 // ---------------------------------------------------------------------------
 
 /**
- * Check for catch blocks with console.error but no NR noticeError
+ * Check for catch blocks with console.error but no recordError
  * in server middleware/handler files.
  */
 function detectMissingErrorReport(filePath: string, relativePath: string): NrServerObservation[] {
@@ -175,9 +169,9 @@ function detectMissingErrorReport(filePath: string, relativePath: string): NrSer
 
     const blockText = node.getBlock().getText();
     const hasConsoleError = blockText.includes('console.error');
-    const hasNrReport = blockText.includes('noticeError') || blockText.includes('newrelic');
+    const hasOtelReport = blockText.includes('recordError');
 
-    if (hasConsoleError && !hasNrReport) {
+    if (hasConsoleError && !hasOtelReport) {
       observations.push({
         kind: 'NR_MISSING_ERROR_REPORT',
         file: relativePath,
@@ -186,7 +180,7 @@ function detectMissingErrorReport(filePath: string, relativePath: string): NrSer
           containingFunction: getContainingFunctionName(node),
           catchBlockLine: node.getStartLineNumber(),
           errorSink: 'console.error',
-          reason: 'Server catch block logs to console but does not report to NR APM',
+          reason: 'Server catch block logs to console but does not call recordError',
         },
       });
     }
@@ -196,7 +190,7 @@ function detectMissingErrorReport(filePath: string, relativePath: string): NrSer
 }
 
 /**
- * Check if auth middleware sets NR custom attributes (userId, organizationId).
+ * Check if auth middleware sets OTel span attributes (userId, organizationId).
  */
 function detectMissingCustomAttrs(filePath: string, relativePath: string): NrServerObservation[] {
   const sf = getSourceFile(filePath);
@@ -210,16 +204,16 @@ function detectMissingCustomAttrs(filePath: string, relativePath: string): NrSer
   const hasAuth = fullText.includes('decoded.uid') || fullText.includes('userId');
   if (!hasAuth) return observations;
 
-  const hasNrAttrs = fullText.includes('addCustomAttributes') || fullText.includes('setCustomAttribute');
+  const hasOtelAttrs = fullText.includes('setSpanAttributes');
 
-  if (!hasNrAttrs) {
+  if (!hasOtelAttrs) {
     observations.push({
       kind: 'NR_MISSING_CUSTOM_ATTRS',
       file: relativePath,
       line: 1,
       evidence: {
         middleware: path.basename(relativePath, path.extname(relativePath)),
-        reason: 'Auth middleware has userId but does not set NR custom attributes',
+        reason: 'Auth middleware has userId but does not call setSpanAttributes',
       },
     });
   }
@@ -228,8 +222,8 @@ function detectMissingCustomAttrs(filePath: string, relativePath: string): NrSer
 }
 
 /**
- * Check for database query calls without NR custom segment wrapping.
- * Only applies to ClickHouse (postgres auto-instruments via NR agent).
+ * Check for database query calls without OTel span wrapping.
+ * Only applies to ClickHouse (postgres auto-instruments via OTel SDK).
  */
 function detectMissingDbSegment(filePath: string, relativePath: string): NrServerObservation[] {
   const sf = getSourceFile(filePath);
@@ -243,7 +237,7 @@ function detectMissingDbSegment(filePath: string, relativePath: string): NrServe
 
   if (!hasClickhouseImport) return observations;
 
-  // Check for query calls without startSegment wrapping
+  // Check for query calls without withSpan/withChSegment wrapping
   sf.forEachDescendant(node => {
     if (!Node.isCallExpression(node)) return;
 
@@ -254,21 +248,22 @@ function detectMissingDbSegment(filePath: string, relativePath: string): NrServe
     if (!DB_QUERY_METHODS.has(methodName)) return;
 
     const objText = expr.getExpression().getText();
-    // Check if there is a startSegment ancestor
+    // Check if there is a withSpan or withChSegment ancestor
     let parent: import('ts-morph').Node | undefined = node.getParent();
-    let hasSegment = false;
+    let hasSpan = false;
     while (parent) {
       if (Node.isCallExpression(parent)) {
         const parentExpr = parent.getExpression();
-        if (parentExpr.getText().includes('startSegment')) {
-          hasSegment = true;
+        const parentText = parentExpr.getText();
+        if (parentText.includes('withSpan') || parentText.includes('withChSegment')) {
+          hasSpan = true;
           break;
         }
       }
       parent = parent.getParent();
     }
 
-    if (!hasSegment) {
+    if (!hasSpan) {
       observations.push({
         kind: 'NR_MISSING_DB_SEGMENT',
         file: relativePath,
@@ -276,7 +271,7 @@ function detectMissingDbSegment(filePath: string, relativePath: string): NrServe
         evidence: {
           dbClient: objText,
           containingFunction: getContainingFunctionName(node),
-          reason: `ClickHouse query call (${objText}.${methodName}) not wrapped in NR custom segment`,
+          reason: `ClickHouse query call (${objText}.${methodName}) not wrapped in withSpan/withChSegment`,
         },
       });
     }
@@ -286,42 +281,11 @@ function detectMissingDbSegment(filePath: string, relativePath: string): NrServe
 }
 
 /**
- * Check for dynamic API routes without custom transaction names.
- * Dynamic routes (e.g., [userId].ts) produce high-cardinality transaction
- * names without explicit setTransactionName.
- */
-function detectMissingTxnName(filePath: string, relativePath: string): NrServerObservation[] {
-  const observations: NrServerObservation[] = [];
-
-  // Only check API route files with dynamic segments
-  if (!relativePath.includes('pages/api/')) return observations;
-  if (!relativePath.includes('[')) return observations;
-
-  const sf = getSourceFile(filePath);
-  const fullText = sf.getFullText();
-
-  const hasSetTxnName = fullText.includes('setTransactionName');
-  if (!hasSetTxnName) {
-    observations.push({
-      kind: 'NR_MISSING_TXN_NAME',
-      file: relativePath,
-      line: 1,
-      evidence: {
-        routePath: relativePath.replace(/^src\/pages/, '').replace(/\.tsx?$/, ''),
-        reason: 'Dynamic API route without setTransactionName causes high-cardinality NR transactions',
-      },
-    });
-  }
-
-  return observations;
-}
-
-/**
- * Check for the NR APM startup hook required for auto-instrumentation.
+ * Check for the OTel instrumentation hook required for auto-instrumentation.
  *
- * The NR Node.js agent must be loaded before any other module to instrument
- * pg, http, etc. In Next.js, this is done via instrumentation.ts (the
- * Next.js instrumentation hook) or NODE_OPTIONS='--require newrelic'.
+ * The OTel SDK must be loaded before any other module to instrument
+ * http, pg, etc. In Next.js, this is done via instrumentation.ts (the
+ * Next.js instrumentation hook) which imports otel-instrumentation.js.
  *
  * Scoped to withErrorHandler.ts (central error middleware) to produce
  * exactly one finding per scan.
@@ -329,7 +293,14 @@ function detectMissingTxnName(filePath: string, relativePath: string): NrServerO
 function detectMissingStartupHook(_filePath: string, relativePath: string): NrServerObservation[] {
   if (!relativePath.endsWith('middleware/withErrorHandler.ts')) return [];
 
-  const candidates = ['instrumentation.ts', 'instrumentation.js', 'instrumentation.mjs'];
+  const candidates = [
+    'instrumentation.ts',
+    'instrumentation.js',
+    'instrumentation.mjs',
+    'src/instrumentation.ts',
+    'src/instrumentation.js',
+    'src/instrumentation.mjs',
+  ];
   const hasHook = candidates.some(name => fs.existsSync(path.join(PROJECT_ROOT, name)));
 
   if (hasHook) return [];
@@ -341,8 +312,7 @@ function detectMissingStartupHook(_filePath: string, relativePath: string): NrSe
       line: 1,
       evidence: {
         checkedPaths: candidates.join(', '),
-        reason:
-          'No instrumentation.ts found at project root. NR APM agent requires early load via Next.js instrumentation hook or NODE_OPTIONS=--require newrelic.',
+        reason: 'No instrumentation.ts found. OTel SDK requires early load via Next.js instrumentation hook.',
       },
     },
   ];
@@ -357,15 +327,13 @@ export function analyzeNrServer(filePath: string): NrServerAnalysis {
   const relativePath = path.relative(PROJECT_ROOT, absolute);
 
   const observations: NrServerObservation[] = [
-    ...detectApmImports(absolute, relativePath),
-    ...detectNoticeErrorCalls(absolute, relativePath),
-    ...detectCustomAttrsCalls(absolute, relativePath),
-    ...detectCustomSegments(absolute, relativePath),
-    ...detectTxnNameCalls(absolute, relativePath),
+    ...detectOtelImports(absolute, relativePath),
+    ...detectRecordErrorCalls(absolute, relativePath),
+    ...detectSetAttrsCalls(absolute, relativePath),
+    ...detectSpanCalls(absolute, relativePath),
     ...detectMissingErrorReport(absolute, relativePath),
     ...detectMissingCustomAttrs(absolute, relativePath),
     ...detectMissingDbSegment(absolute, relativePath),
-    ...detectMissingTxnName(absolute, relativePath),
     ...detectMissingStartupHook(absolute, relativePath),
   ];
 
@@ -382,37 +350,35 @@ export function analyzeNrServer(filePath: string): NrServerAnalysis {
 }
 
 function computeSummary(observations: NrServerObservation[]): NrServerAnalysis['summary'] {
-  let apmImports = 0;
-  let noticeErrorCalls = 0;
-  let customAttrsCalls = 0;
+  let otelImports = 0;
+  let recordErrorCalls = 0;
+  let setAttrsCalls = 0;
   let missingCount = 0;
 
   for (const obs of observations) {
     switch (obs.kind) {
-      case 'NR_APM_IMPORT':
-        apmImports++;
+      case 'OTEL_TRACER_IMPORT':
+        otelImports++;
         break;
-      case 'NR_NOTICE_ERROR_CALL':
-        noticeErrorCalls++;
+      case 'OTEL_RECORD_ERROR_CALL':
+        recordErrorCalls++;
         break;
-      case 'NR_CUSTOM_ATTRS_CALL':
-        customAttrsCalls++;
+      case 'OTEL_SET_ATTRS_CALL':
+        setAttrsCalls++;
         break;
-      case 'NR_CUSTOM_SEGMENT':
-      case 'NR_TXN_NAME_CALL':
-        // Positive integration signals -- counted in observations, not summarized
+      case 'OTEL_SPAN_CALL':
+        // Positive integration signal -- counted in observations, not summarized
         break;
       case 'NR_MISSING_ERROR_REPORT':
       case 'NR_MISSING_CUSTOM_ATTRS':
       case 'NR_MISSING_DB_SEGMENT':
-      case 'NR_MISSING_TXN_NAME':
       case 'NR_MISSING_STARTUP_HOOK':
         missingCount++;
         break;
     }
   }
 
-  return { apmImports, noticeErrorCalls, customAttrsCalls, missingCount };
+  return { otelImports, recordErrorCalls, setAttrsCalls, missingCount };
 }
 
 // ---------------------------------------------------------------------------
@@ -458,7 +424,7 @@ export function extractNrServerObservations(analysis: NrServerAnalysis): Observa
 const HELP_TEXT =
   'Usage: npx tsx scripts/AST/ast-nr-server.ts <path...> [--pretty] [--no-cache] [--test-files] [--kind <kind>] [--count]\n' +
   '\n' +
-  'Detect New Relic server APM integration patterns and gaps.\n' +
+  'Detect server-side OTel observability patterns and gaps (data exports to NR via OTLP).\n' +
   '\n' +
   '  <path...>     One or more .ts/.tsx files or directories to analyze\n' +
   '  --pretty      Format JSON output with indentation\n' +

@@ -18,66 +18,69 @@ function obsOfKind(analysis: NrServerAnalysis, kind: NrServerObservationKind) {
 }
 
 describe('ast-nr-server', () => {
-  describe('positive observations (existing NR integration)', () => {
-    it('detects newrelic import', () => {
+  describe('positive observations (OTel integration)', () => {
+    it('detects otelTracer and withChSegment imports', () => {
       const result = analyzeFixture('nr-server-samples.ts');
-      const imports = obsOfKind(result, 'NR_APM_IMPORT');
+      const imports = obsOfKind(result, 'OTEL_TRACER_IMPORT');
 
-      expect(imports).toHaveLength(1);
-      expect(imports[0].evidence.callSite).toContain('newrelic');
+      expect(imports).toHaveLength(2);
+      expect(imports[0].evidence.callSite).toContain('@/server/lib/otelTr');
+      expect(imports[1].evidence.callSite).toContain('withChSegment');
     });
 
-    it('detects newrelic.noticeError calls', () => {
+    it('detects recordError calls', () => {
       const result = analyzeFixture('nr-server-samples.ts');
-      const calls = obsOfKind(result, 'NR_NOTICE_ERROR_CALL');
+      const calls = obsOfKind(result, 'OTEL_RECORD_ERROR_CALL');
 
       expect(calls.length).toBeGreaterThanOrEqual(1);
       expect(calls[0].evidence.containingFunction).toBe('handleError');
     });
 
-    it('detects newrelic.addCustomAttributes calls', () => {
+    it('detects setSpanAttributes calls', () => {
       const result = analyzeFixture('nr-server-samples.ts');
-      const calls = obsOfKind(result, 'NR_CUSTOM_ATTRS_CALL');
+      const calls = obsOfKind(result, 'OTEL_SET_ATTRS_CALL');
 
       expect(calls).toHaveLength(1);
       expect(calls[0].evidence.containingFunction).toBe('setUserContext');
     });
 
-    it('detects newrelic.startSegment calls', () => {
+    it('detects withSpan and withChSegment calls', () => {
       const result = analyzeFixture('nr-server-samples.ts');
-      const segments = obsOfKind(result, 'NR_CUSTOM_SEGMENT');
+      const spans = obsOfKind(result, 'OTEL_SPAN_CALL');
 
-      expect(segments).toHaveLength(1);
-      expect(segments[0].evidence.containingFunction).toBe('queryWithSegment');
+      expect(spans).toHaveLength(2);
+      expect(spans[0].evidence.containingFunction).toBe('queryWithSpan');
+      expect(spans[0].evidence.spanName).toBe('DB:fetchUser');
+      expect(spans[1].evidence.containingFunction).toBe('queryWithChSegment');
     });
   });
 
-  describe('gap observations (missing NR integration)', () => {
-    it('detects catch block with console.error but no NR noticeError', () => {
+  describe('gap observations (missing OTel integration)', () => {
+    it('detects catch block with console.error but no recordError', () => {
       const result = analyzeFixture('nr-server-samples.ts');
       const missing = obsOfKind(result, 'NR_MISSING_ERROR_REPORT');
 
-      const noNr = missing.find(o => o.evidence.containingFunction === 'missingNrReport');
-      expect(noNr).toBeDefined();
-      expect(noNr!.evidence.errorSink).toBe('console.error');
+      const noOtel = missing.find(o => o.evidence.containingFunction === 'missingOtelReport');
+      expect(noOtel).toBeDefined();
+      expect(noOtel!.evidence.errorSink).toBe('console.error');
     });
 
-    it('does not flag catch block that already has NR noticeError', () => {
+    it('does not flag catch block that already has recordError', () => {
       const result = analyzeFixture('nr-server-samples.ts');
       const missing = obsOfKind(result, 'NR_MISSING_ERROR_REPORT');
 
-      const withNr = missing.find(o => o.evidence.containingFunction === 'withNrReport');
-      expect(withNr).toBeUndefined();
+      const withOtel = missing.find(o => o.evidence.containingFunction === 'withOtelReport');
+      expect(withOtel).toBeUndefined();
     });
   });
 
   describe('summary', () => {
-    it('counts APM imports, noticeError calls, and missing gaps', () => {
+    it('counts OTel imports, recordError calls, and missing gaps', () => {
       const result = analyzeFixture('nr-server-samples.ts');
 
-      expect(result.summary.apmImports).toBe(1);
-      expect(result.summary.noticeErrorCalls).toBeGreaterThanOrEqual(1);
-      expect(result.summary.customAttrsCalls).toBe(1);
+      expect(result.summary.otelImports).toBe(2);
+      expect(result.summary.recordErrorCalls).toBeGreaterThanOrEqual(1);
+      expect(result.summary.setAttrsCalls).toBe(1);
       expect(result.summary.missingCount).toBeGreaterThanOrEqual(1);
     });
   });
@@ -93,52 +96,32 @@ describe('ast-nr-server', () => {
   });
 
   describe('real-world smoke tests', () => {
-    // Post-otel reality (after PR #1377 migrated newrelic -> OpenTelemetry):
-    // withErrorHandler.ts and withAuth.ts no longer call newrelic.noticeError /
-    // newrelic.addCustomAttributes. They call recordError / setSpanAttributes
-    // from src/server/lib/otelTracer.ts instead. The ast-nr-server tool
-    // correctly reports the NR patterns as missing. These smoke tests now
-    // assert migration completeness rather than NR presence.
-    //
-    // Follow-up (out of scope for PR #1400): build a parallel ast-otel-server
-    // tool that classifies recordError / setSpanAttributes / withSpan as otel
-    // equivalents. Until then, these tests document that NR has been removed
-    // from the middleware surface.
-
-    it('withErrorHandler.ts has NR absent after otel migration (no noticeError calls)', () => {
+    it('withErrorHandler.ts detects recordError calls (OTel migration complete)', () => {
       const result = analyzeNrServer('src/server/middleware/withErrorHandler.ts');
-      const missing = obsOfKind(result, 'NR_MISSING_ERROR_REPORT');
-      const noticeError = obsOfKind(result, 'NR_NOTICE_ERROR_CALL');
+      const recordErrorObs = obsOfKind(result, 'OTEL_RECORD_ERROR_CALL');
 
-      expect(missing.length).toBeGreaterThanOrEqual(1);
-      expect(noticeError).toHaveLength(0);
+      expect(recordErrorObs.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('withAuth.ts has NR custom attrs absent after otel migration', () => {
+    it('withAuth.ts detects setSpanAttributes calls (OTel migration complete)', () => {
       const result = analyzeNrServer('src/server/middleware/withAuth.ts');
-      const missing = obsOfKind(result, 'NR_MISSING_CUSTOM_ATTRS');
-      const customAttrs = obsOfKind(result, 'NR_CUSTOM_ATTRS_CALL');
+      const setAttrs = obsOfKind(result, 'OTEL_SET_ATTRS_CALL');
 
-      expect(missing).toHaveLength(1);
-      expect(customAttrs).toHaveLength(0);
+      expect(setAttrs).toHaveLength(1);
     });
 
-    it('withErrorHandler.ts has 0 positive NR observations (no APM installed)', () => {
+    it('withErrorHandler.ts detects otelTracer import', () => {
       const result = analyzeNrServer('src/server/middleware/withErrorHandler.ts');
-      const positive = obsOfKind(result, 'NR_APM_IMPORT');
+      const imports = obsOfKind(result, 'OTEL_TRACER_IMPORT');
 
-      expect(positive).toHaveLength(0);
+      expect(imports.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('withErrorHandler.ts reports NR_MISSING_STARTUP_HOOK after otel migration (newrelic.cjs removed)', () => {
-      // The tool's startup-hook check looks for instrumentation.ts at project
-      // root. PR #1377 moved instrumentation to src/instrumentation.ts (where
-      // Next.js 15 also resolves it), which the tool does not yet search.
-      // Expanding checkedPaths to include src/ is future tool-logic work.
+    it('withErrorHandler.ts does not report NR_MISSING_STARTUP_HOOK (instrumentation.ts exists)', () => {
       const result = analyzeNrServer('src/server/middleware/withErrorHandler.ts');
       const missing = obsOfKind(result, 'NR_MISSING_STARTUP_HOOK');
 
-      expect(missing).toHaveLength(1);
+      expect(missing).toHaveLength(0);
     });
 
     it('non-middleware files do not produce NR_MISSING_STARTUP_HOOK', () => {

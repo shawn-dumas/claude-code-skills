@@ -36,7 +36,7 @@ These tools are registered in `tool-registry.ts` and can be run via
 | ast-vitest-parity | `ast-query.ts vitest-parity <path>` | Inventories Vitest spec structure, assertions, mocks, renders |
 | ast-branded-check | `ast-query.ts branded <path>` | Detects unbranded ID fields and unbranded function params (UNBRANDED_PARAM) |
 | ast-nr-client | `ast-query.ts nr-client <path>` | Detects NR browser agent (NREUM) integration patterns and gaps |
-| ast-nr-server | `ast-query.ts nr-server <path>` | Detects NR server APM integration patterns and gaps |
+| ast-nr-server | `ast-query.ts nr-server <path>` | Detects server-side OTel observability patterns and gaps (NR via OTLP) |
 | ast-error-flow | `ast-query.ts error-flow <path>` | Classifies catch block error sinks (console, newrelic, rethrow, swallowed, response, callback) |
 
 ### Standalone Tools (not in registry)
@@ -71,7 +71,7 @@ are left for agent or human handling via the consuming skill.
 
 | Tool | CLI | Description |
 |---|---|---|
-| ast-fix-display-format | `npx tsx scripts/AST/ast-fix-display-format.ts <path> [--write] [--stdout]` | Consumes `ast-interpret-display-format` assessments. Auto-applies MISSING_PLACEHOLDER, HARDCODED_DASH, INCONSISTENT_EMPTY_MESSAGE, RAW_FORMAT_BYPASS transforms. Skips all review=yes kinds. `--write` modifies files in place; `--stdout` prints modified source. |
+| ast-fix-display-format | `npx tsx scripts/AST/ast-fix-display-format.ts <path> [--write] [--stdout]` | Consumes `ast-interpret-display-format` assessments. Auto-applies MISSING_PLACEHOLDER, HARDCODED_DASH, INCONSISTENT_EMPTY_MESSAGE, RAW_FORMAT_BYPASS, PERCENTAGE_PRECISION_MISMATCH, WRONG_PLACEHOLDER (non-N/A) transforms. When PERCENTAGE_PRECISION_MISMATCH and RAW_FORMAT_BYPASS target the same line, the precision handler takes precedence. Skips all review=yes kinds. `--write` modifies files in place; `--stdout` prints modified source. |
 
 ### Interpreters
 
@@ -220,7 +220,7 @@ table whenever a new kind is added to `types.ts`.
 | `ast-null-display` | `NULL_COALESCE_FALLBACK`, `FALSY_COALESCE_FALLBACK`, `NO_FALLBACK_CELL`, `HARDCODED_PLACEHOLDER`, `EMPTY_STATE_MESSAGE`, `ZERO_CONFLATION` | `ast-interpret-display-format` |
 | `ast-peer-deps` | `PEER_DEP_SATISFIED`, `PEER_DEP_VIOLATED`, `PEER_DEP_OPTIONAL_MISSING` | (observation-only, JSON metadata) |
 | `ast-nr-client` | `NR_NREUM_CALL`, `NR_REPORT_ERROR_CALL`, `NR_MONITOR_API_CALL`, `NR_ROUTE_TRACKER`, `NR_SCRIPT_INJECTION`, `NR_TRACER_MISUSE`, `NR_MISSING_ERROR_HANDLER`, `NR_MISSING_USER_ID`, `NR_MISSING_ROUTE_TRACK`, `NR_MISSING_UNHANDLED_REJECTION`, `NR_MISSING_WEB_VITALS` | (observation-only) |
-| `ast-nr-server` | `NR_APM_IMPORT`, `NR_NOTICE_ERROR_CALL`, `NR_CUSTOM_ATTRS_CALL`, `NR_CUSTOM_SEGMENT`, `NR_TXN_NAME_CALL`, `NR_MISSING_ERROR_REPORT`, `NR_MISSING_CUSTOM_ATTRS`, `NR_MISSING_DB_SEGMENT`, `NR_MISSING_TXN_NAME`, `NR_MISSING_STARTUP_HOOK` | (observation-only) |
+| `ast-nr-server` | `OTEL_TRACER_IMPORT`, `OTEL_RECORD_ERROR_CALL`, `OTEL_SET_ATTRS_CALL`, `OTEL_SPAN_CALL`, `NR_MISSING_ERROR_REPORT`, `NR_MISSING_CUSTOM_ATTRS`, `NR_MISSING_DB_SEGMENT`, `NR_MISSING_STARTUP_HOOK` | (observation-only) |
 | `ast-error-flow` | `ERROR_SINK_TYPE` | (observation-only) |
 
 ## 3. Calibration

@@ -656,13 +656,13 @@ Swaps one package for another. Maps the old API surface to the new package, rewr
 
 ## Observability Skills
 
-These skills audit, build, and refactor New Relic integration across the client (NREUM browser agent) and server (Node.js APM).
+These skills audit, build, and refactor New Relic integration across the client (NREUM browser agent) and server (OTel SDK exporting to NR via OTLP).
 
 ### audit-nr-observability
 
-**Read-only diagnostic.** Audits New Relic integration gaps across both client and server using `ast-nr-client`, `ast-nr-server`, and `ast-error-flow` AST tools. Produces a gap list showing where NR should be called but is not, classified by severity (CRITICAL/HIGH/MEDIUM/LOW).
+**Read-only diagnostic.** Audits New Relic integration gaps across both client (NREUM browser agent) and server (OTel SDK) using `ast-nr-client`, `ast-nr-server`, and `ast-error-flow` AST tools. Produces a gap list showing where NR observability should be present but is not, classified by severity (CRITICAL/HIGH/MEDIUM/LOW).
 
-Run this before implementing NR integration or after adding new error handling to verify coverage.
+Run this after adding new error handling or server code to verify coverage.
 
 ```
 /audit-nr-observability
@@ -680,16 +680,11 @@ Implements client-side NR browser agent gaps. Each gap ID (C1-C5) maps to a spec
 
 ### build-nr-server-integration
 
-Implements server-side NR APM gaps. Gap IDs (S1-S6) cover: installing the newrelic package, creating config, adding noticeError to middleware, setting custom attributes in auth, and wrapping ClickHouse queries in custom segments. S1 and S2 are prerequisites for all other server gaps.
-
-```
-/build-nr-server-integration S1 S2
-/build-nr-server-integration S3 S4
-```
+**DEPRECATED.** Server-side NR observability is fully implemented via OTel SDK (PR #1377). See `src/server/lib/otelTracer.ts` for the reference implementation. Use `/refactor-error-handler` to add `recordError` to new catch blocks.
 
 ### refactor-error-handler
 
-Refactors catch blocks to add NR error reporting alongside existing `console.error` calls. Uses `ast-error-flow` to identify console-only sinks, then adds the appropriate NR reporting call (client: `reportErrorToNewRelic`, server: `newrelic.noticeError`). Additive only -- does not remove existing console logging.
+Refactors catch blocks to add NR error reporting alongside existing `console.error` calls. Uses `ast-error-flow` to identify console-only sinks, then adds the appropriate reporting call (client: `reportErrorToNewRelic`, server: `recordError` from `otelTracer`). Additive only -- does not remove existing console logging.
 
 ```
 /refactor-error-handler src/server/middleware/

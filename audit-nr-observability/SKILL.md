@@ -1,6 +1,6 @@
 ---
 name: audit-nr-observability
-description: Audit New Relic integration gaps across client (NREUM browser agent) and server (Node.js APM). Uses ast-nr-client, ast-nr-server, and ast-error-flow to produce a gap list showing where NR should be called but is not.
+description: Audit New Relic integration gaps across client (NREUM browser agent) and server (OTel SDK exporting to NR via OTLP). Uses ast-nr-client, ast-nr-server, and ast-error-flow to produce a gap list showing where NR observability should be present but is not.
 context: fork
 allowed-tools: Read, Grep, Glob, Bash
 argument-hint: <path-or-scope> (defaults to full project: src/ for client, src/server/ + src/pages/api/ for server)
@@ -30,15 +30,15 @@ append to `scripts/AST/GAPS.md`.
 
 **Use when:**
 
-- Assessing NR integration completeness before adding server APM
 - Auditing a feature area for observability gaps
-- Verifying NR integration after adding new error handling
+- Verifying OTel integration after adding new error handling
+- Checking that new server handlers have recordError/setSpanAttributes
 - Pre-deployment observability readiness check
 
 **Do NOT use when:**
 
 - You already know the gaps and want to fix them -- use
-  `/build-nr-client-integration` or `/build-nr-server-integration`
+  `/build-nr-client-integration` or `/refactor-error-handler`
 - Auditing error handling quality (use `/audit-module`)
 - Auditing test coverage (use `/audit-react-test`)
 
@@ -63,11 +63,21 @@ Substantially implemented. These are working, tested code:
 | NR script injection | `src/pages/_document.tsx` | Working |
 | NREUM type declarations | `src/shared/types/window.d.ts` | Working |
 
-### Server (Node.js APM)
+### Server (OTel SDK -> NR via OTLP)
 
-Zero APM integration. `@types/newrelic` is installed (TypeScript types
-only) but the `newrelic` package itself is not. There is no `newrelic.js`
-config file. Everything must be built from scratch.
+Implemented in PR #1377. The proprietary `newrelic` Node agent was
+replaced by the OpenTelemetry SDK exporting to `otlp.nr-data.net`.
+
+| What | File | Status |
+|---|---|---|
+| `withSpan()` span wrapper | `src/server/lib/otelTracer.ts` | Working |
+| `recordError()` error reporting | `src/server/lib/otelTracer.ts` | Working |
+| `setSpanAttributes()` custom attrs | `src/server/lib/otelTracer.ts` | Working |
+| `withChSegment()` ClickHouse spans | `src/server/lib/withChSegment.ts` | Working |
+| OTel SDK bootstrap | `src/instrumentation.ts` + `src/otel-instrumentation.js` | Working |
+| HTTP auto-instrumentation | `@opentelemetry/auto-instrumentations-node` | Working |
+| `withErrorHandler` -> `recordError` | `src/server/middleware/withErrorHandler.ts` | Working |
+| `withAuth` -> `setSpanAttributes` | `src/server/middleware/withAuth.ts` | Working |
 
 <!-- role: reference -->
 
@@ -83,26 +93,26 @@ config file. Everything must be built from scratch.
 
 ### Known server gaps
 
+Server infra (S1-S6) is resolved. Remaining gaps are incremental:
+
 | # | Gap | Priority | Where to fix |
 |---|-----|----------|-------------|
-| S1 | `newrelic` package not installed | CRITICAL | `package.json` |
-| S2 | No `newrelic.js` config | CRITICAL | repo root |
-| S3 | `withErrorHandler` uses `console.error` only | HIGH | `src/server/middleware/withErrorHandler.ts` |
-| S4 | `withAuth` doesn't set NR custom attributes | HIGH | `src/server/middleware/withAuth.ts` |
-| S5 | Postgres queries uninstrumented | MEDIUM | Auto-instruments with agent |
-| S6 | ClickHouse queries uninstrumented | MEDIUM | Custom segment wrapping |
+| S7 | New handlers missing `recordError` in catch blocks | HIGH | Per-handler catch blocks |
+| S8 | New handlers missing `withChSegment` for CH queries | MEDIUM | Per-handler CH calls |
 
 <!-- role: workflow -->
 
-## Step 0: Check package.json for newrelic package
+## Step 0: Check OTel SDK is installed and bootstrapped
 
 ```bash
-# Check if newrelic is in production dependencies
-grep '"newrelic"' package.json
+# Check OTel packages in dependencies
+grep '@opentelemetry' package.json
+# Verify instrumentation hook exists
+ls src/instrumentation.ts src/otel-instrumentation.js
 ```
 
-If `newrelic` is not in `dependencies` (only in `devDependencies` as
-`@types/newrelic`), flag this as S1: CRITICAL -- NR APM agent not installed.
+If `@opentelemetry/api` is not in `dependencies` or instrumentation
+files are missing, flag as CRITICAL -- OTel SDK not bootstrapped.
 
 <!-- role: workflow -->
 
@@ -127,11 +137,16 @@ npx tsx scripts/AST/ast-query.ts nr-client src/ui/ src/shared/ src/pages/ --kind
 ## Step 2: Run server-side AST analysis
 
 ```bash
-# Full NR server analysis
+# Full NR server analysis (detects OTel patterns and gaps)
 npx tsx scripts/AST/ast-query.ts nr-server src/server/ src/pages/api/ --pretty
 
 # Count by kind
 npx tsx scripts/AST/ast-query.ts nr-server src/server/ src/pages/api/ --count
+
+# Positive OTel integration
+npx tsx scripts/AST/ast-query.ts nr-server src/server/ src/pages/api/ --kind OTEL_TRACER_IMPORT --pretty
+npx tsx scripts/AST/ast-query.ts nr-server src/server/ src/pages/api/ --kind OTEL_RECORD_ERROR_CALL --pretty
+npx tsx scripts/AST/ast-query.ts nr-server src/server/ src/pages/api/ --kind OTEL_SPAN_CALL --pretty
 
 # Missing patterns only
 npx tsx scripts/AST/ast-query.ts nr-server src/server/ src/pages/api/ --kind NR_MISSING_ERROR_REPORT --pretty
@@ -164,22 +179,20 @@ these are the primary NR integration gaps.
 
 Group the tool observations by severity:
 
-**CRITICAL (server infra blockers):**
-- S1: `newrelic` package missing from `dependencies`
-- S2: No `newrelic.js` config file at project root
+**CRITICAL (infra blockers):**
+- `NR_MISSING_STARTUP_HOOK`: No `instrumentation.ts` (OTel SDK not bootstrapped)
 
 **HIGH (defense-in-depth gaps):**
-- `NR_MISSING_ERROR_HANDLER`: catch blocks with `console.error` but no NR
-- `NR_MISSING_ERROR_REPORT`: server catch blocks without `noticeError`
-- `NR_MISSING_CUSTOM_ATTRS`: auth middleware without NR user attributes
+- `NR_MISSING_ERROR_HANDLER`: client catch blocks with `console.error` but no NR
+- `NR_MISSING_ERROR_REPORT`: server catch blocks without `recordError`
+- `NR_MISSING_CUSTOM_ATTRS`: auth middleware without `setSpanAttributes`
 - `NR_MISSING_USER_ID`: auth flow without `setCustomAttribute('userId')`
 - `NR_MISSING_UNHANDLED_REJECTION`: missing global error listeners
 
 **MEDIUM:**
-- `NR_MISSING_DB_SEGMENT`: ClickHouse queries without custom segments
+- `NR_MISSING_DB_SEGMENT`: ClickHouse queries without `withSpan`/`withChSegment`
 - `NR_MISSING_ROUTE_TRACK`: missing SPA route tracking
 - `NR_MISSING_WEB_VITALS`: no web vitals reporting
-- `NR_MISSING_TXN_NAME`: dynamic API routes without transaction names
 
 **LOW:**
 - `ERROR_SINK_TYPE` with `sink: 'swallowed'`: silently swallowed errors
@@ -197,7 +210,7 @@ Output the gap list in the standard audit format:
 - Client NREUM calls: <count>
 - Client wrapper calls: <count>
 - Client gaps: <count>
-- Server APM calls: <count>
+- Server OTel calls: <count> (imports=<n>, recordError=<n>, setAttrs=<n>, spans=<n>)
 - Server gaps: <count>
 - Error sinks: console=<n>, newrelic=<n>, rethrow=<n>, swallowed=<n>
 
@@ -214,7 +227,7 @@ Output the gap list in the standard audit format:
 <list each LOW finding>
 
 ### Existing coverage
-<list positive observations: NR_NREUM_CALL, NR_REPORT_ERROR_CALL, etc.>
+<list positive observations: NR_NREUM_CALL, NR_REPORT_ERROR_CALL (client), OTEL_TRACER_IMPORT, OTEL_RECORD_ERROR_CALL, OTEL_SPAN_CALL (server), etc.>
 ```
 
 <!-- role: guidance -->

@@ -1891,19 +1891,17 @@ export interface NrClientAnalysis {
 }
 
 // ============================================================
-// ast-nr-server output (New Relic server APM gap detection)
+// ast-nr-server output (NR server observability via OTel SDK)
 // ============================================================
 
 export type NrServerObservationKind =
-  | 'NR_APM_IMPORT'
-  | 'NR_NOTICE_ERROR_CALL'
-  | 'NR_CUSTOM_ATTRS_CALL'
-  | 'NR_CUSTOM_SEGMENT'
-  | 'NR_TXN_NAME_CALL'
+  | 'OTEL_TRACER_IMPORT'
+  | 'OTEL_RECORD_ERROR_CALL'
+  | 'OTEL_SET_ATTRS_CALL'
+  | 'OTEL_SPAN_CALL'
   | 'NR_MISSING_ERROR_REPORT'
   | 'NR_MISSING_CUSTOM_ATTRS'
   | 'NR_MISSING_DB_SEGMENT'
-  | 'NR_MISSING_TXN_NAME'
   | 'NR_MISSING_STARTUP_HOOK';
 
 export type NrServerObservationEvidence = {
@@ -1911,11 +1909,11 @@ export type NrServerObservationEvidence = {
   readonly middleware?: string;
   readonly containingFunction?: string;
   readonly dbClient?: string;
-  readonly routePath?: string;
   readonly catchBlockLine?: number;
   readonly errorSink?: string;
   readonly reason?: string;
   readonly checkedPaths?: string;
+  readonly spanName?: string;
 };
 
 export type NrServerObservation = Observation<NrServerObservationKind, NrServerObservationEvidence>;
@@ -1924,9 +1922,9 @@ export interface NrServerAnalysis {
   filePath: string;
   observations: NrServerObservation[];
   summary: {
-    apmImports: number;
-    noticeErrorCalls: number;
-    customAttrsCalls: number;
+    otelImports: number;
+    recordErrorCalls: number;
+    setAttrsCalls: number;
     missingCount: number;
   };
 }

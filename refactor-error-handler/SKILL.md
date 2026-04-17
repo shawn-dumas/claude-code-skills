@@ -1,14 +1,14 @@
 ---
 name: refactor-error-handler
-description: Refactor catch blocks to report errors to New Relic. Uses ast-error-flow to identify console-only sinks, then adds NR reporting alongside existing console.error calls.
+description: Refactor catch blocks to report errors to NR observability. Uses ast-error-flow to identify console-only sinks, then adds the appropriate reporting call alongside existing console.error calls (client: reportErrorToNewRelic, server: recordError via OTel).
 context: fork
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash
 argument-hint: <file-or-directory-path>
 ---
 
-Refactor catch blocks in `$ARGUMENTS` to add New Relic error reporting.
+Refactor catch blocks in `$ARGUMENTS` to add NR error reporting.
 Uses `ast-error-flow` to identify catch blocks that log to `console.error`
-without reporting to NR, then adds the appropriate NR reporting call.
+without reporting to NR, then adds the appropriate reporting call.
 
 For any TS/TSX source query, use the ast-query dispatcher:
 `npx tsx scripts/AST/ast-query.ts <query-type> <path>`
@@ -27,10 +27,11 @@ or the Grep tool on TS/TSX source.
   intentional fallback when NR itself fails.
 - Do NOT modify catch blocks that intentionally swallow errors (empty
   catch with a comment explaining why).
-- Use the appropriate NR API based on context:
+- Use the appropriate reporting API based on context:
   - Client-side: `reportErrorToNewRelic(err)` from
     `@/shared/utils/newrelic`
-  - Server-side: `newrelic.noticeError(err)` from `newrelic`
+  - Server-side: `recordError(err, attributes?)` from
+    `@/server/lib/otelTracer`
 - Preserve existing error handling behavior. This is additive only.
 
 <!-- role: guidance -->
@@ -46,8 +47,8 @@ or the Grep tool on TS/TSX source.
 
 **Do NOT use when:**
 
-- NR APM is not yet installed (server-side) -- use
-  `/build-nr-server-integration S1 S2` first
+- OTel SDK is not yet bootstrapped (server-side) -- check that
+  `src/instrumentation.ts` exists before adding `recordError` calls
 - The catch block is in test code or fixture code
 - The catch block intentionally swallows errors (comment-documented)
 
@@ -71,7 +72,7 @@ Determine whether each file is client-side or server-side:
 - **Client-side** (`src/ui/`, `src/shared/`): Use
   `reportErrorToNewRelic(err)` from `@/shared/utils/newrelic`
 - **Server-side** (`src/server/`, `src/pages/api/`): Use
-  `newrelic.noticeError(err)` from `newrelic`
+  `recordError(err, attributes?)` from `@/server/lib/otelTracer`
 
 <!-- role: workflow -->
 
@@ -102,21 +103,18 @@ try {
 ### Server-side pattern
 
 ```typescript
-import newrelic from 'newrelic';
+import { recordError } from '@/server/lib/otelTracer';
 
 try {
   // ...
 } catch (err) {
   console.error('Something failed:', err);
-  newrelic.noticeError(  // ADD THIS BLOCK
-    err instanceof Error ? err : new Error(String(err)),
-    { context: 'meaningful-context-here' }
-  );
+  recordError(err, { context: 'meaningful-context-here' });  // ADD THIS LINE
 }
 ```
 
-For server-side, always wrap non-Error values since `noticeError`
-expects an `Error` object.
+`recordError` handles non-Error values internally (converts via
+`toError`), so no manual wrapping is needed.
 
 <!-- role: workflow -->
 

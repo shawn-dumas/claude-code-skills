@@ -213,7 +213,7 @@ Available query types:
 
   New Relic observability:
     nr-client      NR browser agent integration patterns and gaps
-    nr-server      NR server APM integration patterns and gaps
+    nr-server      Server-side OTel observability patterns and gaps (NR via OTLP)
     error-flow     Catch block error sink classification
 
   Interpreters:
